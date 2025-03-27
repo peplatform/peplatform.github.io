@@ -1,1 +1,1 @@
-![Alt text](build.gif) / ![](build.gif)
+![](build.gif)
