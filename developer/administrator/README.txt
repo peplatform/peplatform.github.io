@@ -4,6 +4,8 @@ Update Ztools from XP SP3 Source and build it first and create a developer->admi
 
 Set the Vista build environment first witout making a new razzle. setenv /debug /x86 /vista
 
+The Windows Research Kernel Builds for Microsoft Windows Vista without problem.
+
 :: --------------------------------------------------------------------------------------------
 :: File    : SetEnv.cmd
 ::
@@ -23,8 +25,6 @@ Set the Vista build environment first witout making a new razzle. setenv /debug 
 ::                /2003    - Create Windows Server 2003 applications
 ::
 :: --------------------------------------------------------------------------------------------
-
-
 
 Add sdkdiff from the samples your 'sdktools' directory in your environment and start updating tools.
 
