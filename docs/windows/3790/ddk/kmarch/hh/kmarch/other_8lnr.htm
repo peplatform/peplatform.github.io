@@ -1,0 +1,71 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Failure to Validate Object Handles</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Failure to Validate Object Handles">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_failure_to_validate_object_handles_kg"></A>Failure to Validate Object Handles</H2>
+
+<P>Some drivers must manipulate objects passed to them by callers or must handle two file objects at the same time. For example, a modem driver might receive a handle to an event object, or a network driver might receive handles to two different file objects. The driver must validate these handles. Because they are passed by a caller, and not through the I/O Manager, the I/O Manager cannot perform any validation checks. </P>
+
+<P>For example, in the following code snippet, the driver has been passed the handle <B>AscInfo-&gt;AddressHandle</B>, but has not validated it before calling <A HREF="k107_54qa.htm"><B>ObReferenceObjectByHandle</B></A>:</P>
+
+<PRE>   //
+   // This handle is embedded in a buffered request.
+   //
+   status = ObReferenceObjectByHandle(
+                      AscInfo-&gt;AddressHandle,
+                      0,
+                      NULL,
+                      KernelMode,
+                      &amp;fileObject,
+                      NULL);
+
+   if (NT_SUCCESS(status)) {
+      if ( (<span style="color:#ff0000"><B>fileObject-&gt;DeviceObject</B></span> == DeviceObject) &amp;&amp;
+           (<span style="color:#ff0000"><B>fileObject-&gt;FsContext2</B></span> == TRANSPORT_SOCK) ) {</PRE>
+
+<P>Although the call to <B>ObReferenceObjectByHandle</B> succeeds, the code fails to ensure that the returned pointer references a file object; it trusts the caller to pass in the correct information. </P>
+
+<P>Even if all the parameters for the call to <B>ObReferenceObjectByHandle</B> are correct, and the call succeeds, a driver can still get unexpected results if the file object is not intended for its driver. In the following code fragment, the driver assumes that a successful call returns a pointer to the file object it expected:</P>
+
+<PRE>   status = ObReferenceObjectByHandle (
+                             AcpInfo-&gt;Handle,
+                             0L,
+                             DesiredAccess,
+                             *IoFileObjectType,
+                             Irp-&gt;RequestorMode,
+                             (PVOID *)&amp;AcpEndpointFileObject,
+                             NULL);
+
+   if ( !NT_SUCCESS(status) ) {
+      goto complete;
+   }
+   AcpEndpoint = AcpEndpointFileObject-&gt;FsContext;
+
+   if ( <span style="color:#ff0000"><B>AcpEndpoint-&gt;Type</B></span> != BlockTypeEndpoint ) </PRE>
+
+<P>Although <B>ObReferenceObjectByHandle</B> returns a pointer to a file object, the driver has no guarantee that the pointer references the file object it expected. In this case, the driver should validate the pointer before accessing the driver-specific data at <B>AcpEndpointFileObject-&gt;FsContext</B>. </P>
+
+<P>To avoid such problems, a driver should check for valid data, as follows:
+
+<UL>
+	<LI>Check the object type to make sure it is what the driver expects.</LI>
+
+	<LI>Ensure that the requested access is appropriate for the object type and required tasks. If your driver performs a fast file copy, for instance, make sure the handle has read access.</LI>
+
+	<LI>Be sure to specify the correct access mode (<B>UserMode</B> or <B>KernelMode</B>) and that the access mode is compatible with the access<I> </I>requested.</LI>
+
+	<LI>If the driver expects a handle to a file object that the driver itself created, validate the handle against the device object or driver. However, be careful not to break filters that send I/O requests for strange devices.</LI>
+
+	<LI>If your driver supports multiple kinds of file objects (such as the control channels, address objects, and connections of TDI drivers or Volume, Directory, and File objects of file systems), make sure you have a way to differentiate them. </LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Failure%20to%20Validate%20Object%20Handles"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

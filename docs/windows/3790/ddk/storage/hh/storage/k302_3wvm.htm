@@ -1,0 +1,74 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>HwScsiInterrupt</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="HwScsiInterrupt">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_hwscsiinterrupt_kr"></A><I>HwScsiInterrupt</I></H1>
+
+<P><I>HwScsiInterrupt</I> is called when the HBA generates an interrupt. Miniport drivers of HBAs that do not generate interrupts do not have this routine.</P>
+
+<PRE class=syntax><B>BOOLEAN 
+  HwScsiInterrupt(
+    IN PVOID</B>  <I>DeviceExtension</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceExtension</I></DT>
+
+<DD>Points to the miniport driver’s per-HBA storage area.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>If the miniport finds that its HBA did not generate the interrupt, <I>HwScsiInterrupt</I> should return FALSE as soon as possible.</P>
+
+<H4>Headers</H4>
+
+<P>Include <I>miniport.h</I> and <I>scsi.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P><I>HwScsiInterrupt</I> is responsible for completing interrupt-driven I/O operations. This routine must clear the interrupt on the HBA before it returns TRUE.</P>
+
+<P>Miniport drivers of HBAs that require interrupt processing that takes more than 50 microseconds should have a pair of <I>HwScsi..InterruptsCallback</I> routines. Such a driver’s <I>HwScsiInterrupt</I> routine should do the following, rather than calling <B>ScsiPortStallExecution</B> to tie up the processor while its HBA updates hardware state:
+
+<OL>
+	<LI>Disable interrupts on the HBA.</LI>
+
+	<LI>Set up the <I>DeviceExtension</I> with any context necessary to complete the operation.</LI>
+
+	<LI>Call <B>ScsiPortNotification</B> with the <I>NotificationType</I> value <B>CallEnableInterrupts</B> and the entry point for the driver’s <I>HwScsiEnableInterruptsCallback</I> routine.</LI>
+
+	<LI>Return control.</LI>
+</OL>
+
+<P>Using this technique improves overall I/O throughput, including that of any other HBAs the miniport driver supports.</P>
+
+<P>If a miniport’s <I>HwScsiInterrupt</I> routine cannot disable interrupts on its HBA but its interrupt-driven transfer operations take more than 50 microseconds in the <I>HwScsiInterrupt</I> routine, the miniport should limit the maximum size for transfers that it accepts. Such a miniport’s <I>HwScsiFindAdapter</I> routine can set the <B>MaximumTransferLength</B> member of the PORT_CONFIGURATION_INFORMATION structure to a value that restricts execution time in the <I>HwScsiInterrupt</I> routine for transfers. The miniport writer should adjust this value during driver development so there is no user-noticeable impact on the performance of the mouse, serial, and/or parallel drivers. Otherwise, the mouse pointer can appear to “jump” or the serial/parallel throughput to degrade noticeably whenever that miniport is transferring data.</P>
+
+<P>The name <I>HwScsiInterrupt</I> is just a placeholder. The actual prototype of this routine is defined in <I>srb.h</I> as follows:</P>
+
+<PRE>typedef
+BOOLEAN
+(*PHW_INTERRUPT) (
+  IN PVOID  DeviceExtension
+  );</PRE>
+
+<P>For more information on the <I>HwScsiInterrupt</I> routine, see <A HREF="02mnport_2s9z.htm">SCSI Miniport Driver’s HwScsiInterrupt Routine</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k302_2lki.htm"><I>HwScsiDisableInterruptsCallback</I></A>, <A HREF="k302_9w6q.htm"><I>HwScsiEnableInterruptsCallback</I></A>, <A HREF="k301_659u.htm"><B>ScsiPortNotification</B></A>, <A HREF="k301_1eb6.htm"><B>ScsiPortStallExecution</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: HwScsiInterrupt"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,144 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>What are the rules for making an R0 read/write call from an IOS port driver?</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="What are the rules for making an R0 read/write call from an IOS port driver?">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_what_are_the_rules_for_making_an_r0_read_write_call_from_an_ios_port_driver_si"></A>What are the rules for making an R0 read/write call from an IOS port driver?</H2>
+
+<P>Conventional IFSMGR_Ring0_FileIO typically will not work when called from within an IOS port driver if attempting to open and use a file located on a local (FAT) drive. This is because of the blocking that can occur in VFAT. VFAT uses IFSMGR_Block to serialize the use of FAT data structures (and to prevent VFAT data structure corruption due to reentrance). Also, there is a flag in VFAT called FullHold, which keeps track of the count of threads in VFAT and establishes a "full critical section" that is VFAT-global (not specific to a single drive letter). Attempts to perform IFSMGR_Ring0_FileIO fail (block) when called from a port driver because the original port request went through VFAT; the subsequent Ring0 file call is blocked by FullHold. However, success has been reported by developers outside of Microsoft in cases where the file is opened as a memory-mapped file under Windows 95 through Windows 98. With memory-mapped files, IFS Manager performs fewer tests for sharing violations. Therefore, you should set up a private memory-mapped file so it is not opened by any program other than yours. Also, all your I/O requests should be page (4K) aligned.</P>
+
+<P>The following code, extracted from VWIN32, is used to read a memory-mapped file on behalf of Kernel32:</P>
+
+<PRE>    mov    eax,R0_READFILE or (R0_MM_READ_WRITE shl 16) ; (eax) = read/write
+    mov    al,byte ptr [function]        ; (al) = read (3f) or write(40)
+    sub    al,3fh                ; (al) = read (0) or write (1)
+    xor    ecx,ecx
+    mov    edx,[fileloc]            ; (edx) = seek position
+    mov    ecx,[cbLen]            ; (ecx) = number of bytes in i/o
+    mov    esi,[memloc]            ; (esi) = transfer address
+    VxDCall IFSMgr_Ring0_FileIO        ; do the i/o
+    Trace_OutC    "ReadWritePage: error #EAX from file i/o"</PRE>
+
+<P>Note that the R0_MM_READ_WRITE flag must be set for every I/O operation, not just when an attempt is made to open a file.</P>
+
+<P>The following describes how PAGEFILE VXD opens the swap file (after it has been determined that the swap file can be safely accessed by 32-bit protected-mode drivers):</P>
+
+<PRE>;    Open or Create the file
+
+    mov    eax,R0_OPENCREATFILE            ; (eax) = open function code
+    mov    bx,0110000010010010b            ; (bx) = flags: r/w, deny all,
+                            ;    no inherit, no int 24,
+                            ;    no caching
+    xor    ecx,ecx                 ; (ecx) = attributes (nothing)
+    mov    dl,00010001b                ; (dl) = open mode, open or create
+    mov    dh,((R0_SWAPPER_CALL or R0_NO_CACHE or OPEN_FLAGS_NO_COMPRESS) SHR 8)
+                            ; (dh) = special flags
+    mov    esi, offset32 PF_Our_File_Name    ; (esi) = file name
+    VxDCall IFSMgr_Ring0_FileIO            ; do the open  (eax) = handle
+    jc    osf110                    ; jump if error
+
+    mov    [PF_File_Handle],eax            ; save file handle</PRE>
+
+<P>The original Windows 95 DDK did not mention that the flag bits need to be shifted right 8 positions. This shift is shown above. Read and write operations of the swap file are performed using normal R0_READFILE and R0_WRITEFILE functions, with no special flags set.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Here is a reportedly successful implementation of an IOS port driver that uses the above R0_MM_READ_WRITE Ring0_FileIo to access a local FAT file:</B>
+
+<OL>
+	<LI>Open the file with the following flags: R0_OpenFile(R0_NO_CACHE | R0_MM_READ_WRITE)</LI>
+
+	<LI>CreateSemaphore()</LI>
+
+	<LI>VWIN32_CreateRing0Thread()</LI>
+
+	<LI>Set_Thread_Win32_Pri(16) - other values may work</LI>
+
+	<LI>Set a worker thread running:
+<P>Thread()<BR>
+while not stop<BR>
+    Wait_Semaphore(BLOCK_THREAD_IDLE)<BR>
+    Dequeue IOP<BR>
+    Do R0 file I/O<BR>
+    Do CallBack<BR>
+endwhile
+</LI>
+
+	<LI>The IOP Handler:
+<P>IOHandler(IOP)<BR>
+if read or write<BR>
+    Enqueue IOP&nbsp;&nbsp;&nbsp;&nbsp;<BR>
+    Signal_Semaphore()<BR>
+    return<BR>
+endif
+</LI>
+</OL>
+
+<P>Also, the developer reported the need to do periodic forced volume flushes to the memory mapped file (virtual drive) when a long file is being copied to it. This is done using IFSMGR_InstallFileSystemApiHook. After write operations to the virtual volume, a data byte counter is incremented and direct calls to volume's flush function through its function table occur if the counter = 1Mb. Without this, the reading of the file from system volume slows down and would ultimately result in being locked up in Ring0_FileIo.</P>
+
+<P>When R0_NO_CACHE is used, the system does not do any buffering during I/O. For example, the buffer address goes directly to the ESDI port driver. </P>
+
+<H4>How does Windows 95/98 itself use IFSMGR_Ring0_FileIo?</H4>
+
+<P>The following is an abbreviated analysis of how Windows 98’s DriveSpace (DRVSPACX) accesses its host Compressed Volume Files (CVF’s) located on the physical host volume.
+
+<UL>
+	<LI>DRVSPACX only uses the IFSMGR_Ring0_FileIo call when it is handling the AEP_MOUNT_NOTIFY event, in order to find and read the beginning part of all the CVF's (Compressed Volume Files) on a CVF host drive. This event is generated by IOS when IRS_MOUNT_NOTIFY is called. When performing these actions, there does not appear to be any special blocking or serialization going on.</LI>
+
+	<LI>Whenever DRVSPACX does use IFSMGR_Ring0_FileIO to read a CVF (see above), it uses the R0_READFILE_IN_CONTEXT flag.</LI>
+
+	<LI>For normal compressed volume file I/O, DRVSPACX sets up an IOP and performs direct sector I/O. DRVSPACX apparently automatically accounts for any fragmentation that the file may have on the disk, and has information about the starting sector for each CVF file.</LI>
+</UL>
+
+<P>A global search for IFSMGR_Ring0_FileIO across the Windows 98 source tree reveals the following:
+
+<UL>
+	<LI>DYNAPAGE.VXD still uses it. It appears to be used when creating, auditing, or resizing the swap file.</LI>
+
+	<LI>IOS uses IFSMGR_Ring0_FileIO during initialization when loading VxDs from the \system\iosubsys directory.</LI>
+</UL>
+
+<H4>Q183173 BUG: IFSMGR_Ring0FileIO / Level 3 Volume Lock Conflict </H4>
+
+<P>There is a bug in IFS that affects VxDs that use IFSMGR_Ring0_FileIo. The corresponding Knowledge Base article (Q183173) is reproduced below. Use the online Knowledge Base to check for later potential updates to this article.</P>
+
+<P>See the Knowledge Base article <a href="http://go.microsoft.com/fwlink/?linkid=3100&id=183173&clcid=0x409" target="_blank">"BUG: IFSMGR_Ring0FileIO / Level 3 Volume Lock Conflict"</A> for more information.</P>
+
+<P>The information in this article applies to the Windows 95 Device Driver Kit (DDK), version 4.0.</P>
+
+<H4>Symptoms</H4>
+
+<P>If you are using IFSMGR_Ring0FileIO services, you might encounter file access problems when you run utility programs, such as DEFRAG, while IFSMGR_Ring0FileIO files are open. For example, a file opened as ACCESS_READ_WRITE does not work after you run DEFRAG. After you run DEFRAG, the file attributes erroneously change to ACCESS_WRITEONLY.</P>
+
+<H4>Cause</H4>
+
+<P>There is a bug in IFSMGR_Ring0FileIO that becomes apparent only when a level three volume lock is released and, as a result, the volume release automatically causes the ring 0 file to be reopened. When the file is reopened, the file access mode is erroneously set up with the contents of the file action type. For example, a file opened as follows:</P>
+
+<PRE>  mov     esi, OFFSET32 R0_szFileName
+  mov     ebx, ACCESS_READWRITE    ; 0x0002
+  xor     ecx, ecx
+  mov     edx, ACTION_OPENEXISTING ; 0x0001
+  mov     eax, R0_OPENCREATFILE
+  VxDCall IFSMgr_Ring0_FileIO</PRE>
+
+<P>is reopened with the contents of EDX appearing in EBX. When appearing in EBX, the value ACTION_OPENEXISTING (0x0001) corresponds to ACCESS_WRITEONLY (0x0001).</P>
+
+<H4>Resolution</H4>
+
+<P>When the level 3 volume lock is released, it reopens the temporarily-closed files using FS_OPEN calls down to the target FSD (typically VFAT). You can hook IFS using IFSMgr_InstallFileSystemApiHook to correct "reopen" FS_OPENs on the fly before the FSD detects it. To see if a given FS_OPEN is actually a reopen due to a level 3 volume lock release, check for (ir_options &amp; OPEN_FLAGS_REOPEN). In the Windows 95 Device Driver Kit, see header file IFS.h for flag details. When you find one of these, you can further test for ir_pid = -1, which corresponds to a file opened using the ring 0 functions. Change ir_flags to the correct file access method. For example, if ir_flags erroneously contains ACCESS_WRITEONLY, change it to ACCESS_READWRITE. Then let the file system I/O proceed normally to complete the (corrected) file open.</P>
+
+<H4>Status</H4>
+
+<P>Microsoft has confirmed this to be a bug in the Microsoft products listed at the beginning of this article. We are researching this bug and will post new information here in the Microsoft Knowledge Base as it becomes available.</P>
+
+<H4>References</H4>
+
+<P>Windows 95 Device Driver Kit</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: What%20are%20the%20rules%20for%20making%20an%20R0%20read%2Fwrite%20call%20from%20an%20IOS%20port%20driver%3F"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

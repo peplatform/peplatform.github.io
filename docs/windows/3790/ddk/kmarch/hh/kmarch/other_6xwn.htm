@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Errors in a Multiprocessor Environment</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Errors in a Multiprocessor Environment">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_errors_in_a_multiprocessor_environment_kg"></A>Errors in a Multiprocessor Environment</H2>
+
+<P>On the NT-based operating system, drivers are multithreaded; they can receive multiple I/O requests from different threads at the same time. In designing a driver, you must assume that it will be run on an SMP system and take the appropriate measures to ensure data integrity. </P>
+
+<P>Specifically, whenever a driver changes global or file object data, it must use a lock or an interlocked sequence to prevent race conditions. </P>
+
+<H4>Encountering a race condition when referencing global or file object-specific data</H4>
+
+<P>In the following code snippet, a race condition could occur when the driver accesses the global data at <B>Data.LpcInfo</B>:</P>
+
+<PRE>   PLPC_INFO pLpcInfo = &amp;Data.LpcInfo; //Pointer to global data
+   ...
+   ...
+   // This saved pointer may be overwritten by another thread.
+   <span style="color:#ff0000"><B>pLpcInfo-&gt;LpcPortName.Buffer</B></span> = ExAllocatePool(
+                                     PagedPool,
+                                     arg-&gt;PortName.Length);
+ </PRE>
+
+<P>Multiple threads entering this code as a result of an IOCTL call could cause a memory leak as the pointer is overwritten. To avoid this problem, the driver should use the <B>ExInterlockedXxx</B> routines or some type of lock when it changes the global data. The driver's requirements determine the acceptable types of locks. For further information, see <A HREF="synchro_8unb.htm">Spin Locks</A>, <A HREF="synchro_4s9z.htm">Kernel Dispatcher Objects</A>, and <A HREF="k102_1u0i.htm"><B>ExAcquireResourceLite</B></A>. </P>
+
+<P>The following example attempts to reallocate a file-specific buffer (<B>Endpoint-&gt;LocalAddress</B>) to hold the endpoint address: </P>
+
+<PRE>   Endpoint = FileObject-&gt;FsContext;
+
+   if ( <span style="color:#ff0000"><B>Endpoint-&gt;LocalAddress</B></span> != NULL &amp;&amp;
+        <span style="color:#ff0000"><B>Endpoint-&gt;LocalAddressLength</B></span> &lt;
+                  ListenEndpoint-&gt;LocalAddressLength ) {
+
+      FREE_POOL (Endpoint-&gt;LocalAddress,
+                 LOCAL_ADDRESS_POOL_TAG
+                 );
+      Endpoint-&gt;LocalAddress  = NULL;
+   }
+
+   if ( <span style="color:#ff0000"><B>Endpoint-&gt;LocalAddress</B></span> == NULL ) {
+      <span style="color:#ff0000"><B>Endpoint-&gt;LocalAddress</B></span> =
+            ALLOCATE_POOL (NonPagedPool,
+                           ListenEndpoint-&gt;LocalAddressLength,
+                           LOCAL_ADDRESS_POOL_TAG);
+   }</PRE>
+
+<P>In this example, a race condition could occur with accesses to the file object. Because the driver does not hold any locks, two requests for the same file object can enter this function. The result might be references to freed memory, multiple attempts to free the same memory, or memory leaks. To avoid these errors, the two<B> if </B>statements should be enclosed in a spin lock. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Errors%20in%20a%20Multiprocessor%20Environment"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

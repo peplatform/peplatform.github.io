@@ -1,0 +1,61 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Creating Heads</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_creating_heads_gg"></A>Creating Heads</H4>
+
+<P>The DirectX 9.0 driver creates one Direct3D context for each multiple-head card and a DirectDraw object for each head on each multiple-head card. Therefore, the creation process for the multiple-head card has a per-head part and a cross-head part. The per-head part corresponds roughly to DirectDraw DDI calls, the cross-head part to Direct3D DDI calls.</P>
+
+<P>The point of connection across the various heads is the Direct3D handle that is created by the driver's <A HREF="d3dfncs_0gtj.htm"><I>D3dCreateSurfaceEx</I></A> function. The driver assigns a unique Direct3D handle to each surface across all heads in the group. The Direct3D context on the master head manages all these handles and can target any render target that is created on any head, most notably the back buffers in the flipping chains on the subordinate heads. The <I>D3dCreateSurfaceEx</I> function for each subordinate head must be able to update the handle lookup table that is managed by the master head. Subsequently, these handles are only used in calls to the driver's <A HREF="d3dfncs_5usn.htm"><I>D3dDrawPrimitives2</I></A> function for the master head. </P>
+
+<P>The driver only creates textures and other resources on the master head. </P>
+
+<P>The driver creates and works with heads as described in the following sequence:
+
+<OL>
+	<LI>For each head, the following operations are performed to set up the display mode and primary-flipping surfaces:
+<UL>
+	<LI>The runtime sets the display mode. </LI>
+
+	<LI>The runtime creates the DirectDraw object. </LI>
+
+	<LI>The runtime creates a primary flipping chain and possibly a Z buffer. The runtime specifies the DDSCAPS2_ADDITIONALPRIMARY (0x80000000) capability bit in the <B>dwCaps2</B> member of the <A HREF="ddstrcts_3jqf.htm">DDSCAPS2</A> structure for each surface (including the Z buffer) to indicate an additional primary surface for a multiple-head card. The runtime calls the driver's <A HREF="ddfncs_6bdz.htm"><I>DdCreateSurface</I></A> function. </LI>
+
+	<LI>The runtime calls the driver's <A HREF="d3dfncs_0gtj.htm"><I>D3dCreateSurfaceEx</I></A> function, first for the master and in the order defined by <B>AdapterOrdinalInGroup</B> for the subordinates. In this call, the Direct3D handle that the runtime passes is guaranteed to be unique across all the heads in the group. The driver can insert a reference into a subordinate head's handle lookup table. However, because a Direct3D context is not created on subordinate heads, no <I>D3dDrawPrimitive2</I> commands are issued to any subordinate heads. Therefore, inserting this reference is not necessary. </LI>
+
+	<LI>After the runtime calls <I>DdCreateSurface</I> for all heads (including the master), a further <I>D3dCreateSurfaceEx</I> call is made for each subordinate head's flipping chain on the <I>master</I> head's DirectDraw object. The driver makes an entry in the master head's handle lookup table for each front, back, and depth/stencil buffer for each subordinate head. </LI>
+</UL>
+</LI>
+
+	<LI>The runtime calls the driver's <I>D3dContextCreate</I> function only for the DirectDraw object on the master head. This is the only context that is used while the application runs.</LI>
+
+	<LI>When the application requests to create textures and resources, the runtime call the driver's <I>DdCreateSurface</I> and <I>D3dCreateSurfaceEx</I> functions through the master head.</LI>
+
+	<LI>When the application makes rendering calls, the runtime calls the driver's <A HREF="d3dfncs_5usn.htm"><I>D3dDrawPrimitives2</I></A> function on the master head using the appropriate operation codes. 
+<P>When the application performs other operations, the following calls are routed to master and subordinate heads:
+
+<UL>
+	<LI>As described in step one, <I>D3dCreateSurfaceEx</I> calls are made to supply the driver with handles for each subordinate head's flipping chain. These handles are typically used with the <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_setrendertarget_gg">D3DDP2OP_SETRENDERTARGET</A> operation code token when the application renders a frame into the back buffer of one of the subordinate head's swap chains. </LI>
+
+	<LI>The runtime calls the driver's <A HREF="ddfncs_3e07.htm"><I>DdFlip</I></A> function on each head (master and subordinates) to present back buffers to primary surfaces for those heads. This call never presents a back buffer from one head to another head's primary surface. The flipping chains on each head are completely independent. </LI>
+
+	<LI>The runtime might call the driver's <A HREF="ddfncs_7lpj.htm"><I>DdBlt</I></A> function to copy the back buffer to the front buffer for any head. This call never copies a back buffer from one head to another head's front buffer. </LI>
+
+	<LI>The runtime can call the driver's <A HREF="ddfncs_6fc7.htm"><I>DdGetScanLine</I></A> function on any head because this call relates to the state of the monitor and not the Direct3D context. </LI>
+
+	<LI>The runtime can call the driver's <A HREF="ddfncs_11gn.htm"><I>DdLock</I></A> function on any head's back buffer. </LI>
+</UL>
+
+<P>The application can either allocate a Z buffer with each head or allocate one Z buffer to use with each head sequentially. In the former case, the runtime calls the driver's <I>DdCreateSurface</I> function on each head (master and subordinates) as described in step one. In the latter case, the runtime calls the driver's <I>DdCreateSurface</I> function only on the master head. In either case, the runtime calls the driver's <I>D3dCreateSurfaceEx</I> function to supply handles to all Z buffers that are unique across all heads in the group.
+</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Creating%20Heads"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

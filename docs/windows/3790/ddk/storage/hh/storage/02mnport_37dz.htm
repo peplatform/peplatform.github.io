@@ -1,0 +1,68 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Port-Driver-Supplied ConfigInfo for HwScsiFindAdapter</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Port-Driver-Supplied ConfigInfo for HwScsiFindAdapter">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_port_driver_supplied_configinfo_for_hwscsifindadapter_kg"></A>Port-Driver-Supplied ConfigInfo for HwScsiFindAdapter</H2>
+
+<P>The system port driver always sets up the following PORT_CONFIGURATION_INFORMATION before it calls a miniport’s <I>HwScsiFindAdapter</I> routine with a pointer to the PORT_CONFIGURATION_INFORMATION (the <I>ConfigInfo</I> buffer): 
+
+<UL>
+	<LI><B>Length</B> to <B>sizeof</B>(PORT_CONFIGURATION_INFORMATION) </LI>
+
+	<LI><B>AdapterInterfaceType</B> to the miniport’s HW_INITIALIZATION_DATA specification </LI>
+
+	<LI><B>InterruptMode</B> to <B>LevelSensitive</B> for a PCI bus or <B>Latched</B> for all other bus types
+<P>If the miniport has no <I>HwScsiInterrupt</I> routine and, therefore, set the <B>HwInterrupt</B> entry point to NULL in the HW_INITIALIZATION_DATA, this member is irrelevant.
+</LI>
+
+	<LI><B>AtdiskPrimaryClaimed</B> to TRUE if a previously loaded driver is using the I/O port range 0x1F0 to 0x1FF </LI>
+
+	<LI><B>AtdiskSecondaryClaimed</B> to TRUE if a previously loaded driver is using the I/O port range 0x170 to 0x17F </LI>
+
+	<LI><B>NumberOfAccessRanges</B> to the miniport’s HW_INITIALIZATION_DATA specification </LI>
+
+	<LI><B>Dma64BitAddresses</B> to the miniport’s HW_INITIALIZATION_DATA specification if the system has memory with physical addresses above 4GB</LI>
+</UL>
+
+<P>The port driver also attempts to fill in the following members with values from other sources in the system, such as the registry for a legacy miniport or from the Plug and Play Manager for a Plug and Play miniport:
+
+<UL>
+	<LI><B>SystemIoBusNumber</B> set to the system-assigned value for the I/O bus 
+<P>The miniport’s <I>HwScsiFindAdapter</I> routine can be called for each bus of the given <B>AdapterInterfaceType</B> with an updated value for <B>SystemIoBusNumber</B>, or this can be set to a system-determined value if the system detects an HBA on a particular bus of the given <B>AdapterInterfaceType</B>. 
+</LI>
+
+	<LI><B>AccessRanges</B> elements of type ACCESS_RANGE, set with the bus-relative <B>RangeStart</B> address and <B>RangeLength</B>, as well as whether each range is a <B>RangeInMemory</B> 
+<P><B>RangeInMemory</B> set to FALSE indicates a range of ports in I/O space, rather than a memory-space range. 
+
+<P>The port driver either supplies all the information in an ACCESS_RANGE element or it sets all members of the element to (default) zero. Usually, the port driver supplies additional configuration information if it provides nonzero values for an access range. 
+
+<P>A miniport driver must map any bus-relative access range values supplied by the port driver with <B>ScsiPortGetDeviceBase</B> and use the mapped logical address values to determine whether the corresponding HBA is one that the driver supports. <I>Never</I> map and use a miniport-supplied range to access an HBA on the bus if the port driver supplies filled-in access range elements in the PORT_CONFIGURATION_INFORMATION it passes to the <I>HwScsiFindAdapter</I> routine. Using miniport-supplied addresses when the port driver has supplied range configuration information can reset an already configured HBA, making it dysfunctional, or even cause the system to fail the boot process. 
+
+<P>For more information about using mapped logical access ranges, see also <A HREF="02mnport_0ffr.htm">Setting up ConfigInfo in HwScsiFindAdapter</A>.
+</LI>
+
+	<LI><B>BusInterruptLevel</B> or <B>BusInterruptVector</B> 
+<P>This member is irrelevant if the miniport has no <I>HwScsiInterrupt</I> routine. 
+</LI>
+
+	<LI><B>DmaChannel</B> or <B>DmaPort</B> if the HBA uses a system DMA controller 
+<P>If the HBA is a bus master or uses PIO, these members are irrelevant. 
+</LI>
+
+	<LI><B>InitiatorBusId</B> 
+<P>If the input <B>InitiatorBusId[0]</B> has the value zero, the miniport can assign a default value if its HBA does not require the use of particular value(s) determined by querying the HBA. Otherwise, the miniport should use any nonzero value assigned by the port driver if possible. Every miniport must update <B>InitiatorBusId</B> specifications to match what its HBA uses, if necessary querying the HBA to determine the appropriate values(s).
+
+<P>A miniport driver must set an entry for each SCSI bus supported by the HBA, as indicated by the value of <B>NumberOfBuses</B>.
+</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Port-Driver-Supplied%20ConfigInfo%20for%20HwScsiFindAdapter"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

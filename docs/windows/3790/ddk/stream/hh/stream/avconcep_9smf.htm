@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AVStream Pipes and Circuits</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="AVStream Pipes and Circuits">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_inplace_kg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iocalldriver_kr">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iocalldriver_kr">
+</OBJECT>
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iocompleterequest_kr">
+</OBJECT>
+<OBJECT ID="hhobj_5" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_non_inplace_kg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_avstream_pipes_and_circuits_ksg"></A>AVStream Pipes and Circuits</H3>
+
+<P>A <I>pipe </I>is a set of AVStream filters that share a common <A HREF="avconcep_1ns7.htm">allocator</A>.</P>
+
+<P>The following illustration shows a pipe composed of three AVStream filters: a source filter, an <A HREF="JavaScript:hhobj_1.Click()">inplace</A> transform filter, and a renderer filter.</P>
+
+<P><IMG SRC="images/pipe1.gif" ALT="" BORDER=0></P>
+
+<P><B>Pipe Example Using All AVStream Filters</B></P>
+
+<P>In this example, <A HREF="ksproxy_5sqb.htm">KsProxy</A> (not shown) has chosen an allocator, represented by the <B>Alloc</B> block in the diagram.</P>
+
+<P>AVStream creates an internal requester object associated with the source filter. In the diagram, the requester appears as <B>Req</B>. The minidriver specifies in the <B>AllocatorFraming</B> member of <A HREF="avstruct_1fw3.htm">KSPIN_DESCRIPTOR_EX</A> the type of memory and amount of physically contiguous memory to assign to a frame. Accordingly, the requester obtains frames from the allocator and passes them to the next component in the circuit.</P>
+
+<P>Data from the source filter flows into a transform filter implemented by another AVStream driver.</P>
+
+<P>Finally, data flows into the renderer filter implemented by a third AVStream filter.</P>
+
+<P>Since all of the pins in this graph are AVStream pins, AVStream uses its own internal transport interfaces instead of sending IRPs via <A HREF="JavaScript:hhobj_2.Click()"><B>IoCallDriver</B></A>, reducing latency and improving performance.</P>
+
+<P>Specifically, when the application causes the graph to transition to <A HREF="ks-struct_1ooj.htm"><B>KSSTATE_ACQUIRE</B></A> (for instance, when the user clicks play in GraphEdit), AVStream directly connects the filter queues as shown above. For more information on GraphEdit, see the <a href="http://go.microsoft.com/fwlink/?linkid=9230&clcid=0x409" target="_blank">Filter Graph Editor tool</A> Web site.</P>
+
+<P>Therefore, frames sent downstream return to the requester, where they can be recycled when rendering is complete.</P>
+
+<P>This AVStream data path is a <I>circuit</I>.</P>
+
+<P>Consider a second example, shown in the illustration below, in which the transform filter is not an AVStream filter, but is still a kernel-mode filter.</P>
+
+<P><IMG SRC="images/pipe2.gif" ALT="" BORDER=0></P>
+
+<P><B>Pipe Example Using Non-AVStream Kernel-Mode Transform Filter</B></P>
+
+<P>As in the first example, this example includes three filters: an AVStream source, a KS transform (this could be a driver that uses KS directly or a minidriver under stream class), and an AVStream renderer.</P>
+
+<P>As in the first illustration, the pins are first interconnected. When the filter graph transitions to <B>KSSTATE_ACQUIRE</B>, however, the Kernel Streaming 1.0 filter does not support the AVStream transport interface. As a result, AVStream does not bypass the pins; instead, it must use I/O to move data between filters.</P>
+
+<P>Specifically, when a frame leaves the source filter’s queue, AVStream calls <A HREF="JavaScript:hhobj_3.Click()"><B>IoCallDriver</B></A>. In this call, the <I>Irp</I> parameter contains the frame to pass from the output pin of the source to the transform filter.</P>
+
+<P>When the input pin of the renderer receives the IRP, the pin places the IRP in the queue. When the renderer driver completes a frame, it returns the frame to the input pin of the renderer, as shown in the second example.</P>
+
+<P>AVStream now calls <A HREF="JavaScript:hhobj_4.Click()"><B>IoCompleteRequest</B></A> to return the frame upstream. The output pin of the source filter receives a completion notification. The minidriver's <A HREF="avstclbk_9xo3.htm">pin process callback</A> can then call <A HREF="avfunc_9pgz.htm"><B>KsStreamPointerUnlock</B></A> and move frames back to the requester to be recycled into the circuit.</P>
+
+<P>Consider a final example in which the frame source is in user-mode. (Alternatively, the final frame destination could be in user-mode.)</P>
+
+<P>In the illustration below, a kernel-mode <A HREF="JavaScript:hhobj_5.Click()">non-inplace</A> transform filter receives frames from a user-mode DirectShow® filter and sends the transformed frame to a kernel-mode AVStream renderer:</P>
+
+<P><IMG SRC="images/pipe3.gif" ALT="" BORDER=0></P>
+
+<P><B>User-Mode Source to AVStream</B></P>
+
+<P>When frames arrive from user mode, the AVStream pin object injects them into the queue for the input pipe section.</P>
+
+<P>The non-inplace transform filter allocates the transformed frames in kernel-mode and then uses the second pipe as a circuit for these frames. Since the renderer is an AVStream filter, AVStream bypasses the pins and uses the AVStream transport interface to place the frames directly in the queue of the rendering filter.</P>
+
+<P>The minidriver can <A HREF="avconcep_3t7r.htm">inject frames</A> into the circuit by calling <A HREF="avfunc_5vw3.htm"><B>KsPinSubmitFrame</B></A> or <A HREF="avfunc_2unn.htm"><B>KsPinSubmitFrameMdl</B></A>. If the minidriver uses this method, the AVStream requester receives frames as a result of these calls, rather than from a kernel-mode allocator.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: AVStream%20Pipes%20and%20Circuits"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

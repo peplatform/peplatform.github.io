@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ScsiPortGetDeviceBase</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_4326"></A>ScsiPortGetDeviceBase</H3>
+
+<PRE>PVOID ScsiPortGetDeviceBase(HwDeviceExtension, BusType, SystemIoBusNumber,
+    IoAddress, NumberOfBytes, InIoSpace)
+IN PVOID  HwDeviceExtension;
+IN INTERFACE_TYPE  BusType;
+IN ULONG  SystemIoBusNumber;
+IN SCSI_PHYSICAL_ADDRESS  IoAddress;
+IN ULONG  NumberOfBytes;
+IN BOOLEAN  InIoSpace;
+ </PRE>
+
+<P>Returns a mapped system address that must be used to adjust device address ranges in that HBA's ACCESS_RANGE elements. 
+
+<UL>
+	<LI>Returns NULL if the address cannot be mapped. </LI>
+</UL>
+
+<DL>
+<DT><I>HwDeviceExtension</I> </DT>
+
+<DD>Points to the HBA miniport driver's storage for adapter data. </DD>
+
+<DT><I>BusType</I> </DT>
+
+<DD>Specifies the type of bus, such as ISA or MCA. This value can be retrieved from the PORT_CONFIGURATION_INFORMATION structure. </DD>
+
+<DT><I>SystemIoBusNumber</I> </DT>
+
+<DD>Specifies on which bus the HBA is connected. This value can be retrieved from the PORT_CONFIGURATION_INFORMATION structure. </DD>
+
+<DT><I>IoAddress</I> </DT>
+
+<DD>Specifies the starting physical base address for the HBA. </DD>
+
+<DT><I>NumberOfBytes</I> </DT>
+
+<DD>Specifies the range, in bytes, that the mapping covers. The driver must not access the hardware outside of this range. </DD>
+
+<DT><I>InIoSpace</I> </DT>
+
+<DD>Specifies whether the address is in I/O space; otherwise, it is in memory space. 
+</DD>
+</DL>
+
+<P><B>ScsiPortGetDeviceBase</B> can be called only from an HBA miniport driver's <B>HwFindAdapter</B> routine. Calls from other HBA miniport driver routines result in system failure or in an incorrect operation. <B>ScsiPortGetDeviceBase</B> can be called several times. </P>
+
+<P>Windows NT/Windows 2000 machines can have several I/O buses, or the system can map I/O space to memory. In order to make HBA miniport drivers portable, the addresses they use must be translated. The returned base address should be added to all references made to the hardware. Driver writers should make no assumptions about how many bits are used in the returned base address. </P>
+
+<P>The following KB article describes a bug in the ScsiPortGetDeviceBase function which appears when you attempt to do memory mapped I/O: Q169584, BUG: Win95: ScsiPortGetDeviceBase Does Not Return Linear Address.</P>
+
+<P>Note that the problem described won’t happen if  you use I/O mapping.</P>
+
+<P>This problem does not frequently appear because most SCSI cards (at least PCI cards) have both a memory window and an I/O window.  SCSIPORT.PDR will always default to the I/O window in these cases, thus avoiding use of the memory window.</P>
+
+<P>When you call ScsiPortGetDeviceBase, you should check the returned address against the actual physical address.  If they are the same, you need to call _MapPhysToLinear to obtain a linear address; otherwise, assume that the bug has been corrected.  This is  to accommodate any future bug fix.  Note that _MapPhysToLinear call "breaks" Windows NT/Windows 2000 miniport compatibility. If you want Windows NT/Windows 2000 compatibility, you need to do conditional compilation, resulting in a different binary miniport for Windows NT/Windows 2000.</P>
+
+<P>In order to incorporate _MapPhysToLinear into your miniport, you will need to include the DDK’s “vxd wrappers”: Setup your code as described in the following. (See also Walt Oney’s book, <I>Systems Programming for Windows 95</I>, page 131):</P>
+
+<PRE>#define WANTVXDWRAPS
+#include &lt;vmm.h&gt;
+#include &lt;vxdwraps.h&gt;.
+ </PRE>
+
+<P>See Also </P>
+
+<P><B>HwFindAdapter</B>, <B>ScsiPortFreeDeviceBase</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ScsiPortGetDeviceBase"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

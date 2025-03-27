@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DPC Handler</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DPC Handler">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_dpc_handler_ng"></A>DPC Handler</H1>
+
+<P>Every miniport driver that manages a network interface card (NIC) that interrupts must have a <A HREF="101mini_7s36.htm"><I>MiniportHandleInterrupt</I></A> function. Even if NDIS completely handles the interrupt, it always queues a deferred procedure call (DPC) for the miniport driver, causing the miniport driver’s <I>MiniportHandleInterrupt</I> handler to run. If <A HREF="101mini_38c2.htm"><I>MiniportISR</I></A> processes an interrupt, it controls whether <I>MiniportHandleInterrupt</I> is queued by the value <I>MiniportISR</I> returns in the <I>InterruptRecognized</I> and <I>QueueMiniportHandleInterrupt</I> arguments. If <I>MiniportISR</I> sets <I>QueueMiniportHandleInterrupt</I> to TRUE, <I>MiniportHandleInterrupt</I> is queued for execution at IRQL = DISPATCH_LEVEL.</P>
+
+<P><I>MiniportHandleInterrupt</I> is called after interrupts have been disabled on the NIC by the <I>MiniportISR</I> or <A HREF="101mini_0jg2.htm"><I>MiniportDisableInterrupt</I></A> function. <I>MiniportHandleInterrupt</I> should read whatever data it needs to finish processing the interrupt-driven I/O operation. <I>MiniportHandleInterrupt</I> then reenables interrupts on the NIC, either by letting NDIS call the miniport driver’s <A HREF="101mini_222a.htm"><I>MiniportEnableInterrupt</I></A> function after <I>MiniportHandleInterrupt</I> returns control or by enabling the interrupt from within <I>MiniportHandleInterrupt</I>, which is faster. Until interrupts are reenabled, no further interrupts can occur on the NIC. To ensure that no receive data is missed, <I>MiniportHandleInterrupt</I> should reenable interrupts as quickly as possible.</P>
+
+<P>A miniport driver that processes interrupts handles data receives and send completes in the context of its <I>MiniportHandleInterrupt</I> function. For example, if <I>MiniportHandleInterrupt</I> determines that the reason for the interrupt is a receive, it indicates the data up by calling <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, <A HREF="103ndisx_6f02.htm"><B>NdisMCoIndicateReceivePacket</B></A>, or <B>NdisM</B><I>Xxx</I><B>IndicateReceive</B> in the context of the DPC. For more information about how a miniport driver processes receives, see <A HREF="204trnsf_0u7b.htm">Receiving Data</A>.</P>
+
+<P>If a connectionless miniport driver determines that the reason for the interrupt is a send completion, it calls <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A> to signal the completion of a packet previously sent to <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A> or <I>MiniportSendPackets</I>. Similarly, if a connection-oriented miniport driver determines that the reason for the interrupt is a send completion, it calls <A HREF="103ndisx_5t2q.htm"><B>NdisMCoSendComplete</B></A> to signal the completion of a packet that was previously sent to <A HREF="101mini_0ycy.htm"><I>MiniportCoSendPackets</I></A>, which returned NDIS_STATUS_PENDING. The send operations of a miniport driver are described in <A HREF="204trnsf_33hj.htm">Sending Packets</A>.</P>
+
+<P>Sustained bursts of network activity, which are typically data receives, can force a miniport driver's <I>MiniportHandleInterrupt</I> function to run for a long time, handling outstanding receive and send-completion events from the NIC. However, <I>MiniportHandleInterrupt</I> should not continue to run indefinitely to handle such outstanding events because <I>MiniportHandleInterrupt</I> runs at DISPATCH_LEVEL and thus prevents all other threads that run at DISPATCH_LEVEL or lower from running on a particular processor. Therefore, <I>MiniportHandleInterrupt</I> should limit the time it spends handling outstanding events. For example, <I>MiniportHandleInterrupt</I> might limit the number of iterations it executes based on the total number of receive descriptors on the NIC.</P>
+
+<P>When a miniport driver processes a receive, it must not reenable interrupts until either of the following has occurred:
+
+<UL>
+	<LI>The miniport driver has passed up an entire miniport driver-allocated packet or an array of packets containing the received data</LI>
+
+	<LI>The miniport driver's <A HREF="101mini_9a42.htm"><I>MiniportTransferData</I></A> function has transferred the incoming data to a protocol driver-supplied packet if any protocol driver is interested in the data (Only connectionless miniports can have a <I>MiniportTransferData</I> function.)</LI>
+</UL>
+
+<P>If a miniport driver-allocated packet is passed up to a protocol driver and the protocol keeps the packet, the miniport driver must supply a new empty packet for the next receive. After it has completely processed the receive and is prepared for the next receive, the miniport driver can reenable interrupts.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DPC%20Handler"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

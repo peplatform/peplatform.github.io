@@ -1,0 +1,376 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Execute SCSI I/O Command</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_4130"></A>Execute SCSI I/O Command</H3>
+
+<P>Prototype: DWORD SendASPI32Command(lpSRB) </P>
+
+<P>Declaration: LPSRB lpSRB; </P>
+
+<P>The SendASPI32Command function with command code SC_EXEC_SCSI_CMD is used to execute a SCSI I/O command. Once an ASPI client has initialized, virtually all I/O is performed with this command. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=31%>Parameter </TH>
+<TH align=left width=69%>Description </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>lpSRB </TD>
+<TD width=69%>Points to the following SCSI request block </TD>
+</TR>
+</TABLE><BR>
+
+<PRE>typedef struct {
+
+ BYTE  SRB_Cmd;      // ASPI command code = SC_EXEC_SCSI_CMD
+ BYTE  SRB_Status;     // ASPI command status byte
+ BYTE  SRB_HaId;      // ASPI host adapter number
+ BYTE  SRB_Flags;     // ASPI request flags
+ DWORD  SRB_Hdr_Rsvd;    // Reserved
+ BYTE  SRB_Target;     // Target's SCSI ID
+ BYTE  SRB_Lun;      // Target's LUN number
+ WORD  SRB_Rsvd1;     // Reserved for Alignment
+ DWORD  SRB_BufLen;     // Data Allocation Length
+ BYTE  *SRB_BufPointer;    // Data Buffer Point
+ BYTE  SRB_SenseLen;    // Sense Allocation Length
+ BYTE  SRB_CDBLen;     // CDB Length
+ BYTE  SRB_HaStat;     // Host Adapter Status
+ BYTE  SRB_TargStat;    // Target Status
+ void  (*SRB_PostProc)();   // Post routine
+ void  *SRB_Rsvd2;     // Reserved
+ BYTE  SRB_Rsvd3[16];    // Reserved for expansion
+ BYTE  CDBByte[16];     // SCSI CDB
+ BYTE  SenseArea[SENSE_LEN+2]; // Request Sense buffer
+
+} SRB_ExecSCSICmd, *PSRB_ExecSCSICmd;
+</PRE>
+
+<P>Table 4-6. Execute SCSI I/O Command </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=25%>Member </TH>
+<TH align=left width=75%>Description </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>SRB_Cmd </TD>
+<TD width=75%>[IN] This field must contain SC_EXEC_SCSI_CMD. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>SRB_Status </TD>
+<TD width=75%>[OUT]This field returns one of the following statuses: </TD>
+</TR>
+</TABLE><BR>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=37%>SS_PENDING </TD>
+<TD width=63%>SCSI request is in progress. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>SS_COMP </TD>
+<TD width=63%>SCSI/ASPI request has completed without error. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>SS_ABORTED </TD>
+<TD width=63%>SCSI command has been aborted. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>SS_ABORT_FAIL </TD>
+<TD width=63%>SCSI command abort failed. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>SS_ERR </TD>
+<TD width=63%>SCSI command completed with an error. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>SS_INVALID_SRB </TD>
+<TD width=63%>One or more parameters in the SCSI Request Block (SRB) are set incorrectly. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>SS_INVALID_PATH_ID </TD>
+<TD width=63%>SCSI ID and LUN are invalid. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>SS_BUFFER_TO_BIG </TD>
+<TD width=63%>The ASPI manager cannot handle the given transfer size. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>SS_BUFFER_ALIGN </TD>
+<TD width=63%>The ASPI manager cannot handle the alignment on this buffer. You must force the buffer into the alignment specified by the alignment mask returned as part of the SC_HA_INQUIRY command. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>SS_SECURITY_VIOLATION </TD>
+<TD width=63%>The application does not have the security privileges needed to perform the operation for the device. </TD>
+</TR>
+</TABLE><BR>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=25%>SRB_HaId </TD>
+<TD width=75%>[IN] This field specifies which installed host adapter the request is intended for. Host adapter numbers are always assigned by the SCSI manager layer beginning with zero. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>SRB_Flags </TD>
+<TD width=75%>[IN] The SRB flags field is defined as follows: </TD>
+</TR>
+</TABLE><BR>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=37%>SRB_DIR_IN </TD>
+<TD width=63%>Data transfer from SCSI target to host. Mutually exclusive with SRB_DIR_OUT. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>SRB_DIR_OUT </TD>
+<TD width=63%>Transfer from host to SCSI target. Mutually exclusive with SRB_DIR_IN. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>SRB_EVENT_NOTIFY </TD>
+<TD width=63%>Enable ASPI command event notification. This flag and the SRB_POSTING flag are mutually exclusive. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>SRB_POSTING </TD>
+<TD width=63%>Enable ASPI command completion posting. This flag and the SRB_EVENT_NOTIFY flag are mutually exclusive. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>SRB_ENABLE_RESIDUAL COUNT </TD>
+<TD width=63%>Enables reporting of residual byte count. This bit is only significant if the host adapter reports support for residual byte count from the SC_HA_INQUIRY command. Whenever a data underrun occurs, the SRB_BufLen field is updated to reflect the remaining bytes to transfer. </TD>
+</TR>
+</TABLE><BR>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=25%>SRB_Hdr_Rsvd </TD>
+<TD width=75%>Reserved = zero </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>SRB_Target </TD>
+<TD width=75%>[IN] SCSI ID of target device. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>SRB_Lun </TD>
+<TD width=75%>[IN] Logical Unit Number (LUN) of device. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>SRB_BufLen </TD>
+<TD width=75%>[IN] This field indicates the number of bytes to be transferred. If the SCSI command to be executed does not transfer data (for example, Test Unit Ready, Rewind, etc.), this field must be set to zero. If residual byte length is supported and selected, this field is returned with the residual number of bytes (usually zero). </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>SRB_BufPointer </TD>
+<TD width=75%>[IN] This field is a pointer to the data buffer. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>SRB_SenseLen </TD>
+<TD width=75%>[IN] This field indicates the number of bytes allocated at the end of the SRB for sense data. A request sense is automatically generated if a check condition is presented at the end of a SCSI command. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>SRB_CDBLen </TD>
+<TD width=75%>[IN] This field establishes the length, in bytes, of the SCSI Command Descriptor Block (CDB). This value is typically 6 or 10. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>SRB_HaStat </TD>
+<TD width=75%>[OUT] Upon completion of the SCSI command, the ASPI manager sets this field with the host adapter status as follows: </TD>
+</TR>
+</TABLE><BR>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=37%>HASTAT_OK </TD>
+<TD width=63%>Host adapter did not detect an error. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>HASTAT_TIMEOUT </TD>
+<TD width=63%>The time allocated for the transaction ran out. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>HASTAT_COMMAND_TIMEOUT </TD>
+<TD width=63%>SRB expired while waiting to be processed. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>HASTAT_SEL_TO </TD>
+<TD width=63%>Selection of target timed out. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>HASTAT_MESSAGE_REJECT </TD>
+<TD width=63%>While processing SRB, the adapter received a MESSAGE REJECT. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>HASTAT_BUS_RESET </TD>
+<TD width=63%>A bus reset was detected. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>HASTAT_PARITY_ERROR </TD>
+<TD width=63%>A parity error was detected. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>HASTAT_REQUEST_SENSE_FAILED </TD>
+<TD width=63%>The adapter failed in issuing a Request Sense after a check condition was reported by the target device. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>HASTAT_DO_DU </TD>
+<TD width=63%>Data overrun/underrun. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>HASTAT_BUS_FREE </TD>
+<TD width=63%>Unexpected Bus Free. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>HASTAT_PHASE_ERR </TD>
+<TD width=63%>Target Bus phase sequence failure. </TD>
+</TR>
+</TABLE><BR>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=25%>SRB_TargStat </TD>
+<TD width=75%>[OUT] Upon completion of the SCSI command, the ASPI manager will record the specific status returned by the SCSI target: </TD>
+</TR>
+</TABLE><BR>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=37%>STATUS_GOOD </TD>
+<TD width=63%>No target status. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>STATUS_CHKCOND </TD>
+<TD width=63%>Check status (sense data is in SenseArea). </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>STATUS_BUSY </TD>
+<TD width=63%>Specified Target/LUN is busy. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>STATUS_RESCONF </TD>
+<TD width=63%>Reservation conflict. </TD>
+</TR>
+</TABLE><BR>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=25%>SRB_PostProc </TD>
+<TD width=75%>[IN] If posting is enabled (SRB_POSTING flag), this field contains a pointer to a function. ASPI for Win32 calls this function upon completion of an ASPI request. If event notification is enabled (SRB_EVENT_NOTIFY flag), this field contains a handle to an event. ASPI for Win32 signals this event upon completion of an ASPI request. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>CDBByte[..] </TD>
+<TD width=75%>[IN] This field contains the CDB as defined by the target's SCSI command set. The length of the SCSI CDB is specified in the SRB_CDBLen field. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>SenseArea[..] </TD>
+<TD width=75%>[OUT] The SenseArea is filled with the sense data on a check condition. The maximum length of this field is specified in the SRB_SenseLen field. Note that the target can return fewer than the number of sense bytes requested. </TD>
+</TR>
+</TABLE><BR>
+
+<P>Table 4-7. Return Values from Execute SCSI I/O Command </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=25%>Value </TH>
+<TH align=left width=75%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>SS_PENDING </TD>
+<TD width=75%>SCSI request is in progress. </TD>
+</TR>
+</TABLE><BR>
+
+<P><B>Example</B> </P>
+
+<P>This example sends a SCSI Inquiry command to host adapter #0, target #0, LUN #0. </P>
+
+<PRE> SRB_ExecSCSICmd MySRB;
+ DWORD ASPIStatus;
+ char InquiryBuffer[32];   
+  .
+  .
+  .
+ MySRB.SRB_Header    = SC_EXEC_SCSI_CMD;
+ MySRB.SRB_HaId    = 0;
+ MySRB.SRB_Flags    = SRB_DIR_IN | SRB_POSTING;
+ MySRB.SRB_Hdr_Rsvd   = 0;
+ MySRB.SRB_Target    = 0;
+ MySRB.SRB_Lun    = 0;
+ MySRB.SRB_BufLen    = 32;
+ MySRB.SRB_SenseLen   = SENSE_LEN;
+ MySRB.SRB_BufPointer  = InquiryBuffer;
+ MySRB.SRB_CDBLen    = 6;
+ MySRB.RB_PostProc   = PostProcedure;
+ MySRB.CDBByte[0]    = SCSI_INQUIRY;
+ MySRB.CDBByte[1]    = 0;
+ MySRB.CDBByte[2]    = 0;
+ MySRB.CDBByte[3]    = 0;
+ MySRB.CDBByte[4]    = 32;
+ MySRB.CDBByte[5]    = 0; 
+  .
+ /***************************************************/
+ /* Make sure all other reserved fields are zeroed
+ /* before passing the SRB to ASPI for Win32
+ /***************************************************/
+  .
+ ASPIStatus = SendASPI32Command ( (LPSRB) &amp;MySRB );
+  .
+  .
+</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Execute%20SCSI%20I%2FO%20Command"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

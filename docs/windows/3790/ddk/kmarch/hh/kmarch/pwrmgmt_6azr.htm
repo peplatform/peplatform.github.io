@@ -1,0 +1,72 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Power IRPs for Individual Devices</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Power IRPs for Individual Devices">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_power_irps_for_individual_devices_kg"></A>Power IRPs for Individual Devices</H3>
+
+<P>A <I>device power IRP</I> specifies major IRP code <A HREF="k113_7jjm.htm">IRP_MJ_POWER</A>, one of the minor power IRP codes listed below, and the value <B>DevicePowerState</B> in the <B>Power.Type </B>member. </P>
+
+<P class=indent1><A HREF="poirp_9e9e.htm">IRP_MN_QUERY_POWER</A></P>
+
+<P class=indent1><A HREF="poirp_6hde.htm">IRP_MN_SET_POWER</A></P>
+
+<P class=indent1><A HREF="poirp_44fm.htm">IRP_MN_WAIT_WAKE</A></P>
+
+<P class=indent1><A HREF="poirp_5omq.htm">IRP_MN_POWER_SEQUENCE</A></P>
+
+<P>All drivers in a device stack receive such IRPs; normally, only the device power policy manager can send these IRPs. However, the Power Manager can send a device power IRP when performing idle detection on behalf of a device, as explained in <A HREF="pwrmgmt_8q07.htm">Using Power Manager Routines for Idle Detection</A>.</P>
+
+<P>A driver sends a device power IRP for any of the following reasons:
+
+<UL>
+	<LI>To query or change the device power state in response to a system power IRP</LI>
+
+	<LI>To put the device in a sleep state to conserve power</LI>
+
+	<LI>To return the device to the working state after it has been asleep</LI>
+
+	<LI>To enable the device to awaken in response to an external signal</LI>
+
+	<LI>To get a power sequence value when powering up a device</LI>
+</UL>
+
+<P><IMG SRC="images/devpoirp.gif" ALT="" BORDER=0></P>
+
+<P><B>Path of a Device Power IRP</B></P>
+
+<P>As the previous figure shows, a device power IRP is sent, forwarded, and completed in the following steps:
+
+<OL>
+	<LI>The device power policy owner calls <A HREF="portn_55gy.htm"><B>PoRequestPowerIrp</B></A> to allocate a device power IRP, specifying the PDO that is the target of the IRP and a callback routine to be invoked when the IRP is complete.</LI>
+
+	<LI>The Power Manager allocates a device power IRP and sends it to the top driver in the device stack for the target PDO. </LI>
+
+	<LI>The driver performs the following actions:
+<UL>
+	<LI>Sets an <A HREF="drvrrtns_4rsi.htm"><I>IoCompletion</I></A> routine if one is necessary.</LI>
+
+	<LI>Calls <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A> if a completion routine is not used.</LI>
+
+	<LI>Calls <A HREF="portn_7tki.htm"><B>PoCallDriver</B></A> to pass the IRP down to the next-lower driver. </LI>
+</UL>
+
+<P>Each driver in the stack does this until the IRP reaches the bus driver. If a driver must fail the IRP, it should do so immediately and call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>.
+</LI>
+
+	<LI>The bus driver, which maintains the device PDO, performs the requested action, and then calls <B>IoCompleteRequest</B> to complete the IRP. A bus driver can fail a device power-up IRP if a device is removed or in the process of being removed.</LI>
+
+	<LI>The I/O Manager calls <I>IoCompletion</I> routines that were set by drivers as they passed the IRP down the stack. After all the <I>IoCompletion</I> routines have been called, the callback routine is run.</LI>
+</OL>
+
+<P>For more information on device power IRPs, see <A HREF="pwrmgmt_1fhj.htm">Managing Power for Individual Devices</A> and <A HREF="pwrmgmt_3l7r.htm">Supporting Devices that Have Wake-Up Capabilities</A>. For details on the power sequence IRP, see <A HREF="poirp_5omq.htm">IRP_MN_POWER_SEQUENCE</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Power%20IRPs%20for%20Individual%20Devices"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

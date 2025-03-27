@@ -1,0 +1,313 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Adapting the Interface Exposed to the IrFramer</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_835"></A>Adapting the Interface Exposed to the IrFramer</H3>
+
+<P>The interface that a specific dongle-type source code module exposes to the generic IrFramer (through the function pointer table in OEMDONGLE.C) can have three functions: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=33%>Function </TH>
+<TH align=left width=67%>Description </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%><B>type_Init</B> </TD>
+<TD width=67%>Initializes your IR hardware and returns the capabilities mask. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%><B>type_SetSpeed</B> </TD>
+<TD width=67%>Sets the send and receive speed of your IR hardware and sets VCOMM to handle that speed. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%><B>type_Deinit</B> </TD>
+<TD width=67%>Powers down or deinitializes your IR hardware. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<H4><A NAME="_pss_836"></A>Using the Available Support Functions </H4>
+
+<P>A number of functions are available to the OEMDONGL.C module. You have the option of using the VCOMM functions directly and/or indirectly through the functions listed in the following. It is strongly recommended that you not use the VCOMM functions directly for two-way communication with the dongle. Use the provided functions wherever applicable. The function prototypes are in _DONGLE.H and are shown in the following: </P>
+
+<PRE>//************************************************************************
+//
+// Function prototypes of utility functions that should be used by
+// dongle functions.
+ 
+// IrLapFrmSetSpeed will set the speed of the UART to the given speed
+// using VCOMM calls.
+ 
+BOOL IrLapFrmSetSpeed(U32 hCom, LM_BAUD_RATE speed);
+ 
+// IrLapFrmReadChar is used to read a character from the UART using VCOMM calls
+// It assumes that events are turned off so it polls. If no character is read in
+// in 12 ms it will return FALSE. If a VCOMM error occurs it will return false.
+// If it returns TRUE the character read is placed in the variable pointed to by
+// c.
+ 
+BOOL IrLapFrmReadChar(U32 hCom, PU8 c);
+ 
+// IrLapFrmWriteChar is used to write a character to the UART using VCOMM calls.
+// It returns TRUE if successful otherwise it returns FALSE.
+ 
+BOOL IrLapFrmWriteChar(U32 hCom, U8 c);
+ 
+// VMM_GetSystemTime returns the number of milliseconds since Windows started. It is
+// accurate to 1ms. This is the standard VMM call.
+ 
+UINT VMM_GetSystemTime( VOID );
+ </PRE>
+
+
+
+<H4><A NAME="_pss_837"></A>Adapting the type_Init Function</H4>
+
+<P>The <B>type_Init</B> function is called by the framer to initialize your IR hardware and to get the dongle capabilities masks. When <B>type_Init</B> is called, the <I>hCom</I> (VCOMM handle) will be set for 9600 baud, 8 data bits, no parity, and 1 stop bit. When <B>type_Init</B> returns, the dongle must be active and ready to receive and send data and the VCOMM handle must be set to 9600 baud, 8 data bits, no parity, and 1 stop bit. </P>
+
+<P>If the dongle cannot be initialized <B>type_Init</B> must return IRDA_STATUS_FAILED. </P>
+
+<P>The syntax of the function call is: </P>
+
+<PRE>BOOL type_Init(
+                   U32 hCom, 
+                   PDONGLE_CAPABILITIES cap
+    )
+ </PRE>
+
+<P><B>type_Init</B> assumes 
+
+<UL>
+	<LI>The <I>hCom</I> parameter identifies a port that has been opened and is set to 9600 baud, 8 data bits, no parity, and 1 stop bit. </LI>
+
+	<LI>The framer has set no VCOMM event callbacks on the port so <B>type_Init</B> can send and receive characters without interference from the framer. </LI>
+</UL>
+
+<P>The <I>cap</I> parameter points to the <B>DONGLE_CAPABILITIES</B> structure that <B>type_Init</B> returns to the framer; <B>type_Init</B> can, as an option, set bits in the masks that make up this structure to register Baud Rate, Minimum Turn Around Time, and Number of BOFs capabilities with the framer. </P>
+
+<P>The <B>DONGLE_CAPABILITIES</B> structure is defined in _DONGLE.H and is shown in the following: </P>
+
+<PRE>// DONGLE_CAPABILITIES - is a structure that contains the IrDA
+    // capabilities a dongle can effect. The order of the elements in 
+    // this structure must be the same as those in the IRLAPFRM_CAPABILITIES
+    // structure.
+ 
+    typedef struct
+    {
+      U32 supportedSpeeds;    // Supported speeds of the dongle
+      U32 minTurnAroundTime;  // Min turn around time on the dongle
+      U32 additionalBOFs;     // Additional BOFs required by the dongle.
+    } DONGLE_CAPABILITIES, *PDONGLE_CAPABILITES;
+ </PRE>
+
+<P>The meaning of the pattern of bit settings in the three capabilities bit masks is defined fully in <I>Infrared Data Association Serial Infrared Link Access Protocol</I> (<I>IrLAP</I>), but summary tables are presented here. </P>
+
+
+
+<H4><A NAME="_pss_838"></A>Baud Rate</H4>
+
+<P>The bit settings in the baud rate mask indicate the speed(s) at which the IR device can transmit over the data link: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=41%>bit 0 = </TD>
+<TD width=59%>2400 bps (LSB, transmitted first) </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%> bit 1 = </TD>
+<TD width=59%>9600 bps </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%> bit 2 = </TD>
+<TD width=59%>19200 bps </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%> bit 3 = </TD>
+<TD width=59%>38400 bps </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%> bit 4 = </TD>
+<TD width=59%>57600 bps </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%> bit 5 = </TD>
+<TD width=59%>115200 bps </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%> bit 6 = </TD>
+<TD width=59%>reserved and must be set to 0 </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%> bit 7 = </TD>
+<TD width=59%>reserved and must be set to 0 </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<H4><A NAME="_pss_839"></A>Minimum Turn Around Time</H4>
+
+<P>Minimum turn around time is the time delay required by the IR device from the time it receives the last byte from one device until it is ready to receive the first byte from another device. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=41%>bit 0 = </TD>
+<TD width=59%>10 ms (LSB, transmitted first) </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%> bit 1 = </TD>
+<TD width=59%>5 ms </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%> bit 2 = </TD>
+<TD width=59%>1 ms </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%> bit 3 = </TD>
+<TD width=59%>0.5 ms </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%> bit 4 = </TD>
+<TD width=59%>0.1 ms </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%> bit 5 = </TD>
+<TD width=59%> 0.05 ms </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%> bit 6 = </TD>
+<TD width=59%>0.01 ms </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%> bit 7 = </TD>
+<TD width=59%>0.005 ms </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<H4><A NAME="_pss_840"></A>Number of BOFs</H4>
+
+<P>These bit settings indicate the number of additional flags needed at the beginning of every frame to provide a delay at the beginning of each frame for devices with long interrupt latency. The bit settings in this mask depend on the baud rate. See <I>Infrared Data Association Serial Infrared Link Access Protocol</I> (<I>IrLAP</I>) for all the different possible values. </P>
+
+<P>The following shows an example of adapting the OEMDONGLE.C sample source code function <B>OEM_Init</B>. The supportedSpeeds mask is set to support all speeds between 9600 baud and 115.2 baud and is set for a 1 ms turnaround, using the following code: </P>
+
+<PRE>#define  CRYSTAL_SPEEDMASK  0x3F     /*supported speeds 115.2Kbps-&gt;9600 Kbps*/
+        #define  CRYSTAL_MINTURN    0x00     /*0 turn around*/
+         .
+         .
+         .
+    //*********************************************************************
+    BOOL OEM_Init(U32 hCom, PDONGLE_CAPABILITIES cap)
+    {
+          .
+          .
+               .
+ 
+        cap-&gt;supportedSpeeds &amp;= CRYSTAL_SPEEDMASK;
+          .
+               .
+               .
+    }
+ </PRE>
+
+<P>Suppose your RED88 dongle only supports 9600, 19200, and 115200 baud. You can change the supportedSpeeds mask to reflect that by changing two lines of the sample code: </P>
+
+<PRE>    #define RED88_SPEEDMASK      0x00000026
+        .
+          .
+               .
+ 
+        cap-&gt;supportedSpeeds &amp;= RED88_SPEEDMASK;
+          .
+               .
+               .
+ </PRE>
+
+
+
+<H4><A NAME="_pss_841"></A>Adapting the type_SetSpeed Function</H4>
+
+<P>The <B>type_SetSpeed</B> function is called by the framer <B>IRLAPFRM_SetSpeed</B> function to set the send and receive speed of your IR hardware. <B>type_SetSpeed</B> must also set VCOMM to handle the new speed because <B>IRLAPFRM_SetSpeed</B> does not do that. </P>
+
+<P>The syntax of the <B>type_SetSpeed</B> function call is: </P>
+
+<PRE>BOOL type_SetSpeed(
+                      U32 hCom, 
+                      LM_BAUD_RATE speed
+   )
+ </PRE>
+
+<P><B>type_SetSpeed</B> can send and receive characters with no interference from the IR framer because <B>IRLAPFRM_SetSpeed</B> disables VCOMM event callbacks before it calls <B>type_SetSpeed</B>. </P>
+
+<P><B>type_SetSpeed</B> can also assume that the framer will not reset the VCOMM speed setting. Therefore, when <B>type_SetSpeed</B> is called, the VCOMM speed setting is either the same as the last time <B>type_SetSpeed</B> set it, or 9600 baud immediately after a call to <B>type_Init</B>. </P>
+
+<P>When <B>type_SetSpeed</B> returns, the framer assumes it can start sending or receiving data at the new speed and restores the VCOMM event callbacks. If it fails to set the IR device speed or the VCOMM speed setting, <B>type_SetSpeed</B> must return IRDA_STATUS_FAILED. </P>
+
+<P>It is not particularly useful to make up an example here for the hypothetical RED88 dongle device. The convention that notifies each particular dongle device of a speed change differs from device to device. Two things to notice about the sample code, however, are: 
+
+<UL>
+	<LI>The <B>IrLapFrmSetSpeed</B> function in OEMDONGLE.C can be called from your <B>type_SetSpeed</B> function to set the UART to a new speed. </LI>
+
+	<LI><B>VCOMM_EscapeCommFunction</B> is used to set the dongle hardware into and out of command mode (see the <B>ACT200LSetCommandMode</B> and <B>ACT200LClearCommandMode</B> functions in OEMDONGL.C). Using the VCOMM functions is quite acceptable in this case. </LI>
+</UL>
+
+
+
+<H4><A NAME="_pss_842"></A>Adapting the type_Deinit Function</H4>
+
+<P>The <B>type_Deinit</B> function is called to power down or otherwise deactivate your hardware. It is called by the framer just before it calls <B>VCOMM_CloseComm</B> to close the port. </P>
+
+<P>The <B>type_Deinit</B> function can send and receive characters with no interference from the IR framer because VCOMM event callbacks are disabled before the call to the dongle function. </P>
+
+<P>The syntax of the <B>type_Deinit</B> function call is: </P>
+
+<PRE>BOOL type_Deinit(
+                      U32 hCom
+     )
+ </PRE>
+
+<P>The <B>OEM_Deinit</B> function in OEMDONGL.C (which uses the Crystal chip in the ACTiSYS 200L as an IR device) does the following: 
+
+<UL>
+	<LI>Resets the IR device. </LI>
+
+	<LI>Sets the speed to 9600 baud (the discovery speed). </LI>
+
+	<LI>Puts the IR chip in low-power mode. </LI>
+
+	<LI>Makes sure the IR device is not in command mode. </LI>
+</UL>
+
+<PRE> </PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Adapting%20the%20Interface%20Exposed%20to%20the%20IrFramer"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

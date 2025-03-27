@@ -1,0 +1,96 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DispatchCleanup Routines</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DispatchCleanup Routines">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_interface_dg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_dispatchcleanup_routines_kg"></A><I>DispatchCleanup</I> Routines</H2>
+
+<P>A driver's <A HREF="drvrrtns_2xf6.htm"><I>DispatchCleanup</I></A> routine handles IRPs for the <A HREF="k113_6vg2.htm">IRP_MJ_CLEANUP</A> I/O function code.</P>
+
+<P>Any driver that maintains process-specific context information, such as buffers that supply data to or from a user application, must provide a <I>DispatchCleanup</I> routine. All drivers that expose <A HREF="JavaScript:hhobj_1.Click()">device interfaces</A> to user mode must provide a <I>DispatchCleanup</I> routine.</P>
+
+<P>If a driver doesn't provide a <I>DispatchCleanup</I> routine, and if the driver can queue IRPs for an indefinite period of time, the driver must provide a <A HREF="drvrrtns_8y0i.htm"><I>Cancel</I></A> routine.</P>
+
+<P>A driver’s <I>DispatchCleanup</I> routine should:
+
+<UL>
+	<LI>Do whatever is necessary to deallocate process-specific resources. This might include: 
+<UL>
+	<LI>Unlocking or unmapping user-mode memory that was previously locked  or was previously mapped into system space. </LI>
+
+	<LI>Unmapping hardware memory (such as I/O registers) that was previously mapped into user space.</LI>
+</UL>
+</LI>
+
+	<LI>Cancel all IRPs that are currently queued to the target device object, if they are associated with the file object that is specified in the <B>FileObject</B> member of the driver’s I/O stack location.</LI>
+</UL>
+
+<P>In general, a <I>DispatchCleanup</I> routine must process an IRP_MJ_CLEANUP request by doing the following for every IRP that is currently in the device queue (or in the driver’s internal queue of IRPs), for the target device object, and is associated with the file object:
+
+<UL>
+	<LI>Call <A HREF="k104_6hiq.htm"><B>IoSetCancelRoutine</B></A> to set the <I>Cancel</I> routine pointer to NULL.</LI>
+
+	<LI>Cancel every IRP that is currently in the queue for the target device object, if the file object that is specified in the driver’s I/O stack location of the queued IRP matches the file object that was received in the I/O stack location of the IRP_MJ_CLEANUP request. </LI>
+
+	<LI>Call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> to complete the IRP, and return STATUS_SUCCESS.</LI>
+</UL>
+
+<P>While processing an IRP_MJ_CLEANUP request, a driver can receive additional requests, such as <A HREF="k113_7fhu.htm">IRP_MJ_READ</A> or <A HREF="k113_45o2.htm">IRP_MJ_WRITE</A>. Therefore, a driver that must deallocate resources must also synchronize execution of its <A HREF="drvrrtns_2xf6.htm"><I>DispatchCleanup</I></A> routine with other dispatch routines, such as <A HREF="drvrrtns_7s4y.htm"><I>DispatchRead</I></A> and <A HREF="drvrrtns_6mr6.htm"><I>DispatchWrite</I></A>. Resources that are associated with a file object, and not a particular process, can be deallocated in response to an <A HREF="k113_3naq.htm">IRP_MJ_CLOSE</A> request. No other requests for a particular file object can occur while IRP_MJ_CLOSE is being processed, so synchronization among dispatch routines is not necessary.</P>
+
+<P>The <I>DispatchCleanup</I> routine must set up the I/O status block as follows in each IRP queued to the target device object for the given file object, before it completes each IRP to be canceled:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=26%><B>Status</B></TD>
+<TD width=74%>set to STATUS_CANCELLED</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=26%><B>Information</B></TD>
+<TD width=74%>set to zero</TD>
+</TR>
+</TABLE><BR>
+
+<P>The <I>DispatchCleanup</I> routine specifies IO_NO_INCREMENT when it calls <B>IoCompleteRequest</B> for each canceled IRP. After it has canceled all queued IRPs for the given file object, the <I>DispatchCleanup</I> routine completes the cleanup request itself with STATUS_SUCCESS and a <I>PriorityBoost</I> of IO_NO_INCREMENT. </P>
+
+<P>If a driver manages its own internal queue of IRPs, rather than using the device queue associated with its device object, the driver should set up an interlocked queue that is protected with an executive <A HREF="synchro_8unb.htm">spin lock</A>. Otherwise, another driver routine (running on another processor in an SMP machine) might dequeue an IRP that should be canceled by the <I>DispatchCleanup</I> routine. To remove an IRP from such a queue and cancel it, the <I>DispatchCleanup</I> routine calls an <B>ExInterlocked..List</B> support routine with a driver-supplied executive spin lock. </P>
+
+<P>Any area in the device extension of the target device object that is shared between the <I>DispatchCleanup</I> routine and another driver routine also must be protected by a spin lock. </P>
+
+<P>Each driver must synchronize its access to cancelable IRPs with the I/O Manager and with its own <I>Cancel</I> routines, if any. </P>
+
+<P>Consider the following guidelines for managing spin locks within a <I>DispatchCleanup</I> routine that must synchronize with one or more <I>Cancel</I> routines: 
+
+<UL>
+	<LI>If the <I>DispatchCleanup</I> routine must acquire both the system cancel spin lock and one or more of the driver’s own spin locks, it should call <A HREF="k104_9fw2.htm"><B>IoAcquireCancelSpinLock</B></A> <I>before</I> it acquires its own spin locks.
+<P>The <I>DispatchCleanup</I> routine <I>must</I> release any nested spin lock acquisitions in inverse order: that is, it must release its own spin locks <I>before</I> it calls <A HREF="k104_5po2.htm"><B>IoReleaseCancelSpinLock</B></A>. 
+</LI>
+
+	<LI>If a driver uses the I/O-manager-supplied device queue in the device object, then its <I>DispatchCleanup</I> routine must call <B>IoAcquireCancelSpinLock</B> before it calls <A HREF="k104_6hiq.htm"><B>IoSetCancelRoutine</B></A> to reset the Cancel entry point in an IRP to NULL. 
+<P>If a driver manages its own queues of IRPs and protects the queues with spin locks, then the <I>DispatchCleanup</I> routine doesn't have to acquire the cancel spin lock before calling <B>IoSetCancelRoutine</B>.
+
+<P>For more information, see <A HREF="irps_773b.htm">Using the System's Cancel Spin Lock</A>.
+</LI>
+
+	<LI>The <I>DispatchCleanup</I> routine must release every spin lock it is holding before it calls <B>IoCompleteRequest</B> with an IRP, including each IRP that it cancels. </LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DispatchCleanup%20Routines"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

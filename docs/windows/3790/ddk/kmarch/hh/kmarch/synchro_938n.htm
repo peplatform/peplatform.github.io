@@ -1,0 +1,26 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Calling Support Routines That Use Spin Locks</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Calling Support Routines That Use Spin Locks">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_calling_support_routines_that_use_spin_locks_kg"></A>Calling Support Routines That Use Spin Locks</H2>
+
+<P>Calling <A HREF="k105_40qa.htm"><B>KeAcquireSpinLock</B></A> or <A HREF="k105_427m.htm"><B>KeAcquireInStackQueuedSpinLock</B></A> sets the IRQL on the current processor to DISPATCH_LEVEL until a corresponding call to <A HREF="k105_3mia.htm"><B>KeReleaseSpinLock</B></A> or <A HREF="k105_23zm.htm"><B>KeReleaseInStackQueuedSpinLock</B></A> restores the previous IRQL. Consequently, drivers must be executing at IRQL &lt;= DISPATCH_LEVEL when they call <B>KeAcquireSpinLock</B> or <B>KeAcquireInStackQueuedSpinLock</B>. </P>
+
+<P>Callers of <A HREF="k105_9vaq.htm"><B>KeAcquireSpinLockAtDpcLevel</B></A>, <A HREF="k105_5u42.htm"><B>KeAcquireInStackQueuedSpinLockAtDpcLevel</B></A>, <A HREF="k105_4w8i.htm"><B>KeReleaseInStackQueuedSpinLockFromDpcLevel</B></A>, and <A HREF="k105_5ar6.htm"><B>KeReleaseSpinLockFromDpcLevel</B></A> run faster because they are already running at IRQL DISPATCH_LEVEL so these support routines need not reset IRQL on the current processor. Consequently, it is a fatal error on most Windows platforms to call <B>KeAcquireSpinLockAtDpcLevel</B> or <B>KeAcquireInStackQueuedSpinLock</B> while running at IRQL less than DISPATCH_LEVEL. It is also an error to release a spin lock that was acquired with <B>KeAcquireSpinLock</B> by calling <B>KeReleaseSpinLockFromDpcLevel</B> because the caller’s original IRQL is not restored. </P>
+
+<P>Routines that hold an executive spin lock, such as the <B>ExInterlocked</B><I>Xxx</I>, usually execute at IRQL DISPATCH_LEVEL until they release the spin lock and return control to the caller. However, it is possible for a driver’s <A HREF="drvrrtns_29ma.htm"><I>InterruptService</I></A> routine and <A HREF="drvrrtns_4m2a.htm"><I>SynchCritSection</I></A> routines (which run at DIRQL) to call certain <B>ExInterlocked</B><I>Xxx </I>routines, such as the <B>ExInterlocked..List</B> routines, as long as the spin lock passed to the routine is used exclusively by the ISR and <I>SynchCritSection</I> routines. </P>
+
+<P>Each routine that holds an interrupt spin lock executes at the DIRQL of an associated set of interrupt objects. Therefore, a driver must not call <B>KeAcquireSpinLock</B> and <B>KeReleaseSpinLock</B> nor any other routine that uses an executive spin lock from its ISR or <I>SynchCritSection</I> routines. Such a call is an error that can cause a system deadlock, requiring the user to reboot his or her machine. Note that if a driver’s ISR or <I>SynchCritSection</I> routine calls an <B>ExInterlocked..List</B> routine, the driver cannot reuse the spin lock it passes to the <B>ExInterlocked..List</B> routines in calls to the <B>Ke..SpinLock</B> or <B>Ke..SpinLock..DpcLevel</B> support routines. </P>
+
+<P>If a driver has a multivector ISR or more than one ISR, its routines can call <A HREF="k105_99rm.htm"><B>KeSynchronizeExecution</B></A> while executing at any IRQL up to the <I>SynchronizeIrql</I> value specified for the associated interrupt objects when they were connected. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Calling%20Support%20Routines%20That%20Use%20Spin%20Locks"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

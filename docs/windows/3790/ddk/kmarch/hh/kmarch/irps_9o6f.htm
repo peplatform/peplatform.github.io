@@ -1,0 +1,38 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Points to Consider about User I/O Requests</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Points to Consider about User I/O Requests">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_points_to_consider_about_user_i_o_requests_kg"></A>Points to Consider about User I/O Requests</H2>
+
+<P>Keep the following points in mind when designing a kernel-mode driver:
+
+<UL>
+	<LI>Drivers can be layered, and more than one driver can process a single I/O request (IRP).</LI>
+
+	<LI>A driver cannot make any assumptions about which other drivers will be in the device stack. Therefore, each driver should be prepared to receive requests from any other driver and should handle all potential error cases.</LI>
+
+	<LI>Drivers communicate the success or failure of a requested I/O operation in the I/O status block of the IRP. The I/O Manager communicates the success or failure of a requested I/O operation to a user-mode requester.</LI>
+
+	<LI>Drivers need not and should not be designed to provide application-specific support. A protected subsystem or its subsystem-specific, user-mode drivers supply this kind of support. There is one exception to this rule: an MS-DOS® application that relies on an application-dedicated device can require a kernel-mode driver to control the device and a closely coupled Win32 user-mode virtual device driver (VDD). See the <I>Virtual Device Drivers</I> documentation in the DDK for more information about VDDs<I>.</I> </LI>
+
+	<LI>A new driver must handle the same set of IRP_MJ_<I>XXX</I> as any system-supplied driver it replaces. The I/O Manager returns STATUS_INVALID_DEVICE_REQUEST for a given I/O request to a target device if its driver does not define an entry point for that IRP_MJ_<I>XXX</I>. A device driver also must handle the same I/O control codes for IRP_MJ_DEVICE_CONTROL requests as any system-supplied driver it replaces. In other words, a new device driver must not "break applications" by implementing less functionality than an existing driver for the same type of device.</LI>
+
+	<LI>A new intermediate driver inserted into a chain of existing drivers should recognize the same set of IRP_MJ_<I>XXX</I> as the driver it displaces. The new driver can simply pass on IRPs for those requests that it does not process to the next-lower-level driver. However, a new intermediate driver must not "break the chain" for drivers above and below it by neglecting to define an entry point for an IRP_MJ_<I>XXX</I> request that the newly displaced, next-lower-level driver does handle.  </LI>
+
+	<LI>A lowest-level driver can access only its own I/O stack location in any IRP that it is sent. A higher-level driver can access only its own and the next-lower-level driver's I/O stack locations in any IRP that it is sent.</LI>
+
+	<LI>Every driver communicates information to higher-level drivers (and ultimately, to user-mode applications via the I/O Manager) <I>only</I> in the I/O status blocks of IRPs because the I/O Manager zeros the corresponding I/O stack location as each driver in a chain completes an IRP. Any new driver that attempts to implement back-door communication with a particular higher (or lower) driver compromises its portability and its interoperability with other drivers from one Windows platform or version to the next.</LI>
+
+	<LI>A pair of drivers can define a set of device-specific (also called <I>private</I>) I/O control codes for IRP_MJ_INTERNAL_DEVICE_CONTROL requests that the higher of the pair can send down to the lower of the pair. However, such a pair of drivers must follow all of the preceding guidelines if they are to remain portable and interoperable with other drivers from one Windows platform or version to another. If you design a pair of drivers with a private interface, consider the set of I/O control codes to be defined carefully. Make them as generally useful as possible and design your paired drivers to follow the preceding guidelines, so that you (or someone else) can reuse, replace, or displace either or both of your new drivers easily as they migrate from one Windows platform or version to another.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Points%20to%20Consider%20about%20User%20I%2FO%20Requests"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

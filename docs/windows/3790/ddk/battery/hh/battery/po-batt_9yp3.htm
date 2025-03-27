@@ -1,0 +1,67 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DispatchSystemControl Routine of Battery Miniclass Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DispatchSystemControl Routine of Battery Miniclass Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_windows_management_instrumentation_kg">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mj_system_control_kr">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_dpwmiquerydatablock_kr">
+</OBJECT>
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_wmilib_context_kr">
+</OBJECT>
+<OBJECT ID="hhobj_5" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_wmicompleterequest_kr">
+</OBJECT>
+<OBJECT ID="hhobj_6" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_dpwmiquerydatablock_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Battery&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_dispatchsystemcontrol_routine_of_battery_miniclass_driver_dg"></A><I>DispatchSystemControl</I> Routine of Battery Miniclass Driver</H1>
+
+<P>Battery miniclass drivers must support <A HREF="JavaScript:hhobj_1.Click()">Windows Management Instrumentation</A> (WMI) by supplying a <I>DispatchSystemControl</I> routine to handle the <A HREF="JavaScript:hhobj_2.Click()">IRP_MJ_SYSTEM_CONTROL</A> IRP.  WMI provides a uniform way for drivers to expose measurement and instrumentation data.</P>
+
+<P>Battery miniclass drivers use the <A HREF="bat-rtn_6z8y.htm"><B>BatteryClassSystemControl</B></A> routine to do initial processing.  <B>BatteryClassSystemControl</B> takes a <I>WmiLibContext</I> parameter, which specifies a dispatch table of functions.  The routine uses the <B>MinorFunction</B> member of IRP_MJ_SYSTEM_CONTROL to determine which dispatch function it calls.</P>
+
+<P>There are certain WMI queries that all drivers for battery devices must handle.  Battery miniclass drivers do not need to support these WMI queries directly, but instead forward them to the battery class driver to handle.  To handle WMI queries, the miniclass driver provides a pointer to a <A HREF="JavaScript:hhobj_3.Click()"><I>DpWmiQueryDataBlock</I></A> routine in the <I>QueryWmiDataBlock</I> member of <A HREF="JavaScript:hhobj_4.Click()">WMILIB_CONTEXT</A>.  The miniclass driver is not required to handle any other type of WMI request.  If it does not, the driver sets the other members of WMILIB_CONTEXT to zero.</P>
+
+<P>Inside its <I>DpWmiQueryDataBlock</I> routine, the miniclass driver calls the  <A HREF="bat-rtn_4836.htm"><B>BatteryClassQueryWmiDataBlock</B></A> routine to allow the battery class driver to handle the WMI query request if it can.  If the battery class driver handles that WMI class GUID, it completes the IRP.  Otherwise, <B>BatteryClassQueryWmiDataBlock</B> returns a value of STATUS_WMI_GUID_NOT_FOUND.  Then, the miniclass driver can do its driver-specific processing, and use <A HREF="JavaScript:hhobj_5.Click()"><B>WmiCompleteRequest</B></A> to complete the request.</P>
+
+<P>Battery miniclass drivers are not required to do any WMI IRP processing beyond calling <B>BatteryClassQueryWmiDataBlock</B>.  In a minimal implementation of WMI handling for a battery miniclass driver, if <B>BatteryClassQueryWmiDataBlock</B> returns STATUS_WMI_GUID_NOT_FOUND,  the miniclass driver simply calls <B>WmiCompleteRequest</B> with a status value of STATUS_WMI_GUID_NOT_FOUND.</P>
+
+<P>The <I>src\wdm\acpi\smbbatt\smbbatt</I> directory of the DDK contains a sample of a battery miniclass driver that handles the IRP_MJ_SYSTEM_CONTROL request.  In particular, the <B>SmbBattQueryWmiDataBlock</B> routine in the sample demonstrates a minimal implementation of a <A HREF="JavaScript:hhobj_6.Click()"><I>DpWmiQueryDataBlock</I></A> routine.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DispatchSystemControl%20Routine%20of%20Battery%20Miniclass%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

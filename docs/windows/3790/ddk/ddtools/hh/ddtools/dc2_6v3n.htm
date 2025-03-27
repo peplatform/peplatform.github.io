@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Device Path Exerciser Overview</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Device Path Exerciser Overview">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_direct_i_o_kg">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_neither_buffered_nor_direct_i_o_kg">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_neither_buffered_nor_direct_i_o_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Driver&nbsp;Development&nbsp;Tools:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_device_path_exerciser_overview_tools"></A>Device Path Exerciser Overview</H2>
+
+<P>Device Path Exerciser consists of a set of tests, each of which concentrates on a different entry point or I/O interface. These tests are designed to assess the robustness of a driver, not its functionality.</P>
+
+<P>During a test, DC2 typically sends hundreds of thousands of similar calls to the driver in rapid succession. The calls include varying data access methods, valid and invalid buffer lengths and addresses and permutations of the function parameters, including spaces, strings, and characters that might be misinterpreted by a flawed parsing or error-handling routine.</P>
+
+<H4>Introduction to Device Path Exerciser Testing</H4>
+
+<P>The Device Path Exerciser test identifies drivers that do not correctly handle the following calls:
+
+<UL>
+	<LI>Unexpected I/O requests to the driver, such as file system query requests directed to a sound card.</LI>
+
+	<LI>Query requests with buffers that are too small to contain all the data to be returned.</LI>
+
+	<LI>IOCTL/FSCTL requests with missing buffers, buffers that are too small, or buffers containing meaningless information.</LI>
+
+	<LI>IOCTL/FSCTL requests with <A HREF="JavaScript:hhobj_1.Click()">direct I/O</A> or <A HREF="JavaScript:hhobj_2.Click()">neither I/O</A> data access in which the data is changing asynchronously.</LI>
+
+	<LI>IOCTL/FSCTL requests with invalid pointers for requests using <A HREF="JavaScript:hhobj_3.Click()">neither I/O</A>.</LI>
+
+	<LI>IOCTL/FSCTL requests and fast path query requests in which the mapping of the user buffer changes asynchronously, causing the pages to become unreadable.</LI>
+
+	<LI><A HREF="dc2_496b.htm">Relative open operations</A> with arbitrary or hard-to-parse file names and open operations to fictitious device objects.</LI>
+</UL>
+
+<P>The Device Path Exerciser tests verify that calls sent to the device are completed correctly and do not cause system crashes, system memory pool corruption, or memory leaks.</P>
+
+<P>The Device Path Exerciser tests send tens of thousands of device control requests to a driver during the course of testing. A device driver is expected to handle each of these requests properly, either by returning valid data or by rejecting the request.</P>
+
+<H4>Memory Leak Monitoring</H4>
+
+<P>After each test, Device Path Exerciser requests information about the memory that the driver has allocated from system paged and nonpaged memory pools and from the lookaside list.</P>
+
+<P>If the amount of memory that the driver allocated from any of these resources increases, Device Path Exerciser repeats the test and checks the resources again. If the increased memory use is not related to the call, then the amount of memory allocated should not change as a result of the second call. However, if the driver is causing a pool leak by allocating, but not freeing, memory, Device Path Exerciser will detect the leak, especially after repeated calls.</P>
+
+<P>For calls that use buffered I/O, the program tracks the number of exceptions that the operating system has dispatched. If the number of exceptions increases, the operation is repeated. </P>
+
+<P>Exception dispatching might indicate an internal error that is being handled by an exception handler, thereby hiding a parameter validation error or a handle validation error. In this case, you can run Device Path Exerciser with the <B>/n</B> parameter, which maps the zero hardware page and fills it with null values. As a result, when the driver dereferences a null pointer without first validating the pointer, it will return meaningless information, instead of raising an exception.</P>
+
+<P>If Device Path Exerciser finds a change in the amount of allocated memory or a change in the exception count, it records a message in the <I>Diags.log</I> file. </P>
+
+<P>After a test completes, search the <I>Diags.log</I> file for messages that include the words "exception," "lookaside," and "pool." These might help you detect a problem, even if the memory leak does not crash the system. Device Path Exerciser also records the pool tag of the allocations that it was tracking. Then, you can use <A HREF="poolmon_7983.htm">Poolmon</A> to track allocations with this tag.</P>
+
+<H4>Using Driver Verifier</H4>
+
+<P>Before starting Device Path Exerciser, start <A HREF="dv_7g8j.htm">Driver Verifier</A> and configure it to test the driver that you are testing in Device Path Exerciser. Device Path Exerciser is most often run while using Driver Verifier to monitor the driver. This produces a thorough profile of the driver's behavior during the stress of the Device Path Exerciser tests. </P>
+
+<P>If you are running an <A HREF="dc2_24fn.htm">Active Control Test</A> on a computer running Windows Server&nbsp;2003 or later, enable the <A HREF="dv_8p9v.htm">IRP Logging</A> feature in Driver Verifier. This feature uses WMI software tracing to record the IRPs that the driver processes while Driver Verifier is monitoring. Then, start the DC2WMIParser tool (<I>dc2wmiparser.exe</I>), a tool that parses the IRP log and creates the input file for the Active Control Test.</P>
+
+<H4>Restarting Device Path Exerciser </H4>
+
+<P>Device Path Exerciser is often run repeatedly. If a Device Path Exerciser test causes a driver to crash the system, you can fix the error that caused the crash and then perform the test again, or skip the test that caused the crash and perform the other Device Path Exerciser tests. </P>
+
+<P>In either case, the procedure will be similar. Device Path Exerciser does not retain any commands from previous test sessions and it always begins by using the same default values. Use one of the following procedures.
+
+<UL>
+	<LI>To rerun the same test, use the same command line. Device Path Exerciser records the command line in the <A HREF="dc2_40vn.htm#ddk_dc2.log_tools"><I>Dc2.log</I></A> file. </LI>
+
+	<LI>If you are running the <A HREF="dc2_53sj.htm">Random Test</A> or a test that includes the Random Test, such as the <A HREF="dc2_2qk3.htm">HCT Test</A>, use the <B>/rs</B> parameter to set the seed number for the random routine to the seed number used in the original test. The seed number is recorded in the <A HREF="dc2_40vn.htm#ddk_dc2.log_tools"><I>Dc2.log</I></A> file.</LI>
+
+	<LI>To skip tests that caused a system crash, add the <B>/c</B> parameter to the command. The <B>/c</B> parameter skips all tests listed in the <A HREF="dc2_40vn.htm#ddk_crash.log_tools"><I>Crash.log</I></A> file, and the last test in the <A HREF="dc2_40vn.htm#ddk_crashn.log_tools"><I>Crashn.log</I></A> file.</LI>
+
+	<LI>To skip tests that Device Path Exerciser performed during a previous test session, add the <B>/r</B> parameter. This parameter skips all tests listed in the <I>Crashn.log</I> file.</LI>
+</UL>
+
+<P>Review the contents of the <I>Crash.log</I> and <I>Crashn.log</I> files before you restart Device Path Exerciser. These files are cumulative and might contain tests that were performed on other drivers or devices.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Device%20Path%20Exerciser%20Overview"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

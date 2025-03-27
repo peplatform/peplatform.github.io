@@ -1,0 +1,77 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AVStream Splitters</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="AVStream Splitters">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_inplace_kg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_avstream_splitters_ksg"></A>AVStream Splitters</H3>
+
+<P>An AVStream minidriver can use AVStream class driver functionality to split a data stream into multiple copies as the stream passes through a given pin. This splitting process can be useful if your driver needs to copy an input stream to produce two identical output streams.</P>
+
+<P>To do this, set KSPIN_FLAG_SPLITTER in the <B>Flags</B> member of the pin's <A HREF="avstruct_1fw3.htm">KSPIN_DESCRIPTOR_EX</A> structure. When this flag is set on a pin, the pin acts as an automatic splitter. AVStream automatically copies all data necessary to split the stream.</P>
+
+<P>In releases later than DirectX 8.0, the KSPIN_FLAG_SPLITTER flag works for pins on both <A HREF="avsover_702v.htm">filter-centric</A> and <A HREF="avsover_4krr.htm">pin-centric</A> filters. Prior releases support this flag only for pins on filter-centric filters.</P>
+
+<P>The following diagram shows the configuration of a filter in which the input pin splits a stream into two output pins. The downstream filters of this output pin modify data <A HREF="JavaScript:hhobj_1.Click()">inplace</A>.</P>
+
+<P><IMG SRC="images/split1.gif" ALT="" BORDER=0></P>
+
+<P><B>AVStream Filter with a Splitter Output Pin </B></P>
+
+<P>Frames arrive on the input pin and are placed into the input queue. The minidriver interacts only with the input queue and the output queue for the original pin. AVStream automatically copies data from the first pin’s queue to the second pin’s queue.</P>
+
+<P>For simplicity, this diagram does not show how frames are supplied to the output pin. To supply frames to the output pin, for instance, there could be a requester and allocator associated with each queue and belonging to this pipe section. Alternatively, the frames could come from a downstream filter.</P>
+
+<P>In the <A HREF="avstruct_04oj.htm">KSFILTER_DISPATCH</A> structure, the minidriver specifies a pointer to a vendor-supplied <A HREF="avstclbk_5xv7.htm"><I>AVStrMiniFilterProcess</I></A> callback routine. This callback routine is where the minidriver receives a pointer to a <A HREF="avstruct_6gxf.htm">KSPROCESSPIN_INDEXENTRY</A> structure containing the array of <A HREF="avstruct_020j.htm">KSPROCESSPIN</A> structures depicted below.</P>
+
+<P>This diagram shows how the minidriver distinguishes between the two output pins in the process pins list:</P>
+
+<P><IMG SRC="images/splitppin1.gif" ALT="" BORDER=0></P>
+
+<P><B>Process Pins Table for Two Split Pins</B></P>
+
+<P>In this diagram, DB refers to the <B>DelegateBranch</B> member of the <A HREF="avstruct_020j.htm">KSPROCESSPIN</A> structure and CS refers to the <B>CopySource</B> member. Both the <B>DelegateBranch</B> and <B>CopySource</B> members of the input pin and the first output pin are NULL. This indicates that the minidriver is responsible for handling frames on these pins.</P>
+
+<P>The second output pin, however, has a <B>CopySource</B> that points back to the first output pin. This indicates that the second output pin is in a separate pipe from the first output pin and that AVStream is automatically copying any data that is placed into the first output pin’s queue into the second output pin’s queue.</P>
+
+<P>More complicated splitter cases can arise when two output pins are built into the same pipe. A minidriver could include two splitter-based output pins in the same pipe, for example, as long as downstream filters do not modify the data sent from these pins. Because data is not modified, the output pins are considered read-only; both downstream filters receive the same buffers.</P>
+
+<P>It is also possible that some of the downstream filters that automatically attach to the splitter pin modify the data while others do not.</P>
+
+<P>In this case, the filter layout could be similar to the following diagram, which depicts a filter that contains three instances of the split output pin:</P>
+
+<P><IMG SRC="images/split2.gif" ALT="" BORDER=0></P>
+
+<P><B>AVStream Filter with Three Split Output Pins   </B></P>
+
+<P>Pins A and B are assigned to the same pipe because the downstream filters do not modify the data; the filters downstream of A and B receive the same buffer pointers.</P>
+
+<P><I>The minidriver interacts only with the input queue and a single output queue.</I> AVStream automatically copies from the A/B queue and the C queue. It also creates a splitter object that sends the same data frames through pin A and pin B (note that the stream headers differ).</P>
+
+<P>The array of <A HREF="avstruct_020j.htm">KSPROCESSPIN</A> structures is as follows:</P>
+
+<P><IMG SRC="images/splitppin2.gif" ALT="" BORDER=0></P>
+
+<P><B>Process Pins Table for Three Split Output Pins</B></P>
+
+<P>The only pin that the minidriver must interact with under normal circumstances is pin A.</P>
+
+<P>To simplify the diagrams above, requesters and allocators were omitted from the diagrams. The diagrams are intended to demonstrate only the frame splitting process.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: AVStream%20Splitters"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

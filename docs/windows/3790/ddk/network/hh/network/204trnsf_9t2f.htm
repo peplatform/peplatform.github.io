@@ -1,0 +1,63 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling an Interrupt</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling an Interrupt">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_handling_an_interrupt_ng"></A>Handling an Interrupt</H1>
+
+<P>This section describes the handling of interrupts. For more information on registering interrupts, see <A HREF="203entry_3uxz.htm">Registering Handlers for Interrupt Support</A>.</P>
+
+<P>When a network interface card (NIC) generates an interrupt, NDIS fields it and calls the <A HREF="101mini_38c2.htm"><I>MiniportISR</I></A> routine of each miniport driver that registered the interrupt during initialization.</P>
+
+<P>Generally, <I>MiniportISR</I>:
+
+<UL>
+	<LI>Determines and records the reason for the interrupt</LI>
+
+	<LI>Copies any volatile interrupt-specific information it needs to handle the interrupt into a permanent structure (usually somewhere in the <I>MiniportAdapterContext</I> passed to <I>MiniportISR</I>)</LI>
+
+	<LI>Clears the interrupt on the NIC</LI>
+</UL>
+
+<P>The definition of <I>MiniportISR</I> is:</P>
+
+<PRE class=syntax><B>VOID
+</B>  <B>MiniportISR(
+</B>    <B>OUT PBOOLEAN</B>  <I>InterruptRecognized</I><B>,</B><I>
+</I>    <B>OUT PBOOLEAN</B>  <I>QueueMiniportHandleInterrupt</I><B>,</B><I>
+</I>    <B>IN NDIS_HANDLE</B><I>  MiniportAdapterContext
+</I>    <B>);</B></PRE>
+
+<P><I>MiniportISR</I> is passed two arguments, <I>InterruptRecognized</I> and <I>QueueMiniportHandleInterrupt</I>, that must be set before returning. <I>MiniportISR</I> must set <I>InterruptRecognized</I> to TRUE if it recognizes the interrupt, or FALSE if it does not. If the interrupt is shared and if the miniport driver does not recognize the interrupt, it returns FALSE. </P>
+
+<P>If <I>MiniportISR</I> recognizes the interrupt and wants its <A HREF="101mini_7s36.htm"><I>MiniportHandleInterrupt</I></A> function queued, it must set <I>QueueMiniportHandleInterrupt</I> to TRUE. NDIS does the actual queuing of the <I>MiniportHandleInterrupt</I> function when <I>MiniportISR</I> returns. </P>
+
+<P>While an ISR is executing, all other interrupts on the processor at the same or lower IRQL are masked off. Therefore, it is important for a miniport driver to minimize the time spent in <I>MiniportISR</I>. Otherwise, the overall performance of the system, as well as I/O throughput for the miniport driver, degrades.</P>
+
+<P>It is important for a miniport driver that manages a NIC that shares an interrupt with other devices on the same bus to quickly determine if the interrupt belongs to the miniport driver. If the interrupt does not belong to the miniport driver, the miniport driver should set <I>InterruptRecognized</I> to FALSE and return immediately. </P>
+
+<P>If the interrupt is shared and belongs to the miniport driver, or if the interrupt is not shared but is recognized by the miniport driver (the interrupt is not spurious), the miniport driver should disable interrupts on its NIC and then capture the interrupt-specific information it needs from the NIC registers. The miniport driver captures the interrupt-specific information immediately in <I>MiniportISR</I>, if absolutely necessary, or preferably, the miniport driver captures the interrupt-specific information in the <I>MiniportHandleInterrupt</I> function, which runs at a lower IRQL.</P>
+
+<P><I>MiniportISR </I>must disable interrupts to ensure that when <I>MiniportHandleInterrupt</I> runs, no information in the NIC will be overwritten by a subsequent interrupt. <I>MiniportISR</I> should read and save only the information that cannot be accessed after it returns. <I>MiniportISR</I> should then return.</P>
+
+<P>If the miniport driver does not want its <I>MiniportHandleInterrupt</I> function to be queued and if it previously disabled interrupts in <I>MiniportISR</I>, it must reenable the interrupt on the NIC before returning from <I>MiniportISR</I>. </P>
+
+<P>A miniport that controls a NIC that supports power management must always keep track of the NIC's power state. If <I>MiniportISR</I> is called when the NIC is in a low-power state, <I>MiniportISR</I> must not access the NIC, claim the interrupt by setting <I>InterruptRecognized </I>to TRUE, or set <I>QueueMiniportHandleInterrupt</I> to TRUE.</P>
+
+<H4>Synchronizing with an ISR Function</H4>
+
+<P>A miniport driver’s <A HREF="101mini_38c2.htm"><I>MiniportISR</I></A> function and its <A HREF="101mini_0jg2.htm"><I>MiniportDisableInterrupt</I></A> function run at DIRQL. Other miniport driver code runs at IRQL &lt;= DISPATCH_LEVEL. To prevent race conditions, any miniport driver function that shares resources with <I>MiniportISR</I> or <I>MiniportDisableInterrupt</I> must synchronize access to the shared resources. A function synchronizes with <I>MiniportISR</I> and <I>MiniportDisableInterrupt </I>by calling <A HREF="103ndisx_0rn6.htm"><B>NdisMSynchronizeWithInterrupt</B></A>, supplying a <I>MiniportSynchronizeISR</I> function. <I>MiniportSynchronizeISR</I> runs at DIRQL and can safely access the shared resource. </P>
+
+<P>For example, <A HREF="101mini_7s36.htm"><I>MiniportHandleInterrupt</I></A> calls <B>NdisMSynchronizeWithInterrupt</B> before clearing an interrupt status register. This NDIS call takes a <I>SynchronizeFunction</I> argument. Within <B>NdisMSynchronizeWithInterrupt</B>, NDIS calls the miniport driver’s <I>SynchronizeFunction</I> at DIRQL, so that this function can safely clear the interrupt status register and be sure that <I>MiniportISR</I> or <I>MiniportDisableInterrupt </I>are not modifying the same register at the same time. <I>SynchronizeFunction</I> should execute as quickly as possible, like the <I>MiniportISR</I> and <I>MiniportDisableInterrupt</I> functions. </P>
+
+<P>The execution of <I>MiniportISR</I> and <I>MiniportDisableInterrupt</I>, both of which run at DIRQL, is synchronized with a spin lock associated with the interrupt object.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20an%20Interrupt"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

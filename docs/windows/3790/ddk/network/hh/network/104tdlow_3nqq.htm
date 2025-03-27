@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProtocolClIncomingCloseCall</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProtocolClIncomingCloseCall">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocolclincomingclosecall_nr"></A>ProtocolClIncomingCloseCall</H1>
+
+<P>The <I>ProtocolClIncomingCloseCall</I> function is used by all connection-oriented NDIS clients. All such clients must have fully functional <I>ProtocolClIncomingCloseCall</I> functions. </P>
+
+<PRE class=syntax><B>VOID 
+</B>  <B>ProtocolClIncomingCloseCall(
+</B>    <B>IN NDIS_STATUS</B>  <I>CloseStatus</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>ProtocolVcContext</I><B>,</B>
+    <B>IN PVOID</B>  <I>CloseData </I><B>OPTIONAL,</B>
+    <B>IN UINT</B>  <I>Size </I><B>OPTIONAL
+</B>    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>CloseStatus</I></DT>
+
+<DD>Specifies the status that indicates the cause of the connection teardown, which is usually NDIS_STATUS_SUCCESS to indicate that the remote party to the call requested that the connection be closed. Any other value indicates that problems on the network caused the call manager to terminate the connection. </DD>
+
+<DT><I>ProtocolVcContext</I></DT>
+
+<DD>Specifies the handle to the client’s per-VC context area for the VC on which the connection is being closed. Whatever the value of <I>CloseStatus</I>, the client can neither send nor receive data on the VC designated by the <I>NdisVcHandle</I> that it stored in this context area. </DD>
+
+<DT><I>CloseData</I></DT>
+
+<DD>Pointer to a buffer containing a protocol-specific close message, possibly one supplied by the remote client that the call manager received over the network, or this parameter can be NULL. 
+
+<P>When <I>CloseStatus</I> is NDIS_STATUS_SUCCESS, this parameter is NULL if the underlying network medium does not support transfers of data when closing a connection. However, any particular call manager might define a structure to pass additional diagnostic information to its clients on call teardowns caused by problems on the network.
+</DD>
+
+<DT><I>Size</I></DT>
+
+<DD>Specifies the size in bytes of the buffer at <I>CloseData</I>, zero if <I>CloseData</I> is NULL.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A call to <I>ProtocolClIncomingCloseCall</I> indicates that the one of the following has occurred:
+
+<UL>
+	<LI>The call manager has received a request over the network to close an established connection, identified by the <I>NdisVcHandle</I> that the client stored in its per-VC context area at <I>ProtocolVcContext</I>. </LI>
+
+	<LI>The call manager has detected that network problems will prevent further data transfers on the established connection.</LI>
+</UL>
+
+<P>In either case, <I>ProtocolClIncomingCloseCall</I> should carry out any protocol-determined operations, such as notifying the client's own client(s) that the connection is being broken. For example, if the call to be closed is a multipoint VC created by the client, <I>ProtocolClIncomingCloseCall</I> must call <A HREF="103ndisx_2tf6.htm"><B>NdisClDropParty</B></A> one or more times until only a single party remains on its multipoint VC. </P>
+
+<P>Whether the given VC is a single-point or multipoint connection, <I>ProtocolClIncomingCloseCall</I> must call <A HREF="103ndisx_7rsi.htm"><B>NdisClCloseCall</B></A> to acknowledge that the client will neither attempt to send nor expect to receive data on this particular VC. If the call manager created this VC, <I>ProtocolClIncomingCloseCall</I> should return control after it calls <B>NdisClCloseCall</B>. It is the responsibility of the call manager to destroy or reuse any VC that it created. </P>
+
+<P>If the client originally created this VC for an outgoing call, <I>ProtocolClIncomingCloseCall</I> can do one of the following after it calls <B>NdisClDropParty</B> as many times as necessary, if any, and <B>NdisClCloseCall</B>:
+
+<UL>
+	<LI>If <I>CloseStatus</I> is NDIS_STATUS_SUCCESS, tear down the VC with <A HREF="103ndisx_920i.htm"><B>NdisCoDeleteVc</B></A> and either release the client's per-VC context area or prepare it for reuse in a subsequent call to <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A>.</LI>
+
+	<LI>If <I>CloseStatus</I> is NDIS_STATUS_SUCCESS, retain the VC that the client created and prepare its per-VC context area for reuse in a subsequent call to <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>. </LI>
+
+	<LI>Otherwise, tear down the VC with <B>NdisCoDeleteVc</B> and release its per-VC context area if the call manager indicated that the network has become inoperative.</LI>
+</UL>
+
+<P><I>ProtocolClIncomingCloseCall</I> must be written so that it can run at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="103ndisx_7rsi.htm"><B>NdisClCloseCall</B></A>, <A HREF="103ndisx_2tf6.htm"><B>NdisClDropParty</B></A>, <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>, <A HREF="103ndisx_5w8i.htm"><B>NdisCmDispatchIncomingCloseCall</B></A>, <A HREF="103ndisx_920i.htm"><B>NdisCoDeleteVc</B></A>, <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A>, <A HREF="103ndisx_6sc2.htm"><B>NdisFreeMemory</B></A>, <A HREF="103ndisx_0kc2.htm"><B>NdisFreeToNPagedLookasideList</B></A>, <A HREF="103ndisx_3saa.htm"><B>NdisMCmDispatchIncomingCloseCall</B></A>, <A HREF="104tdlow_07ea.htm"><I>ProtocolClDropPartyComplete</I></A>, <A HREF="104tdlow_7ks2.htm"><I>ProtocolCoDeleteVc</I></A>  </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProtocolClIncomingCloseCall"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

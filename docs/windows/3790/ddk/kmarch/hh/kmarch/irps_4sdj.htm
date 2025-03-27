@@ -1,0 +1,142 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Cancel-Safe IRP Queues</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Cancel-Safe IRP Queues">
+<META NAME="MS-HKWD" CONTENT="Implementing the Cancel-Safe IRP Queue">
+<META NAME="MS-HKWD" CONTENT="Using the Cancel-Safe IRP Queue">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_cancel_safe_irp_queues_kg"></A>Cancel-Safe IRP Queues</H3>
+
+<P>Drivers that implement their own IRP queuing should use the <I>cancel-safe IRP queue</I> framework. Cancel-safe IRP queues split IRP handling into two parts:
+
+<OL>
+	<LI>The driver provides a set of callback routines that implement standard operations on the driver's IRP queue. The provided operations include inserting and removing IRPs from the queue, and locking and unlocking the queue. See <A HREF="#ddk_implementing_the_cancel_safe_irp_queue_kg">Implementing the Cancel-Safe IRP Queue</A>.</LI>
+
+	<LI>Whenever the driver needs to actually insert or remove an IRP from the queue, it uses the system-provided <B>IoCsq</B><I>Xxx</I> routines. These routines handle all synchronization and IRP canceling logic for the driver.</LI>
+</OL>
+
+<P>Drivers that use cancel-safe IRP queues do not implement <A HREF="drvrrtns_8y0i.htm"><I>Cancel</I></A> routines to support IRP cancellation.</P>
+
+<P>The framework ensures that drivers insert and remove IRPs from their queue atomically. It also ensures that IRP cancellation is implemented correctly. Drivers that do not use the framework must manually lock and unlock the queue before performing any insertions and deletions. They must also avoid the race conditions that can result when implementing a <A HREF="drvrrtns_8y0i.htm"><I>Cancel</I></A> routine. (For a description of the race conditions that can arise, see <A HREF="irps_5nl3.htm">Synchronizing IRP Cancellation</A>.)</P>
+
+<P>The cancel-safe IRP queue framework is included with Windows®&nbsp;XP and later operating systems. Drivers that must also work with Windows&nbsp;2000 and Windows&nbsp;98/Me can link to the <I>csq.lib</I> library that is shipped with the Windows&nbsp;XP DDK and later. The <I>csq.lib</I> library provides an implementation of this framework.</P>
+
+<P>The <B>IoCsq<I>Xxx</I></B> routines are declared in the Windows&nbsp;XP and later versions of <I>wdm.h</I> and <I>ntddk.h</I>. Drivers that must alsow work with Windows&nbsp;2000 and Windows&nbsp;98/Me must include <I>csq.h</I> for the declarations. </P>
+
+<P>A complete demonstration of how to use cancel-safe IRP queues is available in the <I>src\general\cancel</I> directory of the DDK.</P>
+
+
+
+<H4><A NAME="ddk_implementing_the_cancel_safe_irp_queue_kg"></A>Implementing the Cancel-Safe IRP Queue</H4>
+
+<P>To implement a cancel-safe IRP queue, drivers must provide the following routines:
+
+<UL>
+	<LI>Either of the following routines to insert IRPs into the queue: <A HREF="drvrrtns_9x9u.htm"><I>CsqInsertIrp</I></A> or <A HREF="drvrrtns_8tyq.htm"><I>CsqInsertIrpEx</I></A>. <I>CsqInsertIrpEx</I> is an extended version of <I>CsqInsertIrp</I>; the queue is implemented using one or the other.</LI>
+
+	<LI>A <A HREF="drvrrtns_1upe.htm"><I>CsqRemoveIrp</I></A> routine that removes the specified IRP from the queue.</LI>
+
+	<LI>A <A HREF="drvrrtns_70du.htm"><I>CsqPeekNextIrp</I></A> routine that returns a pointer to the next IRP following the specified IRP in the queue. This is where the system passes the <I>PeekContext</I> value that it receives from <A HREF="k104_7fw2.htm"><B>IoCsqRemoveNextIrp</B></A>. The driver can interpret that value in any way.</LI>
+
+	<LI>&bull;Both of the following routines to allow the system to lock and unlock the IRP queue: <A HREF="drvrrtns_1v02.htm"><I>CsqAcquireLock</I></A> and <A HREF="drvrrtns_70s2.htm"><I>CsqReleaseLock</I></A>.</LI>
+
+	<LI>A <A HREF="drvrrtns_6qb6.htm"><I>CsqCompleteCanceledIrp</I></A> routine that completes a canceled IRP.</LI>
+</UL>
+
+<P>Pointers to the driver's routines are stored in the <A HREF="k112_2fn6.htm">IO_CSQ</A> structure that describes the queue. The driver allocates the storage for the IO_CSQ structure. The IO_CSQ structure is guaranteed to remain a fixed size, so a driver can safely embed the structure inside its device extension.</P>
+
+<P>The driver uses either <A HREF="k104_1lbm.htm"><B>IoCsqInitialize</B></A> or <A HREF="k104_148i.htm"><B>IoCsqInitializeEx</B></A> to initialize the structure. Use <B>IoCsqInitialize</B> if the queue implements <I>CsqInsertIrp</I>, or <B>IoCsqInitializeEx</B> if the queue implements <I>CsqInsertIrpEx</I>.</P>
+
+<P>Drivers need only provide the essential functionality in each callback routine. For example, only the <I>CsqAcquireLock</I> and <I>CsqReleaseLock</I> routines implement lock handling. The system automatically calls these routines to lock and unlock the queue as necessary.</P>
+
+<P>You can implement any type of IRP queuing mechanism in your driver, as long as the appropriate dispatch routines are provided.  For example, the driver could implement the queue as a linked list, or as a priority queue.</P>
+
+<P><A HREF="drvrrtns_8tyq.htm"><I>CsqInsertIrpEx</I></A> provides a more flexible interface to the queue than does <A HREF="drvrrtns_9x9u.htm"><I>CsqInsertIrp</I></A>. The driver can use its return value to indicate the result of the operation; if it returns an error code, the insertion failed. A <I>CsqInsertIrp</I> routine does not return a value, so there is no simple way to indicate that an insertion failed. Also, <I>CsqInsertIrpEx</I> takes an additional driver-defined <I>InsertContext</I> parameter that can be used to specify additional driver-specific information to be used by the queue implementation. </P>
+
+<P>Drivers can use <I>CsqInsertIrpEx</I> to implement more sophisticated IRP handling. For example, if there are no pending IRPs, the <I>CsqInsertIrpEx</I> routine can return an error code and the driver can process the IRP immediately. Similarly, if IRPs can no longer be queued, the <I>CsqInsertIrpEx</I> can return an error code to indicate that fact.</P>
+
+<P>The driver is insulated from all IRP cancellation handling. The system provides a <A HREF="drvrrtns_8y0i.htm"><I>Cancel</I></A> routine for IRPs in the queue. This routine calls <A HREF="drvrrtns_1upe.htm"><I>CsqRemoveIrp</I></A> to remove the IRP from the queue, and <A HREF="drvrrtns_6qb6.htm"><I>CsqCompleteCanceledIrp</I></A> to complete the IRP cancellation.</P>
+
+<P>A basic implementation of <I>CsqCompleteCanceledIrp</I> is as follows.</P>
+
+<PRE>VOID <I>CsqCompleteCanceledIrp</I>(PIO_CSQ Csq, PIRP Irp) {
+  IoCompleteRequest(Irp, STATUS_CANCELLED);
+}
+</PRE>
+
+<P>Drivers can use any of the operating system's synchronization primitives to implement their <A HREF="drvrrtns_1v02.htm"><I>CsqAcquireLock</I></A> and <A HREF="drvrrtns_70s2.htm"><I>CsqReleaseLock</I></A> routines. Available synchronization primitives include <A HREF="synchro_8unb.htm">spin locks</A> and <A HREF="synchro_7c4n.htm">mutex objects</A>.</P>
+
+<P>Here is an example of how a driver can implement locking using spin locks.</P>
+
+<PRE>/* 
+  The driver has previously initialized the <I>SpinLock</I> variable with
+  KeInitializeSpinLock.
+ */
+
+VOID <I>CsqAcquireLock</I>(PIO_CSQ IoCsq, PKIRQL PIrql)
+{
+    KeAcquireSpinLock(<I>SpinLock</I>, PIrql);
+}
+
+VOID <I>CsqReleaseLock</I>(PIO_CSQ IoCsq, PKIRQL PIrql)
+{
+    KeReleaseSpinLock(<I>SpinLock</I>, PIrql);
+}
+</PRE>
+
+<P>The system passes a pointer to an IRQL variable to <I>CsqAcquireLock</I> and <I>CsqReleaseLock</I>.  If the driver uses a spin lock to implement locking for the queue, the driver can use this variable to store the current IRQL when the queue is locked.  </P>
+
+<P>Drivers are not required to use spin locks. For example, the driver could use a mutex to lock the queue. For a description of the synchronization techniques that are available to drivers, see <A HREF="synchro_2dgn.htm">Synchronization Techniques</A>.</P>
+
+
+
+<H4><A NAME="ddk_using_the_cancel_safe_irp_queue_kg"></A>Using the Cancel-Safe IRP Queue</H4>
+
+<P>Drivers use the following system routines when queuing and dequeuing IRPs:
+
+<UL>
+	<LI>Either of the following to insert an IRP into the queue: <A HREF="k104_1bxu.htm"><B>IoCsqInsertIrp</B></A> or <A HREF="k104_3kmq.htm"><B>IoCsqInsertIrpEx</B></A>. </LI>
+
+	<LI><A HREF="k104_7fw2.htm"><B>IoCsqRemoveNextIrp</B></A> to remove the next IRP in the queue. The driver can optionally specify a key value.</LI>
+
+	<LI><A HREF="k104_39de.htm"><B>IoCsqRemoveIrp</B></A> to remove the specified IRP from the queue.</LI>
+</UL>
+
+<P>These routines, in turn, dispatch to driver-supplied routines. </P>
+
+<P>The <B>IoCsqInsertIrpEx</B> routine provides access to the extended features of a <A HREF="drvrrtns_8tyq.htm"><I>CsqInsertIrpEx</I></A> routine. It returns the status value that was returned by <I>CsqInsertIrpEx</I>. The caller can use this value to determine if the IRP was successfully queued or not. <B>IoCsqInsertIrpEx</B> also allows the caller to specify a value for the <I>InsertContext</I> parameter of <I>CsqInsertIrpEx</I>.</P>
+
+<P>Note that both <B>IoCsqInsertIrp</B> and <B>IoCsqInsertIrpEx</B> can be called on any cancel-safe queue, whether the queue has a <A HREF="drvrrtns_9x9u.htm"><I>CsqInsertIrp</I></A> routine or a <I>CsqInsertIrpEx</I> routine. <B>IoCsqInsertIrp</B> behaves the same in either case. If <B>IoCsqInsertIrpEx</B> is passed a queue that has a <I>CsqInsertIrp</I> routine, it behaves identically to <B>IoCsqInsertIrp</B>.</P>
+
+<P>There are several natural ways to use the <B>IoCsq<I>Xxx</I></B> routines to queue and dequeue IRPs. For example, a driver could simply queue IRPs to be processed in the order in which they are received.   The driver could queue an IRP as follows:</P>
+
+<PRE>    status = IoCsqInsertIrpEx(IoCsq, Irp, NULL, NULL);
+</PRE>
+
+<P>If the driver is not required to distinguish between particular IRPs, it could then simply dequeue them in the order in which they were queued, as follows:</P>
+
+<PRE>    IoCsqRemoveNextIrp(IoCsq, NULL);
+</PRE>
+
+<P>Alternatively, the driver could queue and dequeue specific IRPs. The routines use the opaque <A HREF="k112_9nzm.htm">IO_CSQ_IRP_CONTEXT</A> structure to identify particular IRPs in the queue. The driver queues the IRP as follows:</P>
+
+<PRE>    IO_CSQ_IRP_CONTEXT ParticularIrpInQueue;
+    IoCsqInsertIrp(IoCsq, Irp, &amp;ParticularIrpInQueue);
+</PRE>
+
+<P>The driver can then dequeue the same IRP by using the IO_CSQ_IRP_CONTEXT value.</P>
+
+<PRE>    IoCsqRemoveIrp(IoCsq, Irp, &amp;ParticularIrpInQueue);
+</PRE>
+
+<P>The driver might also be required to remove IRPs from the queue based on a particular criterion. For example, the driver might associate a priority with each IRP, such that higher priority IRPs get dequeued first. The driver might pass a <I>PeekContext</I> value to <A HREF="k104_7fw2.htm"><B>IoCsqRemoveNextIrp</B></A>, which the system passes back to the driver when it requests the next IRP in the queue.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Cancel-Safe%20IRP%20Queues"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

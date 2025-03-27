@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IRP_MN_QUERY_ALL_DATA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IRP_MN_QUERY_ALL_DATA">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_irp_mn_query_all_data_kr"></A>IRP_MN_QUERY_ALL_DATA</H1>
+
+<P>All drivers that support WMI must handle this IRP.</P>
+
+<H4>Major Code</H4>
+
+<P><A HREF="k113_8hwy.htm">IRP_MJ_SYSTEM_CONTROL</A> </P>
+
+<H4>When Sent</H4>
+
+<P>WMI sends this IRP to query for all instances of a given data block.</P>
+
+<P>WMI sends this IRP at IRQL = PASSIVE_LEVEL in an arbitrary thread context.</P>
+
+<H4>Input</H4>
+
+<P><B>Parameters.WMI.ProviderId</B> in the driver's I/O stack location in the IRP points to the device object of the driver that should respond to the request. </P>
+
+<P><B>Parameters.WMI.DataPath</B> points to a GUID that identifies the data block.</P>
+
+<P><B>Parameters.WMI.BufferSize</B> indicates the maximum size of the nonpaged buffer at <B>Parameters.WMI.Buffer</B>, which receives output data from the request. The buffer size must be greater than or equal to <B>sizeof(</B>WNODE_ALL_DATA<B>)</B> plus the sizes of instance names and data for all instances to be returned.</P>
+
+<H4>Output </H4>
+
+<P>If the driver handles WMI IRPs by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, WMI fills in a WNODE_ALL_DATA by calling the driver's <I>DpWmiQueryDataBlock</I> routine once for each block registered by the driver. </P>
+
+<P>Otherwise, the driver fills in a <A HREF="k112_1dpu.htm">WNODE_ALL_DATA</A> structure at <B>Parameters.WMI.Buffer</B> as follows:
+
+<UL>
+	<LI>Sets <B>WnodeHeader.BufferSize</B> to the number of bytes of the entire WNODE_ALL_DATA to be returned, sets <B>WnodeHeader.Timestamp</B> to the value returned by <B>KeQuerySystemTime</B>, and sets <B>WnodeHeader.Flags</B> as appropriate for the data to be returned.</LI>
+
+	<LI>Sets <B>InstanceCount</B> to the number of instances to be returned.</LI>
+
+	<LI>If the block uses dynamic instance names, sets <B>OffsetInstanceNameOffsets</B> to the offset in bytes from the beginning of the WNODE_ALL_DATA to an array of offsets to dynamic instance names.</LI>
+
+	<LI>If all instances are the same size:
+<UL>
+	<LI>Sets WNODE_FLAG_FIXED_INSTANCE_SIZE in <B>WnodeHeader.Flags</B> and sets <B>FixedInstanceSize</B> to that size, in bytes.</LI>
+
+	<LI>Writes instance data starting at <B>DataBlockOffset</B>, with padding so that each instance is aligned to an 8-byte boundary. For example, if <B>FixedInstanceSize</B> is 6, the driver adds 2 bytes of padding between instances.</LI>
+</UL>
+</LI>
+
+	<LI>If instances vary in size:
+<UL>
+	<LI>Clears WNODE_FLAG_FIXED_INSTANCE_SIZE in <B>WnodeHeader.Flags </B>and writes an array of <B>InstanceCount </B>OFFSETINSTANCEDATAANDLENGTH structures starting at <B>OffsetInstanceDataAndLength</B>. Each OFFSETINSTANCEDATAANDLENGTH structure specifies the offset in bytes from the beginning of the WNODE_ALL_DATA structure to the beginning of the data for each instance, and the length of the data. <B>DataBlockOffset</B> is not used.</LI>
+
+	<LI>Writes instance data following the last element of the <B>OffsetInstanceDataAndLength</B> array, plus padding so that each instance is aligned to an 8-byte boundary. </LI>
+</UL>
+</LI>
+
+	<LI>If the block uses dynamic instance names, writes the instance names at the offsets specified in the array at <B>OffsetInstanceNameOffsets</B>, with each dynamic name string aligned to a USHORT boundary.</LI>
+</UL>
+
+<P>If the buffer at <B>Parameters.WMI.Buffer</B> is too small to receive all of the data, a driver fills in the needed size in a <A HREF="k112_3642.htm">WNODE_TOO_SMALL</A> structure at <B>Parameters.WMI.Buffer</B>. If the buffer is smaller than <B>sizeof(</B>WNODE_TOO_SMALL<B>)</B>, the driver fails the IRP and returns STATUS_BUFFER_TOO_SMALL. </P>
+
+<H4>I/O Status Block</H4>
+
+<P>If the driver handles the IRP by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, WMI sets <B>Irp-&gt;IoStatus.Status</B> and <B>Irp-&gt;IoStatus.Information</B> in the I/O status block.</P>
+
+<P>Otherwise, the driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS or to an appropriate error status such as the following:</P>
+
+<P class=indent1>STATUS_BUFFER_TOO_SMALL </P>
+
+<P class=indent1>STATUS_WMI_GUID_NOT_FOUND</P>
+
+<P>On success, a driver sets <B>Irp-&gt;IoStatus.Information</B> to the number of bytes written to the buffer at <B>Parameters.WMI.Buffer</B>.</P>
+
+<H4>Operation</H4>
+
+<P>A driver can handle WMI IRPs either by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A> or by handling the IRP itself, as described in <A HREF="wmi_9d47.htm">Handling WMI Requests</A>.</P>
+
+<P>If a driver handles WMI IRPs by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, that routine calls the driver's <A HREF="k903_2raq.htm"><I>DpWmiQueryDataBlock</I></A> routine. </P>
+
+<P>If a driver handles an IRP_MN_QUERY_ALL_DATA request, it should do so only if <B>Parameters.WMI.ProviderId</B> points to the same device object that the driver passed to <A HREF="k104_5dbm.htm"><B>IoWMIRegistrationControl</B></A>. Otherwise, the driver must forward the request to the next-lower driver.</P>
+
+<P>Before handling the request, the driver must determine whether <B>Parameters.WMI.DataPath</B> points to a GUID that the driver supports. If not, the driver must fail the IRP and return STATUS_WMI_GUID_NOT_FOUND.</P>
+
+<P>If the driver supports the data block, it must do the following:
+
+<UL>
+	<LI>Verify that <B>Parameters.WMI.BufferSize</B> specifies a buffer that is large enough to receive all the data that the driver will return. </LI>
+
+	<LI>Fill in a <A HREF="k112_1dpu.htm">WNODE_ALL_DATA</A> structure at <B>Parameters.WMI.Buffer</B> with data for all instances of that data block.</LI>
+</UL>
+
+<H4>See Also</H4>
+
+<P><A HREF="k903_2raq.htm"><I>DpWmiQueryDataBlock</I></A>,<A HREF="k104_5dbm.htm"><B> IoWMIRegistrationControl</B></A>, <A HREF="k105_41iq.htm"><B>KeQuerySystemTime</B></A>, <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A>, <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, <A HREF="k112_1dpu.htm">WNODE_ALL_DATA</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IRP_MN_QUERY_ALL_DATA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

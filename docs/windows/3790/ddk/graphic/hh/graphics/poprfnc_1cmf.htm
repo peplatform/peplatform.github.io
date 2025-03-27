@@ -1,0 +1,120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>GenerateCopyFilePaths</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="GenerateCopyFilePaths">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_generatecopyfilepaths_gg"></A>GenerateCopyFilePaths</H1>
+
+<P>A Point and Print DLL's <B>GenerateCopyFilePaths</B> function is used for modifying the source and destination paths used by print spoolers when they copy print queue-associated files to a print client.</P>
+
+<PRE class=syntax><B>DWORD WINAPI
+</B>  <B>GenerateCopyFilePaths(
+</B>    <B>IN LPCWSTR  </B><I>pszPrinterName</I><B>,
+</B>    <B>IN LPCWSTR  </B><I>pszDirectory</I><B>,
+</B>    <B>IN LPBYTE  </B><I>pSplClientInfo</I><B>,
+</B>    <B>IN DWORD  </B><I>dwLevel</I><B>,
+</B>    <B>IN OUT LPWSTR  </B><I>pszSourceDir</I><B>,
+</B>    <B>IN OUT LPDWORD  </B><I>pcchSourceDirSize</I><B>,
+</B>    <B>IN OUT LPWSTR  </B><I>pszTargetDir</I><B>,
+</B>    <B>IN OUT LPDWORD  </B><I>pcchTargetDirSize</I><B>,
+</B>    <B>IN DWORD  </B><I>dwFlags</I><B>
+</B>    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>pszPrinterName</I></DT>
+
+<DD>Caller-supplied pointer to a string representing the name of the print queue.</DD>
+
+<DT><I>pszDirectory</I></DT>
+
+<DD>Caller-supplied pointer to a string representing the value supplied for the server's <B>Directory</B> entry in the registry. For more information, see <A HREF="prtinst_0js7.htm">Supporting Point and Print During Printer Installations</A>.</DD>
+
+<DT><I>pSplClientInfo</I></DT>
+
+<DD>Caller-supplied pointer to an <A HREF="poprfnc_0eqv.htm">SPLCLIENT_INFO_1</A> structure.</DD>
+
+<DT><I>dwLevel</I></DT>
+
+<DD>Caller-supplied value indicating the level number of the structure pointed to by <I>pSplClientInfo</I>. Must be 1.</DD>
+
+<DT><I>pszSourceDir</I></DT>
+
+<DD>For input, receives a caller-supplied pointer to a string representing the complete server directory path (including server name) from which files are to be copied.
+
+<P>For output, the function can modify this string.
+</DD>
+
+<DT><I>pcchSourceDirSize</I></DT>
+
+<DD>Caller-supplied address containing the length of the buffer pointed to by <I>pszSourceDir</I>. (Note that this is the buffer length, not the string length.)</DD>
+
+<DT><I>pszTargetDir</I></DT>
+
+<DD>For input, receives a caller-supplied pointer to a string representing the client directory path to which files are to be copied. The following rules apply:
+
+<UL>
+	<LI>When the function is called on the server, this path is relative to PRINT$.</LI>
+
+	<LI>When the function is called on the client, the string contains a complete path.</LI>
+</UL>
+
+
+<P>For output, the function can modify this string.
+</DD>
+
+<DT><I>pcchTargetDirSize</I></DT>
+
+<DD>Caller-supplied address containing the length of the buffer pointed to by <I>pszTargetDir</I>. (Note that this is the buffer length, not the string length.)</DD>
+
+<DT><I>dwFlags</I></DT>
+
+<DD>Caller-supplied flag. Can be one of the following:
+
+<DL>
+<DT>COPYFILE_FLAG_CLIENT_SPOOLER</DT>
+
+<DD>Indicates the function is being called by the client's spooler.</DD>
+
+<DT>COPYFILE_FLAG_SERVER_SPOOLER</DT>
+
+<DD>Indicates the function is being called by the server's spooler.
+</DD>
+</DL>
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>If the operation succeeds, the function should return ERROR_SUCCESS. Otherwise, it should return an error code defined in <I>winerror.h</I>.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>winsplp.h</I>. Include <I>winsplp.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>All <A HREF="prtinst_49bb.htm">Point and Print DLLs</A> must export a <B>GenerateCopyFilePaths</B> function, which is called by the print spooler. Its purpose is to allow a Point and Print DLL to modify the source or destination directory path, or both, before the print spooler copies print queue-associated files from a server to a client. (The files are copied when a client connects to a print server. For a complete description of the steps involved in creating a Point and Print connection, see <A HREF="prtinst_7v3b.htm">Supporting Point and Print</A>.)</P>
+
+<P>A Point and Print DLL executes on both the server and the client. The <B>GenerateCopyFilePaths</B> function should check the <I>dwFlags</I> argument to determine where it is executing.</P>
+
+<P>Typically, this function is used to provide compatibility when different versions of the operating system are executing on the client and server. For example if the function, when executing on the server, determines (by reading the <A HREF="poprfnc_0eqv.htm">SPLCLIENT_INFO_1</A> structure) that its OS is newer than the client's, it can modify the source and destination paths to be compatible with the client's older OS. On the other hand, if the function determines that the client's OS is newer than the client's, it should probably do nothing on the server and perform modifications, if necessary, when executing on the client.</P>
+
+<P>Arguments for the <I>pszSourceDir</I> and <I>pszTargetDir</I> parameters point to buffers containing strings that represent the current source and destination directory paths. If modifications to either of these strings is necessary, the function should make modifications in the supplied buffers. The maximum allowable string lengths are pointed to by the <I>pcchSourceDirSize</I> and <I>pcchTargetDirSize</I> arguments.</P>
+
+<P>If no modifications to the source or destination directories are needed, the function should just return ERROR_SUCCESS.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="poprfnc_5xnr.htm"><B>SpoolerCopyFileEvent</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: GenerateCopyFilePaths"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

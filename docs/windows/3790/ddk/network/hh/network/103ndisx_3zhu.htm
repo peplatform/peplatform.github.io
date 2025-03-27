@@ -1,0 +1,77 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisDprAllocatePacketNonInterlocked</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisDprAllocatePacketNonInterlocked">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndisdprallocatepacketnoninterlocked_nr"></A>NdisDprAllocatePacketNonInterlocked</H1>
+
+<P><B>NdisDprAllocatePacketNonInterlocked</B> allocates and initializes a packet descriptor when the caller is running at IRQL = DISPATCH_LEVEL and that caller provides internal synchronization for accessing packet pool.</P>
+
+<PRE class=syntax><B>VOID</B>
+<B>  NdisDprAllocatePacketNonInterlocked(</B>
+    <B>OUT PNDIS_STATUS</B>  <I>Status</I><B>,</B>
+    <B>OUT PNDIS_PACKET</B>  <B>*</B><I>Packet</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>PoolHandle</I>
+    <B>);</B> </PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Status</I></DT>
+
+<DD>Pointer to a caller-supplied variable in which this function returns the final status of the request, which can be one of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>The caller can use the packet descriptor returned at <I>Packet</I>. </DD>
+
+<DT>NDIS_STATUS_RESOURCES</DT>
+
+<DD>The free list for the packet pool currently has no available entries. The variable at <I>Packet</I> is set to NULL. </DD>
+</DL>
+</DD>
+
+<DT><I>Packet</I></DT>
+
+<DD>Pointer to a caller-supplied variable in which this function returns a pointer to the allocated packet descriptor.</DD>
+
+<DT><I>PoolHandle</I></DT>
+
+<DD>Specifies the handle returned by a preceding call to <A HREF="103ndisx_6t82.htm"><B>NdisAllocatePacketPool</B></A>. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A caller of <B>NdisDprAllocatePacketNonInterlocked</B> and its reciprocal <A HREF="103ndisx_3f8y.htm"><B>NdisDprFreePacketNonInterlocked</B></A> is responsible for synchronizing all accesses to the packet pool that driver allocated with <B>NdisAllocatePacketPool</B>. Otherwise, the driver should let NDIS manage this synchronization on its behalf by calling <B>NdisAllocatePacket</B> or <A HREF="103ndisx_7otu.htm"><B>NdisDprAllocatePacket</B></A>. </P>
+
+<P><B>NdisDprAllocatePacketNonInterlocked</B> runs slightly faster than <B>NdisAllocatePacket</B> because NDIS need not acquire a spin lock, which NDIS typically uses to synchronize access to packet pools that drivers allocate. </P>
+
+<P>Instead, a caller of <B>NdisDprAllocatePacketNonInterlocked</B> and <B>NdisDprFreePacketNonInterlocked</B> manages the synchronization of its accesses to packet pool internally. </P>
+
+<P>Usually, such a driver protects its packet pool with a driver-allocated spin lock. Before calling <B>NdisDprAllocatePacketNonInterlocked</B>, the driver calls <A HREF="103ndisx_896a.htm"><B>NdisAcquireSpinLock</B></A>, which raises IRQL to DISPATCH_LEVEL. Only when the driver resumes execution holding its spin lock does it call <B>NdisDprAllocatePacketNonInterlocked</B>. Such a driver releases its spin lock with <A HREF="103ndisx_7uya.htm"><B>NdisReleaseSpinLock</B></A> when <B>NdisDprAllocatePacketNonInterlocked</B> returns control. </P>
+
+<P>In a similar manner, such a driver calls <B>NdisAcquireSpinLock</B> before it releases a packet descriptor back to pool with <B>NdisDprFreePacketNonInterlocked</B> and, then, it calls <B>NdisReleaseSpinLock</B>.  </P>
+
+<P>Any packet descriptor allocated with <B>NdisDprAllocatePacketNonInterlocked</B> must be freed with <B>NdisDprFreePacketNonInterlocked</B> except, possibly, when a driver is releasing its allocated resources just before being unloaded. Otherwise, it is a runtime synchronization error that can cause race conditions to release any packet descriptor with <A HREF="103ndisx_9ucz.htm"><B>NdisDprFreePacket</B></A> or <A HREF="103ndisx_47le.htm"><B>NdisFreePacket</B></A> if that packet descriptor was allocated with <B>NdisDprAllocatePacketNonInterlocked</B>. </P>
+
+<P>The caller of <B>NdisDprAllocatePacketNonInterlocked</B> must be running at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="103ndisx_896a.htm"><B>NdisAcquireSpinLock</B></A>, <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_6t82.htm"><B>NdisAllocatePacketPool</B></A>, <A HREF="103ndisx_7mk2.htm"><B>NdisAllocateSpinLock</B></A>, <A HREF="103ndisx_7otu.htm"><B>NdisDprAllocatePacket</B></A>, <A HREF="103ndisx_9ucz.htm"><B>NdisDprFreePacket</B></A>, <A HREF="103ndisx_3f8y.htm"><B>NdisDprFreePacketNonInterlocked</B></A>, <A HREF="103ndisx_47le.htm"><B>NdisFreePacket</B></A>, <A HREF="103ndisx_7uya.htm"><B>NdisReleaseSpinLock</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisDprAllocatePacketNonInterlocked"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

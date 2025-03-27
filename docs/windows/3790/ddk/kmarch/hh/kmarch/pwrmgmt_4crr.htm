@@ -1,0 +1,56 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling a Wait/Wake IRP in a Bus Driver (PDO)</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling a Wait/Wake IRP in a Bus Driver (PDO)">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_handling_a_wait_wake_irp_in_a_bus_driver_pdo__kg"></A>Handling a Wait/Wake IRP in a Bus Driver (PDO)</H3>
+
+<P>Like other power IRPs, each wait/wake IRP must be passed all the way down the device stack to the bus driver (PDO), which is ultimately responsible for completing the IRP. Upon receiving the IRP, the bus driver can either fail it immediately or hold it pending for later completion. The following are the steps the bus driver must take: 
+
+<OL>
+	<LI>Inspect the value at <B>Irp-&gt;Parameters.WaitWake.PowerState</B>. If the device supports wake-up, but not from the specified <A HREF="pwrmgmt_4exz.htm"><B>SystemWake</B></A> state or not from the current device power state, the driver should fail the IRP as follows:
+<UL>
+	<LI>Set STATUS_INVALID_DEVICE_STATE in <B>Irp-&gt;IoStatus.Status</B>.</LI>
+
+	<LI>Complete the IRP (<B>IoCompleteRequest</B>), specifying a priority boost of IO_NO_INCREMENT. </LI>
+
+	<LI>Return the status set in <B>Irp-&gt;IoStatus.Status</B> from the<I> DispatchPower</I> routine.</LI>
+</UL>
+</LI>
+
+	<LI>Check whether a wait/wake IRP is already pending for the PDO. If so, set <B>Irp-&gt;IoStatus.Status</B> to STATUS_DEVICE_BUSY, increment the driver's internal count of wait/wake IRPs, and complete the IRP as described in the previous step. 
+<P>Only one wait/wake IRP can be pending for a PDO. 
+</LI>
+
+	<LI>If the device supports wake-up from the specified system state and no wait/wake IRP is already pending, call <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A><B> </B>to indicate to the I/O Manager that the IRP will be completed or canceled later. Do not set an<I> IoCompletion</I> routine.</LI>
+
+	<LI>Set the device hardware to enable wake-up.
+<P>The specific mechanism by which a bus driver enables its hardware for wake-up is device-dependent. For a PCI device, <I>pci.sys</I> is responsible for setting the PME-enable bit because this driver owns the PME register. For other devices, refer to the device-class-specific documentation.
+</LI>
+
+	<LI>If the PDO is the child of an FDO, <A HREF="pwrmgmt_0s6f.htm">request a wait/wake IRP</A> for the FDO, making sure to set a <I>Cancel</I> routine for the current IRP (the IRP that it holds pending). Do not attempt to pass on or reuse the current IRP. </LI>
+
+	<LI>Return STATUS_PENDING from the<I> DispatchPower</I> routine.</LI>
+
+	<LI>When a wake-up signal arrives, call <B>IoCompleteRequest</B> to complete the pending wait/wake IRP, setting <B>Irp-IoStatus.Status</B> to STATUS_SUCCESS, and specifying a priority boost of IO_NO_INCREMENT.</LI>
+</OL>
+
+<H4>For Devices That Do Not Support Wake-up</H4>
+
+<P>If the device does not support wake-up, the bus driver (PDO) should proceed as follows:
+
+<OL>
+	<LI>Complete the wait/wake IRP by calling <B>IoCompleteRequest</B>, specifying IO_NO_INCREMENT. </LI>
+
+	<LI>Return from the<I> DispatchPower</I> routine, passing the value at <B>Irp-&gt;IoStatus.Status</B> as its return value.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20a%20Wait%2FWake%20IRP%20in%20a%20Bus%20Driver%20(PDO)"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

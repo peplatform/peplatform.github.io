@@ -1,0 +1,164 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Exposing Hardware-Accelerated Capture Effects</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Exposing Hardware-Accelerated Capture Effects">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_exposing_hardware_accelerated_capture_effects_ksg"></A>Exposing Hardware-Accelerated Capture Effects</H3>
+
+<P>In Windows&nbsp;XP and later, the WDM audio framework supports hardware acceleration of audio-capture effects that are exposed through DirectSound. These effects include acoustic echo cancellation (AEC) and noise suppression (NS). For information about how a DirectSoundCapture application enables use of hardware-accelerated AEC and NS, see the Platform SDK documentation.</P>
+
+<P>A miniport driver can expose hardware acceleration for any subset of these effects, depending on the capabilities of the underlying device. To expose the hardware's capabilities for AEC and NS effects, each pin on the AEC filter that the driver implements should meet these requirements:
+
+<UL>
+	<LI>The pin should include an individual node in its node chain to represent each hardware effect that is to be incorporated into the graph. The KS node types for AEC and NS effects are specified by the following GUIDs:
+<P class=indent1><A HREF="aud-prop_01wz.htm">KSNODETYPE_ACOUSTIC_ECHO_CANCEL</A> </P>
+
+<P class=indent1><A HREF="aud-prop_7t0z.htm">KSNODETYPE_NOISE_SUPPRESS</A> </P>
+</LI>
+
+	<LI>The AEC and NS nodes on the pin should support the <A HREF="ks-prop_5zub.htm">KSPROPSETID_General</A> property set and should provide information about the manufacturer when queried for the <A HREF="ks-prop_1twz.htm">KSPROPERTY_GENERAL_COMPONENTID</A> property.</LI>
+
+	<LI>The AEC and NS nodes on the pin should support the <A HREF="aud-prop_7zn7.htm">KSPROPSETID_TopologyNode</A> property set and its two properties:
+<P class=indent1><A HREF="aud-prop_6sab.htm">KSPROPERTY_TOPOLOGYNODE_ENABLE</A> enables an effect.</P>
+
+<P class=indent1><A HREF="aud-prop_3r5f.htm">KSPROPERTY_TOPOLOGYNODE_RESET</A> resets the effect to its default state. </P>
+
+<P>The driver should disable both AEC and NS effects by default. A disabled AEC or NS node operates in pass-through mode, which allows the data stream to pass through the node without modification.
+</LI>
+
+	<LI>The AEC and NS nodes on the pin should support the following properties of the <A HREF="aud-prop_9v3n.htm">KSPROPSETID_Audio</A> property set:
+<P class=indent1><A HREF="aud-prop_6ek3.htm">KSPROPERTY_AUDIO_CPU_RESOURCES</A></P>
+
+<P class=indent1><A HREF="aud-prop_4wtv.htm">KSPROPERTY_AUDIO_ALGORITHM_INSTANCE</A> </P>
+</LI>
+
+	<LI>The pin should support the following properties of the KSPROPSETID_Audio property set:
+<P class=indent1><A HREF="aud-prop_8aer.htm">KSPROPERTY_AUDIO_POSITION</A> </P>
+
+<P class=indent1><A HREF="aud-prop_1veb.htm">KSPROPERTY_AUDIO_LATENCY</A> </P>
+</LI>
+
+	<LI>The pin should expose its data-range capabilities (see <A HREF="aud-design_410n.htm">Pin Data-Range and Intersection Properties</A>).</LI>
+</UL>
+
+<P>The specific requirements for exposing hardware-accelerated AEC and NS nodes are presented below.</P>
+
+<H4>Acoustic Echo Cancellation</H4>
+
+<P>A PCM miniport driver exposes hardware support for AEC in the form of a topology for both the capture and render streams that meets this additional requirement:
+
+<UL>
+	<LI>The pin must include an AEC node (<A HREF="aud-prop_01wz.htm">KSNODETYPE_ACOUSTIC_ECHO_CANCEL</A>), which must be specified in its proper position in the ordered node chain (see below).</LI>
+</UL>
+
+<H4>Noise Suppression</H4>
+
+<P>A PCM miniport driver exposes hardware support for NS in the form of a topology for the capture stream that meets this additional requirement:
+
+<UL>
+	<LI>The pin must include an NS node (<A HREF="aud-prop_7t0z.htm">KSNODETYPE_NOISE_SUPPRESS</A>), which must be specified in its proper position in the ordered node chain (see below).</LI>
+</UL>
+
+<H4>Node-Chain Ordering</H4>
+
+<P>Currently, the DirectSound capture-effects architecture requires that the nodes be specified in the order in which they are requested by the application. As a result, the order in which the miniport driver specifies its nodes must match the order that is used by the <A HREF="pcdesign_82av.htm">AEC system filter</A> (<I>aec.sys</I>), which implements the AEC and NS algorithms in software.</P>
+
+<P>To enable hardware acceleration, the driver must specify the effects that are implemented by the hardware in the following order:</P>
+
+<P class=indent1><A HREF="aud-prop_6zoz.htm">KSNODETYPE_ADC</A> </P>
+
+<P class=indent1><A HREF="aud-prop_01wz.htm">KSNODETYPE_ACOUSTIC_ECHO_CANCEL</A> </P>
+
+<P class=indent1><A HREF="aud-prop_7t0z.htm">KSNODETYPE_NOISE_SUPPRESS</A> </P>
+
+<P>Note that this list can omit any unimplemented effects as long as the relative ordering is preserved.</P>
+
+<H4>AEC Node Pin Assignments</H4>
+
+<P>An adapter driver uses an array of <A HREF="audpc-struct_6yb7.htm">PCCONNECTION_DESCRIPTOR</A> structures to specify the connections within a filter. Each array element describes one connection, which can be node-to-node, node-to-pin, or pin-to-pin. For details, see <A HREF="aud-design_1tpj.htm">Nodes and Connections</A>.</P>
+
+<P>To use the PCCONNECTION_DESCRIPTOR structure, the driver writer assigns "logical" pins to nodes. These are "pins" on the nodes themselves and are used solely to specify the connections inside the filter. This is in contrast to the external pins on the filter, which are used to connect to other filters.</P>
+
+<P>The following table shows the pin IDs that the adapter driver should assign to the four logical pins on the AEC node.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=37%>Pin ID Parameter Name</TH>
+<TH align=left width=13%>Value</TH>
+<TH align=left width=50%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>KSNODEPIN_AEC_RENDER_IN</TD>
+<TD width=13%>1</TD>
+<TD width=50%>Sink pin (node input) for render stream</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>KSNODEPIN_AEC_RENDER_OUT</TD>
+<TD width=13%>0</TD>
+<TD width=50%>Source pin (node output) for render stream</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>KSNODEPIN_AEC_CAPTURE_IN</TD>
+<TD width=13%>2</TD>
+<TD width=50%>Sink pin (node input) for capture stream</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>KSNODEPIN_AEC_CAPTURE_OUT</TD>
+<TD width=13%>3</TD>
+<TD width=50%>Source pin (node output) for capture stream</TD>
+</TR>
+</TABLE><BR>
+
+<P>The pin IDs in the preceding table are defined in the header file <I>ksmedia.h</I>.</P>
+
+<P>The following code example shows how an adapter driver can specify the internal topology of an AEC filter that contains both an AEC node and an NS node:</P>
+
+<PRE>    // AEC Filter Topology
+
+    // Pin IDs for external pins on AEC filter
+    #define ID_CaptureOutPin   0   // microphone stream
+    #define ID_CaptureInPin    1
+    #define ID_RenderOutPin    2   // speaker stream
+    #define ID_RenderInPin     3
+
+    // Generic pin IDs for simple node with one input and one output
+    #define NODE_INPUT_PIN     1
+    #define NODE_OUTPUT_PIN    0
+
+    // Node IDs
+    #define NODE_ID_AEC        0   // acoustic echo cancellation
+    #define NODE_ID_NS         1   // noise suppression
+
+    // The array below defines the internal topology of an
+    // AEC filter that contains an AEC node and an NS node.
+
+    const PCCONNECTION_DESCRIPTOR AecConnections[] = {
+        { PCFILTER_NODE, ID_RenderInPin,       NODE_ID_AEC,    KSNODEPIN_AEC_RENDER_IN  },
+        { NODE_ID_AEC,   KSNODEPIN_AEC_RENDER_OUT,   PCFILTER_NODE,  ID_RenderOutPin    },
+        { PCFILTER_NODE, ID_CaptureInPin,      NODE_ID_AEC,    KSNODEPIN_AEC_CAPTURE_IN },
+        { NODE_ID_AEC,   KSNODEPIN_AEC_CAPTURE_OUT,  NODE_ID_NS,     NODE_INPUT_PIN     },
+        { NODE_ID_NS,    NODE_OUTPUT_PIN,      PCFILTER_NODE,  ID_CaptureOutPin   }
+    };</PRE>
+
+<P>The <I>AecConnections</I> array<I> </I>in the preceding code example defines the filter topology that is shown in the following figure.</P>
+
+<P><IMG SRC="images/aectopo.gif" ALT="" BORDER=0></P>
+
+<P><B>Internal Topology of an AEC Filter</B></P>
+
+<P>The preceding figure represents each connection inside the filter with a dashed arrow that points in the direction of data flow. A total of five connections appear in the figure. Each connection corresponds to one of the five elements in the <I>AecConnections</I> array in the code example.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Exposing%20Hardware-Accelerated%20Capture%20Effects"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

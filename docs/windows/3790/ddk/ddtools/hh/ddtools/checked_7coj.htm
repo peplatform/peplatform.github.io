@@ -1,0 +1,140 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>How the Checked Build Indicates a Problem</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="How the Checked Build Indicates a Problem">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_paged_code_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_keacquirespinlock_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Driver&nbsp;Development&nbsp;Tools:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_how_the_checked_build_indicates_a_problem_tools"></A>How the Checked Build Indicates a Problem</H2>
+
+<P>The checked build of the operating system uses a variety of methods to notify you of problems that it finds. All of these methods result in output from a kernel debugger. Therefore, to be useful, the checked build must be run with a kernel-mode debugger (such as WinDbg or KD) attached. See <A HREF="dbgblurb_25bn.htm">Debugging Tools for NT-Based Operating Systems</A> for details on debugging.</P>
+
+<H4>ASSERT Failures</H4>
+
+<P>Most of the checks performed by the checked build are implemented as <A HREF="debugfns_99tf.htm">ASSERT</A> statements. When the expression being asserted evaluates to FALSE, the debugger displays a message that contains:
+
+<UL>
+	<LI>The text of the code expression that failed</LI>
+
+	<LI>The source code path, file name, and line number of the failed ASSERT routine</LI>
+</UL>
+
+<P>Here is an example of the output that the debugger displays as a result of an failing assert in the I/O Manager:</P>
+
+<PRE>*** Assertion failed: Irp-&gt;IoStatus.Status != 0xffffffff
+***   Source File: D:\nt\private\ntos\io\iosubs.c, line 3305
+
+0:Break, Ignore, Terminate Process or Terminate Thread (bipt)? <B>b</B>
+0:Execute '!cxr BD94B918' to dump context
+Break instruction exception - code 80000003 (first chance)
+ntkrnlmp!DbgBreakPoint:
+804a3ce4 cc               int     3
+</PRE>
+
+<P>In the debugger output shown here, you can see that the user was asked whether to “Break, Ignore, Terminate Process or Terminate Thread”. The user answered by entering “b”, which caused the debugger to stop system execution with a breakpoint. With the system stopped in this way in the debugger, the user can now continue to debug the problem that was discovered.</P>
+
+<P>If a debugger is not attached to the system, how a failed assert affects the system depends on whether or not the system was started with debugging support enabled. If debugging is enabled for the operating system during the system startup process, but a debugger is not attached when an assert fails, the system will hang when it encounters a failed assert. If debugging is not enabled (and therefore a debugger is not attached) when an assert fails, the system will crash. This will result in <A HREF="bccodes_763r.htm">Bug Check 0x1E</A> (KMODE_EXCEPTION_NOT_HANDLED) with a Parameter&nbsp;1 value of 0x80000003.</P>
+
+<P>Some <A HREF="debugfns_99tf.htm">ASSERT</A> failures are preceded by additional <A HREF="debugfns_9ecz.htm"><B>DbgPrint</B></A> output. One very common example of this type of assert is the <A HREF="JavaScript:hhobj_1.Click()">PAGED_CODE</A> macro, which is defined in <I>ntddk.h</I> and <I>wdm.h</I> for use in the checked build of drivers as follows:</P>
+
+<PRE>#define PAGED_CODE() \
+    if (KeGetCurrentIrql() &gt; APC_LEVEL) { \
+KdPrint(( "EX: Pageable code called at IRQL %d\n", KeGetCurrentIrql() )); \
+        ASSERT(FALSE); \
+        }
+</PRE>
+
+<P>This macro is frequently used within the operating system to verify that pageable functions are only called at appropriate IRQLs.</P>
+
+<P>You can usually determine the cause of an assert by examining the text of the failing code expression. You need to consider what your driver was doing when the ASSERT occurred, and what functions had been called. The <B>KB&nbsp;(Display Stack Trace)</B> debugger command is crucial to this analysis.</P>
+
+<P>See <A HREF="checked_96yb.htm">Checked Build ASSERTs</A> for a list of the more common ASSERT calls.</P>
+
+<H4>Breakpoints</H4>
+
+<P>Another method by which the checked build will indicate that a problem has been encountered is by taking a breakpoint. Breakpoints are often preceded by <A HREF="debugfns_9ecz.htm"><B>DbgPrint</B></A> statements, which cause the debugger to display information about the problem that has been encountered. If a debugger is not attached to the system when a breakpoint occurs, the system crashes, and any explanatory messages are lost.</P>
+
+<P>Some of the most common messages that precede breakpoints in the checked build, and which are encountered by driver writers, are listed in <A HREF="checked_565v.htm">Checked Build Breakpoints and Messages</A>.</P>
+
+<P>Here is an example of how a <B>DbgPrint</B> call and breakpoint appear in the debugger:</P>
+
+<PRE>*** DPC routine &gt; 1 sec --- This is not a break in KeUpdateSystemTime
+Break instruction exception - code 80000003 (first chance)
+NTOSKRNL!DbgBreakPoint:
+804a3ce4 cc               int     3
+</PRE>
+
+<P>This example shows a debugger message that indicates a single deferred procedure call (DPC) was executing for longer than one second. This serves as a good illustration of the type of checks implemented in the checked build. This breakpoint means that a driver has spent an unusually long time in a DPC routine, which could be a symptom of a serious driver problem. On the other hand, this breakpoint can also occur if the driver generates a large amount of debug output in its DPC routine, thereby extending the length of time required for the DPC to execute. Examining what the DPC routine is doing, and continuing past the breakpoint once or twice, will usually result in discovering the underlying cause of the problem.</P>
+
+<P>In the rare situation when a breakpoint is encountered but no message is displayed, it is important to examine the kernel stack trace (using the <B>KB</B> debugger command) to determine where the breakpoint was encountered. Often, this will give a strong clue to the reason for the breakpoint.</P>
+
+<P>Here is an example of a breakpoint that has been seen by many Windows driver developers, along with a stack trace:</P>
+
+<PRE>Break instruction exception - code 80000003 (first chance)
+ntkrnlmp!SpinLockSpinningForTooLong:
+8069aafd cc               int     3
+1: kd&gt; <B>kb</B>
+ChildEBP RetAddr  Args to Child              
+f9f77c4c 80103a6c f9f77c84 00000005 fa20e7df ntkrnlmp!SpinLockSpinningForTooLong
+f9f77c58 fa20e7df 81b34930 e1558bd0 00180016 halmps!KfAcquireSpinLock+0x3c
+f9f77c7c 80742683 000000ff 81ba6000 00000000 nothing+0x7df
+f9f77d54 80742893 0000046c 81ba6000 f9f77d80 ntkrnlmp!IopLoadDriver+0x785
+f9f77d78 805f8d2d 00000000 00000000 81fa88b8 ntkrnlmp!IopLoadUnloadDriver+0x75
+f9f77dac 807cd14f f7d59ce8 00000000 00000000 ntkrnlmp!ExpWorkerThread+0x129
+f9f77ddc 8069bece 805f8c04 00000001 00000000 ntkrnlmp!PspSystemThreadStartup+0x4d
+00000000 00000000 00000000 00000000 00000000 ntkrnlmp!KiThreadStartup+0x16
+</PRE>
+
+<P>As you can see from this stack trace, the breakpoint was taken as a result of calling <B>KfAcquireSpinLock</B>. Examining <I>wdm.h</I>, you can see that this is the actual name of the function referred to by drivers as <A HREF="JavaScript:hhobj_2.Click()"><B>KeAcquireSpinLock</B></A>. Even though no message was displayed prior to the breakpoint, you can see the location of the breakpoint at the top of the stack (<B>ntkrnlmp!SpinLockSpinningForTooLong</B>). This location indicates the reason for the breakpoint: A spin lock has been spinning, pending acquisition, for an unusually long time.</P>
+
+<H4>Debugger Messages</H4>
+
+<P>The final way that the checked build identifies that an error has occurred (or sometimes just provides additional information) is through a debugger message. The most common sources of debugger messages are errors that originate from nonkernel and non-HAL components, or from checked (debug) user-mode programs. The amount of output varies with the operating system release.</P>
+
+<P>Here is an example of the output that might be displayed by an installation of the full checked build. This output was generated by a prerelease version of Windows&nbsp;XP, and thus is even more voluminous than is usually seen on a fully checked build:</P>
+
+<PRE>0:Attempting to load winsock
+0:Checking for presence of ws2_32
+0:Looking in ws2_32 for getaddrinfo
+0:AudioSrv: 1:CreateSessionUserSid: GetCurrentUserTokenW failed, LastError=1245
+1:AudioSrv: RegOpenConsoleUser: no console sid
+0:(s: 0 0xc4.d0 winlogon.exe) USRK-[Wrn=170] CloseDesktop: Desktop 0X81CEAF78 still in use by thread 0XE16F3EA0
+0:GetWinStationUserToken: Error 1702 getting UserToken LogonId 0
+1:AudioSrv: InitializeForNewConsoleUser: User SID S-1-5-21-329068152-1292428093-1547161642-500
+1:(s: 0 0x240.3a8 spoolsv.exe) USRK-[Wrn=1400] ValidateHwnd: Invalid hwnd (0X0000FFFF)
+0:(s: 0 0x240.3a8 spoolsv.exe) USRK-[Wrn=1400] ValidateHwnd: Invalid hwnd (0X0000FFFF)
+0:bReadUserSystemEUDCRegistry():fail NtStatus - c0000000
+0:GDI: GDISRV:Fail to read system wide eudc
+0:
+1:TERMSRV : Not Personal Workstation
+0:(s: 0 0x260.3c4 Explorer.EXE) USER-[Wrn=1400] HMValidateHandle: Invalid:00000000 Type:0x1
+0:(s: 0 0x260.3c4 Explorer.EXE) USER-[Wrn=1400] HMValidateHandle: Invalid:00000000 Type:0x1
+0:(s: 0 0x260.3c4 Explorer.EXE) USER-[Wrn=1400] HMValidateHandle: Invalid:00000000 Type:0x1
+</PRE>
+
+<P>Some of the most common messages that can be displayed by the checked build during driver debugging are listed in <A HREF="checked_565v.htm">Checked Build Breakpoints and Messages</A>.</P>
+
+<P>Enabling additional trace or informational messages in various system components can also cause debugger messages without subsequent breakpoints or ASSERT failures.  </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: How%20the%20Checked%20Build%20Indicates%20a%20Problem"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

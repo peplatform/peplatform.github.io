@@ -1,0 +1,148 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SeAssignSecurity</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="SeAssignSecurity">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_sacl_kg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_dacl_kg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_seassignsecurity_kr"></A>SeAssignSecurity</H1>
+
+<P><B>SeAssignSecurity</B> builds a self-relative security descriptor for a new object, given the security descriptor of its parent directory and any originally requested security for the object.</P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>SeAssignSecurity(</B>
+<B>    IN PSECURITY_DESCRIPTOR</B>  <I>ParentDescriptor</I>  <B>OPTIONAL,</B>
+<B>    IN PSECURITY_DESCRIPTOR</B>  <I>ExplicitDescriptor  </I><B>OPTIONAL,</B>
+    <B>OUT PSECURITY_DESCRIPTOR</B>  <B>*</B><I>NewDescriptor</I><B>,</B>
+<B>    IN BOOLEAN</B>  <I>IsDirectoryObject</I><B>,</B>
+<B>    IN PSECURITY_SUBJECT_CONTEXT</B>  <I>SubjectContext</I><B>,</B>
+<B>    IN PGENERIC_MAPPING</B>  <I>GenericMapping</I><B>,</B>
+<B>    IN POOL_TYPE</B>  <I>PoolType</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>ParentDescriptor</I></DT>
+
+<DD>Pointer to a buffer containing the <A HREF="k112_3voy.htm">SECURITY_DESCRIPTOR</A> for the parent directory, if any, containing the new object being created. <I>ParentDescriptor</I> can be NULL, or have a NULL system access control list (<A HREF="JavaScript:hhobj_1.Click()">SACL</A>) or a NULL discretionary access control list (<A HREF="JavaScript:hhobj_2.Click()">DACL</A>).</DD>
+
+<DT><I>ExplicitDescriptor</I></DT>
+
+<DD>Pointer to a buffer containing the <A HREF="k112_3voy.htm">SECURITY_DESCRIPTOR</A> specified by the user that is applied to the new object. <I>ExplicitDescriptor</I> can be NULL, or have a NULL SACL or a NULL DACL.</DD>
+
+<DT><I>NewDescriptor</I></DT>
+
+<DD>Receives a pointer to the returned <A HREF="k112_3voy.htm">SECURITY_DESCRIPTOR</A>.  <B>SeAssignSecurity</B> allocates the buffer from the paged memory pool.</DD>
+
+<DT><I>IsDirectoryObject</I></DT>
+
+<DD>Specifies whether the new object is a directory object. TRUE indicates the object contains other objects.</DD>
+
+<DT><I>SubjectContext</I></DT>
+
+<DD>Pointer to a buffer containing the security context of the subject creating the object. This is used to retrieve default security information for the new object, such as the default owner, the primary group, and discretionary access control.</DD>
+
+<DT><I>GenericMapping</I></DT>
+
+<DD>Pointer to the <A HREF="k112_7naq.htm">GENERIC_MAPPING</A> structure that describes the mapping from each generic right to the implied nongeneric rights.</DD>
+
+<DT><I>PoolType</I></DT>
+
+<DD>This parameter is unused.  The buffer to hold the new security descriptor is always allocated from paged pool.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>SeAssignSecurity</B> can return one of the following:
+
+<DL>
+<DT>STATUS_SUCCESS</DT>
+
+<DD>The assignment was successful. </DD>
+
+<DT>STATUS_INVALID_OWNER</DT>
+
+<DD>The SID provided for the owner of the target security descriptor is not one the caller is authorized to assign as the owner of an object.</DD>
+
+<DT>STATUS_PRIVILEGE_NOT_HELD</DT>
+
+<DD>The caller does not have the privilege (<B>SeSecurityPrivilege</B>) necessary to explicitly assign the specified system ACL.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ntddk.h</I>. Include <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The final security descriptor returned to the caller may contain a mix of information, some explicitly provided from the new object’s parent.</P>
+
+<P><B>SeAssignSecurity</B> assumes privilege checking has not been performed. This routine performs privilege checking.</P>
+
+<P>The assignment of system and discretionary ACLs is governed by the logic illustrated in the following table:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=22%>&nbsp;</TH>
+<TH align=left width=26%>Explicit (nondefault) ACL specified</TH>
+<TH align=left width=26%>Explicit default ACL specified</TH>
+<TH align=left width=26%>No ACL specified</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%><B>Inheritable ACL from parent</B></TD>
+<TD width=26%>Assign specified ACL</TD>
+<TD width=26%>Assign inherited ACL</TD>
+<TD width=26%>Assign inherited ACL</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%><B>No inheritable ACL from parent</B></TD>
+<TD width=26%>Assign specified ACL</TD>
+<TD width=26%>Assign default ACL</TD>
+<TD width=26%>Assign no ACL</TD>
+</TR>
+</TABLE><BR>
+
+<P>An explicitly specified ACL, whether a default ACL or not, can be empty or null. The caller must be a kernel-mode client or be appropriately privileged to explicitly assign a default or nondefault system ACL.</P>
+
+<P>The assignment of the new object’s owner and group is governed by the following logic:
+
+<UL>
+	<LI>If the passed security descriptor includes an owner, it is assigned as the new object’s owner. Otherwise, the caller’s token is considered to determine the owner. Within the token, the default owner, if any, is assigned. Otherwise, the caller’s user ID is assigned.</LI>
+
+	<LI>If the passed security descriptor includes a group, it is assigned as the new object’s group. Otherwise, the caller’s token is considered to determine the group. Within the token, the default group, if any, is assigned. Otherwise, the caller’s primary group ID is assigned.</LI>
+</UL>
+
+<P>Callers of <B>SeAssignSecurity</B> must be running at IRQL PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k104_6rw2.htm"><B>IoGetFileObjectGenericMapping</B></A>, <A HREF="k110_04vm.htm"><B>SeDeassignSecurity</B></A>, <A HREF="k112_7naq.htm">GENERIC_MAPPING</A>, <A HREF="k112_3voy.htm">SECURITY_DESCRIPTOR</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: SeAssignSecurity"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

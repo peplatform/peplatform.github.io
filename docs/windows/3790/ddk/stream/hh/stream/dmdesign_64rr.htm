@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Making PortDMus the Default DirectMusic Port Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Making PortDMus the Default DirectMusic Port Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_making_portdmus_the_default_directmusic_port_driver_ksg"></A>Making PortDMus the Default DirectMusic Port Driver</H4>
+
+<P>To make PortDMus the default for all DirectMusic applications, generate a GUID (using <I>uuidgen.exe</I> or <I>guidgen.exe</I>) to uniquely identify your synth. Your <A HREF="aud-prop_2ypf.htm">KSPROPERTY_SYNTH_CAPS</A> property handler should copy this GUID into the <B>Guid</B> member of the <A HREF="aud-prop_3v77.htm">SYNTHCAPS</A> structure. Also, modify your driver's INF file to set up the following registry entry:</P>
+
+<PRE>Key:    HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\DirectMusic\Defaults
+String Value:    DefaultOutputPort
+ </PRE>
+
+<H4>Exposing Your Synthesizer as a Legacy Device</H4>
+
+<P>You may want to write a single device driver that exposes your synth hardware as both a DirectMusic device and a legacy MIDI device (that is, through the Windows Multimedia <B>midiOut<I>Xxx</I></B> API). This technique can be useful in the following three cases:
+
+<OL>
+	<LI>If the device does not support DLS. Examples include the MPU-401 driver (see the <I>mpu401</I> sample in the DDK), a device that has only a ROM set, and a fixed-function software synth (for example, FM).
+<P>In this case, the device can expose a legacy MIDI interface as well as a DirectMusic interface. It should expose only one legacy MIDI pin. It is important to list the pin with the legacy interface first so that WDM Audio enumerates it as a legacy MIDI device.
+</LI>
+
+	<LI>If the device does support DLS, but powers up in a loaded state. This device has both RAM for DLS and ROM containing GM/GS/XG wave tables.
+<P>In this case, the device can also expose both interfaces. If the two interfaces are mutually exclusive (that is, if once you download something, the ROM is not visible), then it should be a single pin with two interfaces to choose from (as opposed to two pins).
+</LI>
+
+	<LI>When the device does support DLS, but powers up "empty" (for example, the DirectMusic software synth) and thus needs DLS downloads to initialize its wave table.
+<P>This initialization is unnecessary if the device does not require DLS downloads (if it has a default sample set in ROM, for example) or if a DirectMusic pin is opened (the DirectMusic APIs ensure that DLS downloads occur).
+
+<P>Exposing your DLS device through the legacy APIs requires some extra work. When a legacy pin is opened on a device that requires DLS instruments, the driver should locate and open a file containing the DLS collection to be used. The driver should then intercept patch and bank changes, retrieve the appropriate data from the DLS file, and perform the necessary DLS downloads to the device.
+
+<P>This case is problematic because WDM Audio and other clients are not aware that they need to download a collection. They just start sending MIDI patch changes and notes.
+</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Making%20PortDMus%20the%20Default%20DirectMusic%20Port%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,185 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ScsiPortNotification</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ScsiPortNotification">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iowmiregistrationcontrol_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_scsiportnotification_kr"></A>ScsiPortNotification</H1>
+
+<P>The <B>ScsiPortNotification</B> routine informs the OS-specific port driver of certain events, such as when a miniport driver completes a request or is ready to start another SRB, as well as when the HBA indicates certain SCSI error conditions that occurred during an operation.</P>
+
+<PRE class=syntax><B>VOID 
+  ScsiPortNotification(
+    IN SCSI_NOTIFICATION_TYPE</B>  <I>NotificationType</I><B>,</B>
+<B>    IN PVOID</B>  <I>HwDeviceExtension</I><B>,</B>
+<B>      </B>/* Additional parameters, as required by the given <I>NotificationType</I> */
+<B>    </B>/* for <B>RequestComplete</B>  add: */
+<B>      IN PSCSI_REQUEST_BLOCK</B>  <I>Srb </I><B>OPTIONAL,</B>
+<B>    </B>/* for<B> NextLuRequest </B> add: */<B> </B>
+<B>      IN UCHAR</B>  <I>PathId </I><B>OPTIONAL,</B> 
+<B>      IN UCHAR</B>  <I>TargetId </I><B>OPTIONAL,</B> 
+<B>      IN UCHAR</B>  <I>Lun </I><B>OPTIONAL,</B> 
+<B>    </B>/* for <B>CallEnableInterrupts</B> or <B>CallDisableInterrupts</B> add: */ 
+<B>      IN PHW_INTERRUPT</B>  <I>HwScsiXxxInterruptsCallback </I><B>OPTIONAL,</B>
+<B>    </B>/* for <B>RequestTimerCall </B>add: */<B> </B>
+<B>      IN</B> <B>PHW_TIMER</B>  <I>HwScsiTimer </I><B>OPTIONAL,</B>
+<B>      IN ULONG </B> <I>MiniportTimerValue </I><B>OPTIONAL,</B>
+<B>    </B>/* for <B>BusChangeDetected</B> add: */ 
+<B>      IN UCHAR</B>  <I>PathId </I><B>OPTIONAL</B>
+<B>    </B>/* for <B>WMIEvent</B> add: */ 
+<B>      IN PVOID</B>  <I>WMIEvent </I><B>OPTIONAL</B>,
+<B>      IN UCHAR</B>  <I>PathID </I><B>OPTIONAL,</B>
+<B>      </B>/* if <I>PathId</I> != 0xFF also add: */
+<B>        IN UCHAR</B>  <I>TargetId </I><B>OPTIONAL,</B>
+<B>        IN UCHAR</B>  <I>Lun </I><B>OPTIONAL,</B>
+<B>    </B>/* for <B>WMIReregister,</B> add: */
+<B>      IN UCHAR</B>  <I>PathId </I><B>OPTIONAL</B>,
+<B>      </B>/* if <I>PathId</I> != 0xFF also add: */
+<B>        IN UCHAR</B>  <I>TargetId </I><B>OPTIONAL,</B>
+<B>        IN UCHAR </B> <I>Lun </I><B>OPTIONAL,</B>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>NotificationType</I></DT>
+
+<DD>Specifies the type of notification, which can be one of the following.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=33%>Notification Type</TH>
+<TH align=left width=67%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%><B>RequestComplete</B></TD>
+<TD width=67%>Indicates the given <I>Srb</I> has finished. If this value is set, <B>ScsiPortNotification</B> requires one additional parameter: the address of the SRB. After this notification, the OS-specific port driver owns the request. The miniport driver must not access the <I>Srb</I>, and it must not pass the <I>Srb</I> to another routine (such as <B>ScsiPortLogError</B>).</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%><B>NextRequest</B></TD>
+<TD width=67%>Indicates the miniport driver is ready for another request to a target that is not currently busy. This notification should be sent by the miniport driver as soon as the driver is ready for another request. Usually, this notification is sent from the <A HREF="k302_3d0y.htm"><I>HwScsiStartIo</I></A> routine but, sometimes, from the <A HREF="k302_3wvm.htm"><I>HwScsiInterrupt</I></A> (or <A HREF="k302_9w6q.htm"><I>HwScsiEnableInterruptsCallback</I></A>) routine.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%><B>NextLuRequest</B></TD>
+<TD width=67%>Indicates that the HBA is ready for another request for the specified logical unit. If this value is set, <B>ScsiPortNotification</B> requires three additional parameters: (1) the path ID, (2) the target ID, and (3) the logical unit number. This value should be used only if the HBA can queue multiple requests and support auto-request sense or tagged queuing. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%><B>ResetDetected</B></TD>
+<TD width=67%>Indicates that the HBA has detected a reset on the SCSI bus. After this notification, the miniport driver is still responsible for completing any active requests. The SCSI port driver will manage all required bus-reset delays.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%><B>CallEnableInterrupts</B></TD>
+<TD width=67%>Indicates that the miniport driver requires the OS-specific port driver to call the miniport driver's <A HREF="k302_9w6q.htm"><I>HwScsiEnableInterruptsCallback</I></A> routine. If this value is set, <B>ScsiPortNotification</B> requires an additional parameter: the entry point for the <I>HwScsiEnableInterruptsCallback</I>. The miniport driver's <A HREF="k302_3wvm.htm"><I>HwScsiInterrupt</I></A> routine makes this call,<I> after </I>disabling interrupts on the HBA, to defer some interrupt-driven I/O processing if the HBA requires polling or stalling in the ISR. While the callback runs, system interrupts remain enabled but the miniport driver's <I>HwScsiInterrupt</I> routine will not be called. The <I>HwScsiEnableInterruptsCallback</I> is responsible for completing the deferred I/O processing and for calling <B>ScsiPortNotification</B> again with <B>CallDisableInterrupts</B> and the miniport driver's <A HREF="k302_2lki.htm"><I>HwScsiDisableInterruptsCallback</I></A> entry point.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%><B>CallDisableInterrupts</B></TD>
+<TD width=67%>Indicates that the miniport driver requires the OS-specific port driver to call the miniport driver's <I>HwScsiDisableInterruptsCallback</I> routine. If this value is set, <B>ScsiPortNotification</B> requires an additional parameter: the entry point for the <I>HwScsiDisableInterruptsCallback</I>. While this callback runs, it cannot be preempted by an interrupt except from a device with a higher priority interrupt than the HBA. In this callback, the miniport driver re-enables interrupts on the HBA.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%><B>RequestTimerCall</B></TD>
+<TD width=67%>Indicates that the miniport driver requires the OS-specific port driver to call the miniport driver's <A HREF="k302_9stu.htm"><I>HwScsiTimer</I></A> routine in the requested number of microseconds. If this value is set, <B>ScsiPortNotification</B> requires two additional parameters: (1) the entry point for the miniport driver's <I>HwScsiTimer</I> routine, and (2) a <I>MiniportTimerValue</I> interval, in microseconds. Note that the resolution of the system timer is approximately 10 milliseconds.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%><B>BusChangeDetected</B></TD>
+<TD width=67%>Indicates that a target device might have been added or removed from a dynamic bus. If this value is set, <B>ScsiPortNotification</B> requires an additional parameter: the path ID of the bus on which the change was detected. After this notification, the port driver re-enumerates the bus by issuing INQUIRY commands. Bus enumeration is time-consuming and ties up the bus, so a miniport driver should not send this notification unnecessarily<B> </B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%><B>WMIEvent</B></TD>
+<TD width=67%>Indicates that the miniport driver has detected an event for which one or more WMI data consumers is registered. If this value is set, <B>ScsiPortNotification</B> requires at least three additional arguments: (1) a pointer to a WMI event structure, (2) the size of the event structure, and (3) the path ID of the target device if the event originated from a device, or 0xFF if the event originated from the adapter. If (3) is a path ID, <B>ScsiPortNotification</B> requires two additional arguments: (4) the target ID, and (5) the logical unit number (LUN) of the target device. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%><B>WMIReregister</B></TD>
+<TD width=67%>Indicates that the miniport driver has changed the data items or the number of instances of a given data block previously registered by calling <B>IoWMIRegistrationControl</B>. If <B>WMIReregister</B> is set, <B>ScsiPortNotification</B> requires at least two additional arguments: (1) the path ID of the target device to reregister that device, or 0xFF to reregister the adapter. If (1) is a path ID, <B>ScsiPortNotification</B> requires two additional arguments: (2) the target ID, and (3) the logical unit number (LUN) of the target device. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><I>HwDeviceExtension</I></DT>
+
+<DD>Pointer to the hardware device extension. This is a per-HBA storage area that the port driver allocates and initializes on behalf of the miniport driver. Miniport drivers usually store HBA-specific information in this extension, such as the state of the HBA and the HBA's mapped access ranges. This area is available to the miniport driver in the <B>DeviceExtension-&gt;HwDeviceExtension</B> member of the HBA's device object immediately after the miniport driver calls <A HREF="k301_9n76.htm"><B>ScsiPortInitialize</B></A>. The port driver frees this memory when it removes the device. </DD>
+
+<DT><I>Srb</I></DT>
+
+<DD>Pointer to the SCSI request block that has just been completed. This parameter is optional. </DD>
+
+<DT><I>PathId</I></DT>
+
+<DD>Indicates the SCSI port or bus for the request. This parameter is optional. </DD>
+
+<DT><I>TargetId</I></DT>
+
+<DD>Indicates the target controller or device on the bus. This parameter is optional. </DD>
+
+<DT><I>Lun</I></DT>
+
+<DD>Indicates the logical unit number of the device. This parameter is optional. </DD>
+
+<DT><I>HwScsiXxxInterruptsCallback</I></DT>
+
+<DD>Pointer to a callback routine to be called by <A HREF="k302_3wvm.htm"><I>HwScsiInterrupt</I></A>. This parameter is optional. </DD>
+
+<DT><I>HwScsiTimer</I></DT>
+
+<DD>Pointer to a timer routine that is called after the interval specified in <I>MiniportTimerValue</I>. This parameter is optional. </DD>
+
+<DT><I>MiniportTimerValue</I></DT>
+
+<DD>Indicates the interval after which the timer routine pointed to by <A HREF="k302_9stu.htm"><I>HwScsiTimer</I></A> is called. This parameter is optional. </DD>
+
+<DT><I>WMIEvent</I></DT>
+
+<DD>Pointer to event structure with information about a WMI event detected by the miniport driver. This parameter is optional. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>None</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>srb.h</I>. Include <I>miniport.h</I> and <I>scsi.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P>Every miniport driver must call <B>ScsiPortNotification</B> twice for each call to the miniport driver's <A HREF="k302_3d0y.htm"><I>HwScsiStartIo</I></A> routine with an SRB that the miniport driver completes successfully. First, the miniport driver calls <B>ScsiPortNotification</B> with the <I>NotificationType</I> <B>NextRequest</B> or with <B>NextLuRequest</B> if the miniport driver supports tagged queuing or multiple requests per LU. Then, the miniport driver calls <B>ScsiPortNotification</B> with the <I>NotificationType</I> <B>RequestComplete</B> and the request that it has just satisfied.</P>
+
+<P>A miniport driver's <I>HwScsiInterrupt</I> routine is most likely to call <B>ScsiPortNotification</B> with the <I>NotificationType</I> <B>ResetDetected</B>.</P>
+
+<P>If an HBA requires the miniport driver to use more than a millisecond processing interrupt-driven I/O operations, its <I>HwScsiInterrupt</I> routine should disable interrupts on the HBA and call <B>ScsiPortNotification</B> with <B>CallEnableInterrupts</B> and a driver-supplied <I>HwScsiEnableInterruptsCallback</I> routine. This routine, in turn, calls <B>ScsiPortNotification</B> with <B>CallDisableInterrupts</B> and the corresponding driver-supplied <I>HwScsiDisableInterruptsCallback</I>.</P>
+
+<P>A miniport driver that is registered as a WMI data provider can call <B>ScsiPortNotification</B> with <B>WMIEvent</B> to post an event for which it has previously received an enable request. The port driver queues the event in the interrupt data area of the miniport driver's device extension for later processing at a lower IRQL. Because only a limited number of events can be queued at one time, the miniport driver should use <B>WMIEvent</B> to signal exceptional rather than routine conditions, and it should give the port driver time to get back to DISPATCH_LEVEL between postings, to prevent events from being lost. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k302_9stu.htm"><I>HwScsiTimer</I></A>, <A HREF="k302_2lki.htm"><I>HwScsiDisableInterruptsCallback</I></A>, <A HREF="k302_9w6q.htm"><I>HwScsiEnableInterruptsCallback</I></A>, <A HREF="k301_7h2q.htm"><B>ScsiPortCompleteRequest</B></A>, <A HREF="JavaScript:hhobj_1.Click()"><B>IoWMIRegistrationControl</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ScsiPortNotification"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

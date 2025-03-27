@@ -1,0 +1,45 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Despooling EMF Files</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_3916"></A>Despooling EMF Files</H3>
+
+<P>The following illustration shows the sequence of calls and events that start with the spooler process initiating an event that signals the port thread that a spooled job, made up of one or more EMF files, is available for despooling and printing. This step is labeled 10 in the following illustration and the final step, where the print job is sent through the hardware port to the printer is labeled 24. </P>
+
+<P><IMG SRC="images/ch1_04.gif" ALT="" BORDER=0></P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>As illustrated above, the EMF files despooling process is executed as follows</B>
+
+<OL start=10>
+	<LI>At the end of the EMF file spooling scenario, the spooler process sets the ReadyToPrint attribute on the print job and initiates an event that signals to the port thread that a job is available for printing. </LI>
+
+	<LI>The port thread of the spooler process responds to the event by determining the best time to start despooling process and then, at that time, loads the print processor . </LI>
+
+	<LI>When the print processor determines that the spooled file(s) have an EMF format, it calls GDI32 with the new Windows 95 <B>gdiPlaySpoolStream</B> function call. </LI>
+
+	<LI>The GDI32 <B>gdiPlaySpoolStream</B> function reads a record from the job description file , which provides the fully-qualified path to an EMF spool file. Note here that through the job description file, which is essentially a list of path names to EMF files (one path per print job page), GDI32 knows about all the pages in the print job. </LI>
+
+	<LI>The GDI32 <B>gdiPlaySpoolStream</B> function calls GDI, using a thunk built into GDI32, with the path to the EMF spool file (the list of rendering instructions for a page of the print job) to render the page. GDI knows about only one page in the print job at any point in time -- the page that is being rendered and printed. Note that all the thunking necessary to go from the 32-bit programming environment to the 16-bit programming environment is handled by the Microsoft-provided GDI32 and GDI components, the 16-bit printer driver is isolated from calls to and from the 32-bit environment. </LI>
+
+	<LI>GDI calls the printer driver associated with the printer the application wants to use and obtains a DC for the printer. </LI>
+
+	<LI>GDI reads page-rendering instructions from the spooled EMF file and passes them one at a time to the printer driver, which uses as many instructions as are necessary to render the first part of the page. </LI>
+
+	<LI>When the 16-bit printer driver renders a part of the page, it passes the printer-specific raw page data back to 16-bit GDI. </LI>
+
+	<LI>GDI passes the raw data to GDI32. Once again, the 16-bit printer driver is isolated from the transition from 16-bit to 32-bit programming environments. GDI32 passes the raw page data to the 32-bit print spooler process. </LI>
+</OL>
+
+<P>Steps 19 through 24, within the spooler process, are the same as the comparable steps described in the raw despooling scenario and result in part of the page appearing on the printer. </P>
+
+<P>Steps 16 through 24 are repeated until an entire page is printed (all the rendering instructions in an EMF spool file have been used). The GDI32 gets the path to the EMF spool file for the next page of the print job and calls GDI to use the instructions in that EMF file to render the next page in the print job. When GDI32 has used up all the paths to EMF spool files in the job description file, the print job is finished. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Despooling%20EMF%20Files"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

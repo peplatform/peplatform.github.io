@@ -1,0 +1,171 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TDI_RECEIVE</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TDI_RECEIVE">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdi_receive_nr"></A>TDI_RECEIVE</H1>
+
+<P>When a kernel-mode client makes a TDI_RECEIVE request, it asks the underlying TDI transport driver to indicate a normal or expedited TSDU on an established endpoint-to-endpoint connection. </P>
+
+<H4>IRP</H4>
+
+<P>The transport calls <B>IoGetCurrentIrpStackLocation</B> with the given <I>Irp</I> to get a pointer to its own I/O stack location in the IRP, shown in the following list as <B>IrpSp</B>. The pointer to the IRP is shown in the following list as <B>Irp</B>. IRP members relevant to this request include the following:
+
+<DL>
+<DT><B>Irp-&gt;IoStatus.Status</B></DT>
+
+<DD>Specifies the final status of the receive request. The transport sets this member before it completes the IRP, possibly to one of the following:
+
+<P>STATUS_PENDING<BR>
+STATUS_INSUFFICIENT_RESOURCES<BR>
+STATUS_INVALID_CONNECTION<BR>
+STATUS_BUFFER_OVERFLOW
+</DD>
+
+<DT><B>Irp-&gt;IoStatus.Information</B></DT>
+
+<DD>Specifies the number of bytes of received data the transport is returning in the client-supplied buffer. </DD>
+
+<DT><B>IrpSp-&gt;MajorFunction</B></DT>
+
+<DD>Specifies IRP_MJ_INTERNAL_DEVICE_CONTROL. The transport can ignore this member if it exports a <B>TdiDispatchInternalDeviceControl</B> routine that handles only TDI_<I>XXX</I> requests. </DD>
+
+<DT><B>IrpSp-&gt;MinorFunction</B></DT>
+
+<DD>Specifies TDI_RECEIVE.</DD>
+
+<DT><B>IrpSp-&gt;FileObject</B></DT>
+
+<DD>Pointer to an open file object representing the connection endpoint. The transport uses the <B>FsContext</B> and, possibly, <B>FsContext2</B> fields to access the state it maintains about this connection. 
+
+<P>This client already established an endpoint-to-endpoint connection with a remote-node peer on this connection endpoint. 
+</DD>
+
+<DT><B>IrpSp-&gt;Parameters</B></DT>
+
+<DD>Pointer to a TDI_REQUEST_KERNEL_RECEIVE structure, defined as follows:
+
+<PRE>struct _TDI_REQUEST_KERNEL_RECEIVE {<B> </B>
+    ULONG ReceiveLength;<B> </B>
+    ULONG ReceiveFlags;<B> </B>
+} TDI_REQUEST_KERNEL_RECEIVE, *PTDI_REQUEST_KERNEL_RECEIVE;<B> </B></PRE>
+
+
+<P>The transport uses the members of this structure as follows:
+
+
+<DL>
+<DT><B>ReceiveLength</B></DT>
+
+<DD>Specifies the size in bytes of the client-supplied buffer mapped at <B>Irp-&gt;MdlAddress</B>.</DD>
+
+<DT><B>ReceiveFlags</B></DT>
+
+<DD>Specifies the type of receive this client is requesting, as described later (see Comments). </DD>
+</DL>
+</DD>
+
+<DT><B>Irp-&gt;MdlAddress</B></DT>
+
+<DD>Pointer to an MDL, possibly the initial MDL in a chain, mapping a client-supplied buffer in which the transport returns the received data. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>TdiKrnl.h</I>. Include <I>TdiKrnl.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>When a client calls <B>TdiBuildReceive</B> to set up this IRP, it can specify the type of receive it wants. The transport finds this information at <B>IrpSp-&gt;Parameters</B> in the <B>ReceiveFlags</B> member. On input, <B>ReceiveFlags</B> can be zero or set with any combination (ORed) of the following flags: 
+
+<DL>
+<DT>TDI_RECEIVE_NORMAL</DT>
+
+<DD>The transport should return a normal TSDU to this client.</DD>
+
+<DT>TDI_RECEIVE_EXPEDITED</DT>
+
+<DD>The transport should return an expedited TSDU to this client. </DD>
+
+<DT>TDI_RECEIVE_PEEK</DT>
+
+<DD>The transport should return any available received data that it has buffered internally at once, even if it is only a partial TSDU, to this client. 
+</DD>
+</DL>
+
+<P>If <B>ReceiveFlags</B> is zero or set with both (ORed) TDI_RECEIVE_NORMAL and TDI_RECEIVE_EXPEDITED on input, either normal or expedited data is acceptable to the client. If only one of these flags is set, the transport should return only the type of TSDU requested. If TDI_RECEIVE_PEEK is set, the transport should return any received data it has buffered internally and retain the data in its internal buffer awaiting a subsequent receive request for the remainder of the TSDU from this client. Some transports, such as TCP/IP and SPX/IPX, do not buffer data internally. However, transport clients, such as Windows Sockets applications, get buffering support for nonbuffering transports from the system AFD driver.</P>
+
+<P>Typically, a transport receives normal data until it fills the receive buffer or it receives an end-of-record indication from the remote node. However, if the transport is receiving normal data and expedited data arrives, the transport must pre-empt its normal receive operation, completing the IRP for the normal receive immediately with any normal data it has already transferred into the client's buffer. Then, the transport must satisfy the client's receive requests for the expedited data. When the transport has indicated all the expedited data to the client, the transport resumes indicating normal receives when the next receive request is submitted by that client.</P>
+
+<P>If the client has registered any ClientEventReceive, ClientEventReceiveExpedited, ClientEventChainedReceive, and/or ClientEventChainedReceiveExpedited handlers for receives on the given connection endpoint, the transport stops indicating receives to the ClientEvent(Chained)Receive(Expedited) routines until the transport has satisfied the receive IRP. </P>
+
+<P>When it calls ClientEventReceive or ClientEventReceiveExpedited, the transport supplies information about the type of receive event it is indicating, which the client can use to set up the <B>ReceiveFlags</B> for a subsequent TDI_RECEIVE request if it is not given the full TSDU. The transport supplies this information to its client by setting the <I>ReceiveFlags</I> parameter to ClientEventReceive(Expedited) with one or more (ORed) of the following flags:
+
+<DL>
+<DT>TDI_RECEIVE_NORMAL</DT>
+
+<DD>The transport is receiving a normal TSDU from the remote node.</DD>
+
+<DT>TDI_RECEIVE_EXPEDITED</DT>
+
+<DD>The transport is receiving an expedited TSDU from the remote node.</DD>
+
+<DT>TDI_RECEIVE_ENTIRE_MESSAGE</DT>
+
+<DD>If this flag is set, the transport already has a full TSDU available for receipt by the client. When this flag is set, ClientEventReceive is expected to copy the full net packet into an internal buffer and return control without postprocessing the received data, deferring any necessary postprocessing until later.
+
+<P>If this flag remains clear, it is equivalent to setting the (obsolete, but possibly still set by legacy transports) TDI_RECEIVE_PARTIAL flag to indicate that only the initial part of a TSDU is currently available from the transport. 
+</DD>
+
+<DT>TDI_RECEIVE_COPY_LOOKAHEAD</DT>
+
+<DD>The transport has received only the lookahead buffer for an indication from the underlying NIC driver, so it sets <I>BytesAvailable</I> to something less than <I>BytesIndicated</I> when the transport calls ClientEventReceive(Expedited) with these parameters. The client should copy the <I>BytesAvailable</I> into an internal buffer (see <B>TdiCopyLookaheadData</B>) and, then, submit one or more receive requests to obtain the remaining data in the TSDU. </DD>
+
+<DT>TDI_RECEIVE_PEEK</DT>
+
+<DD>The transport has buffered some receive data internally, but not yet the full TSDU. The client handles such an indication in a similar manner to one in which TDI_RECEIVE_COPY_LOOKAHEAD is set. </DD>
+
+<DT>TDI_RECEIVE_TRUNCATED</DT>
+
+<DD>The transport received a TSDU that was truncated.</DD>
+
+<DT>TDI_RECEIVE_FRAGMENT</DT>
+
+<DD>The transport received a TSDU that is fragmented.</DD>
+
+<DT>TDI_RECEIVE_AT_DISPATCH_LEVEL</DT>
+
+<DD>The transport received the TSDU at IRQL = DISPATCH_LEVEL. This flag restricts the set of support routines that the client can call in processing the receive indication. For example, the client cannot call <B>TdiBuildInternalDeviceControlIrp</B>, which can be called only at IRQL = PASSIVE_LEVEL, in the context of this receive indication. 
+</DD>
+</DL>
+
+<P>When the transport ORs TDI_RECEIVE_ENTIRE_MESSAGE with TDI_RECEIVE_NORMAL and calls the ClientEventChainedReceive handler, the client is given direct read-only access to a full TSDU in the underlying NIC's receive buffers until that client calls <B>TdiReturnChainedReceives</B> with the input <I>TsduDescriptor</I>. For such an indication, the client has no need to issue a TDI_RECEIVE request. In effect, such a transport forwards receive indications from the underlying NDIS miniport driver directly to its client with only the minimal overhead of setting up the parameters to ClientEventChainedReceive, as follows:
+
+<UL>
+	<LI>The transport uses the NDIS_PACKET-type descriptor input to the <I>ProtocolReceivePacket</I> function at the bottom of the transport stack as the <I>TsduDescriptor</I> passed to ClientEventChainedReceive. For each client to which the transport forwards the receive indication, the transport augments the value to be returned by <I>ProtocolReceivePacket</I> by one. </LI>
+
+	<LI>The transport retrieves the buffer containing the indicated data from the packet descriptor supplied by the underlying NDIS miniport driver, possibly by calling <B>NdisGetFirstBufferFromPacket(Safe)</B>. The transport uses the pointer to this NDIS_BUFFER-type (equivalent to the MDL type) chain as the <I>Tsdu</I> for ClientEventChainedReceive. </LI>
+
+	<LI>From the full range of receive data indicated by the underlying NDIS miniport driver, the transport selects the subrange of interest to its client. The driver uses this subrange as the <I>StartingOffset</I> and <I>ReceiveLength</I> for ClientEventChainedReceive. </LI>
+</UL>
+
+<P>In a similar manner, such a TDI transport gives ClientEventChainedReceiveExpedited direct read-only access to a full TSDU when TDI_RECEIVE_ENTIRE_MESSAGE is ORed with TDI_RECEIVE_EXPEDITED in the input <I>RequestFlags</I>. </P>
+
+<P>For a TSDU indicated to a ClientEventChainedReceive(Expedited) handler, the client retains control of all miniport driver-allocated resources for the receive indication until it calls <B>TdiReturnChainedReceives</B> with the <I>TsduDescriptor</I>. As each client that received the indication calls <B>TdiReturnChainedReceives</B>, the NDIS library decrements the counter it maintains for the packet descriptor, which was set originally to the value returned by the <I>ProtocolReceivePacket</I> function at the bottom of the transport stack. When all clients that received the indication have called <B>TdiReturnChainedReceives</B>, NDIS returns control of all resources specified by that packet descriptor to the NDIS miniport driver that allocated these resources. </P>
+
+<P>When such a transport is called at its <I>ProtocolReceive</I> function with a full-packet indication made by the underlying NDIS miniport driver, the TDI transport must <I>not</I> call a registered ClientEventChainedReceive or ClientEventChainedReceiveExpedited handler with the indication. Instead, it should copy the indicated data for its client into a transport-allocated buffer and call the ClientEventReceive(Expedited) handler. An NDIS call to the <I>ProtocolReceive</I> function at the bottom of the transport stack implies that the underlying miniport driver expects all higher level network drivers to copy the receive data it is indicating and to return its packet descriptor (and all the miniport driver's resources that it describes) as quickly as possible because the miniport driver is short on NIC receive buffer space. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_4qnm.htm"><B>ClientEventChainedReceive</B></A>, <A HREF="35tdicli_57n6.htm"><B>ClientEventChainedReceiveExpedited</B></A>, <A HREF="35tdicli_7yeq.htm"><B>ClientEventReceive</B></A>, <A HREF="35tdicli_7jea.htm"><B>ClientEventReceiveExpedited</B></A>, <A HREF="103ndisx_146q.htm"><B>NdisGetFirstBufferFromPacket</B></A>, <A HREF="103ndisx_92wi.htm"><B>NdisGetFirstBufferFromPacketSafe</B></A>, <A HREF="105nstru_6jn6.htm"><B>NDIS_PACKET</B></A>, <A HREF="104tdlow_62k2.htm"><B>ProtocolReceive</B></A>, <A HREF="104tdlow_5i7n.htm"><B>ProtocolReceivePacket</B></A>, <A HREF="34bldmac_21de.htm"><B>TdiBuildReceive</B></A>, <A HREF="33tdifun_5rle.htm"><B>TdiCopyLookaheadData</B></A>, <A HREF="31tddisp_2sfm.htm"><B>TdiDispatchInternalDeviceControl</B></A>, <A HREF="33tdifun_67aq.htm"><B>TdiReturnChainedReceives</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TDI_RECEIVE"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

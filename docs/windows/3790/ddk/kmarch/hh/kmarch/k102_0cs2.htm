@@ -1,0 +1,143 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ExRegisterCallback</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ExRegisterCallback">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_exregistercallback_kr"></A>ExRegisterCallback</H1>
+
+<P>The <B>ExRegisterCallback</B> routine registers a given callback routine with a given callback object.</P>
+
+<PRE class=syntax><B>PVOID
+</B>  <B>ExRegisterCallback(</B>
+    <B>IN PCALLBACK_OBJECT</B>  <I>CallbackObject</I><B>,</B>
+    <B>IN PCALLBACK_FUNCTION</B>  <I>CallbackFunction</I><B>,</B>
+    <B>IN PVOID</B>  <I>CallbackContext</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>CallbackObject</I></DT>
+
+<DD>Pointer to a callback object obtained from <B>ExCreateCallback</B>.</DD>
+
+<DT><I>CallbackFunction</I></DT>
+
+<DD>Pointer to a driver callback routine, which must be nonpageable. The callback routine must conform to the following prototype:
+
+<PRE>VOID
+(*PCALLBACK_FUNCTION ) (
+    IN PVOID CallbackContext,
+    IN PVOID Argument1,
+    IN PVOID Argument2
+    );</PRE>
+
+
+<P>The callback routine parameters are as follows:
+
+
+<DL>
+<DT><I>CallbackContext</I></DT>
+
+<DD>Pointer to a driver-supplied context area as specified in the <I>CallbackContext</I> parameter of <B>ExRegisterCallback</B>.</DD>
+
+<DT><I>Argument1</I></DT>
+
+<DD>Pointer to a parameter defined by the callback object.</DD>
+
+<DT><I>Argument2</I></DT>
+
+<DD>Pointer to a parameter defined by the callback object.</DD>
+</DL>
+</DD>
+
+<DT><I>CallbackContext</I></DT>
+
+<DD>Pointer to a caller-defined structure of data items to be passed as the context parameter of the callback routine each time it is called. Typically the context is part of the caller's device object extension.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>ExRegisterCallback</B> returns a pointer to a callback registration handle that should be treated as opaque and reserved for system use. This pointer is NULL if <B>ExRegisterCallback</B> completes with an error.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A driver calls <B>ExRegisterCallback</B> to register a callback routine with a specified callback object. </P>
+
+<P>If the object allows only one registered callback routine, and such a routine is already registered, <B>ExRegisterCallback</B> returns NULL.</P>
+
+<P>Callers of <B>ExRegisterCallback</B> must save the returned pointer for use later in a call to <B>ExUnregisterCallback</B>. The pointer is required when removing the callback routine from the list of registered callback routines for the callback object.</P>
+
+<P>The meanings of <I>Argument1</I> and <I>Argument2</I> of the registered callback routine depend on the callback object and are defined by the component that created it. The following are the parameters for the system-defined callback objects:</P>
+
+<H4>\Callback\SetSystemTime</H4>
+
+<DL>
+<DT><I>Argument 1</I></DT>
+
+<DD>Not used.</DD>
+
+<DT><I>Argument 2</I></DT>
+
+<DD>Not used.</DD>
+</DL>
+
+<H4>\Callback\PowerState</H4>
+
+<DL>
+<DT><I>Argument 1</I></DT>
+
+<DD>PO_CB_AC_STATUS – Indicates that the system has changed from A/C to battery power, or vice versa.
+
+<P>PO_CB_LID_SWITCH_STATE – Indicates that the lid switch has changed states.
+
+
+<P>PO_CB_PROCESSOR_POWER_POLICY – Indicates that the system processor power policy has changed.
+
+
+<P>PO_CB_SYSTEM_POWER_POLICY – Indicates that the system power policy has changed.
+
+
+<P>PO_CB_SYSTEM_STATE_LOCK - Indicates that a system power state change is imminent. Drivers in the paging path can register for this callback to receive early warning of such a change, allowing them the opportunity to lock their code in memory before the power state changes.
+</DD>
+
+<DT><I>Argument 2</I></DT>
+
+<DD>If <I>Argument1</I> is PO_CB_AC_STATUS, <I>Argument2</I> contains TRUE if the current power source is AC and FALSE otherwise.
+
+<P>If <I>Argument1</I> is PO_CB_LID_SWITCH_STATE, <I>Argument2</I> contains TRUE if the current state of the lid switch is CLOSED and FALSE otherwise. 
+
+
+<P>If <I>Argument1</I> is PO_CB_PROCESSOR_POWER_POLICY, <I>Argument2</I> is not used. 
+
+
+<P>If <I>Argument1</I> is PO_CB_SYSTEM_POWER_POLICY, <I>Argument2</I> is not used.
+
+
+<P>If <I>Argument1</I> is PO_CB_SYSTEM_STATE_LOCK, <I>Argument2</I> contains zero if the system is about to leave S0 and one if the system has just reentered S0.
+
+</DD>
+</DL>
+
+<P>Callers of this routine must be running at IRQL&nbsp;&lt; DISPATCH_LEVEL.</P>
+
+<P>The system calls registered callback routines at the same IRQL at which the driver that created the callback called <B>ExNotifyCallback</B>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k102_967m.htm"><B>ExCreateCallback</B></A>, <A HREF="k102_2f5e.htm"><B>ExNotifyCallback</B></A>, <A HREF="k102_6gfm.htm"><B>ExUnregisterCallback</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ExRegisterCallback"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

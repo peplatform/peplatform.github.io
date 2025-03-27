@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Begin_V86_Serialization</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_1466"></A>Begin_V86_Serialization</H1>
+
+<PRE>include vmm.inc
+
+mov     ecx, flags
+VMMCall Begin_V86_Serialization
+ </PRE>
+
+<P>Serializes access to V86 mode among all threads in the system VM by using a mutex called the "V86 mutex". Because the mutex is taken automatically when <B>Begin_Nest_V86_Exec</B> is called while in the system VM context, a VxD typically does not directly call this service. A VxD might call this service when it needs to perform a nested execution operation into protected mode, and the operation will be reflected into V86 mode at the end of the protected mode chain. Using this service would prevent the VxD's thread from potentially getting blocked at the end of the protected mode chain. Uses Flags. 
+
+<UL>
+	<LI>No return value. </LI>
+</UL>
+
+<DL>
+<DT><I>flags</I></DT>
+
+<DD>Operation flags. Can be a combination of these values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=35%>Block_Svc_Ints </TD>
+<TD width=65%>Service events (and simulated interrupts) in the VM if the thread blocks for the critical section. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=35%>Block_Svc_If_Ints_Locked </TD>
+<TD width=65%>Service events (and simulated interrupts) in the VM if the thread blocks for the critical section and the VMStat_V86IntsLocked flag is set. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=35%>Block_Enable_Ints </TD>
+<TD width=65%>Service interrupt events in the VM even if the VM does not currently have interrupts enabled (force interrupts to be enabled). This flag is relevant only if either Block_Svc_Ints or Block_Svc_If_Ints_Locked is set. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=35%>Block_Thread_Idle </TD>
+<TD width=65%>If the thread blocks for the critical section this thread should be considered idle. </TD>
+</TR>
+</TABLE><BR>
+
+
+</DD>
+</DL>
+
+<P>There is a hierarchy between the V86 mutex and the critical section mutex. The V86 mutex can be taken in the system VM when the critical section is owned by another VM, but in the system VM the critical section can only be owned if the V86 mutex is already owned. Calling <B>Begin_Critical_Section</B> in a thread in the system VM takes both mutexes. </P>
+
+<P>The critical section mutex serializes access to V86 mode for all VMs.  Since the System VM contains one or more threads, the system-VM-specific V86 mutex is used to serialize access to V86 mode at the thread level.  Thus, when Begin_Critical_Section is called when in the System VM, both mutexes are used to ensure that the V86 mode is serialized in the System VM both at the thread level and the VM level.</P>
+
+<P>Each call to <B>Begin_V86_Serialization</B> should have a corresponding call to <B>End_V86_Serialization</B>. </P>
+
+<H4>See Also</H4>
+
+<P><B>Begin_Critical_Section</B>, <B>Begin_Nest_V86_Exec</B>, <B>End_V86_Serialization</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Begin_V86_Serialization"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

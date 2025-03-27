@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Defining and Exporting New GUIDs</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Defining and Exporting New GUIDs">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_setup_classes_dg">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_interface_classes_dg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_defining_and_exporting_new_guids_kg"></A>Defining and Exporting New GUIDs</H2>
+
+<P>You define a new GUID for an item the driver exports to other system components, drivers, or applications. For example, you define a new GUID for a custom PnP event on one of its devices. To define and export a new GUID, you must do the following:
+
+<OL>
+	<LI>Choose a symbolic name for the GUID.
+<P>Choose a name that represents the purpose of the GUID. For example, the operating system uses such names as GUID_BUS_TYPE_PCI and PARPORT_WMI_ALLOCATE_FREE_COUNTS_GUID. 
+</LI>
+
+	<LI>Generate a value for the GUID using <I>uuidgen.exe</I> or <I>guidgen.exe</I>. 
+<P>These utilities generate a unique, formatted string that represents a 128-bit value. The "-s" switch on <I>uuidgen.exe</I> outputs the GUID formatted as a C structure.
+</LI>
+
+	<LI>Define the GUID in an appropriate header file.
+<P>Use the DEFINE_GUID macro (defined in <I>guiddef.h</I>) to associate the GUID symbolic name with its value (see Example 1).
+
+<P><B>Example 1:  Defining GUIDs in a GUID-Only Header File</B>
+
+<PRE>:
+ 
+DEFINE_GUID( GUID_BUS_TYPE_PCMCIA, 0x09343630L, 0xaf9f, 0x11d0, 
+    0x92,0x9f, 0x00, 0xc0, 0x4f, 0xc3, 0x40, 0xb1 );
+DEFINE_GUID( GUID_BUS_TYPE_PCI, 0xc8ebdfb0L, 0xb510, 0x11d0, 
+    0x80,0xE9, 0x00, 0x00, 0xf8, 0x1e, 0x1b, 0x30 );
+ 
+:</PRE>
+
+<P>If the GUID is defined in a header file that contains statements other than GUID definitions, you must take an extra step to ensure that the GUID is instantiated in drivers that include the header file. The DEFINE_GUID statement must occur outside any <B>#ifdef</B> statements that prevent multiple inclusion. Otherwise, if the header file is included in a precompiled header, the GUID will not be instantiated in drivers that use the header file. See Example 2 for a sample GUID definition in a mixed header file.
+
+<P><B>Example 2:  Defining GUIDs in a Mixed Header File</B>
+
+<PRE>#ifndef _NTDDSER_    // this ex. is from a serial driver .h file
+#define _NTDDSER_
+ 
+:
+// put other header file definitions here 
+:
+ 
+#endif  // _NTDDSER_
+ 
+#ifdef DEFINE_GUID   // don't break compiles of drivers that 
+                     // include this header but don't want the
+                     // GUIDs
+//
+// Put GUID definitions outside of the multiple inclusion 
+// protection
+ 
+DEFINE_GUID(GUID_CLASS_COMPORT, 0x86e0d1e0L, 0x8089, 0x11d0, 0x9c,
+    0xe4, 0x08, 0x00, 0x3e, 0x30, 0x1f, 0x73);
+ 
+DEFINE_GUID (GUID_SERENUM_BUS_ENUMERATOR, 0x4D36E978, 0xE325, 
+    0x11CE, 0xBF, 0xC1, 0x08, 0x00, 0x2B, 0xE1, 0x03, 0x18);
+ 
+:
+#endif  // DEFINE_GUID</PRE>
+
+<P>Putting a GUID definition outside statements that prevent multiple inclusion does not cause multiple instances of the GUID in a driver because DEFINE_GUID defines the GUID as an EXTERN_C variable. Multiple declarations of an EXTERN variable are allowed as long as the types match.
+</LI>
+
+	<LI>When creating a GUID for a new <A HREF="JavaScript:hhobj_1.Click()">device setup class</A> or <A HREF="JavaScript:hhobj_2.Click()">device interface class</A>, the following rules apply:
+<UL>
+	<LI>Do not use a single GUID to identify both a device setup class and a device interface class.</LI>
+
+	<LI>When creating a symbolic name to associate with the GUID, use the following convention:
+<P>For device setup classes, use the format GUID_DEVCLASS_<I>xxxx</I>.
+
+<P>For device interface classes, use the format GUID_DEVINTERFACE_<I>xxxx</I>.
+</LI>
+</UL>
+</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Defining%20and%20Exporting%20New%20GUIDs"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

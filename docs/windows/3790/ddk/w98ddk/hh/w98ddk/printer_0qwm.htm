@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Organizing and Grouping Private DEVMODE Members</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_pss_3906"></A>Organizing and Grouping Private DEVMODE Members</H2>
+
+<P>Conceptually, a <B>DEVMODE</B> structure for a printer device has always followed the model of a public block of data, used by both the application and the driver, and a private block of data used only by the driver. The public portion of <B>DEVMODE</B> has been extended in Windows 95 to contain more information useful to the application, driver, and other system components such as the Image Color Mapper (ICM). These extensions (new structure members) are defined above. </P>
+
+<P>This topic concentrates on how a driver writer should structure the private portion of the <B>DEVMODE</B> structure used by his or her driver. Organization of the private block of <B>DEVMODE</B> data is determined by the "stickiness" of members in the private data block. <I>Stickiness</I> in general refers to how much document formatting information can be retained when a document is printed on a different model printer than it was originally formatted for, or is printed after the printer the document was originally formatted for is physically changed (for example, an optional paper source is added or removed). </P>
+
+<P>Each property represented by a member in the private portion of <B>DEVMODE</B> has one of two types of stickiness: 
+
+<UL>
+	<LI><I>Document-sticky properties</I> settings can be controlled by software. Paper size, paper orientation, and margin sizes are all examples of document-sticky properties. Document-sticky properties are set with <B>AdvancedSetUpDialog</B>, <B>ExtDeviceMode</B>, and <B>ExtDeviceModePropSheet</B> function calls. </LI>
+
+	<LI><I>Printer-sticky properties</I> cannot be controlled by software. These properties can be changed only by physically changing the printer. Currently installed memory size, optional paper sources, and font cartridges are all printer-sticky properties. <B>DEVMODE</B> members that represent printer-sticky properties are configurable only by the <B>ExtDeviceModePropSheet</B> function. </LI>
+</UL>
+
+<P>Note that document-sticky property settings can be affected by changes in document-sticky property settings. The printer driver user interface must warn the user and give him or her a chance to change document-sticky properties when a printer-sticky property setting changes. </P>
+
+<P>Looking at the organization of <B>DEVMODE</B>, all the properties represented in the public block are document-sticky. For Windows 95 printer drivers, the properties represented in the private block are a mixture of document-sticky and printer-sticky. In the private <B>DEVMODE</B> block, all the members representing document-sticky properties should come first, followed by all the members representing printer-sticky properties. </P>
+
+<P>Many Windows 3.x printer driver designs make no attempt to segregate document-sticky and printer-sticky properties. As a result, applications that cache the <B>DEVMODE</B> structure as part of the document end up carrying information that the driver cannot rely on the next time the document is loaded. Drivers must ignore printer-sticky information stored with the document. </P>
+
+<P>Organizing the private block if the <B>DEVMODE</B> structure into a layer of all document-sticky properties followed by a layer of all the printer-sticky properties gets around this problem. By setting the DEVMODE.dmDriverExtra member value to the size of the document-sticky layer, the driver can insure that applications access only document-sticky properties. The size of the <B>DEVMODE</B> structure used by the <B>DrvGetPrinterData</B> and <B>DrvSetPrinterData</B> functions the driver uses is the entire <B>DEVMODE</B> structure. </P>
+
+<PRE>DrvGetPrinterData
+    DWORD DrvGetPrinterData(LPSTR lpPrinter, LPSTR lpProfile, 
+    DWORD lpType, LPBYTE lpPrinterData, DWORD cbData, 
+    LPDWORD lpNeeded)
+ </PRE>
+
+<P>Retrieves printer driver information from the registry. Typically used to initialize the <B>DEVMODE</B> structure. 
+
+<UL>
+	<LI>Returns ERROR_SUCCESS, if successful; otherwise, returns one of the following error codes: ERROR_INVALID_PARAMETER or ERROR_INVALID_DATA (for the meaning of these error codes, see the winerror.h documentation). </LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=41%><I>lpPrinter</I> </TD>
+<TD width=59%>Friendly name that identifies the printer device. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%><I>lpProfile</I> </TD>
+<TD width=59%>Name of profile from which to retrieve data. Note that setting this parameter to INT_PD_PRINTER_DEVMODE (which is defined in PRINT.H), the default DEVMODE is used. Private profile data can be used by passing the <I>lpProfile</I> parameter from <B>ExtDeviceMode</B> (it is non-NULL) as this parameter. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%><I>lpType</I> </TD>
+<TD width=59%>Type of data being retrieved. Use REG_BINARY for binary data (see the Win32 SDK for other registry data type descriptions). </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%><I>lpPrinterData</I> </TD>
+<TD width=59%>Far pointer to location at which retrieved data should be written. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%><I>cbSize</I> </TD>
+<TD width=59%>Buffer size at the location pointed to by the <I>lpPrinterData</I> parameter. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%><I>lpNeeded</I> </TD>
+<TD width=59%>Size of buffer needed for original profile data. </TD>
+</TR>
+</TABLE><BR>
+
+<P>Printer drivers are strongly encouraged to use <B>DevSetPrinterData</B> to store all printer driver settings in the registry and to avoid using INI files wherever possible. The <B>DevGetPrinterData</B> can be used to retrieve the settings. </P>
+
+<P>If the data has the REG_SZ, REG_MULTI_SZ, or REG_EXPAND_SZ types, then the <I>lpPrinterData</I> and <I>dwSize</I> parameter byte counts must include one for the terminating NULL character. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Organizing%20and%20Grouping%20Private%20DEVMODE%20Members"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

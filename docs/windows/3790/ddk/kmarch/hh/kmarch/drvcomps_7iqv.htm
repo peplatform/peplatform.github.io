@@ -1,0 +1,67 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Releasing Driver-Allocated Resources</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_releasing_driver_allocated_resources_kg"></A>Releasing Driver-Allocated Resources</H4>
+
+<P>The specifics of how a driver uses the registry, sets up system objects and resources in its device extensions, controller extension, or driver-allocated nonpaged pool varies from driver to driver. However, any <A HREF="drvrrtns_7d82.htm"><I>Unload</I></A> routine must release the resources a driver is using in stages. </P>
+
+<P>Any driver’s <I>Unload</I> routine <I>must</I> ensure that no other driver routine is currently using or might shortly be using a particular resource <I>before</I> it releases that resource.</P>
+
+<P>In general, an <I>Unload</I> routine releases all driver-allocated resources in the following stages: 
+
+<OL>
+	<LI>If the driver has not already done so, disable interrupts on any physical devices, if possible, and then call <A HREF="k104_51yq.htm"><B>IoDisconnectInterrupt</B></A> as soon as interrupts are disabled. </LI>
+
+	<LI>Ensure that no other driver routine can reference the resources that the <I>Unload</I> routine intends to release. 
+<P>For example, an <I>Unload</I> routine must call <A HREF="k104_09wy.htm"><B>IoStopTimer</B></A> if the driver’s <A HREF="drvrrtns_7h9u.htm"><I>IoTimer</I></A> routine is currently enabled for a particular device object. It must ensure that no thread is waiting on any of the driver’s dispatcher objects and that its timer objects are not queued for calls to its <A HREF="drvrrtns_0iwi.htm"><I>CustomTimerDpc</I></A> routines before it frees the storage for its dispatcher objects. It must call <A HREF="k105_7i2a.htm"><B>KeRemoveQueueDpc</B></A> if it has a <A HREF="drvrrtns_3tbm.htm"><I>CustomDpc</I></A> routine that the ISR might have queued, and so on.
+
+<P>If the driver called <A HREF="k104_6ecy.htm"><B>IoQueueWorkItem</B></A>, it must ensure that the work item has completed. <B>IoQueueWorkItem</B> takes out a reference on the associated device object; the driver cannot be unloaded if any such references remain.
+
+<P>If the driver called <A HREF="k108_0q42.htm"><B>PsCreateSystemThread</B></A>, the <I>Unload</I> routine also must cause the driver-created thread to be run so that the thread itself can call <A HREF="k108_44aa.htm"><B>PsTerminateSystemThread</B></A> before the driver is unloaded. A driver cannot release a driver-created system thread by calling <A HREF="k111_03aq.htm"><B>ZwClose</B></A> with the <I>ThreadHandle</I> returned by <B>PsCreateSystemThread</B>.
+</LI>
+
+	<LI>Release any device-specific resources that the driver allocated. Doing so might involve calling the following system support routines: 
+<UL>
+	<LI><A HREF="k104_8xbm.htm"><B>IoDeleteSymbolicLink</B></A> if the <A HREF="drvrrtns_6r76.htm"><B>DriverEntry</B></A> or <A HREF="drvrrtns_2i0i.htm"><I>Reinitialize</I></A> routine called <A HREF="k104_28xe.htm"><B>IoCreateSymbolicLink</B></A> or <A HREF="k104_2che.htm"><B>IoCreateUnprotectedSymbolicLink</B></A>, and <A HREF="k104_16pe.htm"><B>IoDeassignArcName</B></A> if the driver called <A HREF="k104_60c2.htm"><B>IoAssignArcName</B></A> </LI>
+
+	<LI><A HREF="k102_6uuq.htm"><B>ExFreePool</B></A> if <B>DriverEntry</B> or any other driver routine called <A HREF="k102_2omq.htm"><B>ExAllocatePoolWithTag</B></A> and the driver has not yet released the allocated memory</LI>
+
+	<LI><A HREF="k106_16sy.htm"><B>MmUnmapIoSpace</B></A> if the <B>DriverEntry</B> or <I>Reinitialize</I> routine called <A HREF="k106_9j5e.htm"><B>MmMapIoSpace</B></A> </LI>
+
+	<LI><A HREF="k106_57oy.htm"><B>MmFreeNonCachedMemory</B></A> if the <B>DriverEntry</B> or <I>Reinitialize</I> routine called <A HREF="k106_5j1u.htm"><B>MmAllocateNonCachedMemory</B></A> </LI>
+
+	<LI><A HREF="k106_8jsi.htm"><B>MmFreeContiguousMemory</B></A> if the <B>DriverEntry</B> or <I>Reinitialize</I> routine called <A HREF="k106_8qpe.htm"><B>MmAllocateContiguousMemory</B></A> </LI>
+
+	<LI><A HREF="kdma_8h0y.htm"><B>FreeCommonBuffer</B></A> if the <B>DriverEntry</B> or <I>Reinitialize</I> routine called <A HREF="kdma_6otu.htm"><B>AllocateCommonBuffer</B></A> </LI>
+
+	<LI><A HREF="k104_0wqa.htm"><B>IoAssignResources</B></A> or <A HREF="k104_2gqa.htm"><B>IoReportResourceUsage</B></A> if the <B>DriverEntry</B> or <I>Reinitialize</I> routine called one of these support routines or <A HREF="k103_34fm.htm"><B>HalAssignSlotResources</B></A> to claim hardware resources in the configuration registry for itself and/or for its physical devices individually</LI>
+</UL>
+</LI>
+
+	<LI>Release system objects and resources that the <B>DriverEntry</B> or <I>Reinitialize</I> routine set up in the device extension of the device objects or in the controller extension of the controller object (if it created one). In particular, the driver must do the following before it attempts to delete the device object (<A HREF="k104_3wky.htm"><B>IoDeleteDevice</B></A>) or controller object (<A HREF="k104_1yd0.htm"><B>IoDeleteController</B></A>): 
+<UL>
+	<LI>Call <A HREF="k104_51yq.htm"><B>IoDisconnectInterrupt</B></A> to free the interrupt object pointer stored in the corresponding device or controller extension.</LI>
+
+	<LI>Call <A HREF="k107_6vg2.htm"><B>ObDereferenceObject</B></A> with the pointer to the next-lower driver’s file object if it called <B>IoGetDeviceObjectPointer</B> and stored this pointer in a device or controller extension.</LI>
+
+	<LI>Call <A HREF="k104_4s36.htm"><B>IoDetachDevice</B></A> with the pointer to the lower driver’s device object if it called <B>IoAttachDevice</B> or <B>IoAttachDeviceToDeviceStack</B> and stored this pointer in a device or controller extension</LI>
+</UL>
+</LI>
+
+	<LI>Free the hardware resources that the <B>DriverEntry</B> or <I>Reinitialize</I> routine claimed for the driver’s physical devices, if any, in the registry under the <B>\Registry\Machine\Hardware\ResourceMap</B> tree.</LI>
+
+	<LI>Remove any names for its devices that the <B>DriverEntry</B> or <I>Reinitialize</I> routine stored in the registry under the <B>\Registry..\DeviceMap</B> tree, as well.</LI>
+</OL>
+
+<P>After the driver has released device, system, and hardware resources, it can delete its device and controller objects, as described in the following section.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Releasing%20Driver-Allocated%20Resources"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

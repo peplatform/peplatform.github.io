@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Multiple Audio Subdevices</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Multiple Audio Subdevices">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_multiple_audio_subdevices_ksg"></A>Multiple Audio Subdevices</H3>
+
+<P>A multifunction device can contain two or more audio subdevices. For example, an adapter driver might allow an eight-channel audio device to be exposed to the system as four stereo channels. When writing an adapter driver to expose multiple subdevices in this way, you should incorporate information about the subdevices into your driver's <A HREF="pcdesign_92cn.htm">startup sequence</A> and INF file.</P>
+
+<P>First, your adapter driver should expose each stereo subdevice as a separate instance of a port/miniport pair during the startup sequence. Several of the sample adapters in the DDK implement an <B>InstallSubdevice</B> function that creates and registers a subdevice consisting of a system port driver, a miniport driver, and a set of resources that are to be bound to this pair. During startup, your driver should call its <B>InstallSubdevice</B> function once for each stereo subdevice and specify a unique name for each port/miniport pair.</P>
+
+<P>In addition, the unique name you assign to this pair must match the KSNAME string that you specify in your driver's INF file. For example, your driver might assign the names "Wave1" and "Wave2" to two subdevices during startup, as shown below:</P>
+
+<PRE>  InstallSubdevice(..., "Wave1",...);
+  InstallSubdevice(..., "Wave2",...);</PRE>
+
+<P>In this case, the same names should appear in the INF file:</P>
+
+<PRE>  KSNAME_Wave1="Wave1"
+  KSNAME_Wave2="Wave2"</PRE>
+
+<P>Your INF file should add interfaces that contain these names:</P>
+
+<PRE>  AddInterface=%KSCATEGORY_AUDIO%,%KSNAME_Wave1%,Test.Interface.Wave1
+  AddInterface=%KSCATEGORY_AUDIO%,%KSNAME_Wave2%,Test.Interface.Wave2</PRE>
+
+<P>The INF file should create AddReg sections in order to add information about these interfaces to the registry:</P>
+
+<PRE>  [Test.Interface.Wave1]
+  AddReg=Test.I.Wave1.AddReg
+  [Test.Interface.Wave2]
+  AddReg=Test.I.Wave2.AddReg</PRE>
+
+<P>The AddReg sections should also specify the registry entries for each subdevice:</P>
+
+<PRE>  [Test.I.Wave1.AddReg]
+  HKR,,CLSID,,%Proxy.CLSID%
+  HKR,,FriendlyName,,%Test.Wave1.szName%
+  [Test.I.Wave2.AddReg]
+  HKR,,CLSID,,%Proxy.CLSID%
+  HKR,,FriendlyName,,%Test.Wave2.szName%</PRE>
+
+<P>Finally, the INF file should define the friendly names for these subdevices:</P>
+
+<PRE>  Test.Wave1.szName="Punch"
+  Test.Wave2.szName="Judy"</PRE>
+
+<P>The friendly names show up in the audio control panel to identify the subdevices.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Multiple%20Audio%20Subdevices"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

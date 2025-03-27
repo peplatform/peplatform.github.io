@@ -1,0 +1,74 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Obtaining Device Configuration Information at Passive IRQL</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Obtaining Device Configuration Information at Passive IRQL">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_obtaining_device_configuration_information_at_passive_irql_kg"></A>Obtaining Device Configuration Information at Passive IRQL</H2>
+
+<P>To access device configuration space at passive IRQL you must use <A HREF="pnp-irps_9ipe.htm">IRP_MN_READ_CONFIG</A> and <A HREF="pnp-irps_0rjm.htm">IRP_MN_WRITE_CONFIG</A>. You indicate in the IRP stack which configuration space you wish to access and where the I/O buffer is. See the description of the <A HREF="k112_49bm.htm">IO_STACK_LOCATION</A> structure for further details.</P>
+
+<P>The following code sample demonstrates how to access a device's configuration space. </P>
+
+<PRE>NTSTATUS
+ReadWriteConfigSpace(
+    IN PDEVICE_OBJECT DeviceObject,
+    IN ULONG          ReadOrWrite, // 0 for read 1 for write
+    IN PVOID          Buffer,
+    IN ULONG          Offset,
+    IN ULONG          Length
+    )
+{
+    KEVENT event;
+    NTSTATUS status;
+    PIRP irp;
+    IO_STATUS_BLOCK ioStatusBlock;
+    PIO_STACK_LOCATION irpStack;
+    PDEVICE_OBJECT targetObject;
+
+    PAGED_CODE();
+    KeInitializeEvent( &amp;event, NotificationEvent, FALSE );
+    targetObject = IoGetAttachedDeviceReference( DeviceObject );
+    irp = IoBuildSynchronousFsdRequest( IRP_MJ_PNP,
+                                        targetObject,
+                                        NULL,
+                                        0,
+                                        NULL,
+                                        &amp;event,
+                                        &amp;ioStatusBlock );
+    if (irp == NULL) {
+        status = STATUS_INSUFFICIENT_RESOURCES;
+        goto End;
+    }
+    irpStack = IoGetNextIrpStackLocation( irp );
+    if (ReadOrWrite == 0) {
+        irpStack-&gt;MinorFunction = IRP_MN_READ_CONFIG;
+    }else {
+        irpStack-&gt;MinorFunction = IRP_MN_WRITE_CONFIG;
+    }
+    irpStack-&gt;Parameters.ReadWriteConfig.WhichSpace = PCI_WHICHSPACE_CONFIG;
+    irpStack-&gt;Parameters.ReadWriteConfig.Buffer = Buffer;
+    irpStack-&gt;Parameters.ReadWriteConfig.Offset = Offset;
+    irpStack-&gt;Parameters.ReadWriteConfig.Length = Length;
+    // Initialize the status to error in case the bus driver does not 
+    // set it correctly.
+    irp-&gt;IoStatus.Status = STATUS_NOT_SUPPORTED ;
+    status = IoCallDriver( targetObject, irp );
+    if (status == STATUS_PENDING) {
+        KeWaitForSingleObject( &amp;event, Executive, KernelMode, FALSE, NULL );
+        status = ioStatusBlock.Status;
+    }
+End:
+    // Done with reference
+    ObDereferenceObject( targetObject );
+    return status;
+} </PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Obtaining%20Device%20Configuration%20Information%20at%20Passive%20IRQL"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

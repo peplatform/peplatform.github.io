@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Implementing an IoCompletion Routine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Implementing an IoCompletion Routine">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_implementing_an_iocompletion_routine_kg"></A>Implementing an <I>IoCompletion</I> Routine</H3>
+
+<P>On entry, an <A HREF="drvrrtns_4rsi.htm"><I>IoCompletion</I></A> routine receives a <I>Context</I> pointer. When a dispatch routine calls <A HREF="k104_5w6q.htm"><B>IoSetCompletionRoutine</B></A>, it can supply a <I>Context</I> pointer. This pointer can reference whatever driver-determined context information the <I>IoCompletion</I> routine requires to process an IRP. Note that the context area cannot be pageable because the <I>IoCompletion</I> routine can be called at IRQL&nbsp;= DISPATCH_LEVEL. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Consider the following implementation guidelines for <I>IoCompletion</I> routines: </B>
+
+<UL>
+	<LI>An <I>IoCompletion</I> routine can check the IRP's <A HREF="irps_0ofb.htm">I/O status block</A> to determine the result of the I/O operation.</LI>
+
+	<LI>If the input IRP was allocated by the dispatch routine using <A HREF="k104_42pe.htm"><B>IoAllocateIrp</B></A> or <A HREF="k104_4gqa.htm"><B>IoBuildAsynchronousFsdRequest</B></A>, the <I>IoCompletion</I> routine must call <A HREF="k104_82wj.htm"><B>IoFreeIrp</B></A> to release that IRP, preferably before it completes the original IRP. 
+<UL>
+	<LI>The <I>IoCompletion</I> routine must release any per-IRP resources the dispatch routine allocated for the driver-allocated IRP, preferably before it frees the corresponding IRP.
+<P>For example, if the dispatch routine allocates an MDL with <A HREF="k104_3c8i.htm"><B>IoAllocateMdl</B></A> and calls <A HREF="k104_96eq.htm"><B>IoBuildPartialMdl</B></A> for a partial-transfer IRP it allocates, the <I>IoCompletion</I> routine must release the MDL with <B>IoFreeMdl</B>. If it allocates resources to maintain state about the original IRP, it must free those resources, preferably before it calls <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with the original IRP and definitely before it returns control. 
+
+<P>In general, before freeing or completing an IRP, the <I>IoCompletion</I> routine should free any per-IRP resources allocated by the Dispatch routine. Otherwise, the driver must maintain state about the resources to be freed before its <I>IoCompletion</I> routine returns control from completing the original request. 
+</LI>
+
+	<LI>If the <I>IoCompletion</I> routine cannot complete the original IRP with STATUS_SUCCESS, it must set the I/O status block in the original IRP to the value returned in the driver-allocated IRP that caused the <I>IoCompletion</I> routine to fail the original request. </LI>
+
+	<LI>If the <I>IoCompletion</I> routine will complete the original request with STATUS_PENDING, it must call <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A> with the original IRP before it calls <B>IoCompleteRequest</B>. </LI>
+
+	<LI>If the <I>IoCompletion</I> routine must fail the original IRP with an error STATUS_<I>XXX</I>, it can <A HREF="other_92jr.htm">log an error</A>. However, it is the responsibility of the underlying device driver to log any device I/O errors that occur, so <I>IoCompletion</I> routines usually do not log errors. </LI>
+
+	<LI>When the <I>IoCompletion</I> routine has processed and freed the driver-allocated IRP, the routine must return control with STATUS_MORE_PROCESSING_REQUIRED. 
+<P>Returning STATUS_MORE_PROCESSING_REQUIRED from the <I>IoCompletion</I> routine forestalls the I/O Manager’s completion processing for a driver-allocated and freed IRP. A second call to <B>IoCompleteRequest</B> causes the I/O Manager to resume calling the IRP's completion routines, starting with the completion routine immediately above the routine that returned STATUS_MORE_PROCESSING_REQUIRED. 
+</LI>
+</UL>
+</LI>
+
+	<LI>If the <I>IoCompletion</I> routine reuses an incoming IRP to send one or more requests to lower drivers, or if the routine retries failed operations, it should update whatever context the <I>IoCompletion</I> routine maintains about each reuse or retry of the IRP. Then it can set up the next-lower driver’s I/O stack location again, call <A HREF="k104_5w6q.htm"><B>IoSetCompletionRoutine</B></A> with its own entry point, and call <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A> for the IRP. 
+<UL>
+	<LI>The <I>IoCompletion</I> routine should <I>not</I> call <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A> at each reuse or retry of the IRP. 
+<P>The dispatch routine already marked the original IRP as pending. Until all drivers in the chain complete the original IRP with <B>IoCompleteRequest</B>, it remains pending. 
+</LI>
+
+	<LI>Before retrying a request, the <I>IoCompletion</I> routine should reset the I/O status block with STATUS_SUCCESS for <B>Status</B> and zero for <B>Information</B>, possibly after saving the returned error information. 
+<P>For each retry, the <I>IoCompletion</I> routine usually decrements a retry count set up by the Dispatch routine. Typically, the <I>IoCompletion</I> routine must call <B>IoCompleteRequest</B> to fail the IRP when some limited number of retries have failed. 
+</LI>
+
+	<LI>The <I>IoCompletion</I> routine must return STATUS_MORE_PROCESSING_REQUIRED after it calls <B>IoSetCompletionRoutine</B> and <B>IoCallDriver</B> with an IRP that is being reused or retried. 
+<P>Returning STATUS_MORE_PROCESSING_REQUIRED from the <I>IoCompletion</I> routine forestalls the I/O Manager’s completion processing of a reused or retried IRP. 
+</LI>
+
+	<LI>If the <I>IoCompletion</I> routine cannot complete the original IRP with STATUS_SUCCESS, it must leave the I/O status block as returned by lower drivers for the reuse or retry operation that causes the <I>IoCompletion</I> routine to fail the IRP. </LI>
+
+	<LI>If the <I>IoCompletion</I> routine will complete the original request with STATUS_PENDING, it must call <B>IoMarkIrpPending</B> with the original IRP before it calls <B>IoCompleteRequest</B>. </LI>
+
+	<LI>If the <I>IoCompletion</I> routine must fail the original IRP with an error STATUS_<I>XXX</I>, it can <A HREF="other_92jr.htm">log an error</A>. However, it is the responsibility of the underlying device driver to log any device I/O errors that occur, so <I>IoCompletion</I> routines usually do not log errors. </LI>
+</UL>
+</LI>
+
+	<LI>Any driver that sets an <I>IoCompletion</I> routine in an IRP and then passes the IRP down to a lower driver should check the <B>IRP-&gt;PendingReturned</B> flag in the <I>IoCompletion</I> routine. If the flag is set, the <I>IoCompletion</I> routine must call <B>IoMarkIrpPending</B> with the IRP. Note, however, that a driver that passes down the IRP and then waits on an event should not mark the IRP pending. Instead, its <I>IoCompletion</I> routine should signal the event and return STATUS_MORE_PROCESSING_REQUIRED.</LI>
+
+	<LI>The <I>IoCompletion</I> routine must release any resources the dispatch routine allocated for processing the original IRP, preferably before the <I>IoCompletion</I> routine calls <B>IoCompleteRequest</B> with the original IRP and definitely before the <I>IoCompletion</I> routine returns control from completing the original IRP. </LI>
+</UL>
+
+<P>If any higher-level driver has set its <I>IoCompletion</I> routine in the original IRP, that driver’s <I>IoCompletion</I> routine is not called until the <I>IoCompletion</I> routines of all lower-level drivers have been called. </P>
+
+<H4>Supplying a Priority Boost in Calls to IoCompleteRequest</H4>
+
+<P>If a lowest-level device driver can complete an IRP in its dispatch routine, it calls <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with a <I>PriorityBoost</I> of IO_NO_INCREMENT. No run-time priority increase is needed because the driver can assume that the original requester did not wait on its I/O operation. </P>
+
+<P>Otherwise, the lowest-level driver supplies a system-defined and device-type-specific value that boosts the requester’s run-time priority to compensate for the time the requester waited on its device I/O request. See <I>wdm.h or</I> <I>ntddk.h</I> for the boost values. </P>
+
+<P>Higher-level drivers apply the same <I>PriorityBoost</I> as their respective underlying device drivers when they call <B>IoCompleteRequest</B>. </P>
+
+<H4>Effect of Calling IoCompleteRequest</H4>
+
+<P>When a driver calls <B>IoCompleteRequest</B>, the I/O Manager fills that driver’s I/O stack location with zeros before calling the next higher-level driver, if any, that has set up an <I>IoCompletion</I> routine to be called for the IRP. </P>
+
+<P>A higher-level driver’s <I>IoCompletion</I> routine can check only the IRP’s I/O status block to determine how all lower drivers handled the request.</P>
+
+<P>The caller of <B>IoCompleteRequest</B> must not attempt to access the just-completed IRP. Such an attempt is a programming error that causes a system crash. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Implementing%20an%20IoCompletion%20Routine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

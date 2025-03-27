@@ -1,0 +1,82 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Co-installer Interface</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Co-installer Interface">
+<META NAME="MS-HKWD" CONTENT="COINSTALLER_CONTEXT_DATA">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_co_installer_interface_dg"></A>Co-installer Interface</H1>
+
+<P>A co-installer's interface consists of an exported entry point function and an associated data structure.</P>
+
+
+
+<H4><A NAME="ddk_co_installer_entry_point_dg"></A>Co-installer Entry Point</H4>
+
+<P>A co-installer must export an entry point function that has the following prototype:</P>
+
+<PRE class=syntax><B>typedef DWORD 
+  (CALLBACK* COINSTALLER_PROC) (
+    IN DI_FUNCTION  </B><I>InstallFunction</I><B>,</B>
+<B>    IN HDEVINFO  </B><I>DeviceInfoSet</I><B>,</B>
+<B>    IN PSP_DEVINFO_DATA  </B><I>DeviceInfoData</I><B>  OPTIONAL,</B>
+<B>    IN OUT PCOINSTALLER_CONTEXT_DATA  </B><I>Context</I>
+<B>    );</B></PRE>
+
+<P><I>InstallFunction</I> specifies the device installation request being processed, in which the co-installer has the option of participating. These requests are specified using DIF codes, such as DIF_INSTALLDEVICE. For more information, see <A HREF="dif-codes_4x9u.htm">Device Installation Function Codes</A>.</P>
+
+<P><I>DeviceInfoSet</I> supplies a handle to a <A HREF="setup-cls_2h9j.htm">device information set</A>.</P>
+
+<P><I>DeviceInfoData</I> optionally identifies a device that is the target of the device installation request. If this parameter is non-NULL, it identifies a device information element in the device information set. <I>DeviceInfoData</I> is non-NULL when <A HREF="di-rtns_7fjm.htm"><B>SetupDiCallClassInstaller</B></A> calls a device-specific co-installer. A class-specific co-installer can be called with a DIF request that has a NULL <I>DeviceInfoData</I>, such as DIF_DETECT or DIF_FIRSTTIMESETUP.</P>
+
+<P><I>Context</I> points to a COINSTALLER_CONTEXT_DATA structure, described below.</P>
+
+<P>A device co-installer returns one of the following values:
+
+<DL>
+<DT>NO_ERROR</DT>
+
+<DD>The co-installer performed the appropriate actions for the specified <I>InstallFunction</I>, or the co-installer determined that it didn't need to perform any actions for the request. 
+
+<P>The co-installer must also return NO_ERROR if it receives an unrecognized DIF code. (Note that class installers return ERROR_DI_DO_DEFAULT for unrecognized DIF codes, as described in <A HREF="class-inst_4g2v.htm">Class Installer Interface</A>.)
+</DD>
+
+<DT>ERROR_DI_POSTPROCESSING_REQUIRED</DT>
+
+<DD>The co-installer performed any appropriate actions for the specified <I>InstallFunction</I> and is requesting to be called again after the Class Installer has processed the request.</DD>
+
+<DT><I>A Win32 error</I></DT>
+
+<DD>The co-installer encountered an error.
+</DD>
+</DL>
+
+<P>A co-installer does not set a return status of ERROR_DI_DO_DEFAULT. This status can be used only by a Class Installer. If a co-installer returns this status, <B>SetupDiCallClassInstaller</B> will not process the DIF_<I>Xxx</I> request properly. A co-installer might <I>propagate</I> a return status of ERROR_DI_DO_DEFAULT in its post-processing pass, but it never <I>sets</I> this value.</P>
+
+
+
+<H4><A NAME="ddk_coinstaller_context_data_dg"></A>COINSTALLER_CONTEXT_DATA</H4>
+
+<P>COINSTALLER_CONTEXT_DATA is a co-installer-specific context structure describing an installation request. The format of the structure is:</P>
+
+<PRE class=syntax>    typedef struct 
+    _COINSTALLER_CONTEXT_DATA {
+        BOOLEAN  PostProcessing;
+        DWORD  InstallResult;
+        PVOID  PrivateData;
+    } COINSTALLER_CONTEXT_DATA, *PCOINSTALLER_CONTEXT_DATA;</PRE>
+
+<P class=indent1><B>PostProcessing</B> is TRUE when a co-installer is called after the appropriate class installer, if any, has processed the DIF code specified by <I>InstallFunction</I>. <B>PostProcessing</B> is read-only to the co-installer.</P>
+
+<P class=indent1>If <B>PostProcessing</B> is FALSE, <B>InstallResult</B> is not relevant. If <B>PostProcessing</B> is TRUE, <B>InstallResult</B> is the current status of the install request. This value is NO_ERROR or an error status returned by the previous component called for this install request. A co-installer can propagate the status by returning this value for its function return, or it can return another status. <B>InstallResult</B> is read-only to the co-installer.</P>
+
+<P class=indent1><B>PrivateData</B> points to a co-installer-allocated buffer. If a co-installer sets this pointer and requests postprocessing, <B>SetupDiCallClassInstaller</B> passes the pointer to the co-installer when it calls the co-installer for post-processing. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Co-installer%20Interface"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ScsiPortWmiDispatchFunction</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ScsiPortWmiDispatchFunction">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_scsiportwmidispatchfunction_kr"></A>ScsiPortWmiDispatchFunction</H1>
+
+<P>The <B>ScsiPortWmiDispatchFunction</B> routine is a dispatch routine for miniport drivers that support WMI. </P>
+
+<PRE class=syntax><B>BOOLEAN
+  ScsiPortWmiDispatchFunction(
+    IN PSCSI_WMILIB_CONTEXT  </B><I>WmiLibInfo</I><B>,</B>
+<B>    IN UCHAR  </B><I>MinorFunction</I><B>,</B>
+<B>    IN PVOID  </B><I>DeviceContext</I><B>,</B>
+<B>    IN PSCSIWMI_REQUEST_CONTEXT  </B><I>RequestContext</I><B>,</B>
+<B>    IN PVOID  </B><I>DataPath</I><B>,</B>
+<B>    IN ULONG  </B><I>BufferSize</I><B>,</B>
+<B>    IN PVOID  </B><I>Buffer</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>WmiLibInfo</I></DT>
+
+<DD>Pointer to a SCSI_WMILIB_CONTEXT structure that contains registration information for a miniport driver's data blocks and event blocks and defines entry points for the miniport driver's WMI library callback routines.</DD>
+
+<DT><I>MinorFunction</I></DT>
+
+<DD>Indicates the WMI action to perform. The miniport driver sets <I>MinorFunction</I> to <B>Srb-&gt;WmiSubFunction</B> from the input SRB.</DD>
+
+<DT><I>DeviceContext</I></DT>
+
+<DD>Pointer to a miniport driver-defined context value. The port driver will pass <I>DeviceContext</I> to the miniport driver's <I>HwScsiWmiXxx</I> callback routine. This value would typically point to a HW_DEVICE_EXTENSION structure.</DD>
+
+<DT><I>RequestContext</I></DT>
+
+<DD>Pointer to a SCSIWMI_REQUEST_CONTEXT structure that contains context information for the WMI SRB. If the SRB can pend, the miniport driver must allocate this structure from the SRB extension because the request context must remain valid until after <B>ScsiPortWmiPostProcess</B> returns with the final SRB return status and buffer size. <B>ScsiPortWmiDispatchFunction </B>will pass <I>RequestContext</I> to the miniport driver's callback routine that processes this request.</DD>
+
+<DT><I>DataPath</I></DT>
+
+<DD>Pointer to a GUID that represents the data block associated with the request. The miniport driver sets <I>DataPath</I> to <B>Srb-&gt;DataPath</B> from the input SRB.</DD>
+
+<DT><I>BufferSize</I></DT>
+
+<DD>Specifies the size in bytes of the data buffer. The miniport driver sets <I>BufferSize</I> to <B>Srb-&gt;DataTransferLength</B> from the input SRB.</DD>
+
+<DT><I>Buffer</I></DT>
+
+<DD>Pointer to the data buffer. The miniport driver sets <I>Buffer</I> to <B>Srb-&gt;DataBuffer</B> from the input SRB.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>ScsiPortWmiDispatchFunction</B> returns TRUE if the request is pending, or FALSE if the request was completed.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>srb.h</I>. Include <I>miniport.h</I> and <I>scsi.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P>When a miniport driver receives an SRB in which the <B>Function</B> member is set to SRB_FUNCTION_WMI, it calls <B>ScsiPortWmiDispatchFunction</B> with request parameters, including a pointer to an initialized SCSI_WMILIB_CONTEXT structure. This structure contains information about the miniport driver's data blocks and event blocks and defines entry points for the miniport driver's <I>HwScsiWmiXxx</I> callback routines. </P>
+
+<P><B>ScsiPortWmiDispatchFunction</B> confirms that the SRB is a WMI request and determines whether the block specified by the request is valid for the miniport driver. If these conditions are met, <B>ScsiPortWmiDispatchFunction</B> processes the SRB by calling the appropriate <I>HwScsiWmiXxx</I> entry point in the miniport driver's SCSI_WMILIB_CONTEXT structure. If the miniport driver does not define an entry point for an optional <I>HwScsiWmiXxx</I> routine, the port driver handles the request.</P>
+
+<P>In either case, after <B>ScsiPortWmiDispatchFunction</B> returns, the miniport driver should do the following for requests that it does not pend:
+
+<UL>
+	<LI>Set <B>Srb-&gt;DataTransferLength</B> to the value returned by <B>ScsiPortWmiGetReturnSize</B></LI>
+
+	<LI>Set <B>Srb-&gt;SrbStatus</B> to the value returned by <B>ScsiPortWmiGetReturnStatus</B></LI>
+
+	<LI>Call <B>ScsiPortNotification</B> with <B>RequestComplete</B> and again with <B>NextRequest</B></LI>
+</UL>
+
+<H4>See Also</H4>
+
+<P><A HREF="k306_1s1e.htm">SCSI_WMILIB_CONTEXT</A>, <A HREF="k301_659u.htm"><B>ScsiPortNotification</B></A>, <A HREF="k301_3gky.htm"><B>ScsiPortWmiGetReturnSize</B></A>, <A HREF="k301_9g36.htm"><B>ScsiPortWmiGetReturnStatus</B></A>, <A HREF="k301_0nci.htm"><B>ScsiPortWmiPostProcess</B></A>,  <A HREF="k306_00tu.htm">SCSIWMI_REQUEST_CONTEXT</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ScsiPortWmiDispatchFunction"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

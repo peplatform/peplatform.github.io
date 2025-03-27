@@ -1,0 +1,159 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProcAmpControlOpenStream</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProcAmpControlOpenStream">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_procampcontrolopenstream_gg"></A><I>ProcAmpControlOpenStream</I></H1>
+
+<P>The sample <I>ProcAmpControlOpenStream</I> function creates a ProcAmpStream object.</P>
+
+<PRE class=syntax><B>HRESULT
+</B>  <I>ProcAmpControlOpenStream</I><B>(</B>
+    [<B>in</B>] <B>LPDXVA_VideoDesc</B>  <I>lpVideoDescription</I>,
+    [<B>out</B>] <B>HDXVA_ProcAmpStream</B>*  <I>lphCcStrm</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>lpVideoDescription</I></DT>
+
+<DD>Pointer to a <A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A> structure that defines the ProcAmp control parameters for the video to be processed.</DD>
+
+<DT><I>lphCcStrm</I></DT>
+
+<DD>Pointer to a handle for the ProcAmpStream object<B> </B>returned by the driver. This handle should be used to identify this stream in all future calls.</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>S_OK</P>
+
+<H4>Comments</H4>
+
+<P>After the VMR has determined the capabilities of the ProcAmp control hardware, a ProcAmpStream object can be created. Creation of a ProcAmpStream object allows a device driver to reserve any hardware resources that are required to perform the requested ProcAmp adjustment operation.</P>
+
+<H4>Mapping CreateMoComp to <I>ProcAmpControlOpenStream</I></H4>
+
+<P>The <I>ProcAmpControlOpenStream </I>function maps directly to a call to the <B>CreateMoComp</B> member of the <A HREF="ddstrcts_0qav.htm">DD_MOTIONCOMPCALLBACKS</A> structure in the deinterlace container device. <B>CreateMoComp</B> points to a driver-supplied function that references the <A HREF="ddstrcts_6jon.htm">DD_CREATEMOCOMPDATA</A> structure. </P>
+
+<P>The following sample code shows how your driver should map the driver-supplied callback pointed to by <B>CreateMoComp</B> into calls to <I>ProcAmpControlOpenStream</I>. The code shows only how the function pointed to by <B>CreateMoComp</B> is used for ProcAmp control. If your driver supports other DirectX VA functions, such as decoding MPEG-2 video streams, extend the following sample code to include processing of additional DirectX VA GUIDs. </P>
+
+<PRE>DWORD APIENTRY
+CreateMoComp(
+    LPDDHAL_CREATEMOCOMPDATA lpData
+    )
+{
+    // Make sure it's a GUID we like.
+    if (!ValidDXVAGuid(lpData-&gt;lpGuid)) {
+
+        DbgLog((LOG_ERROR, 1,
+                TEXT("No formats supported for this GUID")));
+
+        lpData-&gt;ddRVal = E_INVALIDARG;
+        return DDHAL_DRIVER_HANDLED;
+    }
+    // Look for the deinterlace container device GUID
+    if (*lpData-&gt;lpGuid == DXVA_DeinterlaceContainerDevice) {
+
+        DXVA_DeinterlaceContainerDeviceClass* lpDev =
+            new DXVA_DeinterlaceContainerDeviceClass(
+                  *lpData-&gt;lpGuid,
+                  DXVA_DeviceContainer);
+
+        if (lpDev) {
+            lpData-&gt;ddRVal = DD_OK;
+        }
+        else {
+            lpData-&gt;ddRVal = E_OUTOFMEMORY;
+        }
+
+        lpData-&gt;lpMoComp-&gt;lpDriverReserved1 = 
+            (LPVOID)(DXVA_DeviceBaseClass*)lpDev;
+        return DDHAL_DRIVER_HANDLED;
+    }
+
+    // Look for the ProcAmp Control device GUID
+    if (*lpData-&gt;lpGuid == DXVA_ProcAmpControlDevice) {
+
+        DXVA_ProcAmpControlDeviceClass* lpDev =
+            new DXVA_ProcAmpControlDeviceClass(
+                    *lpData-&gt;lpGuid,
+                    DXVA_DeviceProcAmpControl);
+
+        if (lpDev) {
+            LPDXVA_VideoDesc lpVideoDescription = 
+                 (LPDXVA_VideoDesc)lpData-&gt;lpData;
+            lpData-&gt;ddRVal = 
+                   lpDev-&gt;ProcAmpControlOpenStream(
+                       lpVideoDescription);
+
+            if (lpData-&gt;ddRVal != DD_OK) {
+                delete lpDev;
+                lpDev = NULL;
+            }
+        }
+        else {
+            lpData-&gt;ddRVal = E_OUTOFMEMORY;
+        }
+
+        lpData-&gt;lpMoComp-&gt;lpDriverReserved1 = 
+            (LPVOID)(DXVA_DeviceBaseClass*)lpDev;
+        return DDHAL_DRIVER_HANDLED;
+    }
+    lpData-&gt;ddRVal = DDERR_CURRENTLYNOTAVAIL;
+    return DDHAL_DRIVER_HANDLED;
+}</PRE>
+
+<H4>Implementing GetMoCompGuids</H4>
+
+<P>In addition to mapping the driver-supplied callback pointed to by <B>CreateMoComp</B> to the sample <I>ProcAmpControlOpenStream </I>function your driver should also implement the <B>GetMoCompGuids</B> member of the <A HREF="ddstrcts_0qav.htm">DD_MOTIONCOMPCALLBACKS</A> structure. The following sample code shows one way to implement <B>GetMoCompGuids</B> in your driver.</P>
+
+<PRE>// This is the list of all DirectX VA device GUIDs supported by
+// the driver - this list will include decoder, ProcAmp and
+// the deinterlacing container device.  There is no significance to
+// the order of the GUIDs on the list.
+
+DWORD g_dwDXVANumSupportedGUIDs = 2;
+const GUID* g_DXVASupportedGUIDs[2] = {
+    &amp;DXVA_DeinterlaceContainerDevice,
+    &amp;DXVA_ProcAmpControlDevice
+};
+
+DWORD APIENTRY
+GetMoCompGuids(
+    PDD_GETMOCOMPGUIDSDATA lpData
+    )
+{
+    DWORD dwNumToCopy;
+
+    // Check to see if this is a GUID request or a count request
+    if (lpData-&gt;lpGuids) {
+        dwNumToCopy = min(g_dwDXVANumSupportedGUIDs, 
+                lpData-&gt;dwNumGuids);
+        for (DWORD i = 0; i &lt; dwNumToCopy; i++) {
+            lpData-&gt;lpGuids[i] = *g_DXVASupportedGUIDs[i];
+        }
+    }
+    else {
+        dwNumToCopy = g_dwDXVANumSupportedGUIDs;
+    }
+
+    lpData-&gt;dwNumGuids = dwNumToCopy;
+    lpData-&gt;ddRVal = DD_OK;
+    return DDHAL_DRIVER_HANDLED;
+}</PRE>
+
+<H4>See Also</H4>
+
+<P><A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProcAmpControlOpenStream"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

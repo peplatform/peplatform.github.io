@@ -1,0 +1,29 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Failure to Check a Driver's State</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Failure to Check a Driver's State">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_failure_to_check_a_driver_s_state_kg"></A>Failure to Check a Driver's State</H2>
+
+<P>In the following example, the driver uses the <B>ASSERT</B> macro to check for the correct device state in the checked build, but does not check device state in the free build:</P>
+
+<PRE>   case IOCTL_WAIT_FOR_EVENT:
+
+      ASSERT((!Extension-&gt;WaitEventIrp));
+      <span style="color:#ff0000"><B>Extension-&gt;WaitEventIrp = Irp</B>;</span> 
+      IoMarkIrpPending(Irp);
+      status = STATUS_PENDING;</PRE>
+
+<P>In the checked build, if the driver already holds the IRP pending, the system will assert. In the free build, however, the driver does not check for this error. Two calls to the same IOCTL cause the driver to lose track of an IRP.</P>
+
+<P>On a multiprocessor system, this code fragment might cause additional problems. Assume that on entry this routine has ownership of (the right to manipulate) this IRP. When the routine saves the <B>Irp</B> pointer in the global structure at <B>Extension-&gt;WaitEventIrp</B>, another thread can get the IRP address from that global structure and perform operations on the IRP. To prevent this problem, the driver should mark the IRP pending before it saves the IRP and should include both the call to <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A> and the assignment in an interlocked sequence. A <A HREF="drvrrtns_8y0i.htm"><I>Cancel</I></A> routine for the IRP might also be necessary.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Failure%20to%20Check%20a%20Driver's%20State"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

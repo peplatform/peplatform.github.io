@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>KS Pins</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="KS Pins">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_zwcreatefile_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mj_device_control_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_ks_pins_ksg"></A>KS Pins</H3>
+
+<P>The minidriver supplies a <A HREF="ks-struct_9kqb.htm">KSPIN_DESCRIPTOR</A> structure for each type of pin to be instantiated. A pin descriptor structure is known as a pin factory. Each pin factory can instantiate one or more pin instances of a particular type. A pin factory contains several arrays that describe the type of pin that this descriptor instantiates.</P>
+
+<P>The minidriver specifies one or more KS categories to which pins created by this descriptor belong in the <B>Categories</B> member of KSPIN_DESCRIPTOR. KS uses categories to connect pin instances when it builds a filter graph. The <A HREF="ks-prop_0yer.htm">KSPROPERTY_TOPOLOGY_CATEGORIES</A> property queries for the array of functional categories that a driver supports.</P>
+
+<P>A minidriver provides an INF file that registers one or more pin device names. At installation, the operating system loads the names and corresponding categories into the system registry. Clients can then make create-file calls with these device names to instantiate pins.</P>
+
+<P>User mode clients call the Win32 function <B>CreateFile</B> with the name of the device. For example, “<I>\\.\filters\audio\default renderer</I>” could be a link to the audio device that has been configured for default output. Kernel mode clients call <A HREF="JavaScript:hhobj_1.Click()"><B>ZwCreateFile</B></A> from kernel mode. After the create-file routine returns a file handle, KS clients communicate with pin instances through <A HREF="ks-overview_1uhz.htm">KS Properties</A>.</P>
+
+<P></P>
+
+<P>In the pin descriptor structures, the minidriver lays out arrays of <A HREF="ks-struct_9ctv.htm">KSPIN_INTERFACE</A> structures and <A HREF="ks-struct_735f.htm">KSPIN_MEDIUM</A> structures that specify the <A HREF="ks-overview_5413.htm">interfaces</A> and <A HREF="ks-overview_6asn.htm">mediums</A> supported by that pin factory. <A HREF="ks-struct_9kqb.htm">KSPIN_DESCRIPTOR</A> is also where the minidriver specifies the valid data ranges for pins created by that factory. It does this by providing a pointer to an array of <A HREF="ks-struct_065v.htm">KSDATARANGE</A> structures. The minidriver also specifies the directions of data and communication flow for new pins created by this pin factory.</P>
+
+<P>A minidriver enables run-time discovery of pin factories by supporting the <A HREF="ks-prop_1kmr.htm">KSPROPSETID_Pin</A> property set.</P>
+
+<P>To create a pin connection, call the <A HREF="ksfunc_95tf.htm"><B>KsCreatePin</B></A> routine. In this call, the minidriver passes a pointer to a structure of type <A HREF="ks-struct_4ng3.htm">KSPIN_CONNECT</A> that describes the requested connection. When a pin is created, the filter sees the new pin as a file object subordinate to the file object for that filter.</P>
+
+<P>The minidriver calls <A HREF="ksfunc_4mk3.htm"><B>KsValidateConnectRequest</B></A> with the descriptor structures provided in the resulting IRP_MJ_CREATE. This routine validates these structures and returns a pointer to the connection structure and the root file object.</P>
+
+<P>Minidrivers use the <B>DataFlow</B> and <B>Communication</B> members of <A HREF="ks-struct_9kqb.htm">KSPIN_DESCRIPTOR</A> structures to define the following pin specifics:
+
+<UL>
+	<LI><B>IRP source pin versus IRP sink pin</B>
+<P>An <I>IRP source</I> pin issues IRPs; an <I>IRP sink</I> pin receives them. A user mode client sends I/O requests directly to an IRP sink pin through the relevant file handle. Clients use <A HREF="ks-prop_04dv.htm">KSPROPERTY_PIN_COMMUNICATION</A> to check whether data flows in or out of a pin type.
+</LI>
+
+	<LI><B>Data source pin versus data sink pin</B>
+<P>A <I>data source</I> pin is an output pin on a filter; a <I>data sink</I> pin is an input pin. The property of being a data source or sink is independent of being an IRP source or sink. For example, the client can connect a data source, IRP sink pin to a data sink, IRP source pin. Clients use <A HREF="ks-prop_4unn.htm">KSPROPERTY_PIN_DATAFLOW</A> to check whether data flows in or out of a pin type.
+</LI>
+</UL>
+
+<P>When terminating a connection, the handle of the source pin must be closed before the underlying file object is destroyed. If the source pin relies on resources provided by the sink pin, it is the responsibility of the sink pin to notify the source when the connection is terminated.</P>
+
+<P>A client interacts with a kernel streaming pin by calling the <B>DeviceIoControl</B> routine (described in the Platform SDK documentation) with <A HREF="JavaScript:hhobj_2.Click()">IRP_MJ_DEVICE_CONTROL</A>. The caller identifies its request by the I/O control code that it places at <B>Parameters.DeviceIoControl.IoControlCode</B> in the I/O stack location structure.</P>
+
+<P>To support requests, the minidriver supplies a pointer to a <A HREF="ks-struct_494j.htm">KSDISPATCH_TABLE</A> structure in a call to <A HREF="ksfunc_0u2b.htm"><B>KsAllocateObjectHeader</B></A>.</P>
+
+<P>Write requests contain a pointer to an array of <A HREF="ks-struct_7l4j.htm">KSSTREAM_HEADER</A> structures that in turn contain pointers to stream data. Read requests contain a pointer to an array of empty header structures where the read data should be returned.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: KS%20Pins"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

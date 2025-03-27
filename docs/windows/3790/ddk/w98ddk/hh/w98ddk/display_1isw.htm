@@ -1,0 +1,65 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>PRE_HIRES_TO_VGA (Function 4)</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_670"></A>PRE_HIRES_TO_VGA (Function 4)</H3>
+
+<H4>Call With</H4>
+
+<P>EBX: Contains the handle of the VM that is being switched to. </P>
+
+<P>EBP: May or may not point to the Client registers for the VM in EBX. </P>
+
+<H4>Return Values</H4>
+
+<P>Save anything that you use. </P>
+
+<H4>Remarks</H4>
+
+<P>The Main VDD calls the routines <B>PRE_HIRES_TO_VGA</B>, <B>POST_HIRES_TO_VGA</B>,<B> PRE_VGA_TO_HIRES</B>,<B> </B>and <B>POST_VGA_TO_HIRES </B>whenever it changes the video focus between Windows and a full-screen MS-DOS prompt. During <B>PRE_HIRES_TO_VGA </B>or <B>PRE_VGA_TO_HIRES</B>, remove trapping on your device's extended registers or make sure that they are not virtualized (meaning that any register I/O that the VM does during the mode change is actually written to the physical hardware). During <B>POST_HIRES_TO_VGA </B>or <B>POST_VGA_TO_HIRES</B>, reestablish the trapping. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Following are the steps when switching from Windows to a full-screen MS-DOS prompt</B>
+
+<OL>
+	<LI>The Main VDD responds to a Set_Focus message from the SHELL VxD. </LI>
+
+	<LI>The Main VDD enters the routine that causes the VM to go full-screen. It suspends all VM's and cleans up any "dirty" pages in the VGA virtualization area. That is, it prevents data loss by ensuring that all of the data that a windowed 4 plane VGA application may have written to the off-screen 32K or 64K virtualization area has been delivered to the Grabber. </LI>
+
+	<LI>The Main VDD disables all trapping on the standard VGA ports 3B0h through 3DFh. It also sets the DIB engine's BUSY bit and any Enabled flags that the display driver set with the <B>VDD_SET_USER_FLAGS </B>call. This tells the display driver that it can no longer draw on the hardware. </LI>
+
+	<LI>The Main VDD calls the function <B>PRE_HIRES_TO_VGA</B> in the mini-VDD. The mini-VDD may if it needs to set the screen out of hi-res mode. It should also set flags and/or remove traps on any extended registers that it's trapping. </LI>
+
+	<LI>The Main VDD saves some data from the BIOS data area of the VM that's going to get the video focus, including cursor position, BIOS mode, etc. It also saves off the Interrupt 43h vector which is used by some video BIOS's. </LI>
+
+	<LI>The Main VDD executes an Interrupt 10h, function 0 mode change to enter the mode that the VM is running in. If this is sufficient to get the hardware out of hi-res mode and back to a standard VGA mode, then the mini-VDD need not explicitly set the screen into VGA mode (see step 4). </LI>
+
+	<LI>The Main VDD then restores the BIOS data area of the VM, calls <B>POST_HIRES_TO_VGA</B>, and restores trapping to the proper state for the standard VGA registers. </LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Following are the steps switching back to Windows from a full-screen MS-DOS prompt</B>
+
+<OL>
+	<LI>The Main VDD responds to a Set_Focus message from the SHELL VxD. </LI>
+
+	<LI>The Main VDD enters the routine that causes the VM to go back to Windows. It suspends all VM's and cleans up any "dirty" pages in the VGA virtualization area. That is, it prevents data loss by ensuring that all of the video data that a background 4 plane VGA application may have written to the off-screen 32K or 64K virtualization area has been delivered to the Grabber. It also saves all of the visible full-screen video memory at this time. </LI>
+
+	<LI>The Main VDD disables all trapping on the standard VGA ports 3B0h through 3DFh. </LI>
+
+	<LI>The Main VDD calls the mini-VDD function <B>PRE_VGA_TO_HIRES</B>. The mini-VDD should set flags and/or remove traps on any extended registers that it is trapping. </LI>
+
+	<LI>The Main VDD calls the display driver's <B>ResetHiResMode</B> routine which was registered by the display driver during the function <B>VDD_DRIVER_REGISTER</B>. The display driver runs through all the code necessary to reestablish Windows hi-res mode on the hardware. It also restores the palette DAC, hardware cursor, and font cache if any. The display driver is also responsible for clearing the BUSY bit that was set by the Main VDD when going to full-screen mode. </LI>
+
+	<LI>The Main VDD calls the mini-VDD function <B>POST_VGA_TO_HIRES</B> and restores trapping to the proper state for the standard VGA registers. </LI>
+</OL>
+
+<P>Note: If the mini-VDD needs to make calls to <B>Exec_Int </B>or <B>Exec_VxD_Int</B> in order to set the hardware from hi-res mode back to VGA mode during a <B>PRE_HIRES_TO_VGA</B> call, it should make sure that EBP points to client registers for the Current VM. The Main VDD does not guarantee this when it calls the mini-VDD. Since all calls to <B>Exec_Int </B>and <B>Exec_VxD_Int </B>happen in the context of the current VM, you must make the call to the function <B>Get_Cur_VM_Handle</B> and then establish EBP to point to the client registers for that VM before making any calls to the BIOS. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: PRE_HIRES_TO_VGA%20(Function%204)"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

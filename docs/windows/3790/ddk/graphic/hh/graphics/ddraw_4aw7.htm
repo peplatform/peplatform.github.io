@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Windows Millennium Hibernate Feature</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Windows Millennium Hibernate Feature">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_windows_millennium_hibernate_feature_gg"></A>Windows Millennium Hibernate Feature</H2>
+
+<P>In the process of developing the Windows®&nbsp;Millennium (Windows&nbsp;Me) hibernate feature, Microsoft found that many display adapters did not correctly support the D3 state. Some display adapters had problems in the BIOS, others had drivers that did not correctly restore register set, and others relied on V<SUB>aux</SUB> current to maintain the state.</P>
+
+<P>To distinguish newer display adapter drivers and devices that have been modified and tested to support hibernation, Windows&nbsp;Me has added a new flag to <A HREF="ddfncs_2y7b.htm"><B>GET_ADAPTER_POWER_STATE_CAPS</B></A> and <A HREF="ddfncs_04rr.htm"><B>SET_ADAPTER_POWER_STATE</B></A> calls. If a system's display adapter drivers do not export these calls or do not implement the new flag, the system is not placed in S4 (hibernate) state, and the hibernation feature UI is disabled.</P>
+
+<P>Shortly after the display driver is loaded, Windows&nbsp;Me tests to determine whether the driver has exported the <B>GET_ADAPTER_POWER_STATE_CAPS</B> function. If this function is exported, Windows&nbsp;Me calls this function and examines its return value to determine the power states that the device supports. Drivers indicate supported power states by ORing one or more of the flags that are specified in the Return Value section of <A HREF="ddfncs_2y7b.htm"><B>GET_ADAPTER_POWER_STATE_CAPS</B></A> and returning this value in the <B>GET_ADAPTER_POWER_STATE_CAPS</B> call.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;This implementation is required for drivers to accurately indicate supported power states.</P>
+
+<P>Do not indicate support of CM_POWERSTATE_D3 unless your device has been thoroughly tested on a bus that loses both V<SUB>cc</SUB> and V<SUB>aux</SUB> power when the system is placed in S3. Likewise, do not set the CM_POWERSTATE_HIBERNATE flag unless your device has undergone thorough hibernation testing.</P>
+
+<P>If the display driver does not export the <B>GET_ADAPTER_POWER_STATE_CAPS</B> call or does not set the CM_POWERSTATE_HIBERNATE bit in the return value, Windows&nbsp;Me disables the hibernation feature. Because older Windows&nbsp;98 display drivers did not implement the CM_POWERSTATE_HIBERNATE flag, Windows&nbsp;Me disables hibernation for these older devices and drivers.</P>
+
+<P>Windows&nbsp;Me also uses the same bits for the <B>SET_ADAPTER_POWER_STATE</B> call. Before placing the system in a new power state, Windows&nbsp;Me calls the driver's <B>SET_ADAPTER_POWER_STATE</B> function with the appropriate CM_POWERSTATE_HIBERNATE flag. Before returning from this call, drivers must perform any necessary actions to prepare their device to enter the new power state.</P>
+
+<P>For example, if <B>SET_ADAPTER_POWER_STATE</B> is called with either CM_POWERSTATE_D3 or CM_POWERSTATE_HIBERNATE flags, the driver must save its device's register values to prepare for power loss. Subsequently, when power is restored, Windows&nbsp;Me calls <B>SET_ADAPTER_POWER_STATE</B> with CM_POWERSTATE_D0. In response, the driver must restore its device's registers so the device is returned to the same state it was in before the sleep or hibernate request.</P>
+
+<P>In addition, drivers must be designed to handle the <B>SET_ADAPTER_POWER_STATE</B> CM_POWERSTATE_D0 command while resuming even though the BIOS might have initiated a re-POST or other display activity. A device must not enable its IRQ until the <B>SET_ADAPTER_POWER_STATE</B> CM_POWERSTATE_D0 command is received. In other words, do not allow a display device to generate interrupts before its driver receives the <B>SET_ADAPTER_POWER_STATE</B> CM_POWERSTATE_D0 command. Although the system can reflect display adapter interrupts to real mode while booting, interrupts cannot be reflected to real mode while resuming because Plug and Play might have changed the interrupt.</P>
+
+<P>Likewise, regardless of what the BIOS does to the display adapter during resume, the driver is responsible for putting the device back into the same state it was in before it received the <B>SET_ADAPTER_POWER_STATE</B> CM_POWERSTATE_D3 command.</P>
+
+<P><IMG SRC="images/hibernat.gif" ALT="" BORDER=0></P>
+
+<P><B>Windows Millennium Power Management Configuration</B></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Windows%20Millennium%20Hibernate%20Feature"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

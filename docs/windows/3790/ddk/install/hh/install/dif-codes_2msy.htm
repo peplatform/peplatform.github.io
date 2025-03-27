@@ -1,0 +1,140 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DIF_NEWDEVICEWIZARD_FINISHINSTALL</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DIF_NEWDEVICEWIZARD_FINISHINSTALL">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_dif_newdevicewizard_finishinstall_dr"></A>DIF_NEWDEVICEWIZARD_FINISHINSTALL</H1>
+
+<P>A DIF_NEWDEVICEWIZARD_FINISHINSTALL request allows an installer to supply wizard page(s) that Setup displays to the user after the device has been installed but before Setup displays the standard finish page. Setup sends this request when installing PnP devices and manually installed non-PnP devices.</P>
+
+<H4>When Sent</H4>
+
+<P>After Setup installs a device (on successful completion of <A HREF="dif-codes_7d9u.htm">DIF_INSTALLDEVICE</A> processing) but before it displays the Finish wizard page.</P>
+
+<P>Setup sends this request during "New Hardware Found" (PnP) and "Add New Hardware" (non-PnP) device installation and during GUI-mode setup. </P>
+
+<H4>Who Handles</H4>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=38%>Class Co-installer</TD>
+<TD width=62%>Can handle</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>Device Co-installer</TD>
+<TD width=62%>Can handle</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>Class Installer</TD>
+<TD width=62%>Can handle</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Installer Input</H4>
+
+<DL>
+<DT><I>DeviceInfoSet</I></DT>
+
+<DD>Supplies a handle to the <A HREF="setup-cls_2h9j.htm">device information set</A> containing the device. </DD>
+
+<DT><I>DeviceInfoData</I></DT>
+
+<DD>Supplies a pointer to an <A HREF="di-struct_7nqq.htm">SP_DEVINFO_DATA</A> structure that identifies the device in the device information set.</DD>
+
+<DT>Device Installation Parameters </DT>
+
+<DD>There are device installation parameters (<A HREF="di-struct_7j76.htm">SP_DEVINSTALL_PARAMS</A>) associated with the <I>DeviceInfoData</I>. </DD>
+
+<DT>Class Installation Parameters</DT>
+
+<DD>An <A HREF="di-struct_92eq.htm">SP_NEWDEVICEWIZARD_DATA</A> structure is associated with the <I>DeviceInfoData</I>. 
+</DD>
+</DL>
+
+<H4>Installer Output</H4>
+
+<DL>
+<DT>Device Installation Parameters</DT>
+
+<DD>An installer can modify the flags in the device installation parameters. </DD>
+
+<DT>Class Installation Parameters</DT>
+
+<DD>An installer can modify the <A HREF="di-struct_92eq.htm">SP_NEWDEVICEWIZARD_DATA</A> to supply custom page(s). </DD>
+</DL>
+
+<H4>Installer Return Value</H4>
+
+<P>If a co-installer does not handle this DIF request it returns NO_ERROR from its preprocessing pass. If a co-installer handles this request it can return NO_ERROR, ERROR_DI_POSTPROCESSING_REQUIRED, or a Win32 error code. </P>
+
+<P>A class installer returns NO_ERROR if it successfully supplies page(s). Otherwise, a class installer returns ERROR_DI_DO_DEFAULT or a Win32 error code.</P>
+
+<H4>Default DIF Code Handler</H4>
+
+<P>None</P>
+
+<H4>Installer Operation</H4>
+
+<P>A DIF_NEWDEVICEWIZARD_FINISHINSTALL request allows an installer to supply wizard pages that Setup displays to the user after the device has been installed but before Setup displays the standard Finish page. Setup sends this request when installing any kind of device, whether it is a PnP-enumerated device, a detected non-PnP device, or a manually installed non-PnP device.</P>
+
+<P>An installer can handle this DIF request for any PnP device. </P>
+
+<P>This DIF request is <I>not</I> supported when installing certain <I>non-PnP</I> devices such as modems, printers, and scanners. If a user manually installs a non-PnP printer, modem, or scanner using the Add Hardware Wizard, the Setup application for that device does not display any finish-install pages supplied for the device.</P>
+
+<P>An installer typically uses a custom Finish page to collect additional user preference settings, such as modem line speeds or default area codes. </P>
+
+<P>Class installers and co-installers should only supply finish-install pages if they absolutely require that the user answer questions before the device can operate properly. If the questions are optional, or if the questions were previously answered (for example, this is an upgrade for an existing device), then they should <I>not </I>supply finish-install pages. Class installers and co-installers should always<I> </I>supply one or more property pages in response to DIF_ADDPROPERTYPAGE_ADVANCED so the user can adjust device settings after the device is installed.</P>
+
+<P>The following pseudo code shows how an installer adds a custom page to the array of pages in the class install parameters:</P>
+
+<PRE>:
+// get the class install parameters by calling 
+// SetupDiGetClassInstallParams 
+
+// check whether NumDynamicPages has reached the max
+
+// fill in the PROPSHEETPAGE structure
+
+// add the page and increment the NumDynamicPages counter
+NewDevWizardData.DynamicPages[NewDevWizardData.NumDynamicPages++] =
+&nbsp;&nbsp;&nbsp;&nbsp;CreatePropertySheetPage(&amp;Page);
+
+// apply the modified params by calling
+// SetupDiSetClassInstallParams
+
+:</PRE>
+
+<P>See the Platform SDK for information on the <B>CreatePropertySheetPage</B> function.</P>
+
+<P>If an installer's custom Finish page gathers settings from the user and the device needs to be restarted to have the new settings take effect, the page dialog procedure calls <A HREF="di-rtns_212q.htm"><B>SetupDiChangeState</B></A> with a <B>StateChange</B> value of DICS_PROPCHANGE in the class installation parameters. This call to <B>SetupDiChangeState</B> directs the PnP Manager to query-remove and remove the device, reenumerate the device's parent, rebuild the device stack of drivers, and restart the device. If an installer determines that the device cannot be dynamically removed and restarted, the installer can set the DI_NEEDREBOOT flag in the device install parameters instead of calling <B>SetupDiChangeState</B>. An installer should not force a reboot, however, unless it is absolutely necessary.</P>
+
+<P>Setup and the PnP Manager attempt to install PnP devices in a trusted PnP context without requiring user response to dialog boxes (a "server-side" installation). If an installer supplies custom Finish page(s), however, Setup is required to display those pages to the user. Setup aborts the trusted installation and restarts the device installation when a user with administrative privileges logs in (a "client-side" installation).</P>
+
+<P>GUI-mode setup sends the DIF_NEWDEVICEWIZARD_FINISHINSTALL request for each device it installs, but GUI-mode setup cannot display installation wizard pages. If an installer supplies custom finish pages, GUI-mode setup marks the device so the user receives a "New Hardware Found" popup at first login. The network configuration component of GUI-mode setup locates any network devices, such as ISDN boards, that have finish-install wizard pages, gathers those pages, and incorporates them into the network setup wizard pages. </P>
+
+<P>An installer should supply a Wizard 97 header title and a header subtitle in the PROPSHEETPAGE structure for a custom wizard page. An installer should not replace the system-supplied wizard title. See the Platform SDK for documentation of the PROPSHEETPAGE structure and for more information about property pages.</P>
+
+<P>Installers should supply their finish-install wizard pages, regardless of the value of the DI_QUIETINSTALL flag. The sender of the DIF_NEWDEVICEWIZARD_FINISHINSTALL request determines whether to display the wizard pages and ensures that the pages are freed in either case.</P>
+
+<P>An installer can use this DIF request to add custom wizard pages, but an installer cannot replace the system-supplied finish page.</P>
+
+<P>By default, the <B>Cancel</B> button for finish-install wizard pages is disabled. If you want to allow the user to cancel out of your finish-install wizard pages, your installer must enable the <B>Cancel</B> button.</P>
+
+<P>For more information about DIF codes, see <A HREF="coinst_5oiv.htm">Handling DIF Codes</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="dif-codes_7d9u.htm">DIF_INSTALLDEVICE</A>, <A HREF="di-rtns_212q.htm"><B>SetupDiChangeState</B></A>, <A HREF="di-struct_7nqq.htm">SP_DEVINFO_DATA</A>, <A HREF="di-struct_7j76.htm">SP_DEVINSTALL_PARAMS</A>, <A HREF="di-struct_92eq.htm">SP_NEWDEVICEWIZARD_DATA</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DIF_NEWDEVICEWIZARD_FINISHINSTALL"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

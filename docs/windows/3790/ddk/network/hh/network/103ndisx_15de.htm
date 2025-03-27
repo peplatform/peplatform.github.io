@@ -1,0 +1,75 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisCoSendPackets</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisCoSendPackets">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndiscosendpackets_nr"></A>NdisCoSendPackets</H1>
+
+<P><B>NdisCoSendPackets</B> forwards a multipacket send on a particular VC to the underlying NIC driver for transmission over the network.</P>
+
+<PRE class=syntax><B>VOID 
+  NdisCoSendPackets(
+    IN NDIS_HANDLE</B>  <I>NdisVcHandle</I><B>,</B>
+    <B>IN PPNDIS_PACKET</B>  <I>PacketArray</I><B>,</B>
+    <B>IN UINT</B>  <I>NumberOfPackets</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>NdisVcHandle</I></DT>
+
+<DD>Specifies the handle to the VC, thereby identifying the target of the send. </DD>
+
+<DT><I>PacketArray</I></DT>
+
+<DD>Pointer to an array of pointers to caller-allocated packet descriptors. Each packet descriptor in the array has chained buffer descriptors mapping buffers containing the data that the underlying NIC driver should transmit over the wire. 
+
+<P>Each packet descriptor also has an associated <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A> block, which the caller can set up with any timestamp and/or medium-specific out-of-band information relevant to the underlying driver and network medium. 
+</DD>
+
+<DT><I>NumberOfPackets</I></DT>
+
+<DD>Specifies the number of pointers at <I>PacketArray</I>.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A call to <B>NdisCoSendPackets</B> causes NDIS to call the NIC driver's <A HREF="101mini_0ycy.htm"><I>MiniportCoSendPackets</I></A> function. NDIS submits packet arrays to the underlying driver's <I>MiniportCoSendPackets</I> function in the same order as they are passed to <B>NdisCoSendPackets</B>. Before a protocol calls <B>NdisCoSendPackets</B>, it should set up the array of packet pointers in the same order as the packets should be sent over the wire.</P>
+
+<P>The caller of <B>NdisCoSendPackets</B> should test the returned status for each packet descriptor in such an array individually when its <A HREF="104tdlow_2t4i.htm"><I>ProtocolCoSendComplete</I></A> function is called. While NDIS always submits packets for transmission in the FIFO order determined by the sending protocol, the underlying NIC driver might complete such sends in random order.</P>
+
+<P>As soon as a protocol calls <B>NdisCoSendPackets</B>, it relinquishes ownership of the following:
+
+<UL>
+	<LI>All packet descriptors accessible at <I>PacketArray</I> </LI>
+
+	<LI>All buffers mapped by the buffer descriptors chained to those packet descriptors </LI>
+
+	<LI>All out-of-band data blocks associated with the packet descriptors, including any medium-specific buffers specified in the OOB blocks </LI>
+</UL>
+
+<P>The allocating protocol regains ownership of these resources, one packet descriptor at a time, as its <I>ProtocolCoSendComplete</I> function is called with each packet descriptor in the array that it passed to <B>NdisCoSendPackets</B>. </P>
+
+<P>Then, <I>ProtocolCoSendComplete</I> can either release the resources the protocol allocated or prepare these resources for reuse. During periods of average-to-high network I/O traffic, reusing the packet descriptors and buffers that a protocol allocates yields better performance than releasing buffers and the packet descriptor, only to reallocate them almost immediately for a subsequent send. However, any protocol that manages its usage of system resources carefully would not retain a large set of reusable packet descriptors with mapped buffers indefinitely after a period of high traffic falls into a sustained period of very low I/O demand. When <I>ProtocolCoSendComplete</I> reuses packet descriptors, it must save the buffer descriptors chained to each input packet descriptor with calls to an <B>NdisUnchainBufferAt</B><I>Xxx</I> function <I>before</I> it calls <A HREF="103ndisx_87hu.htm"><B>NdisReinitializePacket</B></A> with the input packet descriptor. </P>
+
+<P>Callers of <B>NdisCoSendPackets</B> can be running at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_0ycy.htm"><I>MiniportCoSendPackets</I></A>, <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="103ndisx_87hu.htm"><B>NdisReinitializePacket</B></A>, <A HREF="103ndisx_6rxu.htm">NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO</A>, <A HREF="103ndisx_9fg2.htm">NDIS_SET_PACKET_TIME_TO_SEND</A>, <A HREF="103ndisx_9vci.htm"><B>NdisUnchainBufferAtBack</B></A>, <A HREF="103ndisx_30mq.htm"><B>NdisUnchainBufferAtFront</B></A>, <A HREF="104tdlow_2t4i.htm"><I>ProtocolCoSendComplete</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisCoSendPackets"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Policy for Mixing Audio Streams and Setting the Output Sample Rate</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Policy for Mixing Audio Streams and Setting the Output Sample Rate">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_policy_for_mixing_audio_streams_and_setting_the_output_sample_rate_ksg"></A>Policy for Mixing Audio Streams and Setting the Output Sample Rate</H3>
+
+<P>This section describes the following topics about the algorithm that the KMixer system driver uses to minimize SRC (sample-rate conversion) and mixing:</P>
+
+<P class=indent1><A HREF="#ddk_connecting_the_first_audio_stream_ksg">Connecting the First Audio Stream</A> </P>
+
+<P class=indent1><A HREF="#ddk_connecting_additional_audio_streams_ksg">Connecting Additional Audio Streams</A> </P>
+
+<P class=indent1><A HREF="#ddk_special_cases_ksg">Special Cases</A> </P>
+
+
+
+<H4><A NAME="ddk_connecting_the_first_audio_stream_ksg"></A>Connecting the First Audio Stream</H4>
+
+<UL>
+	<LI>When the <A HREF="aud-design_1kiv.htm#ddk_sysaudio_system_driver_ksg">SysAudio system driver</A> initializes the KMixer driver for an audio device, it assigns a sample rate corresponding to the higher of 44.1 kHz and the highest rate available on the audio device. (In Windows&nbsp;XP&nbsp;SP1, Windows&nbsp;Server 2003, and later, the highest sample rate that KMixer supports is 200&nbsp;kHz. In Windows&nbsp;98/Me, Windows&nbsp;2000, and Windows&nbsp;XP, KMixer's highest sample rate is 100 kHz.) Note that the miniport driver's request handler returns the sample rates available on the device (see <A HREF="aud-design_410n.htm">Pin Data-Range and Intersection Properties</A>).</LI>
+
+	<LI>When a client requests connection of an audio stream to a device, KMixer queries the device to determine whether it supports the incoming rate. If the device supports the incoming rate, KMixer passes the incoming stream to the device without SRC. Otherwise, KMixer maintains the current output rate, and does the following:
+<UL>
+	<LI>If the device supports the current output rate, KMixer uses SRC to convert the input rate to the current output rate.</LI>
+
+	<LI>If the device does not support the current output rate, KMixer maintains the current rate and fails the client's request to connect the audio stream to the device.</LI>
+</UL>
+</LI>
+</UL>
+
+
+
+<H4><A NAME="ddk_connecting_additional_audio_streams_ksg"></A>Connecting Additional Audio Streams</H4>
+
+<P>The following summarizes the policy on rate conversion and mixing for input streams that clients attempt to connect after connecting the first input stream (in the order in which KMixer applies the tests):</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=40%>Rate Test</TH>
+<TH align=left width=60%>Rate Conversion and Mixing Policy</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=40%>New incoming rate is equal to the current output rate.</TD>
+<TD width=60%>Perform mixing only.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=40%>New incoming rate is equal to the rate of another input stream.</TD>
+<TD width=60%>Mix the new input stream with the other input stream at the same rate to take advantage of the existing SRC from input to output.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=40%>New incoming rate is lower than the current maximum input rate.</TD>
+<TD width=60%>Do SRC to the current output rate and mix.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=40%>New incoming rate is higher that the current maximum input rate.</TD>
+<TD width=60%>If the hardware supports the new input rate:
+<P class=indent1>Change the current maximum output rate and the hardware rate to the new incoming rate.</P>
+
+<P class=indent1>Do SRC on all other streams to the new maximum output rate and mix them with the new stream. (When converting to the new maximum output rate, KMixer mixes together any input streams that happen to share the same sample rate <I>before</I> doing SRC on those streams.)</P>
+
+<P>If the hardware does not support the new input rate, maintain the current output rate and do SRC on the new incoming stream to the current maximum input rate.</P>
+</TD>
+</TR>
+</TABLE><BR>
+
+
+
+<H4><A NAME="ddk_special_cases_ksg"></A>Special Cases</H4>
+
+<UL>
+	<LI>KMixer does not adjust its output rate when a client makes an <B>IDirectSoundBuffer::SetFrequency</B> call on a DirectSound buffer. Instead, KMixer adjusts the output rate when the buffer is first played.</LI>
+
+	<LI>The Sound Blaster emulator (<A HREF="aud-design_1kiv.htm#ddk_sbemul_system_driver_ksg">SBEMul system driver</A>) performs dynamic adjustments to its sample rate. KMixer maintains an output rate greater than or equal to that of the Sound Blaster emulator.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Policy%20for%20Mixing%20Audio%20Streams%20and%20Setting%20the%20Output%20Sample%20Rate"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

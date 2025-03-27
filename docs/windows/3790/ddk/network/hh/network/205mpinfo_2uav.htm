@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Querying a Connectionless Miniport Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Querying a Connectionless Miniport Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_querying_a_connectionless_miniport_driver_ng"></A>Querying a Connectionless Miniport Driver</H2>
+
+<P>To query OIDs maintained by a connectionless miniport driver, a bound protocol calls <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A> and passes a structure of type <A HREF="105nstru_3f8y.htm">NDIS_REQUEST</A> that specifies the object (OID) being queried and that points to a buffer into which NDIS eventually writes the requested information. The call to <B>NdisRequest</B> causes NDIS to call the miniport driver's <I>MiniportQueryInformation</I> function, which returns the requested information to NDIS. <A HREF="101mini_2vw2.htm"><I>MiniportQueryInformation</I></A> can complete synchronously or asynchronously with a call to <A HREF="103ndisx_4ktu.htm"><B>NdisMQueryIndformationComplete</B></A> (see the following figure).</P>
+
+<P>NDIS can also call a miniport driver's <I>MiniportQueryInformation</I> function on its own behalf — for example, after the miniport driver's <I>MiniportInitialize</I> function has returned NDIS_STATUS_SUCCESS—to query the miniport driver's capabilities, status, or statistics.</P>
+
+<P><IMG SRC="images/fig5_2.gif" ALT="" BORDER=0></P>
+
+<P><B>Querying a Connectionless Miniport Driver</B></P>
+
+<P>The set of mandatory general operational OIDs for connectionless miniport drivers includes:</P>
+
+<P class=indent1><A HREF="22genoid_594i.htm">OID_GEN_SUPPORTED_LIST</A> </P>
+
+<P class=indent1><A HREF="22genoid_0liq.htm">OID_GEN_HARDWARE_STATUS</A> </P>
+
+<P class=indent1><A HREF="22genoid_6whe.htm">OID_GEN_MEDIA_SUPPORTED</A> </P>
+
+<P class=indent1><A HREF="22genoid_0tma.htm">OID_GEN_MEDIA_IN_USE</A> </P>
+
+<P class=indent1><A HREF="22genoid_5muq.htm">OID_GEN_MAXIMUM_LOOKAHEAD</A> </P>
+
+<P class=indent1><A HREF="22genoid_55gy.htm">OID_GEN_MAXIMUM_FRAME_SIZE</A> </P>
+
+<P class=indent1><A HREF="22genoid_25pu.htm">OID_GEN_LINK_SPEED</A> </P>
+
+<P class=indent1><A HREF="22genoid_648i.htm">OID_GEN_TRANSMIT_BUFFER_SPACE</A> </P>
+
+<P class=indent1><A HREF="22genoid_4i2a.htm">OID_GEN_RECEIVE_BUFFER_SPACE</A> </P>
+
+<P class=indent1><A HREF="22genoid_21v6.htm">OID_GEN_TRANSMIT_BLOCK_SIZE</A> </P>
+
+<P class=indent1><A HREF="22genoid_5dgy.htm">OID_GEN_RECEIVE_BLOCK_SIZE</A> </P>
+
+<P class=indent1><A HREF="22genoid_2m42.htm">OID_GEN_VENDOR_ID</A> </P>
+
+<P class=indent1><A HREF="22genoid_9q7m.htm">OID_GEN_VENDOR_DESCRIPTION</A> </P>
+
+<P class=indent1><A HREF="22genoid_30fm.htm">OID_GEN_VENDOR_DRIVER_VERSION</A> </P>
+
+<P class=indent1><A HREF="22genoid_4qgi.htm">OID_GEN_CURRENT_PACKET_FILTER</A> </P>
+
+<P class=indent1><A HREF="22genoid_1jzm.htm">OID_GEN_CURRENT_LOOKAHEAD</A> </P>
+
+<P class=indent1><A HREF="22genoid_1242.htm">OID_GEN_DRIVER_VERSION</A> </P>
+
+<P class=indent1><A HREF="22genoid_7u9e.htm">OID_GEN_MAXIMUM_TOTAL_SIZE</A> </P>
+
+<P class=indent1><A HREF="22genoid_499u.htm">OID_GEN_MAC_OPTIONS</A> </P>
+
+<P class=indent1><A HREF="22genoid_1rw2.htm">OID_GEN_MEDIA_CONNECT_STATUS</A> </P>
+
+<P class=indent1><A HREF="22genoid_9roy.htm">OID_GEN_MAXIMUM_SEND_PACKETS</A> </P>
+
+<P>In particular, the miniport driver’s <I>MiniportQueryInformation</I> function must be prepared to respond to OID_GEN_MAXIMUM_LOOKAHEAD, OID_GEN_MAXIMUM_SEND_PACKETS, and OID_GEN_MAC_OPTIONS. </P>
+
+<P>If the miniport driver indicates received data by calling <B>Ndis</B><I>Xxx</I><B>IndicateReceive</B>, it should respond to OID_GEN_MAXIMUM_LOOKAHEAD with the maximum number of bytes the NIC can provide as lookahead data. If that value is different from the size of the lookahead buffer supported by bound protocols, NDIS will call <I>MiniportSetInformation</I> to set the size of the lookahead buffer provided by the miniport driver to the minimum of the miniport driver and protocol(s) values. </P>
+
+<P>If the driver always indicates up full packets with <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, it should set this value to the maximum total packet size, which excludes the header.</P>
+
+<P>If a miniport driver registers a <I>MiniportSendPackets</I> function, <I>MiniportQueryInformation </I>will be called with the OID_GEN_MAXIMUM_SEND_PACKETS request. The miniport driver must respond with the maximum number of packets it is prepared to handle on a single send request. The miniport driver should pick a maximum that minimizes the number of packets that it has to queue internally because it has no resources (its device is full). A miniport driver for a bus-master DMA NIC should attempt to pick a value that keeps its NIC filled under anticipated loads.</P>
+
+<P>When <I>MiniportQueryInformation</I> is called with OID_GEN_MAC_OPTIONS, it must return a bit mask that specifies the optional operations that the miniport driver performs. The set of flags includes:
+
+<UL>
+	<LI>NDIS_MAC_OPTION_COPY_LOOKAHEAD_DATA
+<P>Indicates to a protocol driver that it is free to access indicated data by any means. If a miniport driver indicates data out of on-board shared memory, it must not set this flag. 
+</LI>
+
+	<LI>NDIS_MAC_OPTION_NO_LOOPBACK
+<P>If set, indicates that the miniport driver does not loopback a packet passed to <I>MiniportSend(Packets)</I> that is directed to a receiver on the same machine, and that the miniport driver expects NDIS to perform the loopback. If NDIS performs the loopback of a packet, the packet is not passed down to the miniport driver. A miniport driver always sets this flag unless its NIC performs hardware loopbacks. 
+</LI>
+
+	<LI>NDIS_MAC_OPTION_RECEIVE_SERIALIZED
+<P>If set, the miniport driver does not indicate any newly received packet up until the previously received packet has been fully processed, including transferring the data. Most miniport drivers, except those that indicate up packets by calling <B>NdisMIndicateReceivePacket</B>, set this flag.
+</LI>
+
+	<LI>NDIS_MAC_OPTION_TRANSFERS_NOT_PEND
+<P>If set, a miniport driver never returns NDIS_STATUS_PENDING from <I>MiniportTransferData</I>.
+</LI>
+</UL>
+
+<P>A miniport driver must never use the flag NDIS_MAC_OPTION_RESERVED, which is reserved for NDIS internal use. </P>
+
+<P><I>MiniportQueryInformation</I> is also queried with a media-specific OID to determine the NIC’s current address. For instance, the miniport driver for a NIC of type 802.3 will be queried with OID_802_3_CURRENT_ADDRESS.</P>
+
+<P>The miniport drivers for certain media types will receive additional OIDs that are media-specific. For example, a miniport driver whose NIC is of type 802.3 is queried with OID_802.3_MAXIMUM_LIST_SIZE. For more information, see <A HREF="22genoid_1m2a.htm">General Objects</A>.</P>
+
+<P>Miniport drivers should support 64-bit statistics OID queries. For a statistics OID query, the requester sets the <B>InformationBufferLength</B> member of the NDIS_REQUEST structure to four (bytes) to indicate a 32-bit statistics request or to eight (bytes) to indicate a 64-bit statistics request. In its response, the miniport driver sets the <B>BytesNeeded</B> member to the size of the statistics supported by the miniport driver (four for 32-bits or eight for 64-bits). The miniport driver sets the <B>BytesWritten</B> member to the smaller of the <B>InformationBufferlength</B> value and the size of statistics supported by the miniport driver. For more information about statistics OIDs, see <A HREF="22genoid_73hu.htm">General Statistics</A>. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Querying%20a%20Connectionless%20Miniport%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

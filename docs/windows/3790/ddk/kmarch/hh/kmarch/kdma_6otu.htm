@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AllocateCommonBuffer</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="AllocateCommonBuffer">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_allocatecommonbuffer_kr"></A>AllocateCommonBuffer</H1>
+
+<P>The <B>AllocateCommonBuffer</B> routine allocates memory and maps it so that it is simultaneously accessible from both the processor and a device for DMA operations.</P>
+
+<PRE class=syntax><B>PVOID
+</B>  <B>AllocateCommonBuffer(</B>
+    <B>IN PDMA_ADAPTER</B>  <I>DmaAdapter</I><B>,</B>
+    <B>IN ULONG</B>  <I>Length</I><B>,</B>
+    <B>OUT PPHYSICAL_ADDRESS</B>  <I>LogicalAddress</I><B>,</B>
+    <B>IN BOOLEAN</B>  <I>CacheEnabled</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DmaAdapter</I></DT>
+
+<DD>Pointer to the <A HREF="k112_86k2.htm">DMA_ADAPTER</A> structure returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A> that represents the bus-master adapter or DMA controller.</DD>
+
+<DT><I>Length</I></DT>
+
+<DD>Specifies the number of bytes of memory to allocate.</DD>
+
+<DT><I>LogicalAddress</I></DT>
+
+<DD>Pointer to a variable that receives the logical address the device can use to access the allocated buffer. Use this address rather than calling <A HREF="k106_6ur6.htm"><B>MmGetPhysicalAddress</B></A> because the system can take into account any platform-specific memory restrictions.</DD>
+
+<DT><I>CacheEnabled</I></DT>
+
+<DD>Specifies whether the allocated memory can be cached.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>AllocateCommonBuffer</B> returns the base virtual address of the allocated range. If the buffer cannot be allocated, it returns NULL.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>AllocateCommonBuffer</B><I> is not a system routine that can be called directly by name. This routine is callable only by pointer from the address returned in a </I>DMA_OPERATIONS <I>structure.</I> Drivers obtain the address of this routine by calling <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A>.</P>
+
+<P><B>AllocateCommonBuffer</B> supports DMA in which the device and the processor continuously communicate through system memory, as in a control structure for a bus-master DMA device.</P>
+
+<P><B>AllocateCommonBuffer</B> also supports slave devices whose drivers use a system DMA controller’s autoinitialize mode.</P>
+
+<P><B>AllocateCommonBuffer</B> does the following:
+
+<UL>
+	<LI>Allocates memory that can be reached from both the processor and the device. This memory appears contiguous to the device.</LI>
+
+	<LI>Allocates map registers to map the buffer, if required by the system.</LI>
+
+	<LI>Sets up a translation for the device, including loading map registers if necessary.</LI>
+</UL>
+
+<P>To use resident system memory economically, drivers should allocate as few of these buffers per device as possible. <B>AllocateCommonBuffer</B> allocates at least a page of memory, regardless of the requested <I>Length</I>. After a successful allocation requesting fewer than PAGE_SIZE bytes, the caller can access only the requested <I>Length</I>. After a successful allocation requesting more than an integral multiple of PAGE_SIZE bytes, any remaining bytes on the last allocated page are inaccessible to the caller.</P>
+
+<P>If a driver needs several pages of common buffer space, but the pages need not be contiguous, the driver should make several one-page requests to <B>AllocateCommonBuffer</B> instead of one large request. This approach conserves contiguous memory.</P>
+
+<P>Drivers typically call <B>AllocateCommonBuffer</B> as part of device start-up, during their response to a PnP <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> request. After start-up, it is possible that only one-page requests will succeed, if any.</P>
+
+<P>Callers of <B>AllocateCommonBuffer</B> must be running at IRQL&nbsp;= PASSIVE_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="kdma_8h0y.htm"><B>FreeCommonBuffer</B></A>, <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A>, <A HREF="k112_3tf6.htm">DMA_OPERATIONS</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: AllocateCommonBuffer"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

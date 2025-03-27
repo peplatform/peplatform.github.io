@@ -1,0 +1,68 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Sending IRP_MN_QUERY_POWER or IRP_MN_SET_POWER for Device Power States</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Sending IRP_MN_QUERY_POWER or IRP_MN_SET_POWER for Device Power States">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_sending_irp_mn_query_power_or_irp_mn_set_power_for_device_power_states_kg"></A>Sending IRP_MN_QUERY_POWER or IRP_MN_SET_POWER for Device Power States</H2>
+
+<P>A device power policy owner sends a device query-power IRP (<A HREF="poirp_9e9e.htm">IRP_MN_QUERY_POWER</A>) to determine whether lower drivers can accommodate a change in device power state, and a device set-power IRP (<A HREF="poirp_6hde.htm">IRP_MN_SET_POWER</A>) to change the device power state. (This driver can also send a wait/wake IRP to enable its device to awaken in response to an external signal; see <A HREF="pwrmgmt_3l7r.htm">Supporting Devices that Have Wake-Up Capabilities</A> for details.)</P>
+
+<P>The driver should send an <A HREF="poirp_9e9e.htm">IRP_MN_QUERY_POWER</A> request when either of the following is true:
+
+<UL>
+	<LI>The driver receives a system query-power IRP.</LI>
+
+	<LI>The driver is preparing to put an idle device in a sleep state, so must query lower drivers to find out whether doing so is feasible.</LI>
+</UL>
+
+<P>The driver should send an <A HREF="poirp_6hde.htm">IRP_MN_SET_POWER</A> request when any of the following is true:
+
+<UL>
+	<LI>The driver has determined that the device is idle and can be put to sleep.</LI>
+
+	<LI>The device is sleeping and must reenter the working state to handle waiting I/O.</LI>
+
+	<LI>The driver receives a system set-power IRP. </LI>
+</UL>
+
+<P>A driver must not allocate its own power IRP; the Power Manager provides the <A HREF="portn_55gy.htm"><B>PoRequestPowerIrp</B></A><B> </B>routine for this purpose. <B>PoRequestPowerIrp</B> allocates and sends the IRP, and along with <B>PoCallDriver</B>, ensures that all power requests are properly synchronized, as <A HREF="pwrmgmt_7n3b.htm">Rules for Handling Power IRPs</A> explains. Callers of <B>PoRequestPowerIrp</B> must be running at IRQL&nbsp;&lt;= DISPATCH_LEVEL. </P>
+
+<P>The following is the prototype for this routine:</P>
+
+<PRE>NTSTATUS
+PoRequestPowerIrp (
+    IN PDEVICE_OBJECT DeviceObject,
+    IN UCHAR MinorFunction,
+    IN POWER_STATE PowerState,
+    IN PREQUEST_POWER_COMPLETE CompletionFunction,
+    IN PVOID Context,
+    OUT PIRP *Irp OPTIONAL
+    );</PRE>
+
+<P>To send the IRP, the driver calls <B>PoRequestPowerIrp</B>, specifying a pointer to the target device object in <I>DeviceObject</I>, the minor IRP code IRP_MN_SET_POWER or IRP_MN_QUERY_POWER in <I>MinorFunction</I>, the value <B>DevicePowerState</B> in the <I>PowerState</I><B>.Type</B>, and a device power state in <I>PowerState</I><B>.State</B>. On Windows&nbsp;98/Me, <I>DeviceObject </I>must specify the PDO of the underlying device; on Windows&nbsp;2000 and later systems, this value can point to either the PDO or an FDO of a driver in the same device stack. </P>
+
+<P>If the driver must perform additional tasks after all other drivers have completed the IRP, it should pass a pointer to a power completion function in <I>CompletionFunction</I>. The I/O Manager calls the <I>CompletionFunction</I> after calling all the<I> IoCompletion</I> routines set by drivers as they passed the IRP down the stack. </P>
+
+<P>Whenever a device power policy owner sends a device power query IRP, it should subsequently send a device set-power IRP from the callback routine (<I>CompletionFunction</I>) that it specified in the call to <B>PoRequestPowerIrp</B>. If the query succeeded, the set-power IRP specifies the queried power state. If the query failed, the set-power IRP reasserts the current device power state. Reasserting the current state is important because drivers queue I/O in response to the query; the policy owner must send the set-power IRP to notify drivers in its device stack to begin processing queued I/O requests.</P>
+
+<P>Keep in mind that the policy owner for a device not only sends the device power IRP but also handles the IRP as it is passed down the device stack. Therefore, such a driver often sets an<I> IoCompletion</I> routine (with <A HREF="k104_5w6q.htm"><B>IoSetCompletionRoutine</B></A>) as part of its IRP-handling code, particularly when the device is powering up. The<I> IoCompletion</I> routine is called in sequence with<I> IoCompletion</I> routines set by other drivers and before the <I>CompletionFunction</I>. For further information, see<I> IoCompletion</I><A HREF="pwrmgmt_5siv.htm"> Routines for Device Power IRPs</A>.</P>
+
+<P>Because the IRP has been completed by all drivers when the <I>CompletionFunction</I> is called, the <I>CompletionFunction</I> must not call <B>PoStartNextPowerIrp</B> or <A HREF="portn_7tki.htm"><B>PoCallDriver</B></A> with the IRP it originated. (It might, however, call these routines for a different power IRP.) Instead, this routine performs any additional actions required by the driver that originated the IRP. If the driver sent the device IRP in response to a system IRP, the <I>CompletionFunction</I> might complete the system IRP. For further information, see <A HREF="pwrmgmt_5g6f.htm">Handling a System Set-Power IRP in a Device Power Policy Owner</A>.</P>
+
+<P>In response to the call to <B>PoRequestPowerIrp</B>, the Power Manager allocates a power IRP and sends it to the top of the device stack for the device. The Power Manager returns a pointer to the allocated IRP.</P>
+
+<P>If no errors occur, <B>PoRequestPowerIrp</B> returns STATUS_PENDING. This status means that the IRP has been sent successfully and is pending completion. The call fails if the Power Manager cannot allocate the IRP or if the caller has specified an invalid minor power IRP code. </P>
+
+<P>Requests to power up a device must be handled first by the underlying bus driver for the device and then by each successively higher driver in the stack. Therefore, when sending a <B>PowerDeviceD0</B> request, the driver must ensure that its <I>CompletionFunction</I> performs required tasks after the IRP is complete and the device is powered on.</P>
+
+<P>When powering off a device (<B>PowerDeviceD3</B>), each driver in the device stack must save all of its necessary context and do any necessary clean-up before sending the IRP to the next-lower driver. The extent of the context information and clean-up depends on the type of driver. A function driver must save hardware context; a filter driver might need to save its own software context. A <I>CompletionFunction</I> set in this situation can take actions associated with a completed power IRP, but the driver cannot access the device.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Sending%20IRP_MN_QUERY_POWER%20or%20IRP_MN_SET_POWER%20for%20Device%20Power%20States"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

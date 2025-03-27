@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AllocateAdapterChannel</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="AllocateAdapterChannel">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_allocateadapterchannel_kr"></A>AllocateAdapterChannel</H1>
+
+<P>The <B>AllocateAdapterChannel</B> routine prepares the system for a DMA operation on behalf of the target device object, and then calls the driver-supplied <A HREF="drvrrtns_7vea.htm"><I>AdapterControl</I></A> routine to carry out the DMA operation. </P>
+
+<PRE class=syntax><B>NTSTATUS
+</B>  <B>AllocateAdapterChannel(</B>
+  <B>  IN PDMA_ADAPTER </B> <I>DmaAdapter</I><B>,</B>
+  <B>  IN PDEVICE_OBJECT</B>  <I>DeviceObject</I><B>,</B>
+  <B>  IN ULONG </B> <I>NumberOfMapRegisters</I><B>,</B>
+    <B>IN PDRIVER_CONTROL </B> <I>ExecutionRoutine</I><B>,</B>
+    <B>IN PVOID </B> <I>Context</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DmaAdapter</I></DT>
+
+<DD>Pointer to the DMA_ADAPTER structure returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A> that represents the bus-master adapter or DMA controller.</DD>
+
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the device object that represents the target device for a requested DMA operation.</DD>
+
+<DT><I>NumberOfMapRegisters</I></DT>
+
+<DD>Specifies the number of map registers to be used in the transfer. This value is the lesser of the number of map registers needed to satisfy the current transfer request, and the number of available map registers returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A>.</DD>
+
+<DT><I>ExecutionRoutine</I></DT>
+
+<DD>Pointer to a driver-supplied <A HREF="drvrrtns_7vea.htm"><I>AdapterControl</I></A> routine. The routine is called when the system DMA controller or bus-master adapter becomes available.</DD>
+
+<DT><I>Context</I></DT>
+
+<DD>Pointer to the driver-determined context to be passed to the <A HREF="drvrrtns_7vea.htm"><I>AdapterControl</I></A> routine.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>This routine can return one of the following NTSTATUS values. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=52%>Value</TH>
+<TH align=left width=48%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>STATUS_SUCCESS</TD>
+<TD width=48%>The adapter channel has been allocated. The system will call the <I>AdapterControl</I> routine once the DMA operation can begin.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>STATUS_INSUFFICIENT_RESOURCES</TD>
+<TD width=48%>The <I>NumberOfMapRegisters</I> is larger than the value returned by <B>IoGetDmaAdapter</B>. The <I>AdapterControl</I> routine will not be called.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>AllocateAdapterChannel</B><I> is not a system routine that can be called directly by name. This routine is callable only by pointer from the address returned in a</I> <A HREF="k112_3tf6.htm">DMA_OPERATIONS</A> <I>structure.</I> Drivers obtain the address of this routine by calling <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A>.</P>
+
+<P>A driver calls the <B>AllocateAdapterControl</B> routine to register an <A HREF="drvrrtns_7vea.htm"><I>AdapterControl</I></A> routine that performs a DMA operation for the driver. The <I>AdapterControl</I> routine carries out a DMA operation using either the system DMA controller or a bus-master adapter.</P>
+
+<P>If the DMA operation can be performed immediately, the system immediately calls <I>AdapterControl</I>. If the system DMA controller or bus-master adapter is currently in use, <B>AllocateAdapterChannel</B> queues the <I>AdapterControl</I> until the adapter becomes available. In either case, <B>AllocateAdapterChannel</B> returns STATUS_SUCCESS.</P>
+
+<P>If the system lacks the resources to perform the DMA operation, <B>AllocateAdapterChannel</B> returns STATUS_INSUFFICIENT_RESOURCES. In that case, <I>AdapterControl</I> is not queued, and the driver should complete the current IRP with the appropriate error code (such as STATUS_INSUFFICIENT_RESOURCES).</P>
+
+<P>This routine reserves exclusive access to a DMA controller channel and map registers for the one or more DMA operations that are required to satisfy the current IRP’s transfer request for the specified device.</P>
+
+<P>Only one DMA request can be queued for a device object at any one time. Therefore, the driver should not call <B>AllocateAdapterChannel</B> again for another DMA operation on the same device object until the <A HREF="drvrrtns_7vea.htm"><I>AdapterControl</I></A> routine has completed execution. In addition, a driver must not call <B>AllocateAdapterChannel</B> from within its <I>AdapterControl</I> routine.</P>
+
+<P>The system passes the value of the <B>CurrentIrp</B> member of <I>DeviceObject</I> as the <I>Irp</I> parameter of <I>AdapterControl</I>. If <B>AllocateAdapterChannel</B> is called from a driver's <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A> routine, this is guaranteed to point to the IRP that <I>StartIo</I> was called to process. Otherwise, to use the <I>Irp</I> parameter of <I>AdapterControl</I>, the driver must set <B>CurrentIrp</B> to point to the current IRP before calling <B>AllocateAdapterChannel</B>.</P>
+
+<P>Callers of <B>AllocateAdapterChannel</B> must be running at IRQL&nbsp;= DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="kdma_9cxe.htm"><B>FlushAdapterBuffers</B></A>, <A HREF="kdma_3bua.htm"><B>FreeAdapterChannel</B></A>, <A HREF="kdma_5rqq.htm"><B>FreeMapRegisters</B></A>, <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A>, <A HREF="kdma_1hv6.htm"><B>MapTransfer</B></A>, <A HREF="kdma_0muq.htm"><B>ReadDmaCounter</B></A>, <A HREF="k112_3tf6.htm">DMA_OPERATIONS</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: AllocateAdapterChannel"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

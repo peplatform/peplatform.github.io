@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling Device Power-Up IRPs</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling Device Power-Up IRPs">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_handling_device_power_up_irps_kg"></A>Handling Device Power-Up IRPs</H3>
+
+<P>Device power-up IRPs specify <A HREF="poirp_6hde.htm">IRP_MN_SET_POWER</A> and a device state that requires more power than the current device state. Typically, a power-up IRP specifies the device working state <B>PowerDeviceD0</B>. </P>
+
+<P>Requests to power up a device must be handled first by the underlying bus driver for the device, and then by each successive driver going back up the stack.</P>
+
+<P>The following figure shows the steps involved in handling a power-up IRP.</P>
+
+<P><IMG SRC="images/devd0.gif" ALT="" BORDER=0></P>
+
+<P><B>Handling a Device Power-Up Request</B></P>
+
+<P>When handling an IRP_MN_SET_POWER request for power-up, a function or filter driver must:
+
+<UL>
+	<LI>Call <A HREF="k104_6tde.htm"><B>IoAcquireRemoveLock</B></A> to ensure that the driver does not receive an IRP_MN_REMOVE_DEVICE request while handling the power-up IRP.
+<P>If <B>IoAcquireRemoveLock</B> returns a failure status, the driver should not continue processing the IRP. Instead, it should call <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A>, then complete the IRP (<A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>), and return the failure status. 
+</LI>
+
+	<LI>Call <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A> to mark the IRP pending. </LI>
+
+	<LI>Call <A HREF="k104_4fqq.htm"><B>IoCopyCurrentIrpStackLocationToNext</B></A> to set the IRP stack location. A driver must not call <B>IoSkipCurrentIrpStackLocation</B> if it sets an<I> IoCompletion</I> routine.</LI>
+
+	<LI>Call <A HREF="k104_5w6q.htm"><B>IoSetCompletionRoutine</B></A> to set a power-up<I> IoCompletion</I> routine. 
+<P>When handling a device power-up IRP, the driver should set an<I> IoCompletion</I> routine to restore context, release the remove lock, and perform other required tasks after the IRP is complete and the device powers on. The driver should not restore context before the IRP has completed. For more information, see<A HREF="pwrmgmt_5siv.htm"><I> IoCompletion</I> Routines for Device Power IRPs</A>.
+</LI>
+
+	<LI>Call <B>PoCallDriver</B> to pass the IRP to the next-lower driver.
+<P>The IRP must travel all the way down the device stack to the bus driver. Only the bus driver is allowed to complete the IRP.
+</LI>
+
+	<LI>Return STATUS_PENDING. </LI>
+</UL>
+
+<P>When the bus driver receives the IRP, it should first check to ensure the device is still present and has not been removed or replaced while asleep. If the device is no longer present, the bus driver should call <A HREF="k104_8t6a.htm"><B>IoInvalidateDeviceRelations</B></A> on the parent device to notify the PnP Manager that the device has disappeared. In this situation, the bus driver can fail the device power-up IRP.</P>
+
+<P>If the device is still present, the bus driver then performs the tasks required to return the device to an operating condition, calls <A HREF="portn_5saa.htm"><B>PoSetPowerState</B></A> to inform the Power Manager of the new device state, and completes the IRP (<A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>). If drivers have queued I/O while the device was sleeping, or if the device requires inrush power, the bus driver applies power to the device. Otherwise, the bus driver applies power as soon as it has to communicate with the device. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20Device%20Power-Up%20IRPs"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

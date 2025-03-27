@@ -1,0 +1,55 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AV/C Requests</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="AV/C Requests">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iocalldriver_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_av_c_requests_ksg"></A>AV/C Requests</H1>
+
+<P>Subunit drivers communicate with <I>avc.sys</I> through the standard IRP-based request mechanism employed by all drivers based on the WDM architecture.</P>
+
+<P><A HREF="avcref_0h4j.htm"><SMALL>IOCTL_AVC_CLASS</SMALL></A> IRPs are sent by the internal I/O device control dispatch (<SMALL>IRP_MJ_INTERNAL_DEVICE_CONTROL</SMALL>). The IOCTL_AVC_CLASS control code is always accompanied by an I/O Request Block (IRB), which further describes the AV/C operation to perform. The IRB header includes a function number, which determines the structure of the rest of the IRB. The IRB structure and size varies according to the function.</P>
+
+<P>All other I/O control codes supported by <I>avc.sys</I>, <A HREF="avcref_8uur.htm">IOCTL_AVC_UPDATE_VIRTUAL_SUBUNIT_INFO</A>, <A HREF="avcref_4kab.htm">IOCTL_AVC_REMOVE_VIRTUAL_SUBUNIT_INFO</A>, and <A HREF="avcref_9zn7.htm">IOCTL_AVC_BUS_RESET</A> are sent by the standard I/O device control dispatch (IRP_MJ_DEVICE_CONTROL).</P>
+
+<P>The primary AV/C function used by peer devices is <A HREF="avcref_64ab.htm">AVC_FUNCTION_COMMAND</A>, which corresponds with the <A HREF="avcref_2tv7.htm">AVC_COMMAND_IRB</A> structure, and defines the mechanism for sending AV/C requests and receiving the associated AV/C responses. Many of the details of building AV/C commands are handled by <I>avc.sys</I>, but the subunit driver must provide the opcode and operands of each command.</P>
+
+<P>The process for building and sending an AV/C command can vary depending upon the style of IRP handling or particular subunit constraints, but, in general, it is as follows:</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To Build and Send an AV/C Command:</B>
+
+<OL>
+	<LI>Allocate and initialize an IRP appropriate for the number of drivers below your subunit driver (as specified in the parent driver’s device object). See <A HREF="avcguide_9i93.htm">Allocating an IRP</A>.</LI>
+
+	<LI>Allocate an IRB (I/O Request Block) appropriate for the type of AV/C function desired, and fill in the block with the desired AV/C request parameters. See <A HREF="avcguide_4eqv.htm">Allocating and Initializing an IRB</A>.</LI>
+
+	<LI>Set up the IRP with the appropriate function parameters. See <A HREF="avcguide_5e3r.htm">Setting Up the IRP for AV/C Processing</A>.</LI>
+
+	<LI>Set an I/O completion routine for the IRP, which at a minimum parses the response, but that may also free the IRP and IRB resources. See <A HREF="avcguide_22hz.htm">Creating the I/O Completion Routine</A>.</LI>
+
+	<LI>Submit the IRP to <I>avc.sys</I> (by calling <A HREF="JavaScript:hhobj_1.Click()"><B>IoCallDriver</B></A>). See <A HREF="avcguide_9gyv.htm">Submitting the IRP</A>.</LI>
+
+	<LI>Repeat Steps 1 through 5 as necessary.</LI>
+</OL>
+
+<P>Basic IRP processing allows for a lower driver to either complete the IRP synchronously (immediately), or defer its completion until later. When the operation is deferred, the IRP is marked “pending,” and the lower driver returns STATUS_PENDING from its IOCTL dispatch routine, which comes back to the calling driver as the return code from <B>IoCallDriver</B>. <I>Avc.sys</I> translates the AV/C request/response protocol to this model. </P>
+
+<P>Any <I>status</I> or <I>inquiry</I> request that results in an immediate response is fully complete during the span of the <B>IoCallDriver</B> invocation. An immediate response indicates that a response occurs within the 100ms AV/C response timeout constraint detailed in the AV/C specification. A <I>notify</I> request responds immediately only if there is an error condition. Some <I>control</I> and all <I>notify</I> requests acknowledge, but may not necessarily complete, the request in the 100ms timeframe. The acknowledgment is through an “interim” response, which is referred to in this documentation as <I>Interim Processing</I>. An Interim response results in <B>IoCallDriver</B> returning STATUS_PENDING. If this occurs, your driver’s I/O completion routine is the point of notification when the request is satisfied.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: AV%2FC%20Requests"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

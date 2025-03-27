@@ -1,0 +1,126 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DMUS_KERNEL_EVENT</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DMUS_KERNEL_EVENT">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_dmus_kernel_event_ks"></A>DMUS_KERNEL_EVENT</H1>
+
+<P>The DMUS_KERNEL_EVENT structure is used to package time-stamped music events.</P>
+
+<PRE class=syntax>typedef struct _DMUS_KERNEL_EVENT
+{
+  BYTE  bReserved;
+  BYTE  cbStruct;
+  USHORT  cbEvent;
+  USHORT  usChannelGroup;
+  USHORT  usFlags;
+  REFERENCE_TIME  ullPresTime100Ns;
+  _DMUS_KERNEL_EVENT *pNextEvt;
+  union
+  {
+    BYTE  abData[sizeof(PBYTE)];
+    PBYTE  pbData;
+    _DMUS_KERNEL_EVENT *pPackageEvt;
+  } uData;
+} DMUS_KERNEL_EVENT, *PDMUS_KERNEL_EVENT;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>bReserved</B></DT>
+
+<DD><I>Miniport drivers should not modify this member.</I> Reserved for future use. <I>Do not use.</I></DD>
+
+<DT><B>cbStruct</B></DT>
+
+<DD><B><I>Miniport drivers should not modify this member.</I></B> This member specifies the size of the DMUS_KERNEL_EVENT structure itself and could change in the future.</DD>
+
+<DT><B>cbEvent</B></DT>
+
+<DD>Specifies the unrounded number of event bytes referred to by <B>uData</B>.</DD>
+
+<DT><B>usChannelGroup</B></DT>
+
+<DD>Specifies which channel group (set of 16 MIDI channels) receives or originated this event. This is unique only within the target MIDI device (miniport driver).</DD>
+
+<DT><B>usFlags</B></DT>
+
+<DD>Specifies whether an event is a package and whether this event concludes the message. A package encapsulates a list of events that should be dealt with atomically. This member is a bit field that can be set to the bitwise OR of one or more of the following flag bits:
+
+<DL>
+<DT>DMUS_KEF_EVENT_COMPLETE (zero)</DT>
+
+<DD>Specifies messages in which the entire message is contained either in <B>uData.abData</B> or in the buffer pointed to by <B>uData.pbData</B>. The former includes all short messages, and potentially includes very brief SysEx messages (see Platform SDK documentation) as well. Keep in mind that <B>sizeof</B>(PBYTE) can be 8 instead of 4 on 64-bit versions of Windows.</DD>
+
+<DT>DMUS_KEF_EVENT_INCOMPLETE</DT>
+
+<DD>Specifies that this event is an incomplete package or SysEx message (see Platform SDK documentation). This flag specifies that the message continues beyond this event. During MIDI capture, the miniport driver can send "uncooked" MIDI events (raw MIDI input data) to the capture sink by specifying this flag.</DD>
+
+<DT>DMUS_KEF_PACKAGE_EVENT</DT>
+
+<DD>Specifies that this event is a package. The <B>uData.pPackageEvt</B> field contains a pointer to a chain of events which should be dealt with atomically.</DD>
+</DL>
+</DD>
+
+<DT><B>ullPresTime100Ns</B></DT>
+
+<DD>Specifies the presentation time for this event. This 64-bit value is expressed in 100-nanosecond units. The master clock should be used to evaluate this presentation time.</DD>
+
+<DT><B>pNextEvt</B></DT>
+
+<DD>Pointer to the next event in the list, or NULL if no event follows. This facilitates passing chains of identically time-stamped messages to the miniport. Additionally, hardware that does its own mixing can receive or transmit groups of messages at one time.</DD>
+
+<DT><B>uData</B></DT>
+
+<DD>A union containing one of the following three members: <B>abData</B>, <B>pbData</B>, or <B>pPackageEvt</B>. If <B>cbEvent</B> is less than or equal to <B>sizeof</B>(PBYTE), then <B>abData</B> is a byte array of length <B>cbEvent</B> containing the event data bytes. Otherwise, depending on the value of <B>usFlags</B>, <B>pPackageEvt</B> is a pointer to a list of events to be handled together, or <B>pbData</B> is a pointer to a buffer containing <B>cbEvent</B> bytes of event data. The event data are typically MIDI status and data bytes. These three members are described in the following text.</DD>
+
+<DT><B>abData</B></DT>
+
+<DD>A byte array containing <B>cbEvent</B> bytes of event data. The event data are typically MIDI status and data bytes. This member of <B>uData</B> is used if <B>cbEvent</B> is less than or equal to <B>sizeof</B>(PBYTE).</DD>
+
+<DT><B>pbData</B></DT>
+
+<DD>Pointer to a buffer containing <B>cbEvent</B> bytes of event data. The event data are typically MIDI status and data bytes. This member of <B>uData</B> is used if <B>uFlags</B> is set to DMUS_KEF_EVENT_COMPLETE and <B>cbEvent</B> is greater than <B>sizeof</B>(PBYTE).</DD>
+
+<DT><B>pPackageEvt</B></DT>
+
+<DD>Pointer to a chain of events, which is in the form of a linked list of DMUS_KERNEL_EVENT structures. The event data typically consist of MIDI status and data bytes. The events in the list are to be handled together. This member of <B>uData</B> is used if <B>uFlags</B> is set to DMUS_KEF_PACKAGE_EVENT.</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>dmusicks.h</I>. Include <I>dmusicks.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The DMUS_KERNEL_EVENT structure is used by WDM audio drivers that provide kernel streaming support for DirectMusic®.</P>
+
+<P>While capturing a MIDI stream, the DMus port driver calls the <A HREF="audmp-routines_5n3n.htm"><B>IAllocatorMXF::GetMessage</B></A> method to retrieve DMUS_KERNEL_EVENT structures to hold the captured data. While rendering a MIDI stream, the port driver calls the <A HREF="audmp-routines_38vn.htm"><B>IMXF::PutMessage</B></A> method to discard DMUS_KERNEL_EVENT structures as it finishes reading them. For more information, see <A HREF="dmdesign_98dj.htm">MIDI Transport</A>.</P>
+
+<P>In the case of MIDI capture, the DMUS_KERNEL_EVENT structure can be packaged with single, multiple, or fragmentary MIDI messages. The <B>usFlags</B> member should be set to DMUS_KEF_EVENT_INCOMPLETE unless it is a single complete MIDI message. This structure also contains:
+
+<UL>
+	<LI>A time stamp relative to the master clock (<B>ullPresTime100Ns</B>)</LI>
+
+	<LI>Extended channel information (<B>usChannelGroup</B>)</LI>
+</UL>
+
+<P>Mapping to the correct DLS instrument is implicit in the triplet of</P>
+
+<P class=indent1>&lt;<I>pin</I>,&nbsp;<I>channel_group</I>,&nbsp;<I>channel</I>&gt;</P>
+
+<P>Presentation time does not advance during the states KSSTATE_PAUSE and KSSTATE_STOP, and is reset during KSSTATE_STOP. For more information, see <A HREF="ks-overview_0ron.htm">KS Clocks</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="audmp-routines_38vn.htm"><B>IMXF::PutMessage</B></A>, <A HREF="audmp-routines_5n3n.htm"><B>IAllocatorMXF::GetMessage</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DMUS_KERNEL_EVENT"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

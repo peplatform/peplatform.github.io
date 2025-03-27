@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Basic Support Queries for Audio Properties</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Basic Support Queries for Audio Properties">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_basic_support_queries_for_audio_properties_ksg"></A>Basic Support Queries for Audio Properties</H3>
+
+<P>When specifying the data for a <I>set</I>-property request to a filter, pin, or node, the client frequently needs to know the valid data ranges for the value or values that it specifies for the property. Ranges can vary from device to device, and possibly even from node to node within the same device.</P>
+
+<P>A number of properties are defined to allow <I>set</I>-property requests to specify values that are out-of-range, but miniport drivers silently clamp those values to the supported range (for example, see <A HREF="aud-prop_6jar.htm">KSPROPERTY_AUDIO_VOLUMELEVEL</A>). A subsequent <I>get</I> request for the same property retrieves the driver's actual settings for the value or values, which might be clamped versions of the values that the client specified in the <I>set</I> request.</P>
+
+<P>However, a client might need to know the range for a property value instead of simply relying on the miniport driver to automatically clamp an out-of-range value. For example, a windowed application that presents a volume-control slider for an audio device might need to know the device's volume range in order to map that range to the full length of the slider.</P>
+
+<P>The driver's handler routine for a particular property should be able to provide range information in response to a basic-support property request (KSPROPERTY_TYPE_BASICSUPPORT). When sending a basic-support property request to a driver, a client provides a value buffer into which the property handler writes the basic-support information, which consists of a <A HREF="ks-struct_9wab.htm">KSPROPERTY_DESCRIPTION</A> structure that might be followed by property-specific data. This data typically consists of specifications for one or more parameter ranges, depending on the property.</P>
+
+<P>In general, the client does not know in advance how large this value buffer should be and must send one or two preliminary requests to the property handler to determine the value size. The format for these preliminary requests is well defined. Clients expect drivers to follow these conventions when handling a basic-support request:
+
+<UL>
+	<LI>If the request specifies the value size as <B>sizeof</B>(ULONG) then the property handler should write the value of the <B>AccessFlags</B> member of the KSPROPERTY_DESCRIPTION structure into the ULONG-sized value buffer. The handler sets the KSPROPERTY_TYPE_BASICSUPPORT flag bit if it provides further support for basic-property requests.</LI>
+
+	<LI>If the request specifies the value size as <B>sizeof</B>(KSPROPERTY_DESCRIPTION), the handler should write a KSPROPERTY_DESCRIPTION structure into the data buffer. The handler sets the <B>DescriptionSize</B> field of the structure equal to that structure's size plus the size of all of the additional, property-specific information that the handler has available to load into the data buffer following the structure. This is the size of the value buffer that the client needs to allocate to contain the property's basic-support information.</LI>
+
+	<LI>If the request specifies a value size that is large enough to contain both the KSPROPERTY_DESCRIPTION structure and the property-specific information, the handler should write the KSPROPERTY_DESCRIPTION structure into the start of the buffer, and it should write the property-specific information into the portion of the data buffer that follows the end of the KSPROPERTY_DESCRIPTION structure. When writing the KSPROPERTY_DESCRIPTION structure, the handler should set the <B>DescriptionSize</B> field to that structure's size plus the size of the property-specific information that follows the structure.</LI>
+</UL>
+
+<P>If the request specifies a value size that does not match one of the three cases listed above, the property handler rejects the request and returns status code STATUS_BUFFER_TOO_SMALL.</P>
+
+<P>The property-specific information that the handler writes into the value buffer might include data ranges for property values. The <B>MembersSize</B> member of KSPROPERTY_MEMBERSHEADER indicates whether data ranges are included:
+
+<UL>
+	<LI><B>MembersSize</B> is zero if no ranges are needed. This is the case, for example, if property values are of type BOOL.</LI>
+
+	<LI><B>MembersSize</B> is nonzero if the KSPROPERTY_MEMBERSHEADER structure is followed by range descriptors for one or more property values.</LI>
+</UL>
+
+<P>For a property value of type BOOL, no range descriptor is needed because the range is implicitly limited to the values TRUE and FALSE. However, range descriptors are needed to specify the ranges of property values with integer types.</P>
+
+<P>For example, the basic-support request for a <A HREF="aud-prop_6jar.htm">KSPROPERTY_AUDIO_VOLUMELEVEL</A> property on a volume node (<A HREF="aud-prop_9eb7.htm">KSNODETYPE_VOLUME</A>) retrieves the minimum and maximum volume settings for that node. In this case, the client needs to allocate a value buffer that is large enough to contain the following structures:</P>
+
+<P class=indent1><A HREF="ks-struct_9wab.htm">KSPROPERTY_DESCRIPTION</A> </P>
+
+<P class=indent1><A HREF="ks-struct_9kfn.htm">KSPROPERTY_MEMBERSLIST</A> </P>
+
+<P class=indent1><A HREF="ks-struct_58kz.htm">KSPROPERTY_STEPPING_LONG</A> </P>
+
+<P>The three structures are packed into adjacent locations in the buffer in the order given above. When handling the request, the miniport driver writes the minimum and maximum volume levels into the <B>Bounds</B> member of the KSPROPERTY_STEPPING_LONG structure.</P>
+
+<P>For an example of a basic-support request with an array of range descriptors, see the figure in <A HREF="aud-design_233b.htm">Exposing Multichannel Nodes</A>. For more information about basic-support property requests, see <A HREF="ks-overview_1uhz.htm">KS Properties</A>. For code examples, refer to the property-handler implementations in the <A HREF="aud-design_3vdz.htm">sample audio drivers</A> in the Windows DDK.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Basic%20Support%20Queries%20for%20Audio%20Properties"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

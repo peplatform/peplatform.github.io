@@ -1,0 +1,32 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Synthesizer Latency</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Synthesizer Latency">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_synthesizer_latency_ksg"></A>Synthesizer Latency</H4>
+
+<P>Another consideration in synthesizer timing is latency, which is the difference between the current time and the first time that a note can play. A MIDI message cannot be submitted to the synthesizer and rendered into the output buffer at the current sample time. Allowance should be made for data that has already been placed in the buffer but has not yet been streamed to the wave output device.</P>
+
+<P>The synth sink therefore should implement a latency clock, which is an <B>IReferenceClock</B> object (described in the Platform SDK documentation). The latency clock's <B>IReferenceClock::GetTime</B> method retrieves the sample time up to which data has already been written to the buffer, and converts this to reference time relative to the master clock. The synth sink does conversions between reference and sample time with <A HREF="audmp-routines_0y43.htm"><B>IDirectMusicSynthSink::SampleToRefTime</B></A> and <A HREF="audmp-routines_6ss3.htm"><B>IDirectMusicSynthSink::RefTimeToSample</B></A>, so in this case, the synth calls <B>IDirectMusicSynthSink::RefTimeToSample</B> to accomplish the conversion.</P>
+
+<P>Latency time is all managed by the synth sink. Your implementation of the <A HREF="audmp-routines_3pyr.htm"><B>IDirectMusicSynthSink::GetLatencyClock</B></A> method should output a pointer to the latency clock, and this pointer must in turn be retrieved by <A HREF="audmp-routines_0u5v.htm"><B>IDirectMusicSynth::GetLatencyClock</B></A>. The application uses the latency clock to determine the earliest point in time at which a MIDI message can be queued to play when it is passed to the synthesizer by calling the <A HREF="audmp-routines_5a2b.htm"><B>IDirectMusicSynth::PlayBuffer</B></A> method.</P>
+
+<P>An example of the latency of a MIDI message is shown in the following figure.</P>
+
+<P><IMG SRC="images/dmclock.gif" ALT="" BORDER=0></P>
+
+<P><B>Latency of a MIDI Message</B></P>
+
+<P>In the preceding figure, the latency clock points to the first place in the PCM buffer loop where a note can be played. Note that the master clock is at 22 time units, which is the point where sound is currently playing from, but the space between 22 and 30 time units has already been filled with wave data and can no longer be written to. Therefore, the first place where a new time-stamped MIDI event can be scheduled to play is at time 30. Thus, the latency clock reads 30 time units. </P>
+
+<P>Messages can be scheduled to play at, or any time after, this latency time. Therefore, messages that are to be rendered immediately are stamped with the latency time (not the current time) before being placed in the synthesizer's input buffer.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Synthesizer%20Latency"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

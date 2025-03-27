@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Initializing a BDA Minidriver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Initializing a BDA Minidriver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_initializing_a_bda_minidriver_ksg"></A>Initializing a BDA Minidriver</H1>
+
+<P>A BDA minidriver is initialized similarly to other AVStream minidrivers. The BDA minidriver's DriverEntry function calls the AVStream <A HREF="avfunc_2to3.htm"><B>KsInitializeDriver</B></A> function to initialize the BDA minidriver's driver object. In this call, the BDA minidriver passes a pointer to a <A HREF="avstruct_1ayb.htm">KSDEVICE_DESCRIPTOR</A> structure that specifies characteristics of the device, which can include:
+
+<UL>
+	<LI>A pointer to a <A HREF="avstruct_8shf.htm">KSDEVICE_DISPATCH</A> structure that contains the dispatch table for the BDA device. At a minimum, the BDA minidriver should supply routines that create and start the device and specify these routines in the <B>Add</B> and <B>Start</B> members respectively of the KSDEVICE_DISPATCH structure. The BDA minidriver's create routine should allocate memory for the device class and reference the pointer to the <A HREF="avstruct_9qcz.htm">KSDEVICE</A> structure for the BDA device to this device class. The BDA minidriver's start routine should get information about the device from the registry, set information on the device, and then register a group of static template structures with the BDA support library. See <A HREF="bdadg_3fvr.htm">Starting a BDA Minidriver</A> for more information. </LI>
+
+	<LI>An array of <A HREF="avstruct_541f.htm">KSFILTER_DESCRIPTOR</A> structures for the individual filter types supported by this device. This structure type describes the characteristics of a filter created by a given filter factory. You should specify members of structures of this type in this array if you create your BDA minidriver so that it does not use the BDA support library (<I>Bdasup.lib</I>) to handle your BDA minidriver's property and method sets. If you create your BDA minidriver so that it uses the BDA support library, then your BDA minidriver should instead call the <A HREF="bdaref_8qpf.htm"><B>BdaCreateFilterFactory</B></A> support function to add filter factory descriptors (KSFILTER_DESCRIPTOR structures) for your device. See <A HREF="bdadg_3fvr.htm">Starting a BDA Minidriver</A> for more information. </LI>
+</UL>
+
+<P>The following code snippet shows examples of an array of filter descriptors, a dispatch table for the BDA device, and the descriptor for the BDA device:</P>
+
+<PRE>//
+//  Array containing descriptors for all filter factories
+//  available on the device.
+//
+//  Note!  Only used when dynamic topology is not used (that is, 
+//         only when filters and pins are fixed). Typically, this 
+//         is when the network provider is not present.
+//
+DEFINE_KSFILTER_DESCRIPTOR_TABLE(FilterDescriptors)
+{
+    &amp;TemplateTunerFilterDescriptor
+};
+//
+//  Device Dispatch Table
+//
+//  Lists the dispatch routines for the major events related to 
+//  the underlying device.
+//
+extern
+const
+KSDEVICE_DISPATCH
+DeviceDispatch =
+{
+    CDevice::Create,    // Add
+    CDevice::Start,     // Start
+    NULL,               // PostStart
+    NULL,               // QueryStop
+    NULL,               // CancelStop
+    NULL,               // Stop
+    NULL,               // QueryRemove
+    NULL,               // CancelRemove
+    NULL,               // Remove
+    NULL,               // QueryCapabilities
+    NULL,               // SurpriseRemoval
+    NULL,               // QueryPower
+    NULL                // SetPower
+};
+//
+//  Device Descriptor
+//
+//  Brings together the data structures that define the device and
+//  the initial filter factories that can be created on it.
+//  Note that because template topology structures are specific 
+//  to BDA, the device descriptor does not include them.
+//  Note also that if BDA dynamic topology is used, the device 
+//  descriptor does not specify a list of filter factory descriptors.
+//  If BDA dynamic topology is used, the BDA minidriver calls 
+//  BdaCreateFilterFactory to add filter factory descriptors. 
+extern
+const
+KSDEVICE_DESCRIPTOR
+DeviceDescriptor =
+{
+    &amp;DeviceDispatch,    // Dispatch
+#ifdef DYNAMIC_TOPOLOGY // network provider is present
+    0,    // FilterDescriptorsCount
+    NULL, // FilterDescriptors
+#else     // network provider is not present
+    SIZEOF_ARRAY( FilterDescriptors), // FilterDescriptorsCount
+    FilterDescriptors                 // FilterDescriptors
+#endif // DYNAMIC_TOPOLOGY</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Initializing%20a%20BDA%20Minidriver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

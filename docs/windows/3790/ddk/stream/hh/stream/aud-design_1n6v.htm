@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Differences in Support for Non-PCM Formats</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Differences in Support for Non-PCM Formats">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ioiswdmversionavailable_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_differences_in_support_for_non_pcm_formats_ksg"></A>Differences in Support for Non-PCM Formats</H3>
+
+<P>The discussion below summarizes the level of support for non-PCM audio formats that is provided by the WDM audio framework in the different versions of Windows that are available. For background information on this topic, see <A HREF="aud-design_7pnr.htm">Supporting Non-PCM Wave Formats</A>.</P>
+
+<H3>Windows 98 Gold</H3>
+
+<P>Windows&nbsp;98 Gold provides no support for non-PCM wave formats through DirectSound, the <B>waveOut</B> API, or any other audio interface that uses the <A HREF="aud-design_1kiv.htm#ddk_sysaudio_system_driver_ksg">SysAudio system driver</A>. For information about DirectSound and <B>waveOut</B>, see the Platform SDK documentation.</P>
+
+<H3>Windows 98 Second Edition</H3>
+
+<P>Like Windows&nbsp;98 Gold, Windows&nbsp;98&nbsp;SE has no support for non-PCM wave formats, except that the <A HREF="aud-design_1kiv.htm#ddk_usbaudio_class_system_driver_ksg">USBAudio class system driver</A> (<I>usbaudio.sys</I>) can handle the packed AC3 format through DirectShow. (This format is described in <A HREF="aud-design_65d3.htm">USB Audio Support for Non-PCM Formats</A>.) However, USBAudio still provides no support for non-PCM formats to <B>waveOut</B> and DirectSound applications.</P>
+
+<H3>Windows 98 SE + QFE</H3>
+
+<P>Installing the QFE (quick-fix engineering) package for Windows&nbsp;98&nbsp;SE enables support for non-PCM formats for <B>waveOut</B> applications that use PortCls devices. (The QFE is described in <A HREF="aud-design_5u07.htm">Additional Requirements for Windows 98</A>.) However, the following caveats apply:
+
+<UL>
+	<LI>The <B>waveOutGetPosition</B> function (see Platform SDK documentation) retrieves incorrect timing information for streams with non-PCM formats.</LI>
+
+	<LI>An adapter driver that wants to provide non-PCM support to <B>waveOut</B> applications should provide a non-PCM data range with the format specifier set to KSDATAFORMAT_SPECIFIER_WAVEFORMATEX. Although PortCls automatically clones the miniport driver's data ranges from KSDATAFORMAT_SPECIFIER_WAVEFORMATEX to KSDATAFORMAT_SPECIFIER_DirectSound, it does so only for PCM data ranges. (You can confirm this by running the <A HREF="aud-design_1spz.htm">KsStudio<I> </I>utility</A> from the Windows DDK.) To make its non-PCM support accessible to DirectSound applications, the driver needs to explicitly specify a second copy of the same data range and set the format specifier for this data range to KSDATAFORMAT_SPECIFIER_DirectSound. (For more information, see <A HREF="aud-design_87qf.htm">Declaring Non-PCM Data Ranges</A>.)</LI>
+
+	<LI>When a driver defines a non-PCM pin, this causes a "phantom control" to show up in the window of the SndVol32 "Volume Options" program (<I>sndvol32.exe</I>) that ships with Windows. SndVol32 displays a non-PCM pin as a grayed-out SRC mixer line without a slider or other control. (You can confirm this behavior by running the sample mixer application, <I>mixapp.exe</I>. See the description of this application in the Visual C++ audio samples in the Platform SDK.) Users might find this display confusing. For this reason, some hardware vendors choose not to expose their AC3 pins on Windows&nbsp;98&nbsp;SE.</LI>
+</UL>
+
+<P>The version of DirectSound that ships with Windows&nbsp;98&nbsp;SE does not support non-PCM formats. However, when DirectSound&nbsp;8 is installed in Windows&nbsp;98&nbsp;SE + QFE, DirectSound applications can use non-PCM formats with both PortCls devices and USB audio devices.</P>
+
+<H3>Windows Me</H3>
+
+<P>Windows&nbsp;Me provides support for non-PCM formats for <B>waveOut</B> applications that use PortCls devices.</P>
+
+<P>The <B>waveOutGetPosition</B> call works correctly for non-PCM streams.</P>
+
+<P>PortCls automatically clones non-PCM data ranges for DirectSound.</P>
+
+<P>The problem with phantom sliders in SndVol32 (see above) is fixed.</P>
+
+<P>The <A HREF="audmp-routines_6apf.htm"><B>IPortClsVersion</B></A> interface is not implemented, but other means of determining the operating system version are available. For example, you can detect the OS version by calling <A HREF="JavaScript:hhobj_1.Click()"><B>IoIsWdmVersionAvailable</B></A>.</P>
+
+<P>In Windows&nbsp;Me, the USBAudio driver does not support the packed AC3 format through DirectShow. Also, USBAudio does not support non-PCM formats for DirectSound applications that use the built-in DirectSound implementation. However, when DirectSound&nbsp;8 is added to Windows&nbsp;Me, DirectSound applications can use non-PCM formats on USB audio devices.</P>
+
+<P>The initial QFE that has been released for Windows&nbsp;Me contains no non-PCM fixes.</P>
+
+<H3>Windows 2000</H3>
+
+<P>Like Windows&nbsp;98, Windows&nbsp;2000 provides no support for non-PCM formats, regardless of DirectSound version.</P>
+
+<P>In Windows&nbsp;2000, the USBAudio driver does not support packed AC3 formats through DirectShow. USBAudio also does not support any non-PCM formats for DirectSound applications.</P>
+
+<H3>Windows 2000 Service Pack 2</H3>
+
+<P>SP2 adds support for non-PCM formats to <B>waveOut</B> applications that use PortCls devices.</P>
+
+<P>PortCls automatically clones non-PCM data ranges for DirectSound.</P>
+
+<P>The <B>IPortClsVersion</B> interface is available in SP2.</P>
+
+<P>The <B>waveOutGetPosition</B> call works correctly for non-PCM streams.</P>
+
+<P>SP2 still has the problem with phantom sliders in SndVol32 (see above).</P>
+
+<P>When DirectSound&nbsp;8 is added to Windows&nbsp;2000 SP2, DirectSound applications can use non-PCM formats.</P>
+
+<H3>Windows XP</H3>
+
+<P>Windows&nbsp;XP supports non-PCM formats for <B>waveOut</B> applications that use PortCls devices.</P>
+
+<P>The <B>waveOutGetPosition</B> call works correctly for non-PCM streams.</P>
+
+<P>PortCls automatically clones non-PCM data ranges for DirectSound.</P>
+
+<P>The built-in version of DirectSound correctly handles non-PCM formats on PortCls devices.</P>
+
+<P>The problem with phantom sliders in SndVol32 (see above) is fixed.</P>
+
+<P>The USBAudio driver correctly handles packed AC3 formats through DirectShow. However, USBAudio does not support non-PCM formats for DirectSound applications.</P>
+
+<P>The <B>IPortClsVersion</B> interface is available.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Differences%20in%20Support%20for%20Non-PCM%20Formats"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

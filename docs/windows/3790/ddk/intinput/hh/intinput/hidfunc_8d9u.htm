@@ -1,0 +1,193 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>HidP_TranslateUsagesToI8042ScanCodes</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="HidP_TranslateUsagesToI8042ScanCodes">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Interactive&nbsp;Input&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_hidp_translateusagestoi8042scancodes_kr"></A>HidP_TranslateUsagesToI8042ScanCodes</H1>
+
+<P>The <B>HidP_TranslateUsagesToI8042ScanCodes</B> routine maps a list of <A HREF="hidclass_8nmv.htm">HID usages</A> on the HID_USAGE_PAGE_KEYBOARD usage page to their respective PS/2 scan codes (Scan Code Set 1).</P>
+
+<PRE class=syntax><B>NTSTATUS __stdcall
+HidP_TranslateUsagesToI8042ScanCodes(
+    IN PUSAGE  </B><I>ChangedUsageList</I><B>,</B>
+<B>    IN ULONG  </B><I>UsageListLength</I><B>,</B>
+<B>    IN HIDP_KEYBOARD_DIRECTION  </B><I>KeyAction</I><B>,</B>
+<B>    IN OUT PHIDP_KEYBOARD_MODIFIER_STATE  </B><I>ModifierState</I><B>,</B>
+<B>    IN PHIDP_INSERT_SCANCODES  </B><I>InsertCodesProcedure</I><B>,</B>
+<B>    IN PVOID  </B><I>InsertCodesContext</I>
+<B>    );</B></PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><I>ChangedUsageList</I></DT>
+
+<DD>Pointer to a list of keyboard (button) usages. The translate usages routine interprets a zero as a delimiter that ends the usage list. </DD>
+
+<DT><I>UsageListLength</I></DT>
+
+<DD>Specifies the maximum possible number of usages in the changed usage list. </DD>
+
+<DT><I>KeyAction</I></DT>
+
+<DD>Identifies the key direction for the specified change usage list. 
+
+<PRE>typedef enum _HIDP_KEYBOARD_DIRECTION {
+    HidP_Keyboard_Break,
+    HidP_Keyboard_Make
+} HIDP_KEYBOARD_DIRECTION;
+</PRE>
+
+
+<DL>
+<DT><B>HidP_Keyboard_Break</B></DT>
+
+<DD>Specifies a <I>break</I> direction (key up). The changed usage list contains the usages set to OFF that were previously set to ON (which corresponds to the keys that were previously down, but are now up).</DD>
+
+<DT><B>HidPKeyboard_Make</B></DT>
+
+<DD>Specifies a <I>make</I> direction (key down). The changed usage list contains the usages set to ON that were previously set to OFF (which corresponds to the keys that were previously up, but now are down).
+</DD>
+</DL>
+</DD>
+
+<DT><I>ModifierState</I></DT>
+
+<DD>Pointer to a _HIDP_KEYBOARD_MODIFIER_STATE structure that the caller maintains for use by the translate usages routine. The modifier state structure identifies the state of the keyboard modifier keys. 
+
+<PRE>typedef struct _HIDP_KEYBOARD_MODIFIER_STATE {
+    union {
+      struct {
+        ULONG LeftControl: 1;
+        ULONG LeftShift: 1;
+        ULONG LeftAlt: 1;
+        ULONG LeftGUI: 1;
+        ULONG RightControl: 1;
+        ULONG RightShift: 1;
+        ULONG RightAlt: 1;
+        ULONG RigthGUI: 1;
+        ULONG CapsLock: 1;
+        ULONG ScollLock: 1;
+        ULONG NumLock: 1;
+        ULONG Reserved: 21;
+      };
+      ULONG ul;
+};
+</PRE>
+
+
+<P>Each member of the modifier state structure identifies whether the corresponding usage is set to ON (1) or OFF (zero).
+
+
+<P>See the Comments section for more information about how a modifier state structure is used with the translate usage routine.
+</DD>
+
+<DT><I>InsertCodesProcedure</I></DT>
+
+<DD>Pointer to a caller-supplied PHIDP_INSERT_SCANCODES-typed callback routine that the translate usage routine uses to return the mapped scan codes to the caller of the translate usage routine.
+
+<PRE>typedef BOOLEAN (*PHIDP_INSERT_SCANCODES)(
+    IN PVOID  Context,
+    IN PCHAR  NewScanCodes,
+    IN ULONG  Length
+    );</PRE>
+
+
+
+<DL>
+<DT><I>Context</I></DT>
+
+<DD>Pointer to the context of the caller of the translate usage routine. The translate usage routine passes the <I>InsertCodesContext</I> pointer to the <I>InsertCodesProcedure</I> routine.</DD>
+
+<DT><I>NewScanCodes</I></DT>
+
+<DD>Pointer to the first byte of a scan code that the translate usage routine returns to the caller of the translate usage routine.</DD>
+
+<DT><I>Length</I></DT>
+
+<DD>Specifies the length, in bytes, of the scan code. A scan code cannot exceed four bytes.
+</DD>
+</DL>
+</DD>
+
+<DT><I>InsertCodesContext</I></DT>
+
+<DD>Pointer to a caller-defined context that the translate usage routine passes to the <I>InsertCodesProcedure</I> routine.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>HidP_TranslateUsagesToI8042ScanCodes</B> returns one of the following status values:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=45%>Return Value</TH>
+<TH align=left width=55%>&nbsp;</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%>HIDP_STATUS_SUCCESS</TD>
+<TD width=55%>The translate usage routine successfully mapped all the valid usages in the changed usage list.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%>HIDP_STATUS_I8042_TRANS_UNKNOWN</TD>
+<TD width=55%>A usage in the changed usage list mapped to an invalid keyboard scan code.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>hidpi.h</I>. Include <I>hidpi.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>HidP_TranslateUsagesToI8042ScanCodes</B> sequentially maps the keyboard button usages in the changed usage list in the order in which they occur in the list, beginning with the value at <I>ChangedUsageList.</I> After the translate usage routine successfully maps a usage, it uses the caller's <I>InsertCodesProcedure</I> routine to return the corresponding scan code to the caller. The translate usage routine continues to map the usages in the list until one of the following occurs: a usage value in the list is zero; it maps the number of usages that is specified by <I>UsageListLength</I>; a usage maps to an invalid keyboard scan code.</P>
+
+<P><B>HidP_TranslateUsagesToI8042ScanCodes</B> is designed primarily to be used in a processing loop that repeatedly determines the current usage list (usages that are currently set to ON), compares them with a previous usage list (usages that were previously set to ON), and maps the difference between the current and previous usage lists to make scan codes and break scan codes. The following operations illustrate how to use the translate usages routine.</P>
+
+<P>Prior to beginning a processing loop, the processing code typically allocates and initializes the following data:
+
+<UL>
+	<LI>A previous usage list, current usage list, break usage list, and a make usage list
+<P>Each list is a zero-initialized array of usages. To ensure that the processing code maps all the usages that can change between consecutive <A HREF="hidclass_5dev.htm">HID input reports</A>, the processing code must set the number of elements in each list to the maximum number of usages that <A HREF="hidfunc_00j6.htm"><B>HidP_GetUsages</B></A> can return for the HID_USAGE_PAGE_KEYBOARD usage page. This number is obtained using <A HREF="hidfunc_3d82.htm"><B>HidP_MaxUsageListLength</B></A>.
+</LI>
+
+	<LI>A zero-initialized _HIDP_KEYBOARD_MODIFIER_STATE structure for use by the translate usages routine
+<P>In the processing loop, the code must maintain this structure for use by the translate usages routine. The processing code can read the state of the modifier keys, but the code must not modify the structure. The translate usage routine uses this structure to maintain internal information about the state of the modifier keys. 
+</LI>
+</UL>
+
+<P>After initializing the required structures, each iteration of the processing loop typically includes the following sequence of operations:
+
+<OL>
+	<LI>Call <B>HidP_GetUsages</B> to obtain the current usage list of usages that are set to ON. Set the <I>UsagePage</I> input parameter of the get usages routine to HID_USAGE_PAGE_KEYBOARD. </LI>
+
+	<LI>Call <B>HidP_UsageListDifference</B> to compare the current usage list of usages to a previous usage list. The usage list difference routine returns a break usage list and a make usage list.</LI>
+
+	<LI>Call the translate usage routine, setting <I>ChangedUsageList</I> to the break usage list, <I>KeyAction</I> to <B>HidP_KeyboardBreak</B>, and <I>ModifierState</I> to the structure that the processing code maintains for the translate usages routine. The translate usages routine uses the <I>InsertCodesProcedure</I>s callback routine to return the break scan codes to the processing loop.</LI>
+
+	<LI>Call the translate usage routine, setting <I>ChangedUsageList</I> to the make usage list, <I>KeyAction</I> to <B>HidP_KeyboardMake</B>, and <I>ModifierState</I> to the structure that the processing code maintains for the translate usages routine. The translate usages routine uses the <I>InsertCodesProcedure</I>s callback routine to return the make scan codes to the processing loop.</LI>
+
+	<LI>Update the previous usage list to the current usage list.</LI>
+</OL>
+
+<P>For information about the mapping between HID usages and PS/2 keyboard scan codes, see the <a href="http://go.microsoft.com/fwlink/?linkid=8711&clcid=0x409" target="_blank">key support and scan codes</A> Web site.</P>
+
+<P><B>HidP_TranslateUsagesToI8042ScanCodes</B> runs at IRQL &lt;= DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="hidfunc_00j6.htm"><B>HidP_GetUsages</B></A>, <A HREF="hidfunc_3d82.htm"><B>HidP_MaxUsageListLength</B></A>, <A HREF="hidfunc_20j6.htm"><B>HidP_UsageListDifference</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: HidP_TranslateUsagesToI8042ScanCodes"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

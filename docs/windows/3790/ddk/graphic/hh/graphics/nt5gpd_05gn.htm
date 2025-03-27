@@ -1,0 +1,145 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Controlling Image Quality</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Controlling Image Quality">
+<META NAME="MS-HKWD" CONTENT="*DraftQualitySettings">
+<META NAME="MS-HKWD" CONTENT="*BetterQualitySettings">
+<META NAME="MS-HKWD" CONTENT="*BestQualitySettings">
+<META NAME="MS-HKWD" CONTENT="*DefaultQuality">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_controlling_image_quality_gg"></A>Controlling Image Quality</H1>
+
+<P>Unidrv's user interface provides a set of three radio buttons that allow a user to select "draft", "better", or "best" image quality for a print job. Draft quality emphasizes printer speed over image resolution, while best quality does the opposite.</P>
+
+<P>The purpose of these radio buttons is to allow the user to easily select the feature options required to obtain the desired quality, without the necessity of explicitly selecting the required options individually.</P>
+
+<P>The options that Unidrv should select when a radio button is pressed are specified in the printer's GPD file. The GPD language defines the following three entries:</P>
+
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=100%><A NAME="ddk__draftqualitysettings_gg"></A>&nbsp;&nbsp;&nbsp;&nbsp;*<B>DraftQualitySettings</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%><A NAME="ddk__betterqualitysettings_gg"></A>&nbsp;&nbsp;&nbsp;&nbsp;*<B>BetterQualitySettings</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%><A NAME="ddk__bestqualitysettings_gg"></A>&nbsp;&nbsp;&nbsp;&nbsp;*<B>BestQualitySettings</B></TD>
+</TR>
+</TABLE><BR>
+
+<P>Each of these entries is associated with one of the radio buttons, and each entry accepts a list of options. When a user selects the corresponding button, Unidrv goes through the list and sets the specified options.</P>
+
+<P>The format for each of the quality setting entries is as follows:</P>
+
+<P class=indent1>*<I>XXXX</I><B>QualitySettings: LIST(</B><I>FeatureName</I><B>.</B><I>OptionName</I><B>, </B><I>FeatureName</I><B>.</B><I>OptionName</I><B>, </B><I>FeatureName</I><B>.</B><I>OptionName</I><B>, </B>...<B>)</B></P>
+
+<P>where each <I>FeatureName</I> is a name associated with a *<B>Feature</B> entry, and <I>OptionName</I> is a name associated with one of the feature's *<B>Option</B> entries. An empty list causes the associated radio button to be grayed out.</P>
+
+<P>An additional, required entry specifies the default image quality. The format is as follows:</P>
+
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=100%><A NAME="ddk__defaultquality_gg"></A>&nbsp;&nbsp;&nbsp;&nbsp;*<B>DefaultQuality:</B> <I>DefaultQuality</I></TD>
+</TR>
+</TABLE><BR>
+
+<P>where <I>DefaultQuality</I> is either <B>DRAFTQUALITY</B>, <B>BETTERQUALITY</B>, or <B>BESTQUALITY</B>.</P>
+
+<P>These GPD file entries can be associated with any option of the <B>ColorMode</B> and <B>MediaType</B> features. Typically, they are placed in <A HREF="nt5gpd_9yuf.htm">conditional statements</A>, as illustrated in the following example.</P>
+
+<PRE>*switch: ColorMode {
+    *case: Mono {
+        *BestQualitySettings: LIST(ColorMode.Mono,
+                                   Resolution.Option1,
+                                   TextQuality.Option3)
+        *BetterQualitySettings: LIST(ColorMode.Mono,
+                                     Resolution.Option1,
+                                     TextQuality.Option1)
+        *DraftQualitySettings: LIST(ColorMode.Mono,
+                                    Resolution.Option2,
+                                    TextQuality.Option2)
+        *DefaultQuality: BETTERQUALITY }
+    *default: {
+        *BestQualitySettings: LIST(ColorMode.24bpp,
+                                   Resolution.Option2,
+                                   TextQuality.Option3)
+        *BetterQualitySettings: LIST(ColorMode.Color,
+                                     Resolution.Option2,
+                                     TextQuality.Option1)
+        *DraftQualitySettings: LIST(ColorMode.Color,
+                                    Resolution.Option2,
+                                    TextQuality.Option2)
+        *DefaultQuality: BETTERQUALITY }}</PRE>
+
+<P>As illustrated in the example, a good strategy is to specify one <A HREF="nt5gpd_9yuf.htm#ddk__case_gg">*<B>Case</B></A> entry for single color mode, then use a <A HREF="nt5gpd_9yuf.htm#ddk__default_gg">*<B>Default</B></A> entry for all multicolor modes. This is because Unidrv's <B>Page Setup</B> property sheet page offers the user two choices — color or noncolor printing. If you use the format in the example, Unidrv displays the quality buttons when the user selects the color printing option.</P>
+
+<P>Following is a more complex example, which ties image quality to both color mode and media type:</P>
+
+<PRE>*switch: Colormode {
+    *case: Mono {
+    *switch: MediaType {
+        *case: CLAYCOATED {
+            *DraftQualitySettings:  LIST(<I>Option List</I>)
+            *BetterQualitySettings:  LIST(<I>Option List</I>)
+            *BestQualitySettings:  LIST(<I>Option List</I>)
+            *DefaultQuality:  BESTQUALITY }
+        *case: GLOSSY {
+            *DraftQualitySettings:  LIST(<I>Option List</I>)
+            *BetterQualitySettings:  LIST(<I>Option List</I>)
+            *BestQualitySettings:  LIST(<I>Option List</I>)
+            *DefaultQuality:  BETTERQUALITY 
+        *default: 
+            *DraftQualitySettings:  LIST(<I>Option List</I>)
+            *BetterQualitySettings:  LIST(<I>Option List</I>)
+            *BestQualitySettings:  LIST(<I>Option List</I>)
+            *DefaultQuality:  DRAFTQUALITY }}}
+    *default: {
+    *switch: MediaType {
+        *case: CLAYCOATED {
+            *DraftQualitySettings:  LIST(<I>Option List</I>)
+            *BetterQualitySettings:  LIST(<I>Option List</I>)
+            *BestQualitySettings:  LIST(<I>Option List</I>)
+            *DefaultQuality:  BESTQUALITY }
+        *case: GLOSSY {
+            *DraftQualitySettings:  LIST(<I>Option List</I>)
+            *BetterQualitySettings:  LIST(<I>Option List</I>)
+            *BestQualitySettings:  LIST(<I>Option List</I>)
+            *DefaultQuality:  BETTERQUALITY }
+        *default: {
+            *DraftQualitySettings:  LIST(<I>Option List</I>)
+            *BetterQualitySettings:  LIST(<I>Option List</I>)
+            *BestQualitySettings:  LIST(<I>Option List</I>)
+            *DefaultQuality:  DRAFTQUALITY }}}
+}</PRE>
+
+<P>When using the quality setting GPD entries, the following rules must be observed:
+
+<UL>
+	<LI>You must always use all four entries. Specifying an empty option list is allowed, and causes the associated radio button to be grayed out.</LI>
+
+	<LI>All four entries must be specified for all ColorMode and MediaType combinations. The examples use a *<B>Default</B> entry within each conditional statement to achieve this.</LI>
+
+	<LI>Option lists within the quality setting entries must not violate any <A HREF="nt5gpd_0eg7.htm">option constraints</A> you have specified.</LI>
+
+	<LI>Options included in an option list should not change the selected medium type. Also, while it is acceptable, for example, to set the color mode to 24 bits/pixel for best quality, 8 bits/pixel for better quality, and 4 bits/pixel for draft quality, changing to 1 bits/pixel (single color) would not be acceptable.</LI>
+</UL>
+
+<P>If a feature is included in a conditional statement that specifies quality settings, the parser sets the feature's <A HREF="nt5gpd_78yv.htm#ddk__updatequalitymacro__gg">*<B>UpdateQualityMacro?</B></A> attribute to TRUE. (See <A HREF="nt5gpd_78yv.htm">Feature Attributes</A>.)</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Controlling%20Image%20Quality"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

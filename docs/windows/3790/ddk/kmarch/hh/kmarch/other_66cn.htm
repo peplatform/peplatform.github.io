@@ -1,0 +1,305 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Porting Issues Checklist</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Porting Issues Checklist">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_porting_issues_checklist_kg"></A>Porting Issues Checklist</H3>
+
+<H4>General</H4>
+
+<UL>
+	<LI>Use the new Win64-safe data types.
+<P>The new Microsoft® Win64™-safe data types, described earlier in this document, are defined in <I>basetsd.h</I>. This header file is included in <I>ntdef.h</I>, which is included in <I>ntddk.h</I>, <I>wdm.h</I>, and <I>ntifs.h</I>.
+</LI>
+
+	<LI>Use the platform compiler macros carefully.
+<P>The following assumption is no longer valid: 
+
+<PRE>#ifdef _WIN32 // Win32 code
+...
+#else         // Win16 code
+...
+#endif
+</PRE>
+
+<P>However, the 64-bit compiler defines _WIN32 for backward compatibility. 
+
+<P>Also, the following assumption is no longer valid: 
+
+<PRE>#ifdef _WIN16 // Win16 code
+...
+#else         // Win32 code
+...
+#endif
+</PRE>
+
+<P>In this case, the else clause can represent _WIN32 or _WIN64. 
+</LI>
+
+	<LI>Use the proper format specifiers with <B>printf</B> and <B>wsprintf</B>.
+<P>Use <B>%p</B> to print pointers in hexadecimal. This is the best choice for printing pointers. 
+
+<P class=note><B>Note</B>&nbsp;&nbsp;A future version of Visual C++ will support <B>%I</B> to print polymorphic data. It will treat values as 64 bits in Win64 and 32 bits in Win32®. Visual C++ will also support <B>%I64</B> to print values that are 64 bits.
+</LI>
+
+	<LI>Know your address space.
+<P>Do not blindly assume, for example, that if an address is a kernel address, its high-order bit must be set. To obtain the lowest system address, use the <B>MM_LOWEST_SYSTEM_ADDRESS</B> macro. 
+</LI>
+</UL>
+
+<H4>Pointer Arithmetic</H4>
+
+<UL>
+	<LI>Be careful when performing unsigned and signed operations.
+<P>Consider the following: 
+
+<PRE>ULONG x;
+LONG y;
+LONG *pVar1;
+LONG *pVar2;
+ 
+pVar2 = pVar1 + y * (x - 1);
+</PRE>
+
+<P>The problem arises because <I>x</I> is unsigned, which makes the entire expression unsigned. This works fine unless y is negative. In this case, <I>y</I> is converted to an unsigned value, the expression is evaluated using 32-bit precision, scaled, and added to <I>pVar1</I>. On 64-bit Windows®, this 32-bit unsigned negative number becomes a large 64-bit positive number, which gives the wrong result. To fix this problem, declare <I>x</I> as a signed value or explicitly typecast it to <B>LONG</B> in the expression. 
+</LI>
+
+	<LI>Be careful when using hexadecimal constants and unsigned values.
+<P>The following assertion is not true on 64-bit systems:
+
+<PRE>~((UINT64)(PAGE_SIZE-1)) == (UINT64)~(PAGE_SIZE-1)
+PAGE_SIZE = 0x1000UL // Unsigned Long - 32 bits
+PAGE_SIZE - 1 = 0x00000fff</PRE>
+
+<P>LHS expression:
+
+<PRE>// Unsigned expansion(UINT64)(PAGE_SIZE -1 ) = 0x0000000000000fff
+~((UINT64)(PAGE_SIZE -1 )) = 0xfffffffffffff000
+</PRE>
+
+<P>RHS expression:
+
+<PRE>~(PAGE_SIZE-1) = 0xfffff000
+(UINT64)(~(PAGE_SIZE - 1)) = 0x00000000fffff000
+</PRE>
+
+<P>Hence:
+
+<PRE>~((UINT64)(PAGE_SIZE-1)) != (UINT64)(~(PAGE_SIZE-1))
+</PRE>
+</LI>
+
+	<LI>Be careful with NOT operations.
+<P>Consider the following: 
+
+<PRE>UINT_PTR a; ULONG b;
+a = a &amp; ~(b - 1); 
+</PRE>
+
+<P>The problem is that ~(b–1) produces 0x0000 0000 <I>xxxx xxxx</I> and not 0xFFFF FFFF <I>xxxx xxxx</I>. The compiler will not detect this. To fix this, change the code as follows: 
+
+<PRE>a = a &amp; ~((UINT_PTR)b - 1);
+</PRE>
+</LI>
+
+	<LI>Be careful when computing buffer sizes.
+<P>Consider the following: 
+
+<PRE>len = ptr2 – ptr1 
+/* len could be greater than 2**32 */
+</PRE>
+
+<P>Cast pointers to <B>PCHAR</B> for pointer arithmetic. 
+</LI>
+</UL>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;If <I>len</I> is declared <B>INT</B> or <B>ULONG</B>, this will generate a compiler warning. Buffer sizes, even when computed correctly, may still exceed the capacity of <B>ULONG</B>.</P>
+
+<UL>
+	<LI>Avoid using computed or hard-coded pointer offsets.
+<P>When working with structures, use the <B>FIELD</B>_<B>OFFSET</B> macro wherever possible to determine the offset of structure members. 
+</LI>
+
+	<LI>Avoid using hard-coded pointer or handle values.
+<P>Do not pass hard-coded pointers or handles such as (HANDLE)0xFFFFFFFF to routines such as <B>ZwCreateSection</B>. Instead, use constants, such as INVALID_HANDLE_VALUE, that can be defined to have the appropriate value for each platform. 
+</LI>
+
+	<LI>Be aware that in 64-bit Windows, 0xFFFFFFFF Is not the same as -1.
+<P>For example: 
+
+<PRE>DWORD index = 0;
+CHAR *p;
+
+// if (p[index – 1] == ‘0’) causes access violation on Win64!
+</PRE>
+
+<P>On 32-bit machines:
+
+<PRE>p[index-1] == p[0xffffffff] == p[-1] 
+</PRE>
+
+<P>On 64-bit machines:
+
+<PRE>p[index-1] == p[0x00000000ffffffff] != p[-1]
+</PRE>
+
+<P>This problem can be avoided by changing the type of <I>index</I> from <B>DWORD</B> to <B>DWORD_PTR</B>. 
+</LI>
+</UL>
+
+<H4>Polymorphism</H4>
+
+<UL>
+	<LI>Be careful with polymorphic interfaces.
+<P>Do not create functions that accept parameters of type <B>DWORD</B> (or other fixed-precision types) for polymorphic data. If the data can be a pointer or an integral value, the parameter type should be <B>UINT_PTR</B> or <B>PVOID</B>, not <B>DWORD</B>. 
+
+<P>For example, do not create a function that accepts an array of exception parameters typed as <B>DWORD</B> values. The array should be an array of <B>DWORD_PTR</B> values. Therefore, the array elements can hold addresses or 32-bit integral values. The general rule is that if the original type is <B>DWORD</B> and it needs to be pointer width, convert it to a <B>DWORD_PTR</B> value. That is why there are corresponding pointer-precision types for the native Win32 types. If you have code that uses <B>DWORD</B>, <B>ULONG</B>, or other 32-bit types in a polymorphic way (that is, you really want the parameter or structure member to hold an address), use <B>UINT_PTR</B> in place of the current type. 
+</LI>
+
+	<LI>Be careful when calling functions that have pointer OUT parameters.
+<P>Do not do this:
+
+<PRE>void GetBufferAddress(OUT PULONG *ptr);
+{
+  *ptr=0x1000100010001000;
+}
+void foo()
+{
+  ULONG bufAddress;
+  //
+  // this call causes memory corruption
+  //
+  GetBufferAddress((PULONG *)&amp;bufAddress);
+}
+</PRE>
+
+<P>Typecasting <I>bufAddress</I> to (PULONG *) <B>PULONG *</B> prevents a compiler error. However, <I>GetBufferAddress</I> will write a 64-bit value into the memory location at <I>&amp;bufAddress</I>. Because <I>bufAddress</I> is only a 32-bit value, the 32 bits immediately following <I>bufAddress</I> will get overwritten. This is a very subtle, hard-to-find bug.
+</LI>
+
+	<LI>Do not cast pointers to <B>INT</B>, <B>LONG</B>, <B>ULONG</B>, or <B>DWORD</B>.
+<P>If you must cast a pointer to test some bits, set or clear bits, or otherwise manipulate its contents, use the <B>UINT</B>_<B>PTR</B> or <B>INT</B>_<B>PTR</B> type. These types are integral types that scale to the size of a pointer for both 32-bit and 64-bit Windows (for example, <B>ULONG</B> for 32-bit Windows and <B>_int64</B> for 64-bit Windows). For example, assume you are porting the following code: 
+
+<PRE>ImageBase = (PVOID)((ULONG)ImageBase | 1);
+</PRE>
+
+<P>As a part of the porting process, you would change the code as follows: 
+
+<PRE>ImageBase = (PVOID)((ULONG_PTR)ImageBase | 1);
+</PRE>
+
+<P>Use <B>UINT</B>_<B>PTR</B> and <B>INT</B>_<B>PTR</B> where appropriate (and if you are uncertain whether they are required, there is no harm in using them just in case). Do not cast your pointers to the types <B>ULONG</B>, <B>LONG</B>, <B>INT</B>, <B>UINT</B>, or <B>DWORD</B>. 
+
+<P class=note><B>Note</B>&nbsp;&nbsp;<B>HANDLE</B> is defined as a <B>void *</B>, so typecasting a <B>HANDLE</B> value to a <B>ULONG</B> value to test, set, or clear the low two bits is a programming error. 
+</LI>
+
+	<LI>Use <B>PtrToLong</B> and <B>PtrToUlong</B> to truncate pointers.
+<P>If you must truncate a pointer to a 32-bit value, use the <B>PtrToLong</B> or <B>PtrToUlong</B> function (defined in basetsd.h). This function disables the pointer truncation warning for the duration of the call. 
+
+<P>Use these functions carefully. After you truncate a pointer variable using one of these functions, never cast the resulting <B>LONG</B> or <B>ULONG</B> back to a pointer. These functions truncate the upper 32 bits of an address, which are usually needed to access the memory originally referenced by pointer. Using these functions without careful consideration will result in fragile code. 
+</LI>
+</UL>
+
+<H4>Data Structures and Structure Alignment</H4>
+
+<UL>
+	<LI>Carefully examine all uses of data structure pointers.
+<P>The following are common trouble areas: 
+
+<UL>
+	<LI>Data structures that are stored on disk or exchanged with 32-bit processes.</LI>
+
+	<LI>Explicit and implicit unions with pointers.</LI>
+
+	<LI>Security descriptors.</LI>
+</UL>
+</LI>
+
+	<LI>Use the <B>FIELD_OFFSET</B> macro.
+<P>For example: 
+
+<PRE>struct xx {
+   DWORD NumberOfPointers;
+   PVOID Pointers[1];
+};
+</PRE>
+
+<P>The following allocation is incorrect in 64-bit Windows because the compiler will pad the structure with an additional 4 bytes to make the 8-byte alignment requirement: 
+
+<PRE>malloc(sizeof(DWORD)+100*sizeof(PVOID)); 
+</PRE>
+
+<P>Here is how to do it correctly:
+
+<PRE>malloc(FIELD_OFFSET(struct xx, Pointers) +100*sizeof(PVOID));
+</PRE>
+</LI>
+
+	<LI>Use the <B>TYPE_ALIGNMENT</B> macro.
+<P>The <B>TYPE_ALIGNMENT</B> macro returns the alignment requirement for a given data type on the current platform. For example: 
+
+<PRE>TYPE_ALIGNMENT(KFLOATING_SAVE) == 4 on x86, 8 on IA-64
+TYPE_ALIGNMENT(UCHAR) == 1 everywhere
+</PRE>
+
+<P>As an example, code such as this: 
+
+<PRE>ProbeForRead(UserBuffer, UserBufferLength, sizeof(ULONG));
+</PRE>
+
+<P>becomes more portable when changed to: 
+
+<PRE>ProbeForRead(UserBuffer, UserBufferLength, TYPE_ALIGNMENT(ULONG));
+</PRE>
+</LI>
+
+	<LI>Watch for data type changes in public kernel structures.
+<P>For example, the <B>Information</B> field in the IO_STATUS_BLOCK structure is now of type <B>ULONG_PTR</B>. 
+</LI>
+
+	<LI>Be cautious when using structure packing directives.
+<P>On 64-bit Windows, if a data structure is misaligned, routines that manipulate the structure, such as <A HREF="k109_0zzm.htm"><B>RtlCopyMemory</B></A> and <B>memcpy</B>, will not fault. Instead, they will raise an exception. For example:
+
+<PRE>#pragma pack (1) /* also set by /Zp switch */
+struct Buffer {
+    ULONG size;
+    void *ptr;
+};
+
+void SetPointer(void *p) {
+    struct Buffer s;
+    s.ptr = p;  /* will cause alignment fault */
+...
+}</PRE>
+
+<P>You could use the <B>UNALIGNED</B> macro to fix this:
+
+<PRE>void SetPointer(void *p) {
+    struct Buffer s;
+    *(UNALIGNED void *)&amp;s.ptr = p;
+}</PRE>
+
+<P>Unfortunately, using the <B>UNALIGNED</B> macro is very expensive on IA64 processors. A better solution is to put 64-bit values and pointers at the beginning of the structure.
+</LI>
+</UL>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;If possible, avoid using different packing levels in the same header file.</P>
+
+<H3>Additional Information</H3>
+
+<UL>
+	<LI><A HREF="other_02lj.htm">Supporting 32-Bit I/O in Your 64-Bit Driver</A> </LI>
+
+	<LI>“Getting Ready for 64-bit Windows” user-mode application porting guide in the Platform SDK documentation</LI>
+
+	<LI>Other information available at the <A HREF="http://go.microsoft.com/fwlink/?linkid=10008&clcid=0x409" /target="_blank">Windows Advanced Server</A> Web site.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Porting%20Issues%20Checklist"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

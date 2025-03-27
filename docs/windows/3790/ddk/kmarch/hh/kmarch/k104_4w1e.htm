@@ -1,0 +1,72 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IoRaiseHardError</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IoRaiseHardError">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ioraiseharderror_kr"></A>IoRaiseHardError</H1>
+
+<P>The <B>IoRaiseHardError</B> routine causes a popup to be displayed that warns the user that a device I/O error has occurred, which might indicate that a physical device is failing.</P>
+
+<PRE class=syntax><B>VOID 
+</B>  <B>IoRaiseHardError(</B>
+<B>    IN PIRP</B>  <I>Irp</I><B>,</B>
+<B>    IN PVPB</B>  <I>Vpb</I>  <B>OPTIONAL,</B>
+<B>    IN PDEVICE_OBJECT</B>  <I>RealDeviceObject</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Irp</I></DT>
+
+<DD>Pointer to the IRP that failed because of a device I/O error.</DD>
+
+<DT><I>Vpb</I></DT>
+
+<DD>Pointer to the volume parameter block (VPB), if any, for the mounted file object. This parameter is NULL if no VPB is associated with the device object.</DD>
+
+<DT><I>RealDeviceObject</I></DT>
+
+<DD>Pointer to the device object that represents the physical device on which the I/O operation failed.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>None</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ntddk.h</I>. Include <I>ntddk.h.</I></P>
+
+<H4>Comments</H4>
+
+<P>Highest-level drivers, particularly file system drivers, call <B>IoRaiseHardError</B>.</P>
+
+<P><I>Warning: Because <B>IoRaiseHardError</B> uses a normal kernel APC to create a user popup, a deadlock can occur if normal kernel APCs are disabled when a device error occurs.</I> For example:
+
+<OL>
+	<LI>An upper-level filter driver calls <B>KeEnterCriticalRegion</B> (which disables normal kernel APCs) and sends an I/O request to a file system driver. The filter driver waits on the completion of the request by the file system driver before the filter driver calls <B>KeLeaveCriticalRegion</B> (which reenables normal kernel APCs).</LI>
+
+	<LI>An error occurs on the file system and the file system driver calls <B>IoRaiseHardError</B> to report the error to the user. The file system driver waits on the popup.</LI>
+
+	<LI>Deadlock now exists: The normal kernel APC created by <B>IoRaiseHardError</B> to create the popup waits for normal kernel APCs to be enabled. The file system waits on the popup before it completes the I/O request. The filter driver waits on completion of the I/O request before it calls <B>KeLeaveCriticalRegion</B> (which reenables normal kernel APCs).</LI>
+</OL>
+
+<P>The behavior of this routine is dependent of the current state of hard errors for the running thread. If hard errors have been disabled by calling <B>IoSetThreadHardErrorMode</B>, this routine completes the IRP specified by <I>Irp</I> without transferring any data into user buffers. In addition, no message is sent to notify the user of this failure.</P>
+
+<P>Callers of <B>IoRaiseHardError</B> must be running at IRQL&nbsp;&lt; DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k104_75f7.htm"><B>IoGetRelatedDeviceObject</B></A>, <A HREF="k104_4aia.htm"><B>IoSetHardErrorOrVerifyDevice</B></A>, <A HREF="k104_125u.htm"><B>IoSetThreadHardErrorMode</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IoRaiseHardError"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>The DirectX 5.0 Interface</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="The DirectX 5.0 Interface">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Interactive&nbsp;Input&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_the_directx_5_0_interface_di"></A>The DirectX 5.0 Interface</H2>
+
+<P>The DirectX 5.0, and later, interface cannot be recognized by any previous version of VJoyD, so it is imperative that a minidriver check the version of VJoyD before attempting to register. VJoyD does not support the standard version message, so this must be done manually by getting the device descriptor block (DDB) for VJoyD, then checking the version marked in the DDB. See the sample driver for an example of how this can be done. Notice that the version marked in the DDB is not the same as the version marked in the version resource. </P>
+
+<P>The process by which a minidriver registers its callbacks was extended significantly starting in DirectX 5.0. </P>
+
+<P>Minidrivers can be loaded either by VJoyD, as before, or by an external owner (such as the HID stack). When VJoyD loads a device, it still requires the minidriver to register itself using the VJoyD <B>VJOYD_Register_Device_Driver </B>service. However, the minidriver may now receive three system control messages which should prompt it to register. The first is the SYS_DYNAMIC_DEVICE_INIT message, which is received if the VxD was not loaded before VJoyD loaded it. This is the same mechanism as the original interface used for registration. Because it is a fresh load of the VxD, any INIT sections it has defined are available. On receipt of this message, the VxD performs any internal initialization and then registers with VJoyD. </P>
+
+<P>If a minidriver has already been loaded (for example, if an application has loaded it to use a private IOCTL interface), it will not receive this message again when VJoyD loads it. In these circumstances under Windows&nbsp;98, the SYS_DYNAMIC_DEVICE_REINIT message is issued and a minidriver should respond by registering with VJoyD. Because this is not a fresh load of the VxD, the INIT sections are no longer available. For minidrivers not running under Windows&nbsp;98, VJoyD takes the lack of response to the loading of a minidriver to mean that the VxD has already been loaded. VJoyD issues the directed system control message BEGIN_RESERVED_PRIVATE_SYSTEM_CONTROL, to which the minidriver should respond by registering. </P>
+
+<P>In addition to the load-time registration, VJoyD now accepts new types of registration when a driver detects a change in state of a device it is driving. Besides the callbacks, the DirectX 5.0 interface allows various control parameters and device descriptions to be set on registration. This includes the full description of the device (complete with the calibration information),which can be changed to fit whatever device has been detected. </P>
+
+<P>The joystick minidriver callbacks for the DirectX 5.0 and later interface consist of control callbacks, a polling callback, and force feedback callbacks. To accommodate these changes, the VJoyD <B>VJOYD_Register_Device_Driver</B> service was overloaded so that EAX holds 0xFFFFFFFF to signal that the new registration is in use, and ECX holds a pointer to a structure holding the parameters. The values of EBX and EDX are undefined and it may be assumed that EBX will return from the call uncorrupted. </P>
+
+<P>The following example shows a joystick minidriver registration sequence: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=21%>mov</TD>
+<TD width=79%>eax, 0ffffffffh</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>mov</TD>
+<TD width=79%>ecx, offset32 RegData</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>VxDcall</TD>
+<TD width=79%><B>VJOYD_Register_Device_Driver</B></TD>
+</TR>
+</TABLE><BR>
+
+<P>The <A HREF="di_ref_9nmx.htm">VJREGDRVINFO</A> structure is passed to the new registration. </P>
+
+<P>The <B>dwFunction</B> member of the VJREGDRVINFO structure must be VJRT_LOADED; all other values are reserved. VJRT_LOADED is used in the new interface in the same way that the registration was used in the original interface, that is, to pass the driver's callbacks to VJoyD in response to the minidriver being loaded. </P>
+
+<P>The control callbacks and the poll callback are merged into a single table because all drivers must supply the control callbacks and very few devices are output only (and therefore do not need a poll callback). These callbacks are registered using the <A HREF="di_ref_69k9.htm">VJPOLLREG</A> structure. </P>
+
+<P>The <B>lpCfg</B> member of the VJPOLLREG structure points to a standard configuration manager callback, exactly like the <B>CfgRoutine</B> in the original interface. The big difference is that VJoyD calls the configuration manager callback as appropriate. VJoyD links drivers to the device nodes for which they were installed and calls this callback to inform the driver of configuration manager activity. Whereas the previous interface called all loaded drivers for each configuration manager callback, the DirectX 5.0 and later interface only calls the one driver it has linked to the device node which has changed. Also, because configuration manager activity may happen while the driver is not loaded, VJoyD implements a primitive caching system so that if a device node has been started, the driver is informed of this device node when it is loaded. </P>
+
+<P>Because drivers are always called for their resource allocations, they should not check default ports to find the resources they need. Unfortunately, drivers that had to find some way to work with the previous interface still work in the old way. This means that while VJoyD only allocates a set of resources to a single driver, any old drivers that are loaded can still use ports that have not been allocated to them. When resources have been allocated, the driver should perform any handshaking required with the device to determine the device state. </P>
+
+<P>The <A HREF="di_ref_40dl.htm"><B>Initialize</B></A> callback (pointed to by the <B>fpInitialize</B> member of the VJPOLLREG structure) replaces the <B>JoyId</B> callback in the previous interface. The main difference is that VJoyD passes back to the driver any device instance identification that the device passed to VJoyD during registration so the instances can be distinguished if the driver supports more than one device.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;If you need to open registry keys, you should use the <A HREF="di_ref_4tpl.htm"><B>VJOYD_OpenConfigKey_Service</B></A> and <A HREF="di_ref_3v1l.htm"><B>VJOYD_OpenTypeKey_Service</B></A> macros instead of opening the registry keys directly. Using these service macros ensures that the correct registry branch is opened. In addition, the service macros will be supported in future versions of DirectInput® when the underlying registry data may be structured differently. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: The%20DirectX%205.0%20Interface"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

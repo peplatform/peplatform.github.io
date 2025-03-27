@@ -1,0 +1,51 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Summary of Read/Write Dispatch Routines</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Summary of Read/Write Dispatch Routines">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_storage_drivers_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_summary_of_read_write_dispatch_routines_kg"></A>Summary of Read/Write<I> Dispatch</I> Routines</H3>
+
+<P>Keep the following points in mind when implementing a <I>DispatchRead</I>, <I>DispatchWrite</I>, or <I>DispatchReadWrite</I> routine:
+
+<UL>
+	<LI>It is the responsibility of the highest-level driver in a chain of layered drivers to check the parameters of incoming read/write IRPs for validity before setting up the next-lower-level driver’s I/O stack location in an IRP.</LI>
+
+	<LI>Intermediate and lowest-level drivers generally can rely on the highest-level driver in their chain to pass down transfer requests with valid parameters. However, any driver can perform sanity checks on the parameters in its I/O stack location of an IRP, and each device driver should check the parameters for conditions that might violate any restrictions imposed by its device.</LI>
+
+	<LI>If a <I>DispatchReadWrite</I> routine completes an IRP with an error, it should set the I/O stack location <B>Status</B> member with an appropriate NTSTATUS-type value, set the <B>Information</B> member to zero, and call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with the IRP and a <I>PriorityBoost</I> of IO_NO_INCREMENT.</LI>
+
+	<LI>If a driver uses buffered I/O, it might need to define a structure to contain data to be transferred and might need to buffer some number of these structures internally.</LI>
+
+	<LI>If a driver uses direct I/O, it might need to check whether the MDL at <B>Irp-&gt;MdlAddress</B> describes a buffer containing too much data (or too many page breaks) for the underlying device to handle in a single transfer operation. If so, the driver must split up the original transfer request into a sequence of smaller transfer operations. 
+<P>A closely coupled class driver might split up such a request in its <I>DispatchReadWrite</I> routine for its underlying port driver. SCSI class drivers, particularly for mass-storage devices, are required to do this. For more information about requirements for SCSI drivers, see <A HREF="JavaScript:hhobj_1.Click()">Storage Drivers</A>. 
+</LI>
+
+	<LI>A lower-level device driver’s <I>DispatchReadWrite</I> routine should postpone splitting a large transfer request into partial transfers until another driver routine dequeues the IRP to set up the device for the transfer. </LI>
+
+	<LI>If a lower-level device driver queues a read/write IRP for further processing by its own routines, it must call <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A> before it queues the IRP. The <I>DispatchReadWrite</I> routine also must return control with STATUS_PENDING in these circumstances. </LI>
+
+	<LI>If the <I>DispatchReadWrite</I> routine passes an IRP on to lower drivers, it must set up the I/O stack location for the next-lower driver in the IRP. Whether the higher-level driver also sets an <I>IoCompletion</I> routine in the IRP before passing it on with <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A> depends on the design of the driver and of those layered under it. 
+<P>However, a higher-level driver must call <A HREF="k104_5w6q.htm"><B>IoSetCompletionRoutine</B></A> before it calls <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A> if it allocates any resources, such as IRPs or memory. Its IoCompletion routine must free any driver-allocated resources when lower drivers have completed the request but before the IoCompletion routine calls <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with the original IRP. 
+</LI>
+
+	<LI>If a higher-level driver allocates IRPs for lower drivers that might include an underlying removable-media device driver, the allocating driver must establish the thread context in each IRP it allocates. </LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Summary%20of%20Read%2FWrite%20Dispatch%20Routines"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

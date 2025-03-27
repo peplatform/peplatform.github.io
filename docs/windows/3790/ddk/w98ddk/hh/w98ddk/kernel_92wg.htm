@@ -1,0 +1,77 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Exec_VxD_Int</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_1470"></A>Exec_VxD_Int</H1>
+
+<PRE>include vmm.inc
+
+push    dword ptr Interrupt
+VMMCall Exec_VxD_Int
+ </PRE>
+
+<P>Executes the specified software interrupt. Virtual devices use this service to call MS-DOS or BIOS functions outside the context of a nested execution block. 
+
+<UL>
+	<LI>Returns values in one or more registers, depending on the function of the specified interrupt. </LI>
+</UL>
+
+<DL>
+<DT><I>Interrupt</I></DT>
+
+<DD>Number of the interrupt to execute. 
+</DD>
+</DL>
+
+<P>Before calling this service, a virtual device must set registers to values that are appropriate for the specified software interrupt. This service supports all MS-DOS and BIOS functions that are supported in protected-mode programs. </P>
+
+<P>This service does not change the client registers and flags, so there is no need for the virtual device to save and restore the client register structure. This service also pops the interrupt number from the stack.</P>
+
+<P>Interrupts will only be routed through virtual device interrupt hooks.  They will bypass any hook the application has installed in protected mode. This may be a problem, for example, if an application hooks Int 21h to watch file opens and then a VxD uses this service to open a file (the application would not see the file open).  DO NOT CHANGE DS or ES before calling this service.  You should always use the ring 0 linear address of the data instead of changing the selector value.  This may require using the _SelectorMapFlat service to determine the base of a selector.</P>
+
+<P>Do not call services that will change DS or ES..  Mappers should return valid pointers without changing the segment register value, but calls that explicitly change the DS or ES selectors should never be called.  For example, if a call returns a pointer in DS:(E)DX then this would be OK to call since the mapper would convert the ponter to use the ring 0 linear address in EDX without modifying DS.  However, if a service returns a selector only then you should not use Exec_VxD_Int to call it.  This can normally be made to work by using code similar to the following:</P>
+
+<P>Push_Client_State</P>
+
+<P>VMMcall Begin_Nest_(V86_)Exec</P>
+
+<P>. . .</P>
+
+<P>(Fiddle with client registers)</P>
+
+<P>. . .</P>
+
+<P>VMMcall Exec_Int</P>
+
+<P>. . .</P>
+
+<P>(Get segments/selectors)</P>
+
+<P>. . .</P>
+
+<P>VMMcall End_Nest_Exec</P>
+
+<P>Pop_Client_State</P>
+
+<P>Upon exit, all registers and flags modified by interrupt will be changed. The interrupt number on the stack will have been removed.  If called within a must complete section and a fatal error occurred while executing the interrupt the carry flag will be set.</P>
+
+<P>In Windows 3.1, if you called Exec_VxD_Int at a time when there was no protected-mode app in the VM and if someone then did a Begin_Nest_Exec (not Begin_Nest_V86_Exec), the system VM would crash.  This problem has been corrected in Windows 95. </P>
+
+<P>The following examples calls the MS-DOS function Get Version (Interrupt 21h, Function 30h): </P>
+
+<PRE>mov     ax, 3000h
+push    dword ptr 21h
+VMMCall Exec_VxD_Int
+mov     [Major], al     ; major MS-DOS version
+mov     [Minor], ah     ; minor MS-DOS version
+ </PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Exec_VxD_Int"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Making a TAPI Call</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Making a TAPI Call">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_making_a_tapi_call_ng"></A>Making a TAPI Call</H2>
+
+<P>An NDIS WAN miniport driver with an open line can also receive a request to initiate a call in one of two ways. Either the miniport driver receives:
+
+<UL>
+	<LI>An <A HREF="29tpioid_83jm.htm">OID_TAPI_MAKE_CALL</A> request that contains the destination address or that specifies that a predefined default number should be used</LI>
+
+	<LI>Or, an OID_TAPI_MAKE_CALL request that does not include a destination address 
+<P>In this case, the OID_TAPI_MAKE_CALL will be followed by an <A HREF="29tpioid_66b6.htm">OID_TAPI_DIAL</A> request that includes the destination address 
+</LI>
+</UL>
+
+<P>When <A HREF="101mini_2vw2.htm"><I>MiniportQueryInformation</I></A> is called with an OID_TAPI_MAKE_CALL request, NDISTAPI passes the line identifier for the line on which the call is to be made in the <B>hdLine</B> member of the NDIS_TAPI_MAKE_CALL structure. The <B>hdLine</B> value is the value returned by the miniport driver to an <A HREF="29tpioid_9jhu.htm">OID_TAPI_OPEN</A> request.</P>
+
+<P>The miniport driver should store the <B>htCall</B> value passed in this request with the call context it maintains and pass it in subsequent status calls and responses related to this call instance. For example, the miniport driver will supply this value as the <B>ConnectionWrapperID</B> when it indicates a line up to NDISWAN.</P>
+
+<P>The <B>ulDestAddressSize</B> can be zero for undialed addresses, such as for a hot phone, which always automatically connects to a predefined number, or when dialing will be done subsequently with an OID_TAPI_DIAL request. </P>
+
+<P>If the <B>bUseDefaultLineCallParams</B> member of NDIS_TAPI_MAKE_CALL is set to FALSE, the miniport driver should use the call parameters in the <B>LineCallParams</B> member. If <B>bUseDefaultLineCallParams</B> is TRUE, the previously set default call parameters should be used. </P>
+
+<P>The miniport driver must check the state of the line on which the make-call request is made to ensure that it can make the requested call. If not, the miniport driver should fail the call.</P>
+
+<P><I>MiniportQueryInformation</I> returns when either:
+
+<UL>
+	<LI>It has made the call,</LI>
+
+	<LI>Or, if the number will be dialed as a result of a subsequent OID_TAPI_DIAL request, the miniport driver allocates a structure and sets itself in a state, probably the dialtone state, to subsequently complete the call. </LI>
+</UL>
+
+<P>The miniport driver must return a call-specific context value in the <B>hdCall</B> member if <I>MiniportQueryInformation</I> returns NDIS_STATUS_SUCCESS. This unique <B>hdCall</B> value will be passed to the miniport driver in subsequent requests related to this call.</P>
+
+<P>If a call is made in two steps by first making an OID_TAPI_MAKE_CALL request to <I>MiniportQueryInformation</I>, followed by an OID_TAPI_DIAL request to <A HREF="101mini_7ng2.htm"><I>MiniportSetInformation</I></A>, the destination number is passed to the miniport driver in the NDIS_TAPI_DIAL structure. The OID_TAPI_DIAL request requires an <B>hdCall</B> member to be passed in the NDIS_TAPI_DIAL structure; its value will match the handle the miniport driver returned from a previous OID_TAPI_MAKE_CALL request.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Making%20a%20TAPI%20Call"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

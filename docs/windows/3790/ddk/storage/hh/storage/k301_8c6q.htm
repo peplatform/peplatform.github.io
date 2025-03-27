@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ScsiPortGetDeviceBase</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ScsiPortGetDeviceBase">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_scsiportgetdevicebase_kr"></A>ScsiPortGetDeviceBase</H1>
+
+<P>The <B>ScsiPortGetDeviceBase</B> routine returns a mapped, logical base address that can be used to communicate with an HBA. Every miniport driver must pass mapped, logical access range addresses to the <B>ScsiPort..Port</B><I>Xxx</I> and <B>ScsiPort..Register</B><I>Xxx</I> routines to communicate with its HBA(s).</P>
+
+<PRE class=syntax><B>PVOID 
+  ScsiPortGetDeviceBase(
+    IN PVOID</B>  <I>HwDeviceExtension</I><B>,</B>
+<B>    IN INTERFACE_TYPE </B> <I>BusType</I><B>,</B>
+<B>    IN ULONG</B>  <I>SystemIoBusNumber</I><B>,</B>
+<B>    IN SCSI_PHYSICAL_ADDRESS </B> <I>IoAddress</I><B>,</B>
+<B>    IN ULONG </B> <I>NumberOfBytes</I><B>,</B>
+<B>    IN BOOLEAN</B>  <I>InIoSpace</I><B>,</B>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>HwDeviceExtension</I></DT>
+
+<DD>Pointer to the hardware device extension. This is a per-HBA storage area that the port driver allocates and initializes on behalf of the miniport driver. Miniport drivers usually store HBA-specific information in this extension, such as the state of the HBA and the HBA's mapped access ranges. This area is available to the miniport driver in the <B>DeviceExtension-&gt;HwDeviceExtension</B> member of the HBA's device object immediately after the miniport driver calls <A HREF="k301_9n76.htm"><B>ScsiPortInitialize</B></A>. The port driver frees this memory when it removes the device. </DD>
+
+<DT><I>BusType</I></DT>
+
+<DD>Specifies the interface type of the I/O bus on which the HBA is connected. The miniport driver's <A HREF="k302_9vsi.htm"><I>HwScsiFindAdapter</I></A> routine obtains the value for this parameter from the <B>AdapterInterfaceType</B> member of the input PORT_CONFIGURATION_INFORMATION.</DD>
+
+<DT><I>SystemIoBusNumber</I></DT>
+
+<DD>Specifies the system-assigned number of the I/O bus on which the HBA is connected. The <I>HwScsiFindAdapter</I> routine obtains the value for this parameter from the <B>SystemIoBusNumber</B> member of the input PORT_CONFIGURATION_INFORMATION.</DD>
+
+<DT><I>IoAddress</I></DT>
+
+<DD>Specifies the bus-relative base address of a range used by the HBA. The <I>HwScsiFindAdapter</I> routine obtains the value for this parameter from one of the <B>AccessRanges</B> elements in the PORT_CONFIGURATION_INFORMATION if the port driver supplies range-configuration information. Otherwise, this address can be a value returned by <B>ScsiPortGetBusData</B> or a miniport driver-supplied default value. Avoid using a base address of zero because its successful return status can conflict with the error status (NULL).</DD>
+
+<DT><I>NumberOfBytes</I></DT>
+
+<DD>Specifies the size in bytes of the range that the mapping should cover. The <I>HwScsiFindAdapter</I> routine obtains the value of this parameter from the same <B>AccessRanges</B> element as <I>IoAddress</I> if the port driver supplies range configuration information. Otherwise, this value can be returned by <B>ScsiPortGetBusData</B> or a miniport driver-supplied default. In any case, the driver must not access the hardware outside of the returned, mapped range.</DD>
+
+<DT><I>InIoSpace</I></DT>
+
+<DD>TRUE indicates the range to be mapped is in I/O space, and the miniport driver will pass mapped addresses in this range to the <B>ScsiPort...Port</B><I>Xxx</I> to communicate with the HBA. The <I>HwScsiFindAdapter</I> routine obtains the value of this parameter from the same <B>AccessRanges</B> element as <I>IoAddress</I>. Note that a miniport driver <I>must invert</I> the value of the <B>InMemorySpace</B> member in an ACCESS_RANGE-type element before it is passed to <B>ScsiPortGetDeviceBase</B> as the <I>InIoSpace</I> argument. FALSE indicates that the range to be mapped is in memory space. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>ScsiPortGetDeviceBase</B> returns a mapped logical base address for the given <I>IoAddress</I> if it successfully mapped the given range from <I>IoAddress</I> to <I>NumberOfBytes</I>. If a given range cannot be mapped, <B>ScsiPortGetDeviceBase</B> returns NULL.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>srb.h</I>. Include <I>miniport.h</I> and <I>scsi.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P>NT-based operating system platforms can have several types of I/O buses and several I/O buses of the same type. Moreover, the HAL can map I/O space to memory in some platforms.</P>
+
+<P>Consequently, a miniport driver cannot use bus-relative access range addresses to communicate with its HBA. To maintain miniport driver portability across CISC- and RISC-based machines, the addresses they use to access HBAs must be translated with <B>ScsiPortGetDeviceBase</B>.</P>
+
+<P>Every miniport driver must use system-space logical range addresses, mapped by <B>ScsiPortGetDeviceBase</B>, to communicate with its HBA(s). Calls to the <B>ScsiPort...Port/Register</B><I>Xxx</I> routines require these mapped, logical addresses.</P>
+
+<P><B>ScsiPortGetDeviceBase</B> can be called several times, depending on how many HBAs the miniport driver supports and how many access ranges each HBA requires. Each mapped range corresponds to a range of bus-relative device addresses specified in an ACCESS_RANGE-type element of the <B>AccessRanges</B> array.</P>
+
+<P><B>ScsiPortGetDeviceBase</B> can be called only from a miniport driver's <A HREF="k302_9vsi.htm"><I>HwScsiFindAdapter</I></A> routine or from HwScsiAdapterControl when the control type is <B>ScsiSetRunningConfig</B>. Calls from other miniport driver  routines will result in system failure or in incorrect operation for the caller.</P>
+
+<P>Follow these guidelines for calling <B>ScsiPortGetDeviceBase</B>:
+
+<UL>
+	<LI>If <I>HwScsiFindAdapter</I> is using a miniport driver-supplied set of default bus-relative access ranges or values returned by <B>ScsiPortGetBusData</B>, it should call <B>ScsiPortValidateRange</B> before attempting to call <B>ScsiPortGetDeviceBase</B>.</LI>
+
+	<LI>If <I>HwScsiFindAdapter</I> determines that a particular HBA is not one that the miniport driver supports, it must call <B>ScsiPortFreeDeviceBase</B> to release the mapping(s) it set up to communicate with that HBA.</LI>
+</UL>
+
+<P>The logical address returned by <B>ScsiPortGetDeviceBase</B> should be used for all subsequent references made to the hardware but should <I>not</I> be added to any <B>AccessRanges</B> specification in the PORT_CONFIGURATION_INFORMATION. Miniport driver writers should make no assumptions about how many bits are used in the logical base address returned by <B>ScsiPortGetDeviceBase</B>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k306_1os2.htm">ACCESS_RANGE</A>, <A HREF="k302_9vsi.htm"><I>HwScsiFindAdapter</I></A>, <A HREF="k301_6ucy.htm"><B>ScsiPortFreeDeviceBase</B></A>, <A HREF="k301_3mia.htm"><B>ScsiPortGetBusData</B></A>, <B>ScsiPortRead</B><I>Xxx</I>, <A HREF="k301_2rw2.htm"><B>ScsiPortValidateRange</B></A>, <B>ScsiPortWrite</B><I>Xxx</I>, <A HREF="k306_2h4i.htm">PORT_CONFIGURATION_INFORMATION</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ScsiPortGetDeviceBase"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,75 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WMI Requirements for WDM Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WMI Requirements for WDM Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_instance_id_dg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_port_configuration_information_kr">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_scsi_miniport_drivers_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wmi_requirements_for_wdm_drivers_kg"></A>WMI Requirements for WDM Drivers</H1>
+
+<P>Any WDM driver that handles IRPs must set a dispatch table entry point for a <A HREF="drvrrtns_9v76.htm"><I>DispatchSystemControl</I></A> routine to handle <A HREF="k113_8hwy.htm">IRP_MJ_SYSTEM_CONTROL</A> requests, whether or not such a driver supports WMI. A driver that does not support WMI should simply forward WMI requests to the next-lower driver.</P>
+
+<P>Drivers that support WMI fall into two general categories:
+
+<UL>
+	<LI>If the driver handles IRPs, it registers with WMI as a <I>data provider</I> and handles WMI requests as described later in this section. System-supplied storage port drivers, class drivers, and NDIS protocol drivers fall into this category. </LI>
+
+	<LI>If the driver does not handle IRPs (such as a miniport driver), it supplies WMI data to a second driver that does handle IRPs (such as the corresponding class driver), using the mechanism and format defined by the second driver. The second driver registers with WMI and handles WMI requests on the first driver's behalf. SCSI miniports, NDIS miniports, and NDIS named VCs fall into this category.</LI>
+</UL>
+
+<P>If a driver exposes custom data or event blocks, it must publish them in a WMI schema, which a driver writer typically does by including a MOF resource that defines the data and event blocks in the driver's binary image. A driver's schema should define only those blocks that are unique to that driver. If a driver supports data or event blocks defined by another driver or by the system, it registers them with WMI but does not need to define them in its own schema.</P>
+
+<P>For more information about WMI schemas, see <A HREF="wmi_18dj.htm">Publishing a WMI Schema</A>. For information about instance names and other data block design issues, see <A HREF="wmi_6gx3.htm">Designing WMI Data and Event Blocks</A>.</P>
+
+<P>A driver that supports WMI as a data provider must do the following:
+
+<UL>
+	<LI>At driver initialization, register as a WMI data provider by calling <A HREF="k104_5dbm.htm"><B>IoWMIRegistrationControl</B></A> with the action WMIREG_ACTION_REGISTER and a pointer to the device object created in the driver's <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine. </LI>
+
+	<LI>In response to an <A HREF="k901_4omq.htm">IRP_MN_REGINFO</A> or <A HREF="k901_9d4i.htm">IRP_MN_REGINFO_EX</A> request with the action WMIREGISTER, supply WMI with registration information about all data and event blocks the driver supports. </LI>
+</UL>
+
+<P>For information about registering as a WMI data provider, see <A HREF="wmi_1hd3.htm">Registering as a WMI Data Provider</A>.</P>
+
+<P>Drivers can handle WMI requests in one of two ways:
+
+<UL>
+	<LI>Call the kernel-mode WMI library routines declared in <I>wmilib.h</I>. Only drivers that do not use dynamic instance names, and that base static instance names on a single base name string or the <A HREF="JavaScript:hhobj_1.Click()">device instance ID</A> of a PDO, can use these routines. </LI>
+
+	<LI>Process and complete any WMI request tagged with a pointer to the device object that the driver passed in its call to <A HREF="k104_5dbm.htm"><B>IoWMIRegistrationControl</B></A>, and forward other <A HREF="k113_8hwy.htm">IRP_MJ_SYSTEM_CONTROL</A> requests to the next lower driver. </LI>
+</UL>
+
+<P>For information about handling WMI requests, see <A HREF="wmi_9d47.htm">Handling WMI Requests</A>.</P>
+
+<P>A driver that supplies WMI data to a class or port driver must support the driver-type-specific WMI interfaces defined by the class or port driver. For example, a SCSI miniport must set <B>WmiDataProvider</B> to TRUE in the <A HREF="JavaScript:hhobj_2.Click()">PORT_CONFIGURATION_INFORMATION</A> structure and handle SRB_FUNCTION_WMI requests from the SCSI port driver. A connection-oriented NDIS miniport that defines custom data blocks must support OILD_GEN_CO_SUPPORTED_GUIDS; otherwise, NDIS maps those OIDs and status indications returned from OID_GEN_SUPPORTED_LIST that are common and known to NDIS to GUIDs defined by NDIS. </P>
+
+<P>The following sections describe how to support WMI in a driver that handles IRPs. For more information about driver-type-specific WMI support requirements, writers of network drivers should consult the DDK's design guide sections for network drivers. Writers of SCSI miniport drivers should see <A HREF="JavaScript:hhobj_3.Click()">SCSI Miniport Drivers</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WMI%20Requirements%20for%20WDM%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

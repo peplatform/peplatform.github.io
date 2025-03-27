@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Enabling Support for Color in PCL XL Minidrivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Enabling Support for Color in PCL XL Minidrivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_enabling_support_for_color_in_pcl_xl_minidrivers_gg"></A>Enabling Support for Color in PCL XL Minidrivers</H3>
+
+<P>Developing a GPD file for color PCL XL is similar to developing a GPD file for monochrome PCL XL. The main differences are described in this topic. The sample GPD entries presented here might need to be modified appropriately for your device.
+
+<UL>
+	<LI>The GPD file must specify that the device is color. 
+<P>That is, the GPD file must contain a <B>ColorMode</B> <A HREF="nt5gpd_03dz.htm">standard feature</A>. Note that the current implementation of PCL XL supports only 24 bits-per-pixel color. The following example shows a <B>ColorMode</B> feature that has two *<B>Option</B> entries: <B>Mono</B> and <B>24bpp</B> color.
+</LI>
+</UL>
+
+<PRE>*Feature: ColorMode
+{
+    *rcNameID: =COLOR_PRINTING_MODE_DISPLAY
+    *DefaultOption: 24bpp
+    *Option: Mono
+    {
+        *rcNameID: =MONO_DISPLAY
+        *DevNumOfPlanes: 1
+        *DevBPP: 24
+        *DrvBPP: 24
+        *Color? : FALSE
+        *PaletteSize: 1
+        *PaletteProgrammable? : TRUE
+        *Command: CmdDefinePaletteEntry { *Cmd: "" }
+    }
+    *Option: 24bpp
+    {
+        *rcNameID: =24BPP_DISPLAY
+        *DevNumOfPlanes: 1
+        *DevBPP: 24
+        *DrvBPP: 24
+        *PaletteSize: 256
+        *PaletteProgrammable? : TRUE
+        *Command: CmdDefinePaletteEntry { *Cmd: "" }
+    }
+}
+</PRE>
+
+<UL>
+	<LI>Some commands might need to be changed for color printing. 
+<P>For example, if the GPD file allows the user to choose between printing color and monochrome (as in the previous example), the page setup command will be dependent on whether the user is printing in monochrome or in color. In this case the, <B>CmdStartPage</B> command (see <A HREF="nt5gpd_5cbr.htm">Printer Configuration Commands</A>) must be placed within a *<B>Switch</B>: <B>ColorMode</B> statement, as in the following example. (Note that the number 4 in the *<B>Order</B>: PAGE_SETUP.4 command attribute may need to be modified, depending on your GPD file and device.) For more information about the PAGE_SETUP syntax, see <A HREF="nt5gpd_33c7.htm">Command Execution Order</A>.
+</LI>
+</UL>
+
+<PRE>*Switch: ColorMode
+{
+  *Case: Mono
+  {
+    *Command: CmdStartPage
+    {
+    *Order: PAGE_SETUP.4
+    *Cmd: =real32_xy "&lt;0000803f&gt;&lt;0000803f&gt;" =attr_ubyte =PageScale =SetPageScale
++         =ubyte =eGray =attr_ubyte =ColorSpace =SetColorSpace
+    }
+  }
+  *Case: 24bpp
+  {
+    *Command: CmdStartPage
+    {
+    *Order: PAGE_SETUP.4
+    *Cmd: =real32_xy "&lt;0000803f&gt;&lt;0000803f&gt;" =attr_ubyte =PageScale =SetPageScale
++         =ubyte =eRGB =attr_ubyte =ColorSpace =SetColorSpace
+    }
+  }
+}
+</PRE>
+
+<UL>
+	<LI>Some commands or information in your GPD that cater to monochrome devices may need to be removed or modified. 
+<P>For example, if you modify the <I>p6sample.gpd</I> sample GPD file to add color information, you might want to remove the *<B>Feature</B>: <B>Dither</B> <A HREF="nt5gpd_9ynb.htm">customized feature</A> or constrain it so that it is used only when printing in monochrome mode.
+</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Enabling%20Support%20for%20Color%20in%20PCL%20XL%20Minidrivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

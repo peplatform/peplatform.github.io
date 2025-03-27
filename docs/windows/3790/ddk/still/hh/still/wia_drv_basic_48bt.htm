@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Initializing the WIA Minidriver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Initializing the WIA Minidriver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_initializing_the_wia_minidriver_si"></A>Initializing the WIA Minidriver</H2>
+
+<P>The first step in implementing the <A HREF="minidrv_9961.htm"><B>IWiaMiniDrv</B> interface</A> is to initialize the minidriver and create a hierarchical tree of driver items. To do this, the WIA service calls the <A HREF="minidrv_4mg9.htm"><B>IWiaMiniDrv::drvInitializeWia</B></A> method each time a client application intends to use the device. If two or more applications are simultaneously using the device, the WIA service calls this method for each application. In this method, the minidriver typically does the following:
+
+<OL>
+	<LI>Initializes parameters passed in from the WIA service.</LI>
+
+	<LI>Saves the STI device interface pointed to by <I>pStiDevice. </I>This is done so that the <A HREF="stifnc_5mi1.htm"><B>IStiDevice::LockDevice</B></A> and <A HREF="stifnc_0zhl.htm"><B>IStiDevice::UnlockDevice</B></A> methods can be used to lock or unlock the WIA device.</LI>
+
+	<LI>Caches <I>bstrDeviceID</I> and <I>bstrRootFullItemName</I> in member variables so that they can be used by other methods.</LI>
+
+	<LI>Opens a handle to the device. (This step is recommended for nonshared ports such as USB, SCSI, and 1394.)</LI>
+
+	<LI>Builds the item tree, as described in <A HREF="wia_drv_basic_9fs9.htm">Creating the WIA Driver Item Tree</A>.</LI>
+</OL>
+
+<P>The <B>IWiaMiniDrv::drvInitializeWia</B> method also can be used to create and initialize dynamic arrays and structures that the driver uses. For example, an array of commands and events the driver supports can be created for later use by the <A HREF="minidrv_3ctl.htm"><B>IWiaMiniDrv::drvGetCapabilities</B></A> method.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The <A HREF="minidrv_3ctl.htm"><B>IWiaMiniDrv::drvGetCapabilities</B></A> method might be called before <B>IWiaMiniDrv::drvInitializeWia</B> is called. This can happen when the WIA service needs to query for event information before an application exists to use the device. The <B>IWiaMiniDrv::drvInitializeWia</B> method is called only when an application signals its intent to use the device.</P>
+
+<H4>Keeping Track of Application Connections</H4>
+
+<P>As stated previously, when an application intends to communicate with a WIA device, the WIA service calls the appropriate driver’s <A HREF="minidrv_4mg9.htm"><B>IWiaMiniDrv::drvInitializeWia</B></A> method. When the application is finished with the device and releases all WIA references to it, the WIA service calls the appropriate driver’s <A HREF="minidrv_0azt.htm"><B>IWiaMiniDrv::drvUnInitializeWia</B></A> method. Note that WIA supports multiple, simultaneous application connections. This means that two or more applications can request a WIA interface associated with the same device. It does not mean, though, that the driver must handle simultaneous requests; the WIA service ensures that only one request is sent to the driver at a time. However, the WIA service can call the <B>IWiaMiniDrv::drvInitializeWia</B> method multiple times before it calls the <B>IWiaMiniDrv::drvUnInitializeWia</B> method.</P>
+
+<P>Why is this information useful? Often there are resources that drivers might need when applications are using them, such as the WIA driver item tree, image filtering libraries, and others. Because these resources can take up a large amount of memory, it is best to unload them when they are not needed.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The <B>IWiaMiniDrv::drvInitializeWia</B> and <B>IWiaMiniDrv::drvUnInitializeWia</B> methods are used to inform drivers of application connections only. The WIA service can call other driver methods without first calling <B>IWiaMiniDrv::drvInitializeWia</B>, which means that the WIA service does not necessarily call <B>IWiaMiniDrv::drvUnInitializeWia</B> when it is done. The methods called are informational methods that do not require WIA items, such as <A HREF="minidrv_3ctl.htm"><B>IWiaMiniDrv::drvGetCapabilities</B></A> and <A HREF="minidrv_23ah.htm"><B>IWiaMiniDrv::drvGetWiaFormatInfo</B></A>.</P>
+
+<P>This section contains the following topics:</P>
+
+<P class=indent1><A HREF="wia_drv_basic_7pyh.htm">Calling Order for Minidriver Functions</A></P>
+
+<P class=indent1><A HREF="wia_drv_basic_77zd.htm">Loading and Unloading a WIA Minidriver</A></P>
+
+<P class=indent1><A HREF="wia_drv_basic_3fvt.htm">Connecting and Disconnecting a WIA Application</A></P>
+
+<P class=indent1><A HREF="wia_drv_basic_83op.htm">Reporting WIA Minidriver Status</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Initializing%20the%20WIA%20Minidriver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

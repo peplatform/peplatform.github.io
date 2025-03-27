@@ -1,0 +1,89 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisCoRequest</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisCoRequest">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndiscorequest_nr"></A>NdisCoRequest</H1>
+
+<P><B>NdisCoRequest</B> issues an OID_GEN_CO_<I>XXX</I> or connection-oriented medium-specific OID_<I>XXX</I> request from a client to a stand-alone call manager or vice versa and from either client or call manager to the underlying miniport driver. </P>
+
+<PRE class=syntax><B>NDIS_STATUS 
+  NdisCoRequest(
+    IN NDIS_HANDLE</B>  <I>NdisBindingHandle</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisAfHandle</I>  <B>OPTIONAL,
+    IN NDIS_HANDLE</B>  <I>NdisVcHandle</I>  <B>OPTIONAL,</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisPartyHandle</I>  <B>OPTIONAL,</B>
+    <B>IN OUT PNDIS_REQUEST</B>  <I>NdisRequest</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>NdisBindingHandle</I></DT>
+
+<DD>Specifies the handle returned by <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A> that identifies the target NIC or the virtual NIC of the next-lower driver to which the caller is bound. </DD>
+
+<DT><I>NdisAfHandle</I></DT>
+
+<DD>Specifies the handle identifying the open address family, which is shared among the client, call manager, and NDIS. 
+
+<UL>
+	<LI>If the caller is a client making a request to the call manager, the client originally obtained this handle from a successful call to <A HREF="103ndisx_6quq.htm"><B>NdisClOpenAddressFamily</B></A>.</LI>
+
+	<LI>If the caller is a stand-alone call manager making a request to the client, the CM originally obtained this handle as an input parameter to its <A HREF="104tdlow_5ape.htm"><I>ProtocolCmOpenAf</I></A> function. </LI>
+
+	<LI>For a request from either a client or stand-alone call manager to the underlying miniport driver, this parameter must be NULL. </LI>
+</UL>
+</DD>
+
+<DT><I>NdisVcHandle</I></DT>
+
+<DD>Specifies the handle identifying the VC for which the caller is requesting or setting information if the request is VC-specific, or this parameter is NULL. For any VC-specific request, the caller originally obtained this handle either when it created the VC with <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A>, or as an input parameter to its <A HREF="104tdlow_299u.htm"><I>ProtocolCoCreateVc</I></A> function. For a VC-specific request directed to the underlying miniport driver, this handle identifies the VC, while <I>NdisAfHandle</I> and <I>NdisPartyHandle</I> are NULL. </DD>
+
+<DT><I>NdisPartyHandle</I></DT>
+
+<DD>Specifies the handle identifying the party on a multipoint VC for which the caller is requesting or setting information if the request is party-specific, or this parameter is NULL. For any party-specific request, the client originally obtained this handle from a successful call to <A HREF="103ndisx_5fua.htm"><B>NdisClAddParty</B></A> or <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>, and the call manager obtained this handle as an input parameter to its <A HREF="104tdlow_9trm.htm"><I>ProtocolCmAddParty</I></A> function. If <I>NdisAfHandle</I> is NULL, this parameter also is NULL. </DD>
+
+<DT><I>NdisRequest</I></DT>
+
+<DD>Pointer to a caller-allocated resident buffer, formatted as a structure of type <A HREF="105nstru_3f8y.htm">NDIS_REQUEST</A> and set up by the caller. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>When <B>NdisCoRequest</B> returns anything other than NDIS_STATUS_PENDING, the caller should make an internal call to its ProtocolCl/CmRequestComplete function. Otherwise, NDIS calls that driver's ProtocolCl/CmRequestComplete function when this operation is completed.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Before it calls <B>NdisCoRequest</B>, a protocol allocates a buffer for its request and initializes an <A HREF="105nstru_3f8y.htm">NDIS_REQUEST</A> structure. Such a driver sets the <B>Oid</B> member of the NDIS_REQUEST structure with a system-defined OID_GEN_CO_<I>XXX</I> code when communicating with the call manager or client. For requests directed to an underlying miniport driver, the protocol can set the <B>Oid</B> member either with an OID_GEN_CO_<I>XXX</I> or a<I> </I>connection-oriented, medium-specific OID_<I>XXX</I> code, such as OID_ATM_ALIGNMENT_REQUIRED when calling <B>NdisCoRequest</B>. </P>
+
+<P>Depending on the value of <I>NdisAfHandle</I>, clients and stand-alone call managers call <B>NdisCoRequest</B> to communicate with each other or with the underlying connection-oriented miniport driver. </P>
+
+<P>Passing a NULL <I>NdisVcHandle</I> makes such a request global in nature, whether the request is directed to the client, call manager, or miniport driver. For example, an <A HREF="211cooid_5t6a.htm#ddk_oid_gen_co_rcv_crc_error_nr">OID_GEN_CO_RCV_CRC_ERROR</A> request to an underlying connection-oriented miniport driver returns the number of CRC errors encountered in all receives the miniport driver has indicated on a particular VC if the caller supplies an explicit <I>NdisVcHandle</I>. For the same request with a NULL <I>NdisVcHandle</I>, the underlying miniport driver returns the total number of CRC errors encountered for all incoming receives through its NIC. </P>
+
+<P>Clients and stand-alone call managers should call <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A> with all OIDs that are not connection-oriented, such as those returned for an <A HREF="22genoid_594i.htm">OID_GEN_SUPPORTED_LIST</A> query, commonly issued during initialization after the protocol has bound itself to the underlying NIC driver.  </P>
+
+<P>For more information about the sets of OIDs defined for use with <B>NdisCoRequest</B> and <B>NdisRequest</B>, see <A HREF="21oidovw_8q9e.htm">NDIS Object Identifiers</A>. </P>
+
+<P>Only clients and stand-alone call managers, which register themselves with NDIS as protocols, can call <B>NdisCoRequest</B>. Connection-oriented miniport drivers with integrated call-management support call <A HREF="103ndisx_1pbm.htm"><B>NdisMCmRequest</B></A> to communicate with their clients instead. </P>
+
+<P>Callers of <B>NdisCoRequest</B> can be running at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_0pgy.htm"><I>MiniportCoRequest</I></A>, <A HREF="103ndisx_6quq.htm"><B>NdisClOpenAddressFamily</B></A>, <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A>, <A HREF="103ndisx_93oy.htm"><B>NdisCoRequestComplete</B></A>, <A HREF="103ndisx_1pbm.htm"><B>NdisMCmRequest</B></A>, <A HREF="103ndisx_2qr6.htm"><B>NdisMCmRequestComplete</B></A>, <A HREF="103ndisx_0kmq.htm"><B>NdisMCoRequestComplete</B></A>, <A HREF="105nstru_3f8y.htm">NDIS_REQUEST</A>, <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A>, <A HREF="104tdlow_9trm.htm"><I>ProtocolCmAddParty</I></A>, <A HREF="104tdlow_5ape.htm"><I>ProtocolCmOpenAf</I></A>, <A HREF="104tdlow_299u.htm"><I>ProtocolCoCreateVc</I></A>, <A HREF="104tdlow_7hwy.htm"><I>ProtocolCoRequest</I></A>, <A HREF="104tdlow_860i.htm"><I>ProtocolCoRequestComplete</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisCoRequest"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

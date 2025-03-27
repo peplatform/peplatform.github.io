@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AMD64 Compiler Limitations</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="AMD64 Compiler Limitations">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_amd64_compiler_limitations_kg"></A>AMD64 Compiler Limitations</H3>
+
+<P>The compiler for AMD64 has the following known limitations:
+
+<UL>
+	<LI>No support for the <B>/clr</B> switch. The compiler for AMD64 only generates native code.</LI>
+
+	<LI>No support for MMX intrinsic functions.</LI>
+
+	<LI>No support for run-time checks using the <B>/RTC</B> switch.</LI>
+
+	<LI>No support for security checks using the <B>/GS</B> switch.</LI>
+
+	<LI>The <B>_frnd</B> function does not work with arguments whose absolute values are greater than MAX_INT.</LI>
+
+	<LI>Inlining into SEH filters can result in invalid code if you use the <B>GetExceptionCode</B> or <B>GetExceptionInfo</B> functions. The symptom could be an executable file that terminates without a pop-up window. 
+<PRE>//Avoid using GetExceptionInfo() for this structure
+__inline void funca(DWORD); 
+__try { 
+... 
+} except(funca(GetExceptionCode())) 
+{ 
+... 
+} 
+//Instead use the compiler switch /Ob0 to disable inlining or use: 
+__declspec(noinline) 
+// On a class member function if there is a problem </PRE>
+</LI>
+
+	<LI>Two special cases of the <B>va_start</B> usage and one special case of <B>va_arg</B> usage are not currently supported.
+<P>Define class string as follows:
+
+<PRE>class String1 {
+public:
+String1 (const String1 &amp;);
+...
+};
+
+class String2 {
+...
+};</PRE>
+
+<P>Note that String1 has a copy constructor, and String2 could be any class. The following two cases of <B>va_start</B> are not supported:
+
+<PRE>&lt;any type&gt; foo1(const String1 last_parameter_with_known_type, ...)
+{
+va_list arg_list;
+va_start(arg_list, last_parameter_with_known_type);
+...
+}
+
+&lt;any type&gt; foo2(const String2 &amp;last_parameter_with_known_type, ...)
+{
+va_list arg_list;
+va_start(arg_list, last_parameter_with_known_type);
+...
+}</PRE>
+
+<P><B>va_start</B> calls are not supported if:
+
+<UL>
+	<LI>Last parameter with known type is an object of class with default copy constructor (the constructor is called to create a copy of object to pass the copy to function <B>foo1</B>).</LI>
+
+	<LI>Last parameter with known type is an object passed by reference.</LI>
+</UL>
+
+<P>The following case of <B>va_arg</B> usage is not supported (see the previous String1 definition):
+
+<PRE>&lt;any type&gt; foo3(&lt;any type&gt; last_parameter_with_known_type, ...)
+&lt;any type&gt; foo4( )
+{
+String1 q;
+foo3(last_parameter_with_known_type, q);
+}</PRE>
+
+<P>The passing of an object of class with default copy constructor in the "..." part of parameters is not supported.
+
+<P>It does not matter in the previous example if q is a local, global, or temporary variable.
+
+<P>The fourth case is not supported with object passed by reference in "...", because there are no language-supported ways to do that. The only proposed workaround is to change specifications of <B>foo1</B>, <B>foo2</B>, <B>foo3</B>, and so on to those ones that accept pointers to objects instead.
+</LI>
+
+	<LI>Fatal error C1128: &lt;func:#&gt; object file format limit exceeded: more than 64-KB sections can occur if a file contains many functions. Remove <B>-Gy</B> or split up the file so it contains fewer functions. Removing <B>-Zi</B> or <B>-Z7</B> also removes a lot of sections, because if <B>-Gy</B> is applied, <B>-Zi</B> forces emission of a .<B>debug$S</B> section for each .text section included.</LI>
+
+	<LI><B>_asm</B> is not supported for X86-64* based compilers. All assembly code must be written in a separate file, or intrinsic functions must be used.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: AMD64%20Compiler%20Limitations"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

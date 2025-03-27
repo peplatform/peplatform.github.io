@@ -1,0 +1,25 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Partial ICM Support in the Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_glyphs_partial_icm_support_in_the_driver"></A>Partial ICM Support in the Driver</H2>
+
+<P>It is sometimes desirable for a printer driver to report that it is ICM enabled simply for performance reasons. If the operating system is to color correct large DIBs, it needs to allocate a memory buffer. The color correction occurs in this buffer and is passed to the driver. This can result in performance loss. To alleviate this problem, a printer driver can report that it is ICM enabled, and the DIB pointer is passed to the driver first. The driver can then allocate a small amount of memory and use the operating system to color correct bands of the image. </P>
+
+<P>This is achieved by returning 2 when queried for CMS_DRIVER_LEVEL by the <B>CMGetInfo</B> function. Such drivers are called Level 2 ICM-enabled drivers. This condition supercedes the operating system and allows the driver to color correct the DIB. Pens and brushes are already corrected by the operating system before calling the driver.</P>
+
+<P>Level 2 drivers export all the <B>CM</B><I>Xxx</I> functions except <A HREF="glyphs_4227.htm"><B>CMColorInfo</B></A>. As the driver does not perform it own color correction, it should call back into GDI through helper functions to actually perform the desired task and return this back to the caller.</P>
+
+<P>When the driver’s <B>StretchDIB</B> function is called, it needs to allocate the required memory and call <B>ICMTranslateRGBs</B> to color correct the DIB (in bands if desired) before sending it to the printer. The <B>ICMCXform</B> field of the DRAWMODE structure that comes in this DDI should be used as the <I>hcmTransform </I>parameter of the <B>ICMtranslateRGBs</B> function.</P>
+
+<P>When the system needs to create a color transform, the system calls the driver’s <B>CMCreateTransform</B> function. The driver in turn calls the operating system’s <B>ICMCreateTransform</B> function. If a pen or a brush color needs correction, the operating system calls <B>CMTranslateRGB</B> or <B>CMTranslateRGBs</B>. The driver in turns calls the operating system’s helper function which then initiates the intended action. When a DIB needs to be drawn, the operating system passes the color transformation into the <B>hcmTransform</B><I>  </I>field of the DRAWMODE structure and calls the driver’s <B>StretchDIB</B> function. At that point, the driver then color corrects the DIB by calling <B>ICMTranslateRGBs</B>.complete this.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Partial%20ICM%20Support%20in%20the%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

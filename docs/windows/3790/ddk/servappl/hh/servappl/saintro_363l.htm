@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Reading Server Status from the NVRAM Device</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Reading Server Status from the NVRAM Device">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Server&nbsp;Appliance&nbsp;High&nbsp;Availability&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_reading_server_status_from_the_nvram_device_sa"></A>Reading Server Status from the NVRAM Device</H2>
+
+<P>The NVRAM miniport driver reads the server status received from the NVRAM device after the operating system reboots. The driver only reads the server status when an application makes a read request. The following figure shows an overview of how the miniport driver can provide the server status to the requesting application. </P>
+
+<P><IMG SRC="images/nvrmread.gif" ALT="" BORDER=0></P>
+
+<P><B>Server availability status read</B></P>
+
+<P>The following sequence of steps describe the actions in the preceding figure:
+
+<OL>
+	<LI>The NVRAM device issues an interrupt after the operating system reboots and the server status is available. </LI>
+
+	<LI>The miniport driver's <A HREF="samini_9vkx.htm"><I>SaInterruptServiceRoutine</I></A> function must handle this interrupt. </LI>
+
+	<LI>To quickly service this interrupt and complete the I/O processing at a lower IRQL, <I>SaInterruptServiceRoutine</I> calls the <A HREF="saport_1m75.htm"><B>SaPortRequestDpc</B></A> function, which queues the miniport driver's <A HREF="samini_3jfl.htm"><I>SaIsrForDpcRoutine</I></A> function. </LI>
+
+	<LI>When the SA port driver calls <I>SaIsrForDpcRoutine</I>, the miniport driver acquires the synchronization object to prevent other threads from accessing members of the <A HREF="saintro_1k0x.htm">device extension</A> structure at the same time. The miniport driver's <I>SaIsrForDpcRoutine </I>function copies the server status into the device extension's internal buffer and sets the received-status-flag variable to indicate that the updated status is available for a read operation (see <A HREF="saintro_1k0x.htm">Creating the Device Extension for the NVRAM Device</A>). </LI>
+
+	<LI>An application makes a read request. </LI>
+
+	<LI>The SA port driver calls the miniport driver's <A HREF="samini_27c1.htm"><I>SaRead</I></A> function. In this call, the port driver passes an external buffer to receive the data from the NVRAM device. Before accessing members of the <A HREF="saintro_1k0x.htm">device extension</A> structure, the miniport driver's <I>SaRead</I> function acquires the device extension's synchronization object to prevent other threads from accessing these members at the same time. <I>SaRead</I> then examines the device extension's received-status-flag variable and determines that this variable's content is nonzero. <I>SaRead</I> then copies the server status that is in the device extension's internal buffer into the external buffer, releases the synchronization object, and returns STATUS_SUCCESS. </LI>
+
+	<LI>The requesting application then receives the server status.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Reading%20Server%20Status%20from%20the%20NVRAM%20Device"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

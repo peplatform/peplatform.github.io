@@ -1,0 +1,30 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling Events</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling Events">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_handling_events_ksg"></A>Handling Events</H1>
+
+<P>Minidrivers may support event sets. Both the device as a whole and individual streams can receive requests to enable or disable events. The class driver handles event enable and disable requests. It queues each enabled event, with a separate queue for each stream, and for the device. If an event is disabled, the class driver deletes it from the queue. Note that the class driver queues each enabled event, whether or not the minidriver does its own synchronization.</P>
+
+<P>The minidriver supplies the event sets it supports in the <B>DeviceEventsArray</B> member of the <A HREF="strclass-struct_3wz7.htm">HW_STREAM_HEADER</A> structure. Each stream supplies the event sets it supports in the <B>StreamEventsArray</B> of the <A HREF="strclass-struct_7stv.htm">HW_STREAM_INFORMATION</A> structure for that stream.</P>
+
+<P>The minidriver defines an event set it handles through the <A HREF="ks-struct_1c1f.htm">KSEVENT_SET</A> data structure, which in turn points to the array of <A HREF="ks-struct_0ipf.htm">KSEVENT_ITEM</A> structures, one for each event in the event set.</P>
+
+<P>The minidriver provides a <A HREF="strmini-routines_7dbn.htm"><B>StrMiniEvent</B></A> callback routine for each stream that can receive event requests, as well as a callback for the device itself, if it can receive event requests. If the <B>StrMiniEvent</B> routine returns a status code other than SUCCESS, the class driver will not queue the event.</P>
+
+<P>When a client makes an event enable request, it passes a <A HREF="ks-struct_0mr7.htm">KSEVENTDATA</A> structure, which describes how the event should be signaled once it occurs, optionally followed by event-specific parameters. When the class driver receives the request, it builds a <A HREF="ks-struct_4fub.htm">KSEVENT_ENTRY</A> structure to describe how the event should be triggered. It queues the KSEVENT_ENTRY structures for each event. The minidriver can use the <A HREF="strclass-routines_52nn.htm"><B>StreamClassGetNextEvent</B></A> routine to examine the event queue.</P>
+
+<P>When the event actually occurs, the minidriver signals the class driver by calling either <A HREF="strclass-routines_85yr.htm"><B>StreamClassDeviceNotification</B></A> or <A HREF="strclass-routines_5ygj.htm"><B>StreamClassStreamNotification</B></A>. The minidriver can signal events in several different ways: it can signal that a specific event has occurred, or it can signal that all events of a specific type has occurred. See <A HREF="strclass-routines_85yr.htm"><B>StreamClassDeviceNotification</B></A> or <A HREF="strclass-routines_5ygj.htm"><B>StreamClassStreamNotification</B></A> for details.</P>
+
+<P>The class driver can parse a <A HREF="ks-struct_0mr7.htm">KSEVENTDATA</A> structure to create its <A HREF="ks-struct_4fub.htm">KSEVENT_ENTRY</A> structure, but it cannot do the same for any event-specific parameters that follow it in the original request. The minidriver can allocate additional space after the KSEVENT_ENTRY structure for a specific type of event, by providing a nonzero value for the <B>ExtraEntryData</B> member of the KSEVENT_ITEM it used to declare the event. When <B>StrMiniEvent</B> is called for that type of event, it should store any event-specific parameters from KSEVENTDATA in this memory.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20Events"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

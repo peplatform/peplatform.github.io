@@ -1,0 +1,51 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Receiving and Translating NIC Addresses</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Receiving and Translating NIC Addresses">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_receiving_and_translating_nic_addresses_ng"></A>Receiving and Translating NIC Addresses</H3>
+
+<P>The Windows Sockets switch always uses the AF_INET address family, which contains IP addresses, when it interacts with SAN service providers and SAN NICs. The switch does not use a SAN’s native address family. Therefore, a SAN service provider must use its associated proxy driver to retrieve the list of IP addresses assigned to its NICs. The SAN service provider uses these IP addresses when interacting with its proxy driver. The proxy driver must translate between IP addresses and native addresses. </P>
+
+<P>During initialization, a proxy driver typically registers with Transport Driver Interface (TDI) for address change notifications. All Plug and Play (PnP) aware transports, including TCP/IP, supply address change notifications through TDI to clients that have registered for such notifications.</P>
+
+<H4>Registering for Address Change Notification</H4>
+
+<P>During initialization, a proxy driver calls the <A HREF="33tdifun_5boy.htm"><B>TdiRegisterPnPHandlers</B></A> function to register for address change notifications. In this call, the proxy driver passes pointers to callback functions for address additions and deletions in the <B>AddAddressHandlerV2</B> and <B>DelAddressHandlerV2</B> members of the TDI_CLIENT_INTERFACE_INFO structure. After the proxy driver registers to receive these notifications, TDI promptly indicates all currently active network addresses using the add-address callback. </P>
+
+<P>TDI passes the following parameters to a proxy driver’s add-address or delete-address callback functions:
+
+<DL>
+<DT><I>Address</I></DT>
+
+<DD>Pointer to a TA_ADDRESS structure that describes the network address assigned to or removed from the NIC. In the case of TCP/IP, this pointer is actually a pointer to a TA_ADDRESS_IP structure.</DD>
+
+<DT><I>DeviceName</I></DT>
+
+<DD>Pointer to a Unicode string that identifies the transport-to-NIC binding with which the address is associated. In case of TCP/IP, the Unicode string has the following format: 
+
+<P>\Device\Tcpip_{NIC-GUID}
+
+
+<P>where NIC-GUID is the globally unique identifier assigned by the network configuration subsystem to the NIC.
+
+</DD>
+</DL>
+
+<P>The preceding structure definitions are defined in the <I>tdi.h</I> header file. The preceding registration and callback functions are defined in the <I>tdikrnl.h</I> header file. These header files are available in the Windows Driver Development Kit (DDK). Detailed information about TDI PnP notifications is included in <A HREF="304tovw_6d47.htm">TDI Client Callbacks</A> and <A HREF="35tdicli_2nhu.htm">TDI Client Event and PnP Notification Handlers</A>.</P>
+
+<H4>Maintaining a List of IP Addresses</H4>
+
+<P>A SAN service provider’s proxy driver uses add-address and delete-address notifications to maintain the list of IP addresses assigned to each NIC under its control. The proxy driver uses this list to translate between one or more IP addresses assigned to a SAN NIC by the TCP/IP transport and native SAN addresses. The proxy driver must also supply a device-control routine that makes the list of IP addresses assigned to a NIC available to the Windows Sockets switch whenever the switch makes an SIO_ADDRESS_LIST_QUERY control-code query. The proxy driver's <B>DriverEntry</B> routine must specify an entry point for this device-control routine.</P>
+
+<P>The Windows Sockets switch maintains a list of all IP addresses assigned to each SAN NIC. To retrieve IP addresses for this inclusive list, the switch calls each SAN service provider ‘s <A HREF="wsdpref_1b3m.htm"><B>WSPIoctl</B></A> function, passing the SIO_ADDRESS_LIST_QUERY control code. Each SAN service provider, in turn, queries its associated proxy driver for its individual list of IP addresses assigned to its SAN NICs. After the switch is notified of an address change, it again queries each SAN service provider for updates in each individual list. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Receiving%20and%20Translating%20NIC%20Addresses"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

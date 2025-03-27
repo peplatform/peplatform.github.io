@@ -1,0 +1,127 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SCSI Verification</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Driver Verifier options, SCSI Verification">
+<META NAME="MS-HKWD" CONTENT="SCSI Verification">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Driver&nbsp;Development&nbsp;Tools:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_scsi_verification_tools"></A>SCSI Verification</H3>
+
+<P>The SCSI Verification feature of Driver Verifier monitors the interaction between a SCSI miniport driver and the port driver. If the miniport driver misuses a routine, responds incorrectly to a request from the port driver, or takes an excessive amount of time to respond to a request, a bug check is issued.</P>
+
+<P><I>This Driver Verifier option is only available in Windows XP and later.</I></P>
+
+<H4>Violations Detected by SCSI Verification</H4>
+
+<P>The SCSI Verification option can detect several misuses of SCSI routines. It is also possible to individually disable certain of these checks.</P>
+
+<P>When a SCSI miniport driver commits one of the following violations, Driver Verifier will issue bug check 0xF1.
+
+<UL>
+	<LI>The miniport passes a bad argument to <B>ScsiPortInitialize</B>.</LI>
+
+	<LI>The miniport calls <B>ScsiPortStallExecution</B> and specifies a delay longer than 0.1 second, stalling the processor for an excessive length of time.</LI>
+
+	<LI>The port driver calls a miniport routine, and the miniport takes longer than 0.5 second to execute it. (The <B>FindAdapter</B> routine is exempt, and the <B>HwInitialize</B> routine is allowed 5 seconds.)</LI>
+
+	<LI>The miniport completes a request more than once.</LI>
+
+	<LI>The miniport completes a routine with an invalid SRB status.</LI>
+
+	<LI>The miniport calls <B>ScsiPortNotification</B> to ask for <B>NextLuRequest</B>, but an untagged request is still active.</LI>
+
+	<LI>The miniport passes an invalid virtual address to <B>ScsiPortGetPhysicalAddress</B>. (This usually means the address supplied doesn't map to the common buffer area.)</LI>
+
+	<LI>The bus reset hold period ends, but the miniport still has outstanding requests.</LI>
+</UL>
+
+<P>See <A HREF="bccodes_10dj.htm">Bug Check 0xF1</A> (SCSI_VERIFIER_DETECTED_VIOLATION) for a complete list of the bug check parameters.</P>
+
+<P>In addition to these violations, SCSI Verification also monitors the miniport driver's memory access for improper use. Two common memory violations made by miniport drivers are accessing an SRB extension after a request completes, and accessing an SRB’s <B>DataBuffer</B> when the miniport has not specified <B>MapBuffers</B>.</P>
+
+<P>Memory violations of this sort will usually result in <A HREF="bccodes_2zdz.htm">Bug Check 0xD1</A> (DRIVER_IRQL_NOT_LESS_OR_EQUAL) being issued.</P>
+
+<H4>Activating This Option</H4>
+
+<P>The SCSI Verification option is enabled in a different manner from other Driver Verifier options.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To activate SCSI Verification</B>
+
+<OL>
+	<LI>Using the Driver Verifier Manager graphical interface or the <I>verifier.exe</I> command line, request verification of the desired miniport driver. SCSI Verification will not be available as an option, but you must select at least one <I>other</I> Driver Verifier option. See <A HREF="dv_5q43.htm">Selecting Driver Verifier Options</A> and <A HREF="dv_00z7.htm">Selecting Drivers to be Verified</A> for details.</LI>
+
+	<LI>Open the registry using <I>regedit.exe</I>. In the <B>HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\ScsiPort</B> key, add a subkey named <B>Verifier</B>. Within that key, add a REG_DWORD entry named <B>VerifyLevel</B>. The value assigned to this entry will determine which SCSI Verification tests will be active. The value 0x1 will give maximum verification.</LI>
+
+	<LI>Reboot the computer.</LI>
+</OL>
+
+<P>If the <B>VerifyLevel</B> value does not exist, or is equal to 0xFFFFFFFF, SCSI Verification will be disabled.</P>
+
+<P>The individual bits in the <B>VerifyLevel</B> value can be used to control exactly which tests will be performed. Bit zero (0x1) enables certain tests; bits 28, 29, 30, and 31 <I>disable</I> certain tests. Therefore, maximum verification can be obtained by using the value 0x00000001.</P>
+
+<P>The effects of each bit are as follows:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=17%>Bit</TH>
+<TH align=left width=20%>Value</TH>
+<TH align=left width=63%>Effect</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>0</TD>
+<TD width=20%>0x1</TD>
+<TD width=63%>Driver Verifier will monitor the miniport driver's memory access and check for improper use of memory buffers.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>28</TD>
+<TD width=20%>0x10000000</TD>
+<TD width=63%>Driver Verifier will not issue a bug check when the <B>HwAdapterControl</B> routine takes more than 0.5 second to complete.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>29</TD>
+<TD width=20%>0x20000000</TD>
+<TD width=63%>Driver Verifier will not issue a bug check when a reset hold period ends and there are still outstanding requests on a logical unit.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>30</TD>
+<TD width=20%>0x40000000</TD>
+<TD width=63%>Driver Verifier will not issue a bug check when the miniport calls <B>ScsiPortNotification</B> with <B>NextLuRequest</B> while an untagged request is still active.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>31</TD>
+<TD width=20%>0x80000000</TD>
+<TD width=63%>Driver Verifier will not issue a bug check when the <B>HwInitialize</B> routine takes more than 5 seconds to complete.</TD>
+</TR>
+</TABLE><BR>
+
+<P>In most cases, the recommended setting is 0xD0000001. This enables all <B>SCSI Verifier</B> tests except for the time limit on <B>HwAdapterControl</B>, the time limit on <B>HwInitialize</B>, and the ban on multiple requests to a logical unit. These three tests are often too stringent.</P>
+
+<P>If a kernel debugger is attached, it is possible to change the SCSI Verification level <I>after</I> the boot cycle. To do this, use the debugger command:</P>
+
+<PRE>kd&gt; <B>ed scsiport!SpVrfyLevel</B> <I>Level</I> 
+</PRE>
+
+<P>This command allows you to set a new value for <I>Level</I>. Using this method, you can change the high bits (0x10000000 through 0x8000000) at any time. However, if you wish to change the low bit (0x1), you must do so during the boot process (at the kernel debugger's initial breakpoint).</P>
+
+<P>Similarly, if you want to completely deactivate SCSI Verification, you need to set <I>Level</I> to 0xFFFFFFFF at the initial breakpoint.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The value 0xF0000000 will disable all tests, but the SCSI Verification modules will still be loaded. Use this value if you wish to disable verification but intend to enable the high-bit tests at a later time. On the other hand, the value 0xFFFFFFFF prevents the modules from being loaded entirely; if this value is used during boot it will not be possible to enable SCSI Verification without rebooting.</P>
+
+<H4>Graphics Drivers</H4>
+
+<P>The SCSI Verification option is not used for graphics drivers. If selected, it has no effect.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: SCSI%20Verification"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

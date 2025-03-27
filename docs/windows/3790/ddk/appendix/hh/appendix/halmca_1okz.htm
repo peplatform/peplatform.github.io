@@ -1,0 +1,295 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Intel Processors Machine Check Architectures in Microsoft Windows</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Intel Processors Machine Check Architectures in Microsoft Windows">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Appendix:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_supp_intel_processors_machine_check_architectures_in_microsoft_windows"></A>Intel Processors Machine Check Architectures in Microsoft Windows</H1>
+
+<P>Microsoft Windows generic hardware abstraction layers (HAL) for Intel architectures (<I>halx86.dll</I>, <I>halapic.dll</I>, <I>halmps.dll</I>, <I>halia64.dll</I>) support the Machine Check Architectures (MCA) for the Intel Pentium® Pro and Itanium™ processors. The HAL enables Machine Check Exception (MCE) reporting for all implementation-defined errors. </P>
+
+<H1>Intel Pentium Pro Processor Machine Check</H1>
+
+<P>The Machine Check Exception (MCE) is processor exception 18. The handler for MCE is implemented as a task gate for maximum reliability of the exception handler.  The HAL provides a generic exception handler for all errors that cause an exception.  This handler reports the machine check exception code on the screen and causes the operating system to halt gracefully, reducing the possibility of persistent data corruption.</P>
+
+<P>In addition, the HAL also provides MCA specific interface that can be used by drivers to:
+
+<UL>
+	<LI>Read the MCA banks to detect an error that does not generate an exception. 
+<P>One case where an error does not generate an exception is if the bit controlling reporting of the machine check error for a specific bank (MCi_CTL.Eej bit) is turned cleared. There are also some corrected errors that don’t generate MCE and are logged in the MCA banks.
+</LI>
+
+	<LI>Obtain control (to possibly log errors to NVRAM) when the MCE handler is invoked by providing two callback routines — ExceptionCallback and DpcCallback.</LI>
+</UL>
+
+<H2>Machine Check Exception Handling</H2>
+
+<P>If the MCA exception handler detects only Intel Pentium® technology (style) MCE support on the platform, it does the following:
+
+<UL>
+	<LI>If an MCA driver is registered with the HAL, call the MCA driver ExceptionCallback function providing the contents of P5_MC_ADDR and P5_MC_TYPE register values. This callback routine can log the register values in NVRAM and return.</LI>
+
+	<LI>Call KeBugCheckEx with the following four parameters, to halt the system: 
+<OL>
+	<LI>Low 32 bits of P5_MC_TYPE MSR</LI>
+
+	<LI>Always zero</LI>
+
+	<LI>High 32 bits of P5_MC_ADDR MSR</LI>
+
+	<LI>Low 32 bits of P5_MC_ADDR MSR</LI>
+</OL>
+</LI>
+</UL>
+
+<P>If MCA support (Pentium Pro processor) on the platform is detected, the exception handler determines if the error is restartable. If not, it does the following:
+
+<UL>
+	<LI>Calls the MCA Driver ExceptionCallback routine to give the MCA driver a chance to log the errors in NVRAM.</LI>
+
+	<LI>Calls KeBugCheckEx with the following four parameters, to halt the system:
+<OL>
+	<LI>MCA bank number that generated MCE</LI>
+
+	<LI>Address field from MCi_ADDR MSR for this MCA bank</LI>
+
+	<LI>High 32 bits of MCi_STATUS MSR for this MCA bank</LI>
+
+	<LI>Low 32 bits of MCi_STATUS MSR for this MCA bank</LI>
+</OL>
+</LI>
+</UL>
+
+<P>If the error is restartable, the exception handler queues a DPC which, when called, reports the MCA bank error to the MCA driver through the DpcCallback routine.</P>
+
+<H1>Intel Itanium Processor Machine Check</H1>
+
+<P>Machine checks, including Machine Check Aborts, cause Itanium™ processor execution to vector to the Processor Abstraction Layer (PAL) PALE_CHECK code in the Itanium ISA. When PALE_CHECK has finished processing, it passes control to the System Abstraction Layer (SAL) SAL_ENTRY code in the Itanium ISA, which in turn branches to the SAL MCA handler: SAL_CHECK. </P>
+
+<P><I>Uncorrected</I> machine checks refer to errors that cannot be corrected at PAL or SAL layers. These may still be fully or partially recoverable at the operating system layer.  At that time, the control flow differs between corrected and uncorrected machine checks. </P>
+
+<P>For corrected machine checks, the operating system corrected error interrupt handlers will be invoked some time after returning to the interrupted process. </P>
+
+<P>For uncorrected machine checks, SAL exposes an interface to register an OS_MCA callback. After validating this entry point, SAL_CHECK branches to it and provides an error record that will allow the operating system to recover whenever possible. The error record passed by SAL must comply, at a minimum, with the V3.0 SAL specification, Error Record Structures, Appendix B, January 2001. The HAL exposes interfaces for the OEMs to register a driver, and provides the error record to the driver. This enables the OEMs to assist the generic HAL MCA handler by attempting recovery of platform-specific errors and maintaining the integrity of the platform. </P>
+
+<P>For Itanium PAL, SAL, and operating system MCA handler’s details, please refer to http://www.intel.com/design/ia-64/manuals.</P>
+
+<P>The Itanium reference HAL provides an MCA-specific interface that can be used by drivers to:
+
+<UL>
+	<LI>Register for delivery of an ExceptionCallback function during uncorrected error processing. This callback returns an error severity value to the standard HAL OS_MCA, allowing OEM error recovery. The driver also registers a DpcCallback, which will be performed should the driver recover during ExceptionCallback processing.</LI>
+
+	<LI>Register for delivery of two additional DpcCallbacks. These are delivered during corrected error processing for CPU corrected errors and/or platform corrected errors.</LI>
+
+	<LI>Read the error records during DpcCallback processing.</LI>
+</UL>
+
+<H2>Machine Check Exception Handling</H2>
+
+<P>After collecting the MCA log, the standard HAL MCA handler calls the MCA driver ExceptionCallback function providing the MCA record. This allows the MCA driver to process the log and makes appropriate consideration with regards to the stability of the system. This callback function returns an error severity value to let the HAL know if it should consider the event as fatal, recoverable, or corrected by the MCA driver. In case of a corrected event and if registered, the MCA driver's DpcCallback is then called for asynchronous log collection by the driver.</P>
+
+<P>In case of an OS_MCA uncorrected event, the HAL calls KeBugCheckEx with the bugcheck code MACHINE_CHECK_EXCEPTION and the following four parameters to halt the system:
+
+<OL>
+	<LI>HAL Itanium™ MCA type, which values could be: 
+<P>HAL_BUGCHECK_MCA_ASSERT = 1
+
+<P>HAL_BUGCHECK_MCA_GET_STATEINFO = 2
+
+<P>HAL_BUGCHECK_MCA_CLEAR_STATEINFO = 3
+
+<P>HAL_BUGCHECK_MCA_FATAL = 4 
+
+<P>The last value should be the expected only for the MCA driver, the other values are HAL internal error values.
+</LI>
+
+	<LI>MCA log address.</LI>
+
+	<LI>MCA maximum log size.</LI>
+
+	<LI>SAL status of the last SAL interface.</LI>
+</OL>
+
+<H1>MCA Interface for Drivers</H1>
+
+<P>The Intel generic HALs provide the following Intel Pentium® Pro and Itanium™ technology MCA-specific interface for drivers:
+
+<UL>
+	<LI><B>HalSetSystemInformation</B> with the HAL_QUERY_INFORMATION_CLASS parameter set to HalMcaRegisterDriver. This allows a driver to register MCA callbacks with the HAL. Additionally, the Itanium driver can use a HAL_QUERY_INFORMATION_CLASS parameter set to HalCmcRegisterDriver or HalCpeRegisterDriver for delivery of Corrected CPU errors (CMC) and Corrected Platform Errors (CPE).</LI>
+
+	<LI><B>HalQuerySystemInformation</B> with the HAL_QUERY_INFORMATION_CLASS parameter set to HalMcaLogInformation. This allows a driver to read the MCA log. Additionally, the Itanium driver can use a HAL_QUERY_INFORMATION_CLASS parameter set to HalCmcLogInformation or HalCpeLogInformation to read MCA logs from CMCs and CPEs.</LI>
+</UL>
+
+<H2>HalSetSystemInformation</H2>
+
+<P><B>HalSetSystemInformation</B> can be used to register MCA driver with the HAL.</P>
+
+<PRE class=syntax><B>NTSTATUS 
+HalSetSystemInformation(
+</B>    <B>IN HAL_QUERY_INFORMATION_CLASS</B>      InformationClass,
+    <B>IN ULONG</B>  BufferSize,
+    <B>OUT PVOID</B>  Buffer,
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>InformationClass</I></DT>
+
+<DD>Specify<I> </I><B>HalMcaRegisterDriver </B>to register MCA driver’s callback routines with the HAL. There are two callback routines — ExceptionCallback and DpcCallback. The ExceptionCallback routine is called during the Machine Check Exception handler nonrestartable error processing, before it issues a bugcheck for the system. The DpcCallback routine is called when the MCA error is restartable. For Itanium™ systems, specify <B>HalCmcRegisterDriver </B>to register a driver’s Corrected CPU Error DpcCallback routine, and <B>HalCpeRegisterDriver </B>to register a driver’s Corrected Platform Error DpcCallback. </DD>
+
+<DT><I>BufferSize</I></DT>
+
+<DD>Specifies the size, in bytes, of the buffer supplied by the caller.</DD>
+
+<DT><I>Buffer</I></DT>
+
+<DD>Pointer to a caller-supplied buffer of type <I>MCA_DRIVER_INFO</I>.
+
+<PRE>//
+// Structure to record the callbacks from driver
+//
+typedef struct _MCA_DRIVER_INFO {
+    PDRIVER_EXCPTN_CALLBACK ExceptionCallback;  -  NULL for Itanium corrected error registration
+    PKDEFERRED_ROUTINE      DpcCallback;
+    PVOID                   DeviceContext;
+} MCA_DRIVER_INFO, *PMCA_DRIVER_INFO;
+</PRE>
+
+
+<DL>
+<DT><I>ExceptionCallback</I></DT>
+
+<DD>The driver-supplied routine to be called when Machine Check Exception occurs for uncorrected errors. A driver explicitly can not utilize any kernel services or spinlock routines.  The handler is restricted to the same constraints as a driver operating at highest IRQL.</DD>
+
+<DT><I>DpcCallback</I></DT>
+
+<DD>A driver-supplied routine that is called for corrected errors that caused Machine Check Exception. This routine must be called at DISPATCH_LEVEL.</DD>
+
+<DT><I>DeviceContext</I></DT>
+
+<DD>The device-specific context for this MCA Driver.
+</DD>
+</DL>
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ntddk.h</I>. Include <I>ntddk.h</I>.</P>
+
+<H4>Return Value</H4>
+
+<P><B>HalSetSystemInformation</B> returns STATUS_SUCCESS if the registration is successful.</P>
+
+<H4>Comments</H4>
+
+<P><B>HalSetSystemInformation</B> must be called before an MCA driver can use any of the other interface routines. Only one MCA driver can be registered with the HAL at any given time.</P>
+
+<H2>HalQuerySystemInformation</H2>
+
+<P><B>HalQuerySystemInformation</B> can be used to read MCA banks' status registers.</P>
+
+<PRE class=syntax><B>NTSTATUS 
+HalQuerySystemInformation(
+</B>    <B>IN HAL_QUERY_INFORMATION_CLASS</B>  InformationClass,
+    <B>IN ULONG</B>  BufferSize,
+    <B>OUT PVOID</B>  Buffer,
+    <B>OUT PULONG</B>  ReturnedLength
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>InformationClass</I></DT>
+
+<DD>Specify<I> </I><B>HalMcaLogInformation </B>to read the current MCA error log. If any of the uncorrected Machine Check errors is found, it is returned in the buffer. For Itanium™ systems, specify<I> </I><B>HalCmcLogInformation </B>to read the current corrected CPU error log and <B>HalCpeLogInformation </B>to read the current corrected platform error log. </DD>
+
+<DT><I>BufferSize</I></DT>
+
+<DD>Specifies the size, in bytes, of the buffer supplied by the caller.</DD>
+
+<DT><I>Buffer</I></DT>
+
+<DD>Points to a caller-supplied buffer of type MCA_EXCEPTION that will contain the information returned by this routine. For Itanium, the returned information must be compliant, at a minimum, with the V3.0 SAL specification, Error Record Structures, January 2001, Appendix B. For Pentium Pro, the information is as described in the following code sample.
+
+
+<PRE>typedef union _MCI_STATS {
+struct {
+    USHORT  McaCod;
+    USHORT  MsCod;
+    ULONG  OtherInfo   : 25;
+    ULONG  Damage    : 1;
+    ULONG  AddressValid  : 1;
+    ULONG  MiscValid  : 1;
+    ULONG  Enabled    : 1;
+    ULONG  UnCorrected  : 1;
+    ULONG  OverFlow  : 1;
+    ULONG  Valid    : 1;
+} MciStats;
+
+ULONGLONG  QuadPart;
+} MCI_STATS, *PMCI_STATS;
+ 
+typedef union _MCI_ADDR{
+  struct {
+    ULONG Address;
+    ULONG Reserved;
+  } MciAddr;
+  
+  ULONGLONG  QuadPart;
+} MCI_ADDR, *PMCI_ADDR;
+ 
+typedef struct _MCA_EXCEPTION {
+  
+  ULONG        VersionNumber;  // Version number of this record type
+  MCA_EXCEPTION_TYPE    ExceptionType;  // MCA or MCE
+  LARGE_INTEGER     TimeStamp;  // exception recording timestamp
+  ULONG        ProcessorNumber;// processor number
+     
+  union {
+    struct {
+      UCHAR      BankNumber;    // bank number
+      MCI_STATS    Status;     
+      MCI_ADDR    Address;
+      ULONGLONG    Misc;
+    } Mca;
+    
+    struct {
+      ULONGLONG  McAddress;  // physical address for the cycle causing the error
+      ULONGLONG  McType;   // cycle specification causing the error
+    } Mce;
+  } u;
+
+} MCA_EXCEPTION, *PMCA_EXCEPTION;
+</PRE>
+</DD>
+
+<DT><I>ReturnedLength</I></DT>
+
+<DD>Specifies the number of bytes returned in <I>Buffer</I>.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ntddk.h</I>. Include <I>ntddk.h</I>.</P>
+
+<H4>Return Value</H4>
+
+<P><B>HalQuerySystemInformation</B> returns STATUS_SUCCESS if an error log exists.</P>
+
+<H4>Comments</H4>
+
+<P>This<B> </B>function returns the first error. It is the MCA driver's responsibility to call this routine again to see if there are any more errors available.</P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Intel%20Processors%20Machine%20Check%20Architectures%20in%20Microsoft%20Windows"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

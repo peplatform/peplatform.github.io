@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DRIVER_OBJECT</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DRIVER_OBJECT">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_driver_object_kr"></A>DRIVER_OBJECT</H1>
+
+<P>Each driver object represents the image of a loaded kernel-mode driver. A pointer to the driver object is an input parameter to a driver’s <A HREF="drvrrtns_6r76.htm"><B>DriverEntry</B></A>, <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A>, and optional <A HREF="drvrrtns_2i0i.htm"><I>Reinitialize</I></A> routines and to its <A HREF="drvrrtns_7d82.htm"><I>Unload</I></A> routine, if any.</P>
+
+<P>A driver object is partially opaque. Driver writers must know about certain members of a driver object to initialize a driver and to unload it if the driver is unloadable. The following members of the driver object are accessible to drivers.</P>
+
+<H4>Accessible Members</H4>
+
+<DL>
+<DT><B>PDEVICE_OBJECT DeviceObject</B></DT>
+
+<DD>Pointer to the device objects created by the driver. This member is automatically updated when the driver calls <A HREF="k104_8piq.htm"><B>IoCreateDevice</B></A> successfully. A driver can use this member and the <B>NextDevice</B> member of DEVICE_OBJECT to step through a list of all the device objects that the driver created.</DD>
+
+<DT><B>PDRIVER_EXTENSION DriverExtension</B></DT>
+
+<DD>Pointer to the driver extension. The only accessible member of the driver extension is <B>DriverExtension-&gt;AddDevice</B>, into which a driver's <B>DriverEntry</B> routine stores the driver's <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine.</DD>
+
+<DT><B>PUNICODE_STRING HardwareDatabase</B></DT>
+
+<DD>Pointer to the <B>\Registry\Machine\Hardware</B> path to the hardware configuration information in the registry.</DD>
+
+<DT><B>PFAST_IO_DISPATCH FastIoDispatch</B></DT>
+
+<DD>Pointer to a structure defining the driver’s fast I/O entry points. This member is used only by FSDs and network transport drivers.</DD>
+
+<DT><B>PDRIVER_INITIALIZE DriverInit</B></DT>
+
+<DD>The entry point for the <A HREF="drvrrtns_6r76.htm"><B>DriverEntry</B></A> routine, which is set up by the I/O Manager.</DD>
+
+<DT><B>PDRIVER_STARTIO DriverStartIo</B></DT>
+
+<DD>The entry point for the driver’s <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A> routine, if any, which is set by the <B>DriverEntry</B> routine when the driver initializes. If a driver has no <I>StartIo</I> routine, this member is NULL.</DD>
+
+<DT><B>PDRIVER_UNLOAD DriverUnload</B></DT>
+
+<DD>The entry point for the driver’s <A HREF="drvrrtns_7d82.htm"><I>Unload</I></A> routine, if any, which is set by the <B>DriverEntry</B> routine when the driver initializes. If a driver has no <I>Unload</I> routine, this member is NULL.</DD>
+
+<DT><B>PDRIVER_DISPATCH MajorFunction[</B>IRP_MJ_MAXIMUM_FUNCTION+1<B>]</B></DT>
+
+<DD>A dispatch table consisting of an array of entry points for the driver’s <I>DispatchXxx</I> routines. The array's index values are the IRP_MJ_<I>Xxx</I> values representing each <A HREF="k113_6egi.htm">IRP major function code</A>. Each driver must set entry points in this array for the IRP_MJ_<I>Xxx</I> requests that the driver handles. For more information, see <A HREF="drvcomps_11uv.htm">Writing Dispatch Routines</A>. Each <I>DispatchXxx</I> routine is declared as follows:
+
+<PRE>NTSTATUS
+(*PDRIVER_DISPATCH) (
+    IN PDEVICE_OBJECT DeviceObject,
+    IN PIRP Irp
+    );</PRE>
+
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P>Each kernel-mode driver’s initialization routine should be named <A HREF="drvrrtns_6r76.htm"><B>DriverEntry</B></A> so the system will load the driver automatically. If this routine’s name is something else, the driver writer must define the name of the initialization routine for the linker; otherwise, the OS loader or I/O Manager cannot find the driver’s transfer address. The names of other standard driver routines can be chosen at the discretion of the driver writer.</P>
+
+<P>A driver must set its <I>DispatchXxx</I> entry points in the driver object that is passed in to the <B>DriverEntry</B> routine when the driver is loaded. A device driver must set one or more <I>DispatchXxx</I> entry points for the IRP_MJ_<I>XXX</I> that any driver of the same type of device is required to handle. A higher-level driver must set one or more <I>DispatchXxx</I> entry points for all the IRP_MJ_<I>XXX</I> that it must pass on to the underlying device driver. Otherwise, a driver is not sent IRPs for any IRP_MJ_<I>XXX</I> for which it does not set up a <I>DispatchXxx</I> routine in the driver object. For more information about the set of IRP_MJ_<I>XXX</I> that drivers for different types of underlying devices are required to handle, see <A HREF="k113_6egi.htm">IRP Major Function Codes</A>.</P>
+
+<P>The <B>DriverEntry</B> routine also sets the driver’s <I>AddDevice</I>, <I>StartIo</I> and/or <I>Unload</I> entry points, if any, in the driver object.</P>
+
+<P>The <B>HardwareDatabase</B> string can be used by device drivers to get hardware configuration information from the registry when the driver is loaded. A driver is given read-only access to this string.</P>
+
+<P>The <I>RegistryPath</I> input to the <B>DriverEntry</B> routine points to the <B>\Registry\Machine\System\CurrentControlSet\Services\</B><I>DriverName</I> key, where the value entry of <I>DriverName</I> identifies the driver. As for the <B>HardwareDatabase</B> in the input driver object, a driver is given read-only access to this string.</P>
+
+<P>Undocumented members within a driver object should be considered inaccessible. Drivers with dependencies on object member locations or on access to undocumented members might not remain portable and interoperable with other drivers over time. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="drvrrtns_6r76.htm"><B>DriverEntry</B></A><B>,</B> <A HREF="k104_8piq.htm"><B>IoCreateDevice</B></A>, <A HREF="k104_3wky.htm"><B>IoDeleteDevice</B></A>, <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A>, <A HREF="drvrrtns_7d82.htm"><I>Unload</I></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DRIVER_OBJECT"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ClientPnPPowerChange</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ClientPnPPowerChange">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_clientpnppowerchange_nr"></A>ClientPnPPowerChange</H1>
+
+<P>The ClientPnPPowerChange routine is called by TDI as a consequence of a transport's call to <B>TdiPnPPowerRequest</B> or, for a user-initiated network reconfiguration, as a consequence of a call by NDIS. </P>
+
+<PRE class=syntax><B>NTSTATUS</B>
+  <B>ClientPnPPowerChange(</B>
+    <B>IN PUNICODE_STRING</B>  <I>DeviceName</I><B>,</B>
+    <B>IN PNET_PNP_EVENT</B>  <I>PowerEvent</I><B>,</B>
+    <B>IN PTDI_PNP_CONTEXT</B>  <I>Context1</I><B>,</B>
+    <B>IN PTDI_PNP_CONTEXT</B>  <I>Context2</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceName</I></DT>
+
+<DD>Pointer to a buffered Unicode string that typically identifies the transport-created device object representing the target for a client's network I/O through a particular transport or transport-to-NIC binding.  </DD>
+
+<DT><I>PowerEvent</I></DT>
+
+<DD>Pointer to a NET_PNP_EVENT-type structure indicating the type of notification, which can be either of the following types of notifications: 
+
+<UL>
+	<LI>The <B>NetEvent</B> member of this structure has been set by the underlying transport to <B>NetEventSetPower</B>, <B>NetEventQueryPower</B>, <B>NetEventQueryRemoveDevice</B>, or <B>NetEventCancelRemoveDevice</B> (subsequent to the failure of a <B>NetEventQueryRemoveDevice</B>).  </LI>
+
+	<LI>The <B>NetEvent</B> member of this structure has been set by NDIS to <B>NetEventBindList</B> or <B>NetEventReconfigure</B>. That is, a runtime call to ClientPnPPowerChange from TDI can occur as a consequence of an end-user-initiated change in the Connections folder. </LI>
+</UL>
+</DD>
+
+<DT><I>Context1</I></DT>
+
+<DD>Pointer to protocol-determined context associated with this notification if the underlying transport called <B>TdiPnPPowerRequest</B>. For example, TCP/IP passes a pointer to a list of addresses associated with the context of this notification. 
+
+<P>Otherwise, this points to a context supplied by NDIS to TDI as a result of a user-initiated change in the network configuration. For example, when the user reconfigures the network in the Connections folder, thereby requesting a change in existing network bindings, NDIS must notify all currently registered TDI clients affected by such a binding change to give them the opportunity to register or deregister their ClientPnP<I>Xxx</I> handlers. 
+</DD>
+
+<DT><I>Context2</I></DT>
+
+<DD>Pointer to protocol-determined context associated with this notification. For example, TCP/IP returns a pointer to the PDO of the physical device on which this notification was generated. 
+
+<P>Otherwise, this points to a context supplied by NDIS to TDI as a result of a user-initiated change in the network configuration, such as a pointer to the PDO of the underlying NIC to be reconfigured. 
+
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>ClientPnPPowerChange can return STATUS_PENDING if the client must notify its own clients of a power-state, query-device-removal, or device-removal event. Otherwise, it should return either STATUS_SUCCESS or a client-determined failure status, such as STATUS_FILES_OPEN or STATUS_UNSUCCESSFUL, to reject a <B>NetEventSetPowerDevice</B>-type or <B>NetEventQueryRemoveDevice</B>-type request if one of its own clients currently is depending on the underlying NIC in question. </P>
+
+<P>ClientPnPPowerChange can return STATUS_SUCCESS when it is called with <B>NetEventBindList</B> or <B>NetEventReconfigure</B> notifications, because these are inherently synchronous operations.</P>
+
+<H4>Comments</H4>
+
+<P>A client must register its ClientPnPPowerChange routine with a call to <B>TdiRegisterPnPHandlers</B> to begin receiving these notifications whenever any PnP-supporting transport or NDIS calls <B>TdiPnPPowerRequest</B>. That is, ClientPnPPowerChange can be called with a <I>DeviceName</I> pointer supplied by any transport, even a transport to which it is not bound. Consequently, ClientPnPPowerChange should return control promptly if the client does not recognize the transport identified at <I>DeviceName</I> or, when notified about a user-initiated network reconfiguration, if the client determines that it has no reason to establish a new or release an existing transport-to-NIC binding. </P>
+
+<P>On the other hand, if the client decides to register or deregister its PnP handlers on a transport as the consequence of a <B>NetEventBindingList</B> or <B>NetEventReconfigure</B> notification from NDIS, the given transport will subsequently be called to bind itself to a new NIC or even to unbind itself from a NIC to which it is currently bound. That is, NDIS calls the <I>ProtocolBindAdapter</I> or <I>ProtocolUnbindAdapter</I> function at the lower edge of the transport stack on behalf of this client. The transport's subsequent call to <B>TdiRegisterDeviceObject</B> or <B>TdiDeregisterDeviceObject</B>, in turn, causes a call to the ClientPnPBindingChange function of the client.</P>
+
+<P>If ClientPnPPowerChange returns STATUS_SUCCESS for a call with the input <I>PowerEvent</I> of type <B>NetEventQueryRemoveDevice</B>, the client can expect a subsequent call to its ClientPnPBindingChange routine with the <I>PnPOpcode</I> TDI_PNP_OP_DEL if all other clients bound to the same transport-to-NIC stack also succeed this notification. Otherwise, the client can expect another call to ClientPnPPowerChange with the input <I>PowerEvent</I> of type <B>NetEventCancelRemoveDevice</B>. </P>
+
+<P>In general, ClientPnPPowerChange must decide whether to notify its own clients when it receives <B>NetEventQueryPowerDevice</B> and <B>NetEventSetPowerDevice</B> notifications. For example, on set-power notifications that indicate the underlying NIC might be powered down into a hibernating state, ClientPnPPowerChange might return STATUS_PENDING in order to check with its own clients about their anticipated needs to carry out network I/O operations on the given binding. However, the <B>NetEventSetPowerDevice</B>-type of notification occurs after a system-determined period of no network I/O demand on a particular NIC, so the client usually can assume that its own clients have no need for notifications of this type. </P>
+
+<P>If ClientPnPPowerChange returns STATUS_PENDING, the client must call <B>TdiPnPPowerComplete</B> as soon as it has complete the operations it initiated at this notification. </P>
+
+<P>A reciprocal call to <B>TdiDeregisterPnPHandlers</B> disables subsequent calls to ClientPnPPowerChange.</P>
+
+<P>TDI calls ClientPnPPowerChange at IRQL &lt; DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_3k36.htm"><B>ClientPnPBindingChange</B></A>, <A HREF="105nstru_6c1e.htm"><B>NET_PNP_EVENT</B></A>, <A HREF="104tdlow_2bqq.htm"><B>ProtocolBindAdapter</B></A>, <A HREF="104tdlow_1l6a.htm"><B>ProtocolUnbindAdapter</B></A>, <A HREF="33tdifun_1u2a.htm"><B>TdiDeregisterDeviceObject</B></A>, <A HREF="33tdifun_5bea.htm"><B>TdiDeregisterPnPHandlers</B></A>, <A HREF="33tdifun_63ci.htm"><B>TdiPnPPowerComplete</B></A>, <A HREF="33tdifun_4p6a.htm"><B>TdiPnPPowerRequest</B></A>, <A HREF="33tdifun_2d0y.htm"><B>TdiRegisterDeviceObject</B></A>, <A HREF="33tdifun_5boy.htm"><B>TdiRegisterPnPHandlers</B></A> </P>
+
+<P></P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ClientPnPPowerChange"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

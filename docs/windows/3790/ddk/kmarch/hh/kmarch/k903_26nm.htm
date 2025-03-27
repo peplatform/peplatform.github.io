@@ -1,0 +1,119 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DpWmiExecuteMethod</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DpWmiExecuteMethod">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_dpwmiexecutemethod_kr"></A><I>DpWmiExecuteMethod</I></H1>
+
+<P>The <I>DpWmiExecuteMethod</I> routine executes a method associated with a data block. This routine is optional.</P>
+
+<PRE class=syntax><B>NTSTATUS
+</B>  <I>DpWmiExecuteMethod</I><B>(</B>
+    <B>IN PDEVICE_OBJECT</B>  <I>DeviceObject</I><B>,</B>
+    <B>IN PIRP </B> <I>Irp</I><B>,</B>
+    <B>IN ULONG </B> <I>GuidIndex</I><B>,</B>
+    <B>IN ULONG</B>  <I>InstanceIndex</I><B>,</B>
+    <B>IN ULONG</B>  <I>MethodId</I><B>,</B>
+    <B>IN ULONG</B>  <I>InBufferSize</I><B>,</B>
+    <B>IN ULONG</B>  <I>OutBufferSize</I><B>,</B>
+    <B>IN OUT PUCHAR</B>  <I>Buffer</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the driver's device object.</DD>
+
+<DT><I>Irp</I></DT>
+
+<DD>Pointer to the IRP.</DD>
+
+<DT><I>GuidIndex</I></DT>
+
+<DD>Specifies the data block by supplying a zero-based index into the list of GUIDs that the driver provided in the <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure it passed to <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>. </DD>
+
+<DT><I>InstanceIndex</I></DT>
+
+<DD>If the block specified by <I>GuidIndex </I>has multiple instances, <I>InstanceIndex</I> specifies a zero-based index value that identifies the instance.</DD>
+
+<DT><I>MethodId</I></DT>
+
+<DD>Specifies the ID of the method to execute. The driver defines the method ID as an item in a data block.</DD>
+
+<DT><I>InBufferSize</I></DT>
+
+<DD>Indicates the size in bytes of the input data. If there is no input data, <I>InBufferSize</I> is zero. </DD>
+
+<DT><I>OutBufferSize</I></DT>
+
+<DD>Indicates the number of bytes available in the buffer for output data. </DD>
+
+<DT><I>Buffer</I></DT>
+
+<DD>Pointer to a buffer that holds input data, if any, and receives output data, if any, for the method. If the buffer is too small to receive all of the output data, the driver returns STATUS_BUFFER_TOO_SMALL and calls <A HREF="k902_0wtu.htm"><B>WmiCompleteRequest</B></A> with the size required.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>DpWmiExecuteMethod</I> returns STATUS_SUCCESS or an appropriate error code such as the following:</P>
+
+<P class=indent1>STATUS_BUFFER_TOO_SMALL</P>
+
+<P class=indent1>STATUS_INVALID_DEVICE_REQUEST</P>
+
+<P class=indent1>STATUS_WMI_INSTANCE_NOT_FOUND</P>
+
+<P class=indent1>STATUS_WMI_ITEMID_NOT_FOUND</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wmilib.h</I>. Include <I>wmilib.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>WMI calls a driver's <I>DpWmiExecuteMethod</I> routine after the driver calls <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A> in response to an IRP_MN_EXECUTE_METHOD request.</P>
+
+<P>If a driver implements a <I>DpWmiExecuteMethod</I> routine, the driver must place the routine's address in the <B>ExecuteWmiMethod</B> member of the <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure that it passes to <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>. If a driver does not implement a <I>DpWmiExecuteMethod</I> routine, it must set <B>ExecuteWmiMethod</B> to NULL. In the latter case, WMI returns STATUS_INVALID_DEVICE_REQUEST to the caller in response to any <A HREF="k901_6hf6.htm">IRP_MN_EXECUTE_METHOD</A> request.</P>
+
+<P>The driver is responsible for validating all input arguments. Specifically, the driver must do the following:
+
+<UL>
+	<LI>Verify that the <I>GuidIndex</I> value is between zero and GuidCount-1, based on the <B>GuidCount</B> member of the <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure.</LI>
+
+	<LI>Verify that the driver has not flagged the specified data block for removal. If the driver recently specified the WMIREG_FLAG_REMOVE_GUID flag in a WMIGUIDREGINFO structure that is contained in a WMILIB_CONTEXT structure, it is possible for an additional request to arrive before the removal occurs.</LI>
+
+	<LI>Verify that the <I>InstanceIndex</I> value is within the range of instance indexes that are supported by the driver for the data block. </LI>
+
+	<LI>Verify that the method identifier supplied by <I>MethodId</I> is a valid identifier for the specified data block, and that the caller is allowed to execute the method.</LI>
+
+	<LI>Verify that <I>Buffer</I> and <I>InBufferSize</I> describe a buffer that is large enough to contain the specified method's input parameters, including padding if necessary, and verify that the input parameters are valid. </LI>
+
+	<LI>Verify that <I>Buffer</I> and <I>OutBufferSize</I> describe a buffer that is large enough to receive the specified method's output data, including padding if necessary. </LI>
+</UL>
+
+<P>Do not assume the thread context is that of the initiating user-mode application – a higher-level driver might have changed it.</P>
+
+<P>If the specified method performs an operation that causes data loss, such as fetching and resetting the contents of a set of counters, the driver should validate the output buffer size before performing the operation. That way, the driver can return STATUS_BUFFER_TOO_SMALL and allow the caller to resubmit the request with a larger buffer, without prematurely resetting the counters.</P>
+
+<P>After executing the method and writing any output data to the buffer, the driver calls <A HREF="k902_0wtu.htm"><B>WmiCompleteRequest</B></A> to complete the request.</P>
+
+<P>This routine can be pageable.</P>
+
+<P>For more information about implementing this routine, see <A HREF="wmi_9l47.htm">Calling <B>WmiSystemControl</B> to Handle WMI IRPs</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k901_6hf6.htm">IRP_MN_EXECUTE_METHOD</A>, <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A>, <A HREF="k902_0wtu.htm"><B>WmiCompleteRequest</B></A>, <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DpWmiExecuteMethod"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,173 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Supporting PC Cards That Have Incomplete Configuration Registers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Supporting PC Cards That Have Incomplete Configuration Registers">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_inf_ddinstall.logconfigoverride_section_dr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_inf_ddinstall.hw_section_dr">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_inf_logconfig_directive_dr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Multifunction&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_supporting_pc_cards_that_have_incomplete_configuration_registers_dg"></A>Supporting PC Cards That Have Incomplete Configuration Registers</H2>
+
+<P>If a multifunction 16-bit PC Card device does not have configuration registers for each function, the vendor of such a device can use the system-supplied multifunction bus driver (<I>mf.sys</I>) but must provide a custom INF file and support for the individual functions.</P>
+
+<P>The vendor of such a device on an NT-based platform can use the following system-supplied component:
+
+<UL>
+	<LI>A function driver for the multifunction device. (system-supplied)
+<P>A custom INF for the device must specify <I>mf.sys</I> as the function driver for the device. The system-supplied <I>mf.sys</I> driver will then enumerate the functions of the device. 
+
+<P>See <A HREF="mf-supp_55rb.htm">Using the System-Supplied Multifunction Bus Driver</A> for more information on using the system-supplied <I>mf.sys</I> driver.
+</LI>
+</UL>
+
+<P>The vendor of such a device must provide the following:
+
+<UL>
+	<LI>A custom INF file for the multifunction device. (vendor-supplied)
+<P>The vendor must supply a multifunction INF file that specifies <I>mf.sys</I> as the multifunction bus driver, specifies the class "MultiFunction" (with its associated GUID as defined in <I>devguid.h</I>), and provides the missing configuration register information. See further information later in this section.
+</LI>
+
+	<LI>A PnP function driver for each function of the device. (vendor-supplied)
+<P>Since the multifunction bus driver handles the multifunction semantics, the function drivers can be the same drivers that are used when the functions are packaged as individual devices.
+</LI>
+
+	<LI>An INF file for each function of the device. (vendor-supplied)
+<P>The INF files can be the same files that are used when the functions are packaged as a individual devices. The INF files do not need any special multifunction semantics.
+</LI>
+</UL>
+
+<P>The vendor-supplied custom INF for such a device must specify:
+
+<UL>
+	<LI><I>mf.sys</I> as the service for the device.
+<P>See <A HREF="mf-supp_55rb.htm">Using the System-Supplied Multifunction Bus Driver</A> for more information.
+</LI>
+
+	<LI>The resource requirements of the multifunction device.
+<P>Specify the resource requirements in <A HREF="JavaScript:hhobj_1.Click()">INF <I>DDInstall</I>.<B>LogConfigOverride</B> sections</A>.
+</LI>
+
+	<LI>The hardware ID for each function of the device.
+<P>Specify the hardware IDs in an <A HREF="JavaScript:hhobj_2.Click()">INF <I>DDInstall</I>.<B>HW</B> section</A>.
+</LI>
+
+	<LI>A resource map for each function of the device, identifying the parent resources required by each child function. 
+<P>Specify the resource maps in an INF <I>DDInstall</I>.<B>HW</B> section. See <A HREF="mf-supp_3co7.htm">Creating Resource Maps for a Multifunction Device</A> for more information about creating resource maps.
+</LI>
+</UL>
+
+<P>The INF must restate all the resource requirements specified by the device because if override configurations are present in the INF, the PnP Manager does not use any device resource requirements from the device.</P>
+
+<P>For such a device, the configuration option register can be programmed using a <B>PcCardConfig</B> entry, similar to programming a single-function device. The <B>PcCardConfig</B> entry contains information that applies to the entire device. The <B>PcCardConfig</B> entry is documented in <A HREF="JavaScript:hhobj_3.Click()">INF <B>LogConfig</B> Directive</A>. </P>
+
+<P>When specifying a <B>PcCardConfig</B> entry for a multifunction device, the format of the <I>ConfigIndex</I> is the same as that defined for a single-function device. The configuration register for single-function PC Cards contains an index to a set of resources defined in that device’s attributes. This directive can also be used with certain multifunction devices that use the index-based format of the configuration option register.</P>
+
+<P>The following example shows an INF file for installing a multifunction device that uses <I>mf.sys</I> as its bus driver and has incomplete configuration registers. </P>
+
+<PRE>; MFSupra.inf
+; This file installs the Supra Dual 56K modem
+; Copyright 1999 Microsoft Corporation
+
+[version]
+Signature  = "$Windows NT$"
+provider   = %MSFT%
+Class      = MultiFunction              ; system-defined class
+ClassGUID  = {4d36e971-e325-11ce-bfc1-08002be10318}
+
+[ControlFlags]
+ExcludeFromSelect=*SUP2440  ; don't include PnP devices in lists of
+                            ; devices to be manually installed
+
+[Manufacturer]
+%M_Supra% = Supra
+
+[Supra]
+%Supra1% = Sup2231GoCard.mf, *SUP2440 
+
+[Sup2231GoCard.mf.NT]
+Include = mf.inf           ; specify that this device needs mf.sys
+Needs = MFINSTALL.mf
+
+[Sup2231GoCard.mf.NT.HW]
+AddReg=Sup2231.mf.RegHW
+
+[Sup2231.mf.RegHW]   
+HKR, Child0000, HardwareID,  ,  MF\Shotgun_DEV0  ;modem1
+HKR,Child0000,ResourceMap,1,00,02
+HKR, Child0001, HardwareID,  ,  MF\Shotgun_DEV1  ;modem2
+HKR,Child0001,ResourceMap,1,01,02
+
+[Sup2231GoCard.mf.NT.Services]   
+Include = mf.inf
+Needs = MFINSTALL.mf.Services
+
+[Sup2231GoCard.mf.NT.LogConfigOverride]   
+LogConfig = Sup223x.mf.Override0, Sup223x.mf.Override1, \
+    Sup223x.mf.Override2, Sup223x.mf.Override3
+
+[Sup223x.mf.Override0]
+ConfigPriority = NORMAL
+IOConfig     = 2F8-2FF                  ; Com2
+IOConfig     = 20@100-FFFF%FFE0         ; NIC I/O
+IRQConfig    = 3,4,5,7,9,10,11,12,15          ; IRQ    
+MemConfig    = 1000@0-FFFFFFFF%FFFFF000 ; Memory Descriptor
+PCCardConfig = 59(W)                    ; ConfigIndex
+
+[Sup223x.mf.Override1]
+ConfigPriority = NORMAL
+IOConfig     = 3E8-3EF                  ; Com3
+IOConfig     = 20@100-FFFF%FFE0         ; NIC I/O
+IRQConfig    = 3,4,5,7,9,10,11,12,15          ; IRQ    
+MemConfig    = 1000@0-FFFFFFFF%FFFFF000 ; Memory Descriptor
+PCCardConfig = 69(W)                    ; ConfigIndex
+
+[Sup223x.mf.Override2]
+ConfigPriority = NORMAL
+IOConfig     = 2E8-2EF                  ; Com4
+IOConfig     = 20@100-FFFF%FFE0         ; NIC I/O
+IRQConfig    = 3,4,5,7,9,10,11,12,15          ; IRQ    
+MemConfig    = 1000@0-FFFFFFFF%FFFFF000 ; Memory Descriptor
+PCCardConfig = 79(W)                    ; ConfigIndex
+
+[Sup223x.mf.Override3]
+ConfigPriority = NORMAL
+IOConfig     = 3F8-3FF                  ; Com1
+IOConfig     = 20@100-FFFF%FFE0         ; NIC I/O
+IRQConfig    = 3,4,5,7,9,10,11,12,15          ; IRQ
+MemConfig    = 1000@0-FFFFFFFF%FFFFF000 ; Memory Descriptor
+PCCardConfig = 49(W)                    ; ConfigIndex
+
+[strings]
+MSFT = "Microsoft"
+M_Supra = "Supra"
+Supra1 = "Supra Dual 56K modem"</PRE>
+
+<P>An INF like the one shown above copies the ID and resource information for the child functions to the registry. The <I>mf.sys</I> driver retrieves the information from the registry when it enumerates the child functions of the device.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Supporting%20PC%20Cards%20That%20Have%20Incomplete%20Configuration%20Registers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

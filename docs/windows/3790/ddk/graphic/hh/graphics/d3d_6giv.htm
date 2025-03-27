@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Direct3D Command Buffers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Direct3D Command Buffers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_direct3d_command_buffers_gg"></A>Direct3D Command Buffers</H2>
+
+<P>The following figure shows portions of a sample logical command buffer. The driver's <A HREF="d3dfncs_5usn.htm"><I>D3dDrawPrimitives2</I></A> callback receives a pointer to a command buffer in the <B>lpDDCommands</B> member of the <A HREF="d3dstrct_47fr.htm">D3DHAL_DRAWPRIMITIVES2DATA</A> structure. The command buffer is always processed sequentially.</P>
+
+<P><IMG SRC="images/d3dcmbuf.gif" ALT="" BORDER=0></P>
+
+<P><B>Sample Command Buffer</B></P>
+
+<P>As shown in the preceding figure, a command buffer contains <A HREF="d3dstrct_9w6f.htm">D3DHAL_DP2COMMAND</A> structures, where the <B>bCommand</B> member of each structure identifies a command. The following lists possible commands:
+
+<UL>
+	<LI>D3DDP2OP_RENDERSTATE indicates that there are <B>wStateCount</B> <A HREF="d3dstrct_8pif.htm">D3DHAL_DP2RENDERSTATE</A> structures that follow in the command buffer. The driver should parse the state from each of these structures and update its private driver state accordingly. The driver should also update the appropriate state in the array to which <B>lpdwRStates</B> points. If the driver does not support the state requested in the command buffer, the driver should override the requested value with one that it supports.</LI>
+
+	<LI>D3DDP2OP_TEXTURESTAGESTATE indicates that there are <B>wStateCount</B> <A HREF="d3dstrct_2ihz.htm">D3DHAL_DP2TEXTURESTAGESTATE</A> structures that follow in the command buffer. The driver should parse the state from each of these structures and update the driver's texture state associated with the specified texture stage accordingly. The driver does not report texture stage state back to the Direct3D runtime.
+<P>A driver is required to properly parse up to eight texture coordinate sets regardless of how many coordinate sets it actually uses.
+</LI>
+
+	<LI>D3DDP2OP_VIEWPORTINFO indicates that there is one <A HREF="d3dstrct_4u5j.htm">D3DHAL_DP2VIEWPORTINFO</A> structure that follows in the command buffer. The driver should parse this structure and update the viewport information stored in the driver's internal rendering context.</LI>
+
+	<LI>D3DDP2OP_WINFO indicates that there is one <A HREF="d3dstrct_92g7.htm">D3DHAL_DP2WINFO</A> structure that follows in the command buffer. The driver should parse this structure and update the w-buffer information stored in the driver's internal rendering context.</LI>
+
+	<LI>Any of the remaining D3DDP2OP_<I>Xxx</I> commands indicate that there is enough data following in the command buffer to render <B>wPrimitiveCount</B> (a member of the <A HREF="d3dstrct_9w6f.htm">D3DHAL_DP2COMMAND</A> structure) primitives. Depending on the primitive command, the driver should parse D3DHAL_DP2<I>Xxx</I> structures from the command buffer and vertex-associated data from either or both the vertex buffer and command buffer. The driver must attempt to process all valid D3DDP2OP_<I>Xxx</I> commands; that is, the driver cannot choose to ignore certain defined primitive types. For more information, see the individual D3DHAL_DP2<I>Xxx</I> structure reference pages.</LI>
+</UL>
+
+<P>Depending on the current command, the following additional information is stored in the command buffer:
+
+<UL>
+	<LI>Index information for all D3DDP2OP_INDEXED<I>Xxx</I> primitive commands. </LI>
+
+	<LI>Vertex data for the D3DDP2OP_TRIANGLEFAN_IMM and D3DDP2OP_LINELIST_IMM primitive commands.</LI>
+
+	<LI>Additional operations are also defined as D3DDP2OP_<I>Xxx</I> opcodes in the <A HREF="d3denum_0jon.htm">D3DHAL_DP2OPERATION</A> structure. These are equivalent to D3DDP2OP_<I>Xxx</I> commands with the same names.  </LI>
+</UL>
+
+<P>The command buffer occasionally contains commands that are understood only by Direct3D. If the driver's <A HREF="d3dfncs_5usn.htm"><I>D3dDrawPrimitives2</I></A> callback does not recognize the command, the driver should call Direct3D's <B>D3dParseUnknownCommand</B> callback to attempt to parse it. When <B>D3dParseUnknownCommand</B> returns successfully, the driver should continue parsing and processing the command buffer. If <B>D3dParseUnknownCommand</B> fails by returning D3DERR_COMMAND_UNPARSED, <I>D3dDrawPrimitives2</I> should set the following members of the <A HREF="d3dstrct_47fr.htm">D3DHAL_DRAWPRIMITIVES2DATA</A> structure and return:
+
+<UL>
+	<LI>In <B>dwErrorOffset</B>, write the offset of the first unhandled <A HREF="d3dstrct_9w6f.htm">D3DHAL_DP2COMMAND</A> structure that is part of the buffer to which <B>lpDDCommands</B> points.</LI>
+
+	<LI>Set <B>ddrval</B> to D3DERR_COMMAND_UNPARSED.</LI>
+</UL>
+
+<P>For information on how to initialize the <B>D3dParseUnknownCommand</B> callback, see <A HREF="d3d_4ffr.htm">Direct3D Driver Initialization</A>.</P>
+
+<P>To simplify implementation of <I>D3dDrawPrimitives2</I>, driver writers can copy the parsing code from the <I>perm3</I> sample code and write driver-specific rendering and state update code only.</P>
+
+<P>Direct3D is not always informed of the current render states. For example, execute buffers are not inspected by the runtime before they reach the driver. The driver can keep track of the render state array with the <B>lpdwRStates</B> member of the <A HREF="d3dstrct_47fr.htm">D3DHAL_DRAWPRIMITIVES2DATA</A> structure. This is a pointer to the internal render states array that the driver keeps up to date as state changes occur.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Direct3D%20Command%20Buffers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

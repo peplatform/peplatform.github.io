@@ -1,0 +1,32 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Initializing a Bundle of Miniport Instances</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Initializing a Bundle of Miniport Instances">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_initializing_a_bundle_of_miniport_instances_ng"></A>Initializing a Bundle of Miniport Instances</H2>
+
+<P>NDIS calls a miniport driver's <I>MiniportInitialize</I> function once for each network adapter that the driver manages. To support LBFO, <I>MiniportInitialize</I> must determine if the miniport instance being initialized belongs to an existing bundle. </P>
+
+<P>To determine if a miniport instance is a member of the bundle, <I>MiniportInitialize</I> first calls the <A HREF="103ndisx_7b76.htm"><B>NdisOpenConfiguration</B></A> function to obtain the handle for a registry key in which the miniport instance's configuration parameters are stored. Next, <I>MiniportInitialize</I> calls the <A HREF="103ndisx_5ek2.htm"><B>NdisReadConfiguration</B></A> function to retrieve the string value (REG_SZ) from the <I>BundleId</I> keyword under the miniport instance's registry key. Each miniport instance should copy the bundle-identifier value to its internal structure. This internal structure is also known as <I>MiniportAdapterContext</I>. Each miniport instance should also copy its <I>MiniportAdapterHandle</I> to its <I>MiniportAdapterContext</I>. NDIS uses the <I>MiniportAdapterHandle</I> to refer to the associated miniport instance.</P>
+
+<P>After the miniport instance retrieves the bundle-identifier value, the miniport instance should search through the internal structures of miniport instances that have already been initialized to locate a miniport instance that has an identical bundle-identifier value. To perform this search, the miniport instance inspects each miniport instance's <I>MiniportAdapterContext</I>. The miniport driver sets the miniport instance to either the primary or a secondary role, as described following:
+
+<UL>
+	<LI>The miniport instance is the first miniport instance from the bundle to be initialized. In other words, the miniport instance could not locate an identical bundle-identifier value. In this situation, the miniport instance defaults to become the primary. </LI>
+
+	<LI>The miniport instance locates an identical bundle-identifier value. <I>MiniportInitialize</I> should call the <A HREF="103ndisx_467m.htm"><B>NdisMSetMiniportSecondary</B></A> function to set the miniport instance to the secondary role in relation to the primary miniport instance. In this call, the miniport instance passes its handle in the <I>MiniportAdapterHandle</I> parameter and the handle to the primary miniport instance that has already been initialized in the <I>PrimaryMiniportAdapterHandle</I> parameter. The miniport instance retrieves the handle to the primary miniport instance from the primary miniport instance's <I>MiniportAdapterContext</I>. </LI>
+</UL>
+
+<P>Multiple secondary miniport instances can exist in a bundle. <I>MiniportInitialize</I> can call <B>NdisMSetMiniportSecondary</B> for multiple miniport instances during the initialization of each instance to set them all to secondary roles in relation to the primary miniport instance. </P>
+
+<P><I>MiniportInitialize</I> can call <B>NdisMSetMiniportSecondary</B> only if the miniport instance can potentially belong to an existing bundle of miniport instances that were initialized by the same miniport driver. Before <I>MiniportInitialize</I> calls <B>NdisMSetMiniportSecondary</B>, the miniport instance cannot be considered as part of an existing bundle. A miniport instance becomes a secondary member of an existing bundle only after a successful call to <B>NdisMSetMiniportSecondary</B>. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Initializing%20a%20Bundle%20of%20Miniport%20Instances"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

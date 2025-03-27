@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Transport Driver Interface</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Transport Driver Interface">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_transport_driver_interface_ng"></A>Transport Driver Interface</H1>
+
+<P>The following figure shows the general relationship between TDI clients and transport drivers.</P>
+
+<P><IMG SRC="images/tdi-01.gif" ALT="" BORDER=0></P>
+
+<P><B>TDI Clients and Transport Providers</B></P>
+
+<P>As this figure shows, the Transport Driver Interface (TDI<I>)</I> defines a kernel-mode network interface that is exposed at the upper edge of all transport protocol stacks. The highest level protocol driver in every such stack supports the TDI interface for still higher level kernel-mode network clients.</P>
+
+<P>This interface includes the following:
+
+<UL>
+	<LI>A set of standard kernel-mode intermediate driver Dispatch routines exported by each TDI transport driver to which clients can submit I/O requests (IRPs) by making calls to support routines, such as the <B>Zw..File</B> routines or <B>IoCallDriver</B> </LI>
+
+	<LI>A set of ClientEvent<I>Xxx</I> callback routines exported by each TDI client that can be registered with the underlying transport driver to receive notifications of specific network events when they occur</LI>
+
+	<LI>A set of ClientPnP<I>Xxx</I> callback routines exported by TDI clients that can be registered with TDI to receive notifications of dynamic binding, network address, and power-state changes from PnP-aware transports for Windows®&nbsp;2000 and later versions of the operating system.</LI>
+
+	<LI>Parameters, structures, IOCTLs, and procedural rules associated with these TDI transport and ClientEvent<I>Xxx</I> and ClientPnP<I>Xxx</I> routines</LI>
+
+	<LI>A set of system-supplied <B>Tdi</B><I>Xxx</I> functions that transports and clients can call to communicate with each other</LI>
+
+	<LI>A set of system-supplied <B>TdiBuild</B><I>Xxx</I> macros and functions that clients can use to set up I/O requests to be submitted to their underlying transports</LI>
+</UL>
+
+<P>Requiring that all transport drivers expose a single common interface (TDI) simplifies the task of transport driver development in that all transports need code to support only a single defined interface. It also simplifies the task of client development by minimizing the amount of transport-specific code that must be written. </P>
+
+<P>Windows®&nbsp;2000 and later versions of the operating system include interface modules for several popular network interfaces, such as Windows Sockets and NetBIOS. Each of these interface modules exposes a native set of primitive functions, which are accessible through standard calls from user mode. When called, the interface module maps the native (frequently user-mode) function and its associated parameters and procedural rules, to one or more calls to the underlying TDI transport driver. </P>
+
+<P>Key features of TDI include the following:
+
+<DL>
+<DT><B>High Level of Granularity</B></DT>
+
+<DD>TDI accommodates all primitives and conventions from existing popular network interfaces because it is relatively granular in nature, with several small TDI-defined requests that can be mixed and matched to accommodate mapping from existing network-interface functions.</DD>
+
+<DT><B>Asynchronous Operation</B></DT>
+
+<DD>Most kernel-mode TDI operations are asynchronous, using client-supplied callback routines to indicate asynchronous network events as they occur and completing most client-initiated operations submitted as IRPs asynchronously as well. </DD>
+
+<DT><B>32-bit Addressing and Values</B></DT>
+
+<DD>Like all kernel-mode components for Windows&nbsp;2000 and later versions, TDI transports and their clients are 32-bit code. TDI-defined structures and parameters use 32-bit pointers and values. </DD>
+
+<DT><B>Flexible Addressing Scheme</B></DT>
+
+<DD>TDI does not mandate any particular address format, such as the 16-character NetBIOS name defined for legacy operating systems. Instead, it features an extensible mechanism by which many address formats can be identified and used. </DD>
+
+<DT><B>Extensible Communication</B></DT>
+
+<DD>TDI defines a TDI_ACTION IOCTL request that any TDI transport can use to support a set of transport-determined operations initiated by requests from its clients. This allows the client to submit transport-specific requests to the underlying transport driver that are not expressly defined by TDI.</DD>
+
+<DT><B>Event Notification</B></DT>
+
+<DD>TDI defines a scheme by which transports can notify their clients of interesting events that occur on the network without requiring the client to submit an explicit I/O request. For certain types of events, such as connects, disconnects, and receives, the transport driver can indicate data along with the event notification when it calls its client with such a notification.</DD>
+
+<DT><B>Plug-and-Play Event Notifications</B></DT>
+
+<DD>TDI defines a scheme by which transports for Windows&nbsp;2000 and later versions can notify their clients of certain PnP events, such as the availablity of underlying NICs and the creation/deletion of connections on local network addresses. </DD>
+
+<DT><B>System Power-State Change Notifications</B></DT>
+
+<DD>TDI defines a scheme by which transports for Windows&nbsp;2000 and later versions can notify their clients of proposed system power-state changes, thereby giving the client an opportunity to keep an active connection powered up.
+</DD>
+</DL>
+
+<P>The following features can be supported by a TDI transport driver as additional options:
+
+<DL>
+<DT><B>Data Transfer Modes</B></DT>
+
+<DD>TDI supports sending and receiving data as discrete messages (message mode) or as a stream of bytes (byte-stream mode). Support for either mode (or both) depends on the transport driver writer or on the nature of the protocol.<B> </B></DD>
+
+<DT><B>Internal Buffering</B></DT>
+
+<DD>TDI transports can buffer their client's sends and receives internally. Transport-internal buffering allows the TDI client to set and query driver internal buffer sizes, request nonblocking send operations, receive notification of available buffer space, and look at (<I>peek</I>) buffered data before receiving it.</DD>
+
+<DT><B>Management Options</B></DT>
+
+<DD>All transports maintain some TDI-defined state about their respective features, limits, and run-time statistics. This allows each client to dynamically query and, in some cases to set, transport-provider static information, statistics, and configuration parameters. In addition, the extensible TDI_ACTION IOCTL, mentioned previously, allows any TDI transport driver to implement unique network-management features that can be accessed by its clients through action requests to the transport.</DD>
+
+<DT><B>Quality of Service (QOS)</B></DT>
+
+<DD>TDI transports can provide QOS negotiation upon establishment of a network connection. In addition, such a driver can support QOS for connectionless datagram transmission. To support either, TDI-defined connection-establishment and datagram-send requests include <I>Options</I> and <I>OptionsLength</I> parameters that allow a TDI client to include a transport-specific, variable-length counted string specifying QOS options.
+
+<P>In fact, the <I>Options</I> and <I>OptionsLength</I> parameters can be used to pass any transport-specific connection- or datagram-related options to the transport driver at the discretion of the driver writer, not just QOS specifications.
+</DD>
+
+<DT><B>Expedited Delivery</B></DT>
+
+<DD>When sending messages, the client can flag particular messages as <I>expedited</I>. At the sending side, the underlying transport sends these messages ahead of non-expedited messages. At the receiving side, expedited messages are indicated to the client before or separate from non-expedited messages.</DD>
+
+<DT><B>Chained Receive Indications</B></DT>
+
+<DD>If the underlying NDIS miniport drivers support multipacket receive indications, a TDI transport can give its clients direct read-only access to a full TSDU in a single call, and the client can retain control of the buffer containing the TSDU until it has consumed the indicated data. This feature improves the performance of both transport and client by cutting down on call overhead for receive indications. 
+</DD>
+</DL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Transport%20Driver%20Interface"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,568 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using PCI IDs with Windows</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Appendix:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_supp_using_pci_ids_with_windows"></A>Using PCI IDs with Windows</H1>
+
+<P>This specification describes the use of PCI IDs by Windows operating systems and highlights why these IDs are critical in providing a true Plug and Play experience to Windows users. It also explains the rules associated with assigning IDs and provides examples of ID assignments for plug-in cards, motherboard implementations, and chipset integrations. In addition, it provides the testing criteria applied by Windows Hardware Quality Labs (WHQL) for the Microsoft Windows Logo program for hardware. </P>
+
+<P>This specification includes and expands upon the PCI Local Bus Specification, Version&nbsp;2.2. For detailed information on the location of IDs referenced in this specification, see PCI 2.2. </P>
+
+<P>This specification does not currently cover AC97 devices or riser cards.</P>
+
+<P>For information about obtaining a PCI Vendor ID, or to obtain the PCI 2.2 specification, see the <a href="http://go.microsoft.com/fwlink/?linkid=8777&clcid=0x409" target="_blank">PCI-SIG</A> Web site.</P>
+
+<P>For more information about other issues related to PCI implementations for Windows operating systems, see the <a href="http://go.microsoft.com/fwlink/?linkid=10108&clcid=0x409" target="_blank">PCI technology</A> Web site.</P>
+
+<H1>Definition of Terms</H1>
+
+<P>This document uses multiple acronyms and terms, as defined in this section.
+
+<DL>
+<DT><B>class code</B> (CC)</DT>
+
+<DD>24-bit value located at offset 9, divided into base Class, subclass, and programming interface.</DD>
+
+<DT><B>device ID</B> (DID)</DT>
+
+<DD>16-bit value located at offset 2.</DD>
+
+<DT><B>PCI device</B></DT>
+
+<DD>Electrical component that conforms to the PCI specification.</DD>
+
+<DT><B>revision ID</B> (REV)</DT>
+
+<DD>8-bit value located at offset 8.</DD>
+
+<DT><B>subsystem ID</B> (SID)</DT>
+
+<DD>16-bit value located at offset 2E.
+
+<P>The SID is the ID assigned by the manufacturer to uniquely identify the device.
+</DD>
+
+<DT><B>subsystem vendor ID</B> (SVID)</DT>
+
+<DD>16-bit value located at offset 2C.
+
+<P>The SVID is the ID assigned to the manufacturer by the PCI SIG.
+</DD>
+
+<DT><B>vendor ID</B> (VID)</DT>
+
+<DD>16-bit value located at offset 0.
+</DD>
+</DL>
+
+<H1>Introduction</H1>
+
+<P>Microsoft Windows operating systems — including Windows&nbsp;95/98, Windows&nbsp;2000, and later versions of these operating systems — use combinations of six PCI values to create an ID that is unique to the device. The operating system reads and concatenates the VID, DID, SID, SVID, REV, and CC to create a multiple ID assignment for each device. </P>
+
+<P>The ID assignment will range from using all six components to using only the CC component, such as for bridges. </P>
+
+<P>The operating system can use these IDs for the following purposes:
+
+<UL>
+	<LI>To install or uninstall drivers.</LI>
+
+	<LI>To install different or special versions of drivers.</LI>
+
+	<LI>To identify broken devices or specific implementations of devices.</LI>
+
+	<LI>To apply any exception processing required.</LI>
+
+	<LI>To detect the presence of a new device.</LI>
+
+	<LI>To remove a device.</LI>
+</UL>
+
+<P>The operating system implements the following sequence to find and use these IDs:
+
+<OL>
+	<LI>The PCI driver scans the hardware to find buses, devices, and functions.</LI>
+
+	<LI>The PCI driver reads configuration space and creates IDs.</LI>
+
+	<LI>The PCI driver applies any exceptions needed, which could include enabling and disabling features, applying workarounds, or setting flags in the exception table.
+<P class=note><B>Note</B>&nbsp;&nbsp;Any exceptions applied here will be to the bus.
+</LI>
+
+	<LI>The PCI driver installs the device driver.</LI>
+
+	<LI>The PCI driver loads the device driver.</LI>
+
+	<LI>The device driver applies any exceptions needed to the device, which could include enabling or disabling features, applying workarounds, or setting flags.</LI>
+
+	<LI>The PCI driver notifies the device driver to initialize the device.</LI>
+</OL>
+
+<P>The operating system inherently relies on the IDs of devices. A change in any of the IDs of a device between boots or sleep/resume cycles can have devastating effects. A change in an SID when resuming from sleep state would, at a minimum, trigger a Plug and Play event. The operating system would detect the new device ID and install a new instance of the device. The best-case example would be that the same driver is loaded for this instance. However, if the device has a custom driver or exceptions have been applied, adverse effects would occur. The worst-case example would be if the SID of the primary video controller changed during a resume state, causing a surprise removal of the device that has a driver loaded. A race condition would result between the loaded driver being unloaded and the new driver being loaded, which would cause the system to hang.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The INF file parsing code for Windows&nbsp;95 (original and OEM service releases) will stop searching INF files once a match is found. If the DID &amp;VID entry in an INF file is found before the DID&amp;VID&amp;SID&amp;SVID entry is found, only the driver associated with the DID&amp;VID entry will be loaded.</P>
+
+<H1>Rules for Assigning SIDs and SVIDs for Plug-in Cards</H1>
+
+<P>There is one simple rule for assigning the SID and SVID for PCI and Mini PCI plug-in cards:</P>
+
+<P class=indent1><I>All new card designs must have a new, unique SID assigned by the card manufacturer. </I></P>
+
+<P>A <I>new card design</I> is defined as any design that incorporates new devices requiring any circuit board or supporting component changes. </P>
+
+<H2>Changes that Require an Update of the SID for Plug-in Cards</H2>
+
+<P>Some events require the SID of a card to be updated. Use the following guideline to determine whether an updated SID is needed: </P>
+
+<P class=indent1><I>If anything changes that is external to the PCI devices (chips) on the plug-in card, the SID must be updated. </I></P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;A change in a chip on a card does not require a change in SID. However, an installation of an updated chip that has followed the ID rules for devices can cause a change of the driver for that chip due to a new ID being read. An example is a REV change from 1 to 2.</P>
+
+<P>Examples of when SID updates are needed:</P>
+
+<P>&bull;&nbsp;&nbsp;&nbsp;&nbsp;Any board layout changes, including bug fixes and cost-reduction changes.
+
+<UL>
+	<LI>Any component value changes on the card, including resistors and capacitors.</LI>
+
+	<LI>Any SKU change — for example, adding an S-Video connector to a card that has the capability but only has a VGA out connector.</LI>
+
+	<LI>The following are examples of SID and SVID assignments for add-on cards using different manufacturers and devices.</LI>
+</UL>
+
+<P><B>Example</B>: Add-on video card produced by manufacturer AAAA, using a device produced by company DDDD</P>
+
+<TABLE border=1 frame=box rules=all>
+
+<TR VALIGN="top">
+<TH align=left width=57%>Description</TH>
+<TH align=left width=10%>DID</TH>
+<TH align=left width=12%>VID</TH>
+<TH align=left width=10%>SID</TH>
+<TH align=left width=11%>SVID</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>Video device on new video card model xx</TD>
+<TD width=10%>1111</TD>
+<TD width=12%>DDDD</TD>
+<TD width=10%>0001</TD>
+<TD width=11%>AAAA</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>Video device on model xx-s (added&nbsp;S-Video&nbsp;out)</TD>
+<TD width=10%>1111</TD>
+<TD width=12%>DDDD</TD>
+<TD width=10%>0002</TD>
+<TD width=11%>AAAA</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>Example</B>: Multifunction network/modem add-on card produced by manufacturer AAAA, using devices from company CCCC</P>
+
+<TABLE border=1 frame=box rules=all>
+
+<TR VALIGN="top">
+<TH align=left width=57%>Description</TH>
+<TH align=left width=10%>DID</TH>
+<TH align=left width=12%>VID</TH>
+<TH align=left width=10%>SID</TH>
+<TH align=left width=11%>SVID</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>Network PCI device</TD>
+<TD width=10%>2222</TD>
+<TD width=12%>CCCC</TD>
+<TD width=10%>0005</TD>
+<TD width=11%>AAAA</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>Modem PCI device</TD>
+<TD width=10%>1111</TD>
+<TD width=12%>CCCC</TD>
+<TD width=10%>0005</TD>
+<TD width=11%>AAAA</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>Example</B>: Multifunction network/modem add-on card produced by manufacturer AAAA, using devices from company AAAA</P>
+
+<TABLE border=1 frame=box rules=all>
+
+<TR VALIGN="top">
+<TH align=left width=57%>Description</TH>
+<TH align=left width=10%>DID</TH>
+<TH align=left width=12%>VID</TH>
+<TH align=left width=10%>SID</TH>
+<TH align=left width=11%>SVID</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>Network PCI device</TD>
+<TD width=10%>3333</TD>
+<TD width=12%>AAAA</TD>
+<TD width=10%>0010</TD>
+<TD width=11%>AAAA</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>Modem PCI device</TD>
+<TD width=10%>1111</TD>
+<TD width=12%>AAAA</TD>
+<TD width=10%>0010</TD>
+<TD width=11%>AAAA</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>Example:</B> Multifunction network/modem add-on card produced by manufacturer AAAA, using devices from companies CCCC and DDDD </P>
+
+<TABLE border=1 frame=box rules=all>
+
+<TR VALIGN="top">
+<TH align=left width=57%>Description</TH>
+<TH align=left width=10%>DID</TH>
+<TH align=left width=12%>VID</TH>
+<TH align=left width=10%>SID</TH>
+<TH align=left width=11%>SVID</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>Network PCI device</TD>
+<TD width=10%>2222</TD>
+<TD width=12%>CCCC</TD>
+<TD width=10%>0007</TD>
+<TD width=11%>AAAA</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>Modem PCI device</TD>
+<TD width=10%>5555</TD>
+<TD width=12%>DDDD</TD>
+<TD width=10%>0007</TD>
+<TD width=11%>AAAA</TD>
+</TR>
+</TABLE><BR>
+
+<H1>Rules for Assigning SIDs and SVIDs for Devices Integrated on a Motherboard</H1>
+
+<P>There is one simple rule for assigning the SID and SVID for PCI devices integrated on a motherboard. </P>
+
+<P class=indent1><I>All new motherboard designs must have a new, unique SID assigned by the manufacturer. </I></P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;It is recommended that all integrated devices on a motherboard are assigned the same SID value.</P>
+
+<P>The operating system relies on being able to uniquely identify a device and each implementation of that device. For example, for form factor reasons, computer manufacturer AAAA decides not to connect the USB controller integrated in the south bridge of a specific design (a popular south bridge in current production). They inadvertently leave the pins as “no connects,” causing an interrupt storm under a certain condition. AAAA ships 700,000 systems before the problem is discovered. In order to apply a fix for the Windows® operating system that does not adversely affect every component using the south bridge, the device and implementation must be able to be uniquely identified.</P>
+
+<P><B>Example: </B>SID and SVID assignments of a motherboard produced by manufacturer AAAA, using devices produced by the companies CCCC, DDDD, EEEE, and TTTT</P>
+
+<TABLE border=1 frame=box rules=all>
+
+<TR VALIGN="top">
+<TH align=left width=57%>Description</TH>
+<TH align=left width=9%>DID</TH>
+<TH align=left width=12%>VID</TH>
+<TH align=left width=10%>SID</TH>
+<TH align=left width=12%>SVID</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>Video PCI device</TD>
+<TD width=9%>1212</TD>
+<TD width=12%>CCCC</TD>
+<TD width=10%>0105</TD>
+<TD width=12%>AAAA</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>USB PCI device</TD>
+<TD width=9%>4545</TD>
+<TD width=12%>CCCC</TD>
+<TD width=10%>0105</TD>
+<TD width=12%>AAAA</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>Audio PCI device</TD>
+<TD width=9%>3434</TD>
+<TD width=12%>EEEE</TD>
+<TD width=10%>0105</TD>
+<TD width=12%>AAAA</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>Network PCI device</TD>
+<TD width=9%>2222</TD>
+<TD width=12%>CCCC</TD>
+<TD width=10%>0105</TD>
+<TD width=12%>AAAA</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>Modem PCI device</TD>
+<TD width=9%>1111</TD>
+<TD width=12%>DDDD</TD>
+<TD width=10%>0105</TD>
+<TD width=12%>AAAA</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>CardBus PCI device</TD>
+<TD width=9%>4444</TD>
+<TD width=12%>TTTT</TD>
+<TD width=10%>0105</TD>
+<TD width=12%>AAAA</TD>
+</TR>
+</TABLE><BR>
+
+<H2>Changes that Require an Update of the SID for Motherboards</H2>
+
+<P>Some events require the SID of a motherboard to be updated. Use the following guideline to determine whether an updated SID is needed: </P>
+
+<P class=indent1><I>If anything changes that is external to the PCI devices (chips) on the motherboard, the SID of all devices must be updated. </I></P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;A change in a chip on a motherboard does not require a change in SID. However, an installation of an updated chip that has followed the ID rules for devices can cause a change of the driver for that chip due to a new&nbsp; ID being read. An example is a REV value change from 1 to 2.</P>
+
+<P>Examples of when updates are needed:
+
+<UL>
+	<LI>Any board layout changes, including bug fixes and cost-reduction changes.</LI>
+
+	<LI>Any component value changes on the motherboard, including resistors and capacitors.</LI>
+
+	<LI>Any SKU change, for example, a motherboard SKU that removes an integrated modem that was on the board when the SIDs were originally assigned.</LI>
+</UL>
+
+<H1>Rules for Assigning VIDs for PCI Devices</H1>
+
+<P>The VID is always the Vendor ID assigned by the PCI SIG for the device or chip manufacturer.</P>
+
+<H1>Rules for Assigning DIDs for PCI Devices</H1>
+
+<P>The DID is a value assigned by the device manufacturer that, in conjunction with the VID and REV values, uniquely identifies the PCI device. This number must be tracked by the device manufacturer and never used again in combination with the VID. </P>
+
+<H2>Changes that Require an Update of the DID for PCI Devices</H2>
+
+<P>Examples of when DID updates are needed:
+
+<UL>
+	<LI>If the manufacturer makes a modification during the life of a PCI device that causes any change in any exposed registers or software interfaces, or makes a feature enhancement, the DID must be updated to a new, unique value.</LI>
+
+	<LI>If an existing device is integrated into a new multifunction package, the DID for that device must change.</LI>
+</UL>
+
+<H1>Rules for Assigning and Updating the REV for PCI Devices</H1>
+
+<P>The REV is a value assigned by the device manufacturer that identifies the revision number of the device. </P>
+
+<P class=indent1><I>The REV must be updated if any rules in the following section apply to changes made to the device. </I></P>
+
+<H2>Changes that Require an Update of the REV for PCI&nbsp;Devices</H2>
+
+<P>Examples of when updates are needed:</P>
+
+<P>Any bug fix, feature, or performance update that does not change the software interface.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;A software interface change requires a DID update.</P>
+
+<UL>
+	<LI>Integration of device design into a multifunction packaging design.
+<P class=note><B>Note</B>&nbsp;&nbsp;This causes all REV values for devices in the package to change.
+</LI>
+
+	<LI>Any change in process technology used in production or any change in package type that does not change the software interface, but changes the functionality with respect to system software.
+<P class=note><B>Note</B>&nbsp;&nbsp;When changes in process technology or packaging do not result in changes to the system software interface or functionality, it is still recommended (but not required) that the REV be updated.
+</LI>
+</UL>
+
+<P>The following are examples of REV and DID assignments for integrating devices into an existing multifunction package.</P>
+
+<P><B>Example: </B>REV and DID assignments for a network device being integrated into a multifunction package already containing USB, ATA, and video devices by device manufacturer CCCC</P>
+
+<TABLE border=1 frame=box rules=all>
+
+<TR VALIGN="top">
+<TH align=left width=58%>Description</TH>
+<TD width=14%><B>DID</B></TD>
+<TD width=14%><B>VID</B></TD>
+<TD width=14%><B>REV</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%><B>Devices before integration</B></TD>
+<TD width=14%>&nbsp;</TD>
+<TD width=14%>&nbsp;</TD>
+<TD width=14%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>Discrete network PCI device</TD>
+<TD width=14%>1111</TD>
+<TD width=14%>CCCC</TD>
+<TD width=14%>1</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>Integrated USB PCI device</TD>
+<TD width=14%>2222</TD>
+<TD width=14%>CCCC</TD>
+<TD width=14%>2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>Integrated video PCI device</TD>
+<TD width=14%>3333</TD>
+<TD width=14%>CCCC</TD>
+<TD width=14%>2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>Integrated ATA PCI device</TD>
+<TD width=14%>4444</TD>
+<TD width=14%>CCCC</TD>
+<TD width=14%>3</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%><B>Devices after integration</B></TD>
+<TD width=14%>&nbsp;</TD>
+<TD width=14%>&nbsp;</TD>
+<TD width=14%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>Network PCI device in a new package</TD>
+<TD width=14%>5555</TD>
+<TD width=14%>CCCC</TD>
+<TD width=14%>1</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>USB PCI device in a new package</TD>
+<TD width=14%>2222</TD>
+<TD width=14%>CCCC</TD>
+<TD width=14%>3</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>Video PCI device in a new package</TD>
+<TD width=14%>3333</TD>
+<TD width=14%>CCCC</TD>
+<TD width=14%>3</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>ATA PCI device in a new package</TD>
+<TD width=14%>4444</TD>
+<TD width=14%>CCCC</TD>
+<TD width=14%>4</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>Example: </B>REV and DID assignments for adding another USB device into a multifunction package already containing USB, ATA, and video devices by device manufacturer CCCC</P>
+
+<TABLE border=1 frame=box rules=all>
+
+<TR VALIGN="top">
+<TH align=left width=58%>Description</TH>
+<TH align=left width=14%>DID</TH>
+<TH align=left width=14%>VID</TH>
+<TH align=left width=14%>REV</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%><B>Devices before integration</B></TD>
+<TD width=14%>&nbsp;</TD>
+<TD width=14%>&nbsp;</TD>
+<TD width=14%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>Integrated USB PCI device</TD>
+<TD width=14%>2222</TD>
+<TD width=14%>CCCC</TD>
+<TD width=14%>2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>Integrated video PCI device</TD>
+<TD width=14%>3333</TD>
+<TD width=14%>CCCC</TD>
+<TD width=14%>2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>Integrated ATA PCI device</TD>
+<TD width=14%>4444</TD>
+<TD width=14%>CCCC</TD>
+<TD width=14%>3</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%><B>Devices after integration</B></TD>
+<TD width=14%>&nbsp;</TD>
+<TD width=14%>&nbsp;</TD>
+<TD width=14%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>New USB PCI device in a new package</TD>
+<TD width=14%>2222</TD>
+<TD width=14%>CCCC</TD>
+<TD width=14%>3</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>USB PCI device in a new package</TD>
+<TD width=14%>2222</TD>
+<TD width=14%>CCCC</TD>
+<TD width=14%>3</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>Video PCI device in a new package</TD>
+<TD width=14%>3333</TD>
+<TD width=14%>CCCC</TD>
+<TD width=14%>3</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>ATA PCI device in a new package</TD>
+<TD width=14%>4444</TD>
+<TD width=14%>CCCC</TD>
+<TD width=14%>4</TD>
+</TR>
+</TABLE><BR>
+
+<H1>Rules for Assigning CCs for PCI Devices</H1>
+
+<P>CC assignments must comply with the PCI 2.2 specification.</P>
+
+<H1>Windows Logo Program Test Criteria and Driver Requirements for PCI IDs</H1>
+
+<P>The following are test criteria that WHQL will use to develop tests for the Windows® Logo Program for hardware:
+
+<UL>
+	<LI>The test will read and properly concatenate PCI IDs and verify their uniqueness. </LI>
+
+	<LI>The test will verify IDs after suspend/resume cycle.</LI>
+
+	<LI>Hot-plug test will be required for PCI devices that support hot-plug capabilities.</LI>
+
+	<LI>Submissions of a device that has only a REV update will also be validated using a previous version of the driver with the same DID and VID.</LI>
+</UL>
+
+<P>This specification provides a hardware baseline that WHQL will use for testing. Driver requirements and rules are provided by the PCI ID requirements for PCI drivers, published by Microsoft. See the <a href="http://go.microsoft.com/fwlink/?linkid=8772&clcid=0x409" target="_blank">Windows Logo Program for Hardware</A> Web site for more information.</P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20PCI%20IDs%20with%20Windows"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

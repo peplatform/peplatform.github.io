@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TdiRegisterPnPHandlers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TdiRegisterPnPHandlers">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_zwcreatefile_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdiregisterpnphandlers_nr"></A>TdiRegisterPnPHandlers</H1>
+
+<P>The <B>TdiRegisterPnPHandlers</B> function registers a set of client-supplied ClientPnP<I>Xxx</I> routines to receive subsequent notifications of dynamic PnP events, such as the discovery of a new NIC in the machine or the removal of an existing NIC from the machine, system power-state changes, and/or the arrival and departure of network addresses registered and deregistered by the underlying transports. </P>
+
+<PRE class=syntax><B>NTSTATUS</B>
+  <B>TdiRegisterPnPHandlers(</B>
+    <B>IN PTDI_CLIENT_INTERFACE_INFO</B>  <I>ClientInterfaceInfo</I><B>,</B>
+    <B>IN ULONG</B>  <I>InterfaceInfoSize</I><B>,</B>
+    <B>OUT HANDLE</B>  <B>*</B><I>BindingHandle</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>ClientInterfaceInfo</I></DT>
+
+<DD>Pointer to a caller-allocated and zero-initialized buffer, formatted as follows, or to this structure on the stack: 
+
+<PRE>typedef struct _TDI20_CLIENT_INTERFACE_INFO {
+    union {
+        struct {
+            UCHAR MajorTdiVersion; // currently 2
+            UCHAR MinorTdiVersion; // currently 0
+        };
+        // do not use following (obsolete transports)
+        USHORT TdiVersion; 
+    };
+    USHORT Unused;
+    PUNICODE_STRING ClientName;
+    TDI_PNP_POWER_HANDLER  PnPPowerHandler;
+    union {
+        TDI_BINDING_HANDLER BindingHandler;
+        // do not use following (obsolete transports)
+        struct {
+            TDI_BIND_HANDLER BindHandler;
+            TDI_UNBIND_HANDLER UnBindHandler;
+        };
+    };
+    union {
+        struct {
+            TDI_ADD_ADDRESS_HANDLER_V2 AddAddressHandlerV2;
+            TDI_DEL_ADDRESS_HANDLER_V2 DelAddressHandlerV2;
+        };
+        // do not use following (obsolete transports)
+        struct {
+            TDI_ADD_ADDRESS_HANDLER AddAddressHandler;
+            TDI_DEL_ADDRESS_HANDLER DelAddressHandler;
+        };
+    };
+} TDI20_CLIENT_INTERFACE_INFO, *PTDI20_CLIENT_INTERFACE_INFO;
+ 
+typedef TDI20_CLIENT_INTERFACE_INFO TDI_CLIENT_INTERFACE_INFO;</PRE>
+</DD>
+
+<DT><I>InterfaceInfoSize</I></DT>
+
+<DD>Specifies the size in bytes of the buffer at <I>ClientInterfaceInfo</I>. </DD>
+
+<DT><I>BindingHandle</I></DT>
+
+<DD>Specifies the address of a caller-supplied variable in which <B>TdiRegisterPnPHandlers</B> returns a TDI-supplied opaque handle if the call succeeds. The caller should save this handle for a subsequent call <B>TdiDeregisterPnPHandlers</B> or, possibly but very rarely, to <B>TdiEnumerateAddresses</B>. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>TdiRegisterPnPHandlers</B> returns STATUS_SUCCESS if the supplied ClientPnP<I>Xxx</I> routines will be notified of subsequent PnP and power-state-change events. Otherwise, it can return one of the following:
+
+<DL>
+<DT>TDI_STATUS_BAD_VERSION</DT>
+
+<DD>If the caller set the version members in the structure at <I>ClientInterfaceInfo</I> to something greater than TDI_CURRENT_VERSION. The caller should not propagate this return value to higher level network components. </DD>
+
+<DT>TDI_STATUS_BAD_CHARACTERISTICS </DT>
+
+<DD>The given <I>InterfaceInfoSize</I> value is less than <B>sizeof(</B>TDI_CLIENT_INTERFACE_INFO<B>)</B>. The caller should not propagate this return value to higher level network components. </DD>
+
+<DT>STATUS_INSUFFICIENT_RESOURCES</DT>
+
+<DD>TDI could not allocate the buffers it needed to maintain state for this client's notifications or, perhaps, other resources necessary to process this registration request. (Possibly, a subsequent call to <B>TdiRegisterPnPHandlers</B> will not fail for this reason if resources currently in use are released.) 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>TdiKrnl.h</I>. Include <I>TdiKrnl.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The caller must supply the following information at <I>ClientInterfaceInfo</I> to receive subsequent notifications of PnP/power-state changes, binding changes, and network address changes:
+
+<UL>
+	<LI><B>MajorTdiVersion</B> set to 2 or TDI_CURRENT_MAJOR_VERSION.</LI>
+
+	<LI><B>MinorTdiVersion</B> set to 0 or TDI_CURRENT_MINOR_VERSION.</LI>
+
+	<LI><B>ClientName</B> set to the address of a buffered Unicode string specifying the client's named key in the registry <B>HKLM\System\CCS\Services</B> tree. </LI>
+
+	<LI><B>PnPPowerHandler</B> set to the entry point of the caller's ClientPnPPowerChange routine.</LI>
+
+	<LI><B>BindingHandler</B> set to the entry point of the caller's ClientPnPBindingChange routine.</LI>
+
+	<LI><B>AddAddressHandlerV2</B> set to the entry point of the caller's ClientPnPAddNetAddress routine.</LI>
+
+	<LI><B>DelAddressHandlerV2</B> set to the entry point of the caller's ClientPnPDelNetAddress routine.</LI>
+</UL>
+
+<P>On return from a successful call to <B>TdiRegisterPnPHandlers</B>, the ClientPnPBindingChange and ClientPnPAddNetAddress routines have been called one or more times with all the system-setup-time information currently available to TDI about transports and their already registered network addresses. That is, TDI has made the following initialization-time calls to the client's just registered PnP routines:
+
+<UL>
+	<LI>ClientPnPBindingChange has been called one or more times with the <I>PnPOpcode</I> TDI_PNP_OP_ADD and the buffered name of a device object created to represent an established transport-to-NIC binding by any transport already registered with TDI. ClientPnPBindingChange also could have been called one or more times with the <I>PnPOpcode</I> TDI_PNP_OP_PROVIDERREADY and the buffered name of any TDI transport driver that has declared itself ready to carry out network I/O operations on its respective transport-to-NIC bindings. 
+<P>At each call to ClientPnPBindingChange with the <I>PnPOpcode</I> TDI_PNP_OP_ADD, this routine determines whether to bind itself to the underlying transport-to-NIC binding with a call to <A HREF="JavaScript:hhobj_1.Click()"><B>ZwCreateFile</B></A>. 
+</LI>
+
+	<LI>ClientPnPAddNetAddress has been called one or more times with each network address that these transports have already registered on their established bindings with calls to <B>TdiRegisterNetworkAddress</B>. 
+<P>At each such call to ClientPnPAddNetAddress, this routine examines the <B>AddressType</B> member of the structure at the input <I>Address</I> to determine whether it recognizes this network protocol and returns control promptly if it does not. Otherwise, ClientPnPAddNetAddress examines the buffered string at <I>DeviceName</I> to determine whether the client has already bound itself to this transport. If so, ClientPnpAddNetAddress uses the input protocol-specific address information to add entries to the client-allocated internal list of valid and registered network addresses. The client might use such a registered network address for subsequent network I/O requests after opening it, again with a call to <B>ZwCreateFile</B>. 
+</LI>
+</UL>
+
+<P>Note that ClientPnPBindingChange can be called with the <I>PnPOpcode</I> TDI_PNP_OP_ADD and TDI_PNP_OP_PROVIDERREADY subsequently during system startup if another transport-to-NIC binding is established and the transport makes successful calls to <B>TdiRegisterDeviceObject</B>, possibly also to <B>TdiRegisterNetworkAddress</B> (thereby causing one or more calls to ClientPnPAddNetAddress), and to <B>TdiProviderReady</B>. </P>
+
+<P>In addition, when TDI determines that all possible transport-to-NIC bindings configured for the computer have been established and that every transport has indicated its readiness to transfer network data, TDI calls every registered ClientPnPBindingChange routine once more with the <I>PnPOpcode</I> TDI_PNP_OP_NETREADY and a NULL <I>DeviceName</I> pointer. This last initialization-time call to ClientPnPBindingChange indicates that the system initialization phase of setting up network communications is now done. </P>
+
+<P>Following system startup, TDI makes dyanamic calls to these registered ClientPnP<I>Xxx</I> routines as the transports to which the client is bound make runtime calls to <B>TdiRegisterDeviceObject</B>, <B>TdiDeregisterDeviceObject</B>, <B>TdiRegisterNetAddress</B>, <B>TdiDeregisterNetAddress</B>, and <B>TdiPnPPowerRequest</B> until the client makes a reciprocal call to <B>TdiDeregisterPnPHandlers</B> with the returned handle at <B>*</B><I>BindingHandle</I>. </P>
+
+<P>Callers of <B>TdiRegisterPnPHandlers</B> must be running at IRQL &lt; DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_8d4i.htm"><B>ClientPnPAddNetAddress</B></A>, <A HREF="35tdicli_3k36.htm"><B>ClientPnPBindingChange</B></A>, <A HREF="35tdicli_33hu.htm"><B>ClientPnPDelNetAddress</B></A>, <A HREF="35tdicli_4h9u.htm"><B>ClientPnPPowerChange</B></A>, <A HREF="33tdifun_1u2a.htm"><B>TdiDeregisterDeviceObject</B></A>, <A HREF="33tdifun_6ovm.htm"><B>TdiDeregisterNetAddress</B></A>, <A HREF="33tdifun_5bea.htm"><B>TdiDeregisterPnPHandlers</B></A>, <A HREF="33tdifun_4y9e.htm"><B>TdiEnumerateAddresses</B></A>, <A HREF="33tdifun_2d0y.htm"><B>TdiRegisterDeviceObject</B></A>, <A HREF="33tdifun_6uia.htm"><B>TdiRegisterNetAddress</B></A>, <A HREF="33tdifun_4p6a.htm"><B>TdiPnPPowerRequest</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TdiRegisterPnPHandlers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

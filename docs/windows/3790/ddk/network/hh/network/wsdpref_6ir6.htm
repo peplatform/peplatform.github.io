@@ -1,0 +1,136 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WSPSocket</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WSPSocket">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wspsocket_nr"></A>WSPSocket</H1>
+
+<P><B>WSPSocket</B> function creates a socket. </P>
+
+<PRE class=syntax><B>SOCKET 
+  WSPSocket(
+    IN int </B><I> af</I><B>,</B>
+<B>    IN int </B><I> type</I><B>,</B>
+<B>    IN int </B><I> protocol</I><B>,</B>
+<B>    IN LPWSAPROTOCOL_INFOW </B><I> lpProtocolInfo</I><B>,</B>
+<B>    IN GROUP </B><I> g</I><B>,</B>
+<B>    IN DWORD </B><I> dwFlags</I><B>,</B>
+<B>    OUT LPINT </B><I> lpErrno</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>af</I></DT>
+
+<DD>Address family specification for the new socket.</DD>
+
+<DT><I>type</I></DT>
+
+<DD>Type specification for the new socket.</DD>
+
+<DT><I>protocol</I></DT>
+
+<DD>Protocol to be used with the new socket that is specific to the address family in <I>af</I>.</DD>
+
+<DT><I>lpProtocolInfo</I></DT>
+
+<DD>Pointer to a <A HREF="wsdpref_0bg2.htm">WSAPROTOCOL_INFOW</A> structure that specifies the characteristics of the socket to be created.</DD>
+
+<DT><I>g</I></DT>
+
+<DD>Reserved.</DD>
+
+<DT><I>dwFlags</I></DT>
+
+<DD>Set of flags that specify supplementary information about the socket.</DD>
+
+<DT><I>lpErrno</I></DT>
+
+<DD>Pointer to a variable that receives the error code.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>Returns a value of type SOCKET that is a descriptor for the new socket, if successful; otherwise, returns INVALID_SOCKET and, at <I>lpErrno</I>, one of the following error codes: 
+
+<DL>
+<DT>WSAENETDOWN</DT>
+
+<DD>Network subsystem failed.</DD>
+
+<DT>WSAEAFNOSUPPORT</DT>
+
+<DD>The specified address family is not supported.</DD>
+
+<DT>WSAEMFILE</DT>
+
+<DD>No more socket descriptors available.</DD>
+
+<DT>WSAENOBUFS</DT>
+
+<DD>No buffer space is available; socket cannot be created.</DD>
+
+<DT>WSAEPROTONOSUPPORT</DT>
+
+<DD>Specified protocol is not supported.</DD>
+
+<DT>WSAEPROTOTYPE</DT>
+
+<DD>Specified protocol is the wrong type for this socket.</DD>
+
+<DT>WSAESOCKTNOSUPPORT</DT>
+
+<DD>Specified socket type is not supported in the address family in <I>af</I>.</DD>
+
+<DT>WSAEINVAL</DT>
+
+<DD>The <I>g</I> parameter is not valid.</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>Ws2spi.h</I>. Include <I>Ws2spi.h</I>. Requires Windows Sockets version&nbsp;2.0.</P>
+
+<H4>Comments</H4>
+
+<P>The Windows Sockets switch calls a SAN service provider's <B>WSPSocket</B> function to allocate a socket descriptor and any related resources for that socket descriptor. In this call, the switch always passes the WSA_FLAG_OVERLAPPED flag to specify that the created socket can use asynchronous (overlapped) data transfer. </P>
+
+<P>In the <B>WSPSocket</B> call, the switch also specifies values for address family, socket type, and protocol type that an application supplies in corresponding <B>socket</B> or <B>WSASocket</B> function calls. In the current version of Windows Sockets Direct, the switch only creates sockets with the following values for address family, socket type, and protocol type: 
+
+<UL>
+	<LI>AF_INET for the standard Internet address family. </LI>
+
+	<LI>SOCK_STREAM for a socket type specification that provides sequenced, reliable, two-way, connection-based byte streams and uses TCP for the Internet address family. </LI>
+
+	<LI>IPPROTO_TCP for the TCP/IP protocol. </LI>
+</UL>
+
+<P>In the <B>WSPSocket</B> call, the switch also passes a pointer to a WSAPROTOCOL_INFOW structure that specifies TCP/IP protocol information and characteristics of the socket. </P>
+
+<P>A SAN service provider creates socket descriptors that are not installable file system (IFS) objects; that is, it is a provider of non-IFS socket descriptors. On the other hand, the TCP/IP provider is a provider of IFS socket descriptors. Applications that are Windows Sockets SPI clients can call only standard Win32 I/O functions, such as <B>ReadFile</B> and <B>WriteFile</B>, using IFS socket descriptors. </P>
+
+<P>A SAN service provider must call the <B>WPUCreateSocketHandle</B> function to acquire a unique socket descriptor from the switch prior to returning from <B>WSPSocket</B>. The SAN service provider must store the switch's descriptor in the SAN service provider's internal data structure for the new socket. The SAN service provider returns its own descriptor for the socket to complete the <B>WSPSocket</B> call. The switch must supply the SAN service provider’s internal descriptor for the new socket when calling the SAN service provider’s functions, while the SAN service provider must supply the switch’s socket descriptor in up calls to the switch. </P>
+
+<P>The switch specifies only the WSA_FLAG_OVERLAPPED flag in the <I>dwFlags</I> parameter in a <B>WSPSocket</B> call. This flag causes a SAN service provider to create an overlapped socket. The switch can call the SAN service provider's <B>WSPRecv</B>, <B>WSPRdmaRead</B>, <B>WSPSend</B>, <B>WSPRdmaWrite</B>, and <B>WSPIoctl</B> functions using an overlapped socket to start multiple overlapped operations on that socket that run simultaneously. All these functions that allow overlapped operation also support nonoverlapped usage on an overlapped socket if the values for parameters related to overlapped operation are set to NULL. Functions that perform operations in a nonoverlapped manner block further processing. That is, those functions do not return until their associated operations complete. </P>
+
+<P>SAN sockets, which are SOCK_STREAM socket types, provide full-duplex connections (that is, two-way communication that takes place in both directions simultaneously can occur on SAN sockets). Before receiving or sending any data on a SAN socket, the switch can call the SAN service provider's <B>WSPConnect</B> function to connect such a SAN socket to a peer. After connection is established, the switch can call the SAN service provider's <B>WSPSend</B>, <B>WSPRdmaWrite</B>, <B>WSPRecv</B> and <B>WSPRdmaRead</B> functions to transfer data. After a data transfer session completes, the switch must call the SAN service provider's <B>WSPCloseSocket</B> function to close the socket. </P>
+
+<P>SAN transports that are used to transfer data reliably ensure that data is not lost or duplicated. If data (for which the remote peer has buffer space) cannot be successfully transmitted within a reasonable length of time, the connection is considered broken and subsequent calls fail with the error code set to WSAETIMEDOUT. </P>
+
+<P>The switch, running in a controlling process, calls the SAN service provider's <B>WSPDuplicateSocket</B> function to obtain a special WSAPROTOCOL_INFOW structure. The switch, running in another process, in turn, calls the SAN service provider's <B>WSPSocket</B> function and passes this WSAPROTOCOL_INFOW structure to create a socket descriptor for a shared underlying socket. Applications running in two or more processes can use this shared socket, but not simultaneously. In this <B>WSPSocket</B> call, the SAN service provider ignores socket group and flags parameters. In addition, the <B>dwProviderReserved</B> member of the WSAPROTOCOL_INFOW structure that specifies protocol information should be set to the same value that <B>WSPDuplicateSocket</B> returned. For more information, see <A HREF="wsdp_8d0n.htm">Duplicating Socket Handles for a SAN</A>. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="wsdpref_0bg2.htm">WSAPROTOCOL_INFOW</A>, <A HREF="wsdpref_0tiq.htm"><B>WSPAccept</B></A>, <A HREF="wsdpref_5wfm.htm"><B>WSPBind</B></A>, <A HREF="wsdpref_4fsi.htm"><B>WSPCloseSocket</B></A>, <A HREF="wsdpref_7enm.htm"><B>WSPConnect</B></A>, <A HREF="wsdpref_49gy.htm"><B>WSPDuplicateSocket</B></A>, <A HREF="wsdpref_1o4y.htm"><B>WSPGetSockOpt</B></A>, <A HREF="wsdpref_1b3m.htm"><B>WSPIoctl</B></A>, <A HREF="wsdpref_4a5u.htm"><B>WSPListen</B></A>, <A HREF="wsdpref_7soi.htm"><B>WSPRdmaRead</B></A>, <A HREF="wsdpref_7c6q.htm"><B>WSPRdmaWrite</B></A>, <A HREF="wsdpref_5hte.htm"><B>WSPRecv</B></A>, <A HREF="wsdpref_6rqq.htm"><B>WSPSend</B></A>, <A HREF="wsdpref_6fea.htm"><B>WSPSetSockOpt</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WSPSocket"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

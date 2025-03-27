@@ -1,0 +1,173 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IOP Serialization</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IOP Serialization">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_iop_serialization_si"></A>IOP Serialization</H2>
+
+<P>When set, the bit DCB_DEV_SERIAL_CMD in dcb_device_flags instructs IOS to add a special entry into the calldown stack for the DCB (after the port driver gets its AEP_CONFIG_DCB call). The call is to a routine named IOS_serialize. This is used internally only, to support real-mode devices and blockdev (Win 3.1 Fastdisk (32-bit ring 0 ) drivers).</P>
+
+<P>The source code for IOS_serialize (below) is enlightening, since it demonstrates the use of queueing and dequeueing. Your port driver should do its own enqueueing using ILB_enqueue_iop, and so on. Study the code below to help understand IOP queuing mechanics. Note that if you write a VSD (Vendor Supplied Device) that resides in the IOS layered hierarchy between IOS and the port driver, and if your VSD must enqueue IOPs, you cannot use ILB_enqueue_iop. ILB_enqueue_iop is reserved for use by port drivers. Instead, your VSD will need to implement a private queuing mechanism.</P>
+
+<P>You may have noticed the DCB_dmd_serialize flag in the header file DCB.H. This flag is never used.</P>
+
+<PRE>;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;  IOS_serialize
+;       Routine serializes all I/O to a physical device
+;       INPUT:  *IOP on stack
+;       OUTPUT: none
+;       USES: 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+BeginProc       IOS_serialize, esp
+ArgVar  IOPPtr, DWORD
+
+        EnterProc
+        SaveReg &lt;edi&gt;
+
+        mov     eax, IOPPtr
+        AssertIOP &lt;eax&gt;
+        mov     edi, [eax].IOP_physical_dcb
+
+        ;
+        ; insert in callback stack
+        ;
+
+        mov     edx, [eax.IOP_callback_ptr]                    ; set CB 
+        mov     [edx.IOP_cb_address],offset32 IOS_serialize_callback
+        add     [eax.IOP_callback_ptr],size IOP_callBack_entry ; move down
+
+        AssertDCB &lt;edi&gt;
+
+        ;
+        ; enqueue the IOP
+        ;
+
+        push    edi
+        push    eax
+        call    IOS_enqueue_iop
+        add     esp, 8
+
+        call    IOS_bd_send_next_command
+
+IOS_s_exit:
+        RestoreReg &lt;edi&gt;
+
+        LeaveProc
+        Return
+
+EndProc IOS_serialize
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;  IOS_serialize_callback
+;       Completion routine for request serialization
+;       INPUT:  *IOP on stack
+;       OUTPUT: none
+;       USES: 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+BeginProc       IOS_serialize_callback, esp
+
+ArgVar  CBIOPPtr, DWORD
+
+        EnterProc
+
+        SaveReg &lt;esi, edi&gt;
+        mov     esi, CBIOPPtr
+        AssertIOP &lt;esi&gt;
+        
+        mov     edi, [esi].IOP_physical_dcb
+        AssertDCB &lt;edi&gt;
+
+        mov     ecx, [esi].IOP_callback_ptr    ; get our callback ptr   
+        sub     ecx, size IOP_CallBack_Entry   ; point to next available
+                                               ; callback entry
+        mov     [esi].IOP_callback_ptr, ecx    ; update CallBack Pointer
+
+        ;IOP pointer is passed on the stack
+
+        push    esi                            ; IOP's offset
+        call    [ecx].IOP_cb_address           ; make the call
+        add     esp, 4                         ; restore stack
+
+        AssertDCB &lt;edi&gt;
+
+        ;
+        ; dequeue the next request
+        ;
+
+        ASSERT_INTS_ENABLED
+        cli
+        cmp     [edi].DCB_BDD.DCB_BDP_Current_Command, 0
+        je      IOS_sc_send_next
+
+       cmp     esi, [edi].DCB_BDD.DCB_BDP_Current_Command  ; Is this the 
+current cmd?
+        jne     ios_sc_exit
+
+        mov     [edi].DCB_BDD.DCB_BDP_Current_Command, 0    ; No current 
+command!
+
+IOS_sc_send_next:
+        call    IOS_bd_send_next_command
+
+IOS_sc_exit:
+        sti
+        RestoreReg &lt;edi, esi&gt;
+        LeaveProc
+        Return
+
+EndProc IOS_serialize_callback
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;       Starts the next request for a device
+;       ENTRY   edi =&gt; DCB
+;               ints disabled
+;       EXIT    ints enabled
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+BeginProc       IOS_bd_send_next_command
+
+        AssertDCB&lt;edi&gt;
+        cmp     [edi].DCB_BDD.DCB_BDP_Current_Command, 0
+        jne     short ios_snc_exit
+
+        push    edi
+        call    IOS_dequeue_iop
+        add     esp, 4
+
+        or      eax, eax
+        jz      IOS_snc_exit
+
+        AssertIOP &lt;eax&gt;
+        mov     [edi].DCB_BDD.DCB_BDP_Current_Command, eax
+
+        sti
+        SaveReg &lt;esi, edi, ebx&gt;
+
+        lea     edi, [edi].DCB_BDD              ; (edi) = BDD
+        mov     ecx, [eax].IOP_calldown_ptr     ; call down the request
+        mov     ecx, [ecx].DCB_cd_next          ; get next entry
+        mov     [eax].IOP_calldown_ptr, ecx     ; store in IOP
+
+        push    eax                             ; place IOP pointer on stack
+        call    [ecx].DCB_CD_IO_Address         ;
+        add      esp, 4                         ; call next layer down
+
+        RestoreReg &lt;ebx, edi, esi&gt;
+        
+IOS_snc_exit:
+        sti
+        ret
+
+EndProc IOS_bd_send_next_command</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IOP%20Serialization"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

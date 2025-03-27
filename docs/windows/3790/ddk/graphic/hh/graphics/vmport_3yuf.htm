@@ -1,0 +1,70 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Claiming Legacy Resources</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Claiming Legacy Resources">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_claiming_legacy_resources_gg"></A>Claiming Legacy Resources</H2>
+
+<P>A video miniport driver must claim and report all legacy resources in its <A HREF="vstrcts_750n.htm">VIDEO_HW_INITIALIZATION_DATA</A> structure during driver initialization. Legacy resources are those resources not listed in the device's PCI configuration space but that are decoded by the device. NT-based operating systems will disable power management and docking when they encounter legacy resources that are not reported in the manner outlined in this section.</P>
+
+<P>Miniport drivers must do the following to report such legacy resources:
+
+<UL>
+	<LI>If the legacy resource list for the device is known at compile time, fill in the following two fields of the <A HREF="vstrcts_750n.htm">VIDEO_HW_INITIALIZATION_DATA</A> structure that is created and initialized in the <A HREF="vmpfncs_06g7.htm"><B>DriverEntry</B></A> routine:
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=41%>Structure Member</TH>
+<TH align=left width=59%>Definition</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%><B>HwLegacyResourceList</B></TD>
+<TD width=59%>Points to an array of <A HREF="vstrcts_6h0n.htm">VIDEO_ACCESS_RANGE</A> structures. Each structure describes a device I/O port or memory range for the video adapter that is not listed in PCI configuration space.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%><B>HwLegacyResourceCount</B></TD>
+<TD width=59%>Is the number of elements in the array to which <B>HwLegacyResourceList</B> points.</TD>
+</TR>
+</TABLE><BR>
+</LI>
+
+	<LI>If the legacy resource list for the device is not known at compile time, implement a <A HREF="vmpfncs_9nl3.htm"><I>HwVidLegacyResources</I></A> function and initialize the <B>HwGetLegacyResources</B> member of VIDEO_HW_INITIALIZATION_DATA to point to this function. For example, a miniport driver that supports two devices with different sets of legacy resources would implement <I>HwVidLegacyResources</I> to report the legacy resources at run time. The video port driver will ignore the <B>HwLegacyResourceList</B> and <B>HwLegacyResourceCount</B> members of VIDEO_HW_INITIALIZATION_DATA when a miniport driver implements <I>HwVidLegacyResources</I>.</LI>
+
+	<LI>Fill in the <B>RangePassive</B> field for each VIDEO_ACCESS_RANGE structure defined in the miniport driver accordingly. Setting <B>RangePassive</B> to VIDEO_RANGE_PASSIVE_DECODE indicates that the region is decoded by the hardware but that the display and video miniport drivers will never touch it. Setting <B>RangePassive</B> to VIDEO_RANGE_10_BIT_DECODE indicates that the device decodes ten bits of the port address for the region.<B> </B></LI>
+</UL>
+
+<P>Again, a driver should only include resources that the hardware decodes but that are not claimed by PCI. Code in a driver that needs to claim minimal legacy resources might look something like the following:</P>
+
+<PRE>//              RangeStart        RangeLength
+//              |                 |      RangeInIoSpace
+//              |                 |      |  RangeVisible
+//        +-----+-----+           |      |  |  RangeShareable
+//       low         high         |      |  |  |  RangePassive
+//        v           v           v      v  v  v  v
+VIDEO_ACCESS_RANGE AccessRanges[] = {
+    // [0] (0x3b0-0x3bb)
+    {0x000003b0, 0x00000000, 0x0000000c, 1, 1, 1, 0},
+    // [1] (0x3c0-0x3df)
+    {0x000003C0, 0x00000000, 0x00000010, 1, 1, 1, 0},
+    // [2] (0xa0000-0xaffff)
+    {0x000A0000, 0x00000000, 0x00010000, 1, 0, 0, 0},
+};
+ 
+// Within the DriverEntry routine:
+VIDEO_HW_INITIALIZATION_DATA hwInitData;
+hwInitData.HwLegacyResourceList = AccessRanges;
+hwInitData.HwLegacyResourceCount = 3;</PRE>
+
+<P>The miniport driver can "reclaim" legacy resources again in subsequent call(s) to <A HREF="vpfncs_0x7r.htm"><B>VideoPortVerifyAccessRanges</B></A>; however, the video port driver will just ignore requests for any such previously claimed resources. Power management and docking will be disabled in the system if the miniport driver attempts to claim a legacy access range in <B>VideoPortVerifyAccessRanges</B> that was not previously claimed in the <B>HwLegacyResourceList</B> during <A HREF="vmpfncs_06g7.htm"><B>DriverEntry</B></A> or returned in the <I>LegacyResourceList</I> parameter of <A HREF="vmpfncs_9nl3.htm"><I>HwVidLegacyResources</I></A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Claiming%20Legacy%20Resources"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,170 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>CIP_FRAME</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="CIP_FRAME">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_cip_frame_kr"></A>CIP_FRAME</H1>
+
+<P>The CIP_FRAME structure describes a frame to be attached to an input or output plug.  </P>
+
+<PRE class=syntax>struct _CIP_FRAME {
+  IN PCIP_FRAME  pNext;
+  IN ULONG  Flags;
+  IN PCIP_VALIDATE_ROUTINE  pfnValidate;
+  IN PVOID  ValidateContext;
+  IN PCIP_NOTIFY_ROUTINE  pfnNotify;
+  IN PVOID  NotifyContext;
+  OUT CYCLE_TIME  Timestamp;
+  OUT ULONG  Status;
+  IN OUT PUCHAR  Packet;
+};</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>pNext</B></DT>
+
+<DD>Reserved for internal use.</DD>
+
+<DT><B>Flags</B></DT>
+
+<DD>Specifies options associated with this frame. 
+
+<P>For packets to be received, <B>Flags</B> can be one of the following:
+
+
+<DL>
+<DT>CIP_VALIDATE_FIRST_SOURCE</DT>
+
+<DD>Instructs the IEC-61883 protocol driver to call the client-driver-supplied function at <B>pfnValidate</B> to validate only the first source packet.</DD>
+
+<DT>CIP_VALIDATE_ALL_SOURCE</DT>
+
+<DD>Instructs the IEC-61883 protocol driver to call the client-driver-supplied function at <B>pfnValidate</B> to validate all source packets.</DD>
+</DL>
+
+
+<P>For packets to be received, CIP_VALIDATE_XXX can be combined with either or both of the following:
+
+
+<DL>
+<DT>CIP_STRIP_SOURCE_HEADER</DT>
+
+<DD>Instructs the protocol driver to strip the source header packet within a source packet.</DD>
+
+<DT>CIP_USE_SOURCE_HEADER_TIMESTAMP</DT>
+
+<DD>Instructs the protocol driver to timestamp the frame with the timestamp found within the source header packet.</DD>
+</DL>
+
+
+<P>For packets to be transmitted, <B>Flags</B> can be one of the following:
+
+
+<DL>
+<DT>CIP_DV_STYLE_SYT</DT>
+
+<DD>The value at <B>TimeStamp</B> is formatted for data transmission to digital video devices (SD-DVCR, HD-DVCR, or SDL-DVCR).</DD>
+
+<DT>CIP_AUDIO_STYLE_SYT</DT>
+
+<DD>The value at <B>TimeStamp</B> is formatted for audio and music data transmission to audio devices.</DD>
+</DL>
+
+
+<P>For packets to be transmitted or received, <B>Flags</B> can also be set with the following:
+
+
+<DL>
+<DT>CIP_RESET_FRAME_ON_DISCONTINUITY</DT>
+
+<DD>Instructs the protocol driver to resume a stopped stream at the beginning of the frame instead of the next source packet. </DD>
+</DL>
+</DD>
+
+<DT><B>pfnValidate</B></DT>
+
+<DD>Points to a caller-supplied function to validate a source packet. This function uses the following prototype: The parameter <B>ValidateInfo</B> must point to a <A HREF="61883_structures_6u2a.htm">CIP_VALIDATE_INFO</A> structure that contains information about the frame. 
+
+<PRE><B>ULONG 
+  (*PCIP_VALIDATE_ROUTINE) ( 
+    IN PCIP_VALIDATE_INFO</B>  <I>ValidateInfo</I>
+<B>  );</B></PRE>
+
+</DD>
+
+<DT><B>ValidateContext</B></DT>
+
+<DD>Points to an optional caller-defined context for the function at <B>pfnValidate</B>. If the function does not require a context, <B>ValidateContext</B> can be NULL.</DD>
+
+<DT><B>pfnNotify</B></DT>
+
+<DD>Points to a caller-supplied function to be called by the protocol driver when the requested frame is completed. The protocol driver calls this function at IRQL = DISPATCH_LEVEL.
+
+<P>This function uses the following prototype:
+
+
+<PRE><B>ULONG 
+  (*PCIP_NOTIFY_ROUTINE) (</B> 
+<B>    IN PCIP_NOTIFY_INFO</B>  <I>NotifyInfo</I> 
+  <B>);</B>
+</PRE>
+
+
+<DL>
+<DT>The <B>NotifyInfo</B> member points to a <A HREF="61883_structures_24vm.htm">CIP_NOTIFY_INFO</A> structure that contains information about the frame. </DT>
+
+<DD></DD>
+</DL>
+</DD>
+
+<DT><B>NotifyContext</B></DT>
+
+<DD>Points to an optional caller-defined context for the caller-supplied function at <B>pfnNotify</B>. If the function does not require a context, <B>NotifyContext</B> can be NULL.</DD>
+
+<DT><B>Timestamp</B></DT>
+
+<DD>The time associated with completion of the frame. 
+
+<P>For packets to be received, the protocol driver sets this member to the time when transmission of the frame was completed, unless CIP_USE_SOURCE_HEADER_TIMESTAMP is set in <B>Flags</B>. 
+
+
+<P>For packets to be transmitted, CIP-DV_STYLE_SYT or CIP_AUDIO_STYLE_SYT in <B>Flags</B> indicates the format of the timestamp.
+</DD>
+
+<DT><B>Status</B></DT>
+
+<DD>The status of the frame. Can be one of the following:
+
+<P>CIP_STATUS_SUCCESS
+
+
+<P>CIP_STATUS_CORRUPT_FRAME
+
+
+<P>CIP_STATUS_FIRST_FRAME
+</DD>
+
+<DT><B>Packet</B></DT>
+
+<DD>Points to the beginning of a caller-allocated data buffer to be transmitted or received with this frame. The frame length specified in the associated <A HREF="61883_requests_4p0y.htm"><B>Av61883_AttachFrame</B></A> request indicates the size of the buffer.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>61883.h</I>. Include <I>61883.h</I>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="61883_requests_4p0y.htm"><B>Av61883_AttachFrame</B></A>, <A HREF="61883_requests_3aya.htm"><B>Av61883_CancelFrame</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: CIP_FRAME"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

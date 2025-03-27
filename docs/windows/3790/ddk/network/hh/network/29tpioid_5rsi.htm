@@ -1,0 +1,117 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>OID_TAPI_GET_ID</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="OID_TAPI_GET_ID">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_oid_tapi_get_id_nr"></A>OID_TAPI_GET_ID</H1>
+
+<P>The OID_TAPI_GET_ID OID requests the miniport driver to return a device ID for the specified device class associated with the selected line, address, or call. </P>
+
+<P>Support for this request is mandatory. </P>
+
+<P>This request uses an NDIS_TAPI_GET_ID structure, defined as follows:</P>
+
+<PRE class=syntax>typedef struct _NDIS_TAPI_GET_ID { 
+  IN ULONG  ulRequestID; 
+  IN HDRV_LINE  hdLine; 
+  IN ULONG  ulAddressID; 
+  IN HDRV_CALL  hdCall; 
+  IN ULONG  ulSelect; 
+  IN ULONG  ulDeviceClassSize; 
+  IN ULONG  ulDeviceClassOffset; 
+  OUT VAR_STRING  DeviceID; 
+} NDIS_TAPI_GET_ID, *PNDIS_TAPI_GET_ID; </PRE>
+
+<P>The members of this structure contain the following information:
+
+<DL>
+<DT><B>ulRequestID</B></DT>
+
+<DD>Reserved.</DD>
+
+<DT><B>hdLine</B></DT>
+
+<DD>Specifies the miniport driver's handle to the line.</DD>
+
+<DT><B>ulAddressID</B></DT>
+
+<DD>Specifies an address on the given open line device. The value of this member is not validated by NDISTAPI when this request is made.</DD>
+
+<DT><B>hdCall</B></DT>
+
+<DD>Specifies the miniport driver's handle to the call.</DD>
+
+<DT><B>ulSelect</B></DT>
+
+<DD>Specifies whether the device ID is associated with the line, address, or a single call as one of the following:
+
+<DL>
+<DT>LINECALLSELECT_LINE</DT>
+
+<DD>Selects the specified line device. The <B>hdLine</B> member must contain a valid line handle; <B>hdCall</B> and <B>ulAddressID</B> are unused.</DD>
+
+<DT>LINECALLSELECT_ADDRESS</DT>
+
+<DD>Selects the specified address on the line. Both <B>hdLine</B> and <B>ulAddressID </B>must be valid; <B>hdCall</B> is unused.</DD>
+
+<DT>LINECALLSELECT_CALL</DT>
+
+<DD>Selects the specified call. The <B>hdCall</B> member must be valid; <B>hdLine</B> and <B>ulAddressID</B> are unused.</DD>
+</DL>
+</DD>
+
+<DT><B>ulDeviceClassSize</B></DT>
+
+<DD>Specifies the size in bytes of the zero-terminated, variable-size string specifying the device class of the device for which the configuration should be returned.</DD>
+
+<DT><B>ulDeviceClassOffset</B></DT>
+
+<DD>Specifies the offset in bytes to the device-class string.</DD>
+
+<DT><B>DeviceID</B></DT>
+
+<DD>Specifies the virtual address of a data structure of type <A HREF="29tpioid_5jhu.htm#ddk_tapi_type_var_string_nr">VAR_STRING</A> in which the device ID should be returned. 
+
+<P>The miniport driver fills this structure with the device ID to complete this request successfully. 
+
+</DD>
+</DL>
+
+<P>Currently, there are two types of this request that must be supported by WAN NIC drivers:</P>
+
+<PRE>  <B>IN</B>  <B>DeviceClass</B> = "ndis" // case insensitive
+    <B>IN</B>  <B>ulSelect</B> = LINECALLSELECT_CALL
+    <B>IN</B>  <B>hdCall</B> = <I>ActiveCallHandle</I>
+    <B>OUT</B>  <B>DeviceID</B> = <I>ConnectionWrapperID</I> </PRE>
+
+<P class=indent2><B>DeviceID </B>should be set to the <B>NdisLinkContext</B> handle returned by NDISWAN in the <A HREF="105nstru_4agi.htm">NDIS_MAC_LINE_UP</A> structure for the initial NDIS_STATUS_WAN_LINE_UP indication to establish the link.</P>
+
+<P class=indent2>The miniport driver must make the initial line-up indication to establish a link (or open a data channel on a line) before returning from this request in order to supply this <B>DeviceID</B> value. </P>
+
+<PRE>  <B>IN</B>  <B>DeviceClass</B> = "tapi/line"
+    <B>IN</B>  <B>ulSelect </B>= LINECALLSELECT_LINE
+    <B>IN</B>  <B>hdLine</B> = <I>OpenLineHandle</I>
+    <B>OUT</B>  <B>DeviceID</B> = <I>ulDeviceID</I> </PRE>
+
+<P class=indent2><B>DeviceID</B> will be set to the miniport driver-determined DeviceID associated with the line handle.</P>
+
+<P>The <A HREF="101mini_2vw2.htm"><I>MiniportQueryInformation</I></A> function can return one of the following:</P>
+
+<P class=indent1>NDIS_STATUS_SUCCESS<BR>
+NDIS_STATUS_PENDING<BR>
+NDIS_STATUS_TAPI_INVALLINEHANDLE<BR>
+NDIS_STATUS_TAPI_INVALADDRESSID<BR>
+NDIS_STATUS_TAPI_INVALCALLHANDLE<BR>
+NDIS_STATUS_TAPI_NODEVICE<BR>
+NDIS_STATUS_TAPI_RESOURCEUNAVAIL<BR>
+NDIS_STATUS_FAILURE</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: OID_TAPI_GET_ID"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

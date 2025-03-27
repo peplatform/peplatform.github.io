@@ -1,0 +1,155 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DD_LOCKDATA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DD_LOCKDATA">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_dd_lockdata_gg"></A>DD_LOCKDATA</H1>
+
+<P>The DD_LOCKDATA structure contains information necessary to do a lock as defined by DirectDraw's parameter structures.</P>
+
+<PRE class=syntax>typedef struct _DD_LOCKDATA {
+  PDD_DIRECTDRAW_GLOBAL  lpDD;
+  PDD_SURFACE_LOCAL  lpDDSurface;
+  DWORD  bHasRect;
+  RECTL  rArea;
+  LPVOID  lpSurfData;
+  HRESULT  ddRVal;
+  VOID  *Lock;
+  DWORD  dwFlags;
+  FLATPTR  fpProcess;
+} DD_LOCKDATA;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>lpDD</B> </DT>
+
+<DD>Points to a <A HREF="ddstrcts_32nb.htm">DD_DIRECTDRAW_GLOBAL</A> structure that describes the DirectDraw API.</DD>
+
+<DT><B>lpDDSurface</B> </DT>
+
+<DD>Points to a <A HREF="ddstrcts_1vl4.htm">DD_SURFACE_LOCAL</A> structure that describes the surface—in the case of <A HREF="d3dfncs_1bqf.htm"><I>LockD3DBuffer</I></A>, a buffer—associated with the memory region to be locked down.</DD>
+
+<DT><B>bHasRect</B> </DT>
+
+<DD>Specifies whether the area in <B>rArea</B> is valid.</DD>
+
+<DT><B>rArea</B> </DT>
+
+<DD>Specifies a RECTL structure that defines the area on the surface to lock down.</DD>
+
+<DT><B>lpSurfData</B> </DT>
+
+<DD>Specifies the location in which the driver can return a pointer to the memory region that it locked down.</DD>
+
+<DT><B>ddRVal</B> </DT>
+
+<DD>Specifies the location in which the driver writes the return value of either the <A HREF="ddfncs_11gn.htm"><I>DdLock</I></A> or <I>LockD3DBuffer</I> callback. A return code of DD_OK indicates success.</DD>
+
+<DT><B>Lock</B> </DT>
+
+<DD>Used by the DirectDraw API and should not be filled in by the driver.</DD>
+
+<DT><B>dwFlags</B> </DT>
+
+<DD>Specifies a bitmask that tells the driver how to perform the memory lockdown. This member is a bitwise OR of any of the following values:
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Flag</TH>
+<TH align=left width=52%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDLOCK_DISCARDCONTENTS</TD>
+<TD width=52%>No assumptions are made about the contents of the surface or vertex buffer during this lock. This enables two things:<BR>
+1. Direct3D or the driver may provide an alternative memory area as the vertex buffer. This is useful when one plans to clear the contents of the vertex buffer and fill in new data.<BR>
+2. Drivers sometimes store surface data in a reordered format. When the application locks the surface, the driver is forced to undo this surface data reordering before allowing the application to see the surface contents.
+<P>This flag is a hint to the driver that it can skip the un-reordering process since the application plans to overwrite every single pixel in the surface or locked rectangle (and so erase any un-reordered pixels anyway). Applications should always set this flag when they intend to overwrite the entire surface or locked rectangle.</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDLOCK_DONOTWAIT</TD>
+<TD width=52%>On <B>IDirectDrawSurface7</B> and higher interfaces, the default is DDLOCK_WAIT. If you wish to override the default and use time when the accelerator is busy (as denoted by the DDERR_WASSTILLDRAWING return code) then use this flag.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDLOCK_EVENT</TD>
+<TD width=52%>Set if an event handle is being passed to <B>Lock</B>, which triggers the event when it can return the surface memory pointer requested.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDLOCK_HASVOLUMETEXTUREBOXRECT</TD>
+<TD width=52%>The driver should return a valid memory pointer to the beginning of the subvolume texture specified in the rectangle (RECTL) in <B>rArea</B>. The driver obtains the front and back coordinates of the subvolume from the top 16 bits of the left and right coordinates (<B>left</B> and <B>right</B> members of RECTL) respectively. The left and right coordinates are constrained to the lower 16 bits. If no rectangle is specified, the driver should return a pointer to the top of the whole volume. This value is available in DirectX 8.1 and later.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDLOCK_NODIRTYUPDATE</TD>
+<TD width=52%>Sent to the driver by the runtime after an application requests to lock down a memory region with the D3DLOCK_NO_DIRTY_UPDATE flag set. In this case, the driver should not consider the memory region that it locks down as dirty when the runtime calls the driver's <A HREF="ddfncs_7vs7.htm"><I>DdUnlock</I></A> function to update a surface that contains this region. Rather, the driver should only consider the regions specified in previous calls to its <A HREF="d3dfncs_5usn.htm"><I>D3dDrawPrimitives2</I></A> function using the <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_adddirtyrect_gg">D3DDP2OP_ADDDIRTYRECT</A> and <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_adddirtybox_gg">D3DDP2OP_ADDDIRTYBOX</A> enumerators as dirty. <BR>
+By default, a lock on a surface adds a dirty region to that surface. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDLOCK_NOOVERWRITE</TD>
+<TD width=52%>Used only with Direct3D vertex buffer locks. Indicates that no vertices that were referred to in <B>IDirect3DDevice7::DrawPrimitiveVB</B> and <B>IDirect3DDevice7::DrawIndexedPrimitiveVB</B> calls (described in the Direct3D SDK documentation) since the start of the frame (or the last lock without this flag) are modified during the lock. This can be useful when one is only appending data to the vertex buffer.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDLOCK_NOSYSLOCK</TD>
+<TD width=52%>Indicates that a system-wide lock should not be taken when this surface is locked. This has several advantages when locking video memory surfaces, such as cursor responsiveness, ability to call more Windows functions, and easier debugging. However, an application specifying this flag must comply with a number of conditions documented in the help file.<BR>
+This flag cannot be specified when locking the primary.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDLOCK_OKTOSWAP</TD>
+<TD width=52%>Same as DDLOCK_DISCARDCONTENTS.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDLOCK_READONLY</TD>
+<TD width=52%>The surface being locked will only be read from. On Windows&nbsp;2000 and later, this flag is never set.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDLOCK_SURFACEMEMORYPTR</TD>
+<TD width=52%>The driver should return a valid memory pointer to the top of the rectangle specified in <B>rArea</B>. If no rectangle is specified, the driver should return a pointer to the top of the surface.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDLOCK_WAIT</TD>
+<TD width=52%>Set to indicate that <B>Lock</B> should wait until it can obtain a valid memory pointer before returning. If this bit is set, <B>Lock</B> never returns DDERR_WASSTILLDRAWING.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDLOCK_WRITEONLY</TD>
+<TD width=52%>The surface being locked will only be written to. On Windows&nbsp;2000 and later, this flag is never set.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>fpProcess (Windows 2000 and later only)</B></DT>
+
+<DD>Specifies a pointer to a user-mode mapping of the driver's memory. The driver performs this mapping in <A HREF="ddfncs_35wn.htm"><I>DdMapMemory</I></A>.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>ddrawint.h</I>. Include <I>winddi.h</I>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddfncs_11gn.htm"><I>DdLock</I></A>, <A HREF="ddfncs_35wn.htm"><I>DdMapMemory</I></A>, <A HREF="d3dfncs_1bqf.htm"><I>LockD3DBuffer</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DD_LOCKDATA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WIA Minidriver Troubleshooting</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WIA Minidriver Troubleshooting">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wia_minidriver_troubleshooting_si"></A>WIA Minidriver Troubleshooting</H1>
+
+<P>By default, the WIA service logs errors to a file named <I>wiadebug.log</I> in the <B>%</B><I>windir</I><B>%</B> directory. The information that the WIA service places in this file can be very helpful during driver development. The following example depicts a typical problem and shows how the information in the <I>wiadebug.log</I> file can be used to find a solution to the problem.</P>
+
+<P>A developer writes an application to test a scanner driver that is under development. As one of the tests, the developer attempts to set the scanner's DPI to 1200, but notices that this action produces an error. A look at the <I>wiadebug.log</I> file shows the following:</P>
+
+<PRE>wiasGetChangedValueLong, validate prop 6147 failed hr: 0x80070057
+wiasUpdateScanRect, CheckXResAndUpdate failed (0x80070057)
+CDrvWrap::WIA_drvValidateItemProperties, Error calling driver:
+drvValidateItemProperties with hr = 0x80070057 (This is normal if the app wrote an invalid value)
+</PRE>
+
+<P>These log entries indicate that the driver is reporting that the application wrote an invalid value. It is not clear from this information what the exact problem is. If the developer increases the WIA logging level to report warnings as well as the errors, <I>wiadebug.log</I> produces output similar to the following:</P>
+
+<PRE>    wiasValidateItemProperties, invalid LIST value for : 
+        (propID) Horizontal Resolution, value = 1200
+    Valid values are:
+        75
+        100
+        150
+        200
+        300
+        600
+    wiasGetChangedValueLong, validate prop 6147 failed hr: 0x80070057
+    wiasUpdateScanRect, CheckXResAndUpdate failed (0x80070057)
+        CDrvWrap::WIA_drvValidateItemProperties, Error calling driver: 
+        drvValidateItemProperties with hr = 0x80070057 (This is normal if the app wrote an invalid value)
+</PRE>
+
+<P>The output shows that the Horizontal Resolution property is causing the failure. The application is attempting to set the resolution to 1200, but the list of supported resolutions does not include 1200. Thus, the WIA service validation helper <A HREF="wiasfncs_5smh.htm"><B>wiasValidateItemProperties</B></A> rejects the request to set this value.</P>
+
+<P>Now that the problem is identified, it is up to the developer to determine whether it is the driver or the application that must be revised. If the scanner's specifications allow it to support all resolutions between 100 and 1400 DPI, the driver should be able to handle a request for 1200 DPI. If the scanner does not support this setting, the application should be changed so it does not attempt to set the Horizontal Resolution to a value that is not valid for this property. In this case, the application should  then check that a value is valid before attempting to set a property to this value.</P>
+
+<P>The logging level is controlled by an entry in the registry. For WIA, this key resides in:</P>
+
+<P><B>HKLM\System\CurrentControlSet\Control\StillImage\Debug\</B><I>MODULE_NAME</I><B>\DebugFlags</B></P>
+
+<PRE></PRE>
+
+<P>In this example, MODULE_NAME is the name of the appropriate binary module. For the WIA service, this is <I>wiaservc.dll</I>. The value in <B>DebugFlags</B> controls the logging level. Three of the settings are given in the following table:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Value</TH>
+<TH align=left width=52%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>0x00000001</TD>
+<TD width=52%>Display error messages.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>0x00000002</TD>
+<TD width=52%>Display warning messages.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>0x00000004</TD>
+<TD width=52%>Display trace messages.</TD>
+</TR>
+</TABLE><BR>
+
+<P>The value in <B>DebugFlags</B> is a flag value (that is, different settings may be ORed together). To turn on logging for errors, warnings, and traces all at one time, set <B>DebugFlags</B> to 0x0000007. </P>
+
+<P>In order for a change in value of <B>DebugFlags</B> to take effect, the WIA service (<I>stisvc</I>) must be stopped and then restarted. See <A HREF="stillimg_7up5.htm">Starting and Stopping the Still Image Service</A> for details.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Excessive logging can lead to a significant decrease in performance. You should increase the logging level only when attempting to solve a particular problem. After you have corrected the problem, set logging to its original level.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WIA%20Minidriver%20Troubleshooting"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

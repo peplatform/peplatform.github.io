@@ -1,0 +1,49 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Implementation Tips and Requirements for IrDA Miniport Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Implementation Tips and Requirements for IrDA Miniport Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_id_dg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_implementation_tips_and_requirements_for_irda_miniport_drivers_ng"></A>Implementation Tips and Requirements for IrDA Miniport Drivers</H1>
+
+<P>This topic discusses tips and requirements for implementing an IrDA miniport driver. When implementing an IrDA miniport driver, the following items should be observed:
+
+<UL>
+	<LI>An IrDA miniport driver should use NDIS timers and related functions (for example, <A HREF="103ndisx_87aq.htm"><B>NdisMInitializeTimer</B></A> and <A HREF="103ndisx_6lbm.htm"><B>NdisMSetTimer</B></A>) rather than the <A HREF="103ndisx_0xo2.htm"><B>NdisStallExecution</B></A> function to implement the wait time required to honor a remote station's <A HREF="210irda_0qnb.htm">minimum turnaround time</A>. NDIS timers should be used because <B>NdisStallExecution</B> freezes the entire operating system for the specified interval. If an IrDA miniport driver calls <B>NdisStallExecution</B> to perform the wait, the impact on the overall performance of the operating system could be significant considering that the largest minimum turnaround time is 10 milliseconds. </LI>
+
+	<LI>An IrDA miniport driver's <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A> function must exhibit the following behavior: 
+<UL>
+	<LI>Not expect serialized calls from NDIS. NDIS can call <I>MiniportSendPackets</I> several times before even one packet completes.</LI>
+
+	<LI>Release any hold on the packet array, which is passed in the <I>PacketArray</I> parameter, before returning. NDIS assumes that <I>MiniportSendPackets</I> consumed all necessary data from the packet array; therefore NDIS can fill the packet array with new data even before the miniport driver completes the transmission of data that was previously in the packet array. </LI>
+</UL>
+</LI>
+
+	<LI>Before an IrDA miniport driver can reuse packets that it indicated to the IrDA protocol driver using the <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A> function, the miniport driver must wait for NDIS to call the miniport driver's <A HREF="101mini_81ki.htm"><I>MiniportReturnPacket</I></A> function to return those packets. The protocol driver can hold packets for an indefinite period. Therefore, a miniport driver must not restart DMA after it indicates packets that are resident in its receive DMA buffer because those packets can become corrupted before the protocol driver returns them. However, a miniport driver can restart DMA if it uses a different DMA buffer.
+<P>Developers should inspect the source code of the <I>Nscirda.sys</I> sample driver. This sample driver avoids the overhead of copying packets from the receive DMA buffer by efficiently managing the DMA buffer. The sample driver indicates packets to the protocol driver and still starts to receive DMA in the unused portion of the buffer.
+</LI>
+
+	<LI>An IrDA miniport driver must not bypass NDIS and implement DMA through direct I/O. That is, the miniport driver should not call nonNDIS functions to implement DMA. The IrDA device related to a miniport driver that calls nonNDIS functions could be disqualified from inclusion on the Windows Hardware Compatibility List (HCL). </LI>
+
+	<LI>To insure proper installation of an infrared device, the device's <A HREF="JavaScript:hhobj_1.Click()">device ID</A> should be unique to hardware on that device, so that Plug and Play can configure the device's controller and transceiver type without user intervention. During installation, a MIR, FIR, or VFIR device should not specify itself using a generic SIR device ID. Doing so causes Plug and Play to install that device as a SIR device, which uses the <I>irsir.sys</I> driver. The user is then required to change the device's driver from the Control Panel to achieve the appropriate functionality. </LI>
+</UL>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Implementation%20Tips%20and%20Requirements%20for%20IrDA%20Miniport%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,95 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>_MMGR_Toggle_HMA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_1293"></A>_MMGR_Toggle_HMA</H1>
+
+<PRE>include vmm.inc
+
+VMMCall _MMGR_Toggle_HMA, &lt;VM, flags&gt;
+
+cmp     flags, MMGRHMAQuerry
+jne     did_toggle
+mov     [HMAState], eax     ; 0 if disabled, 1 if enabled
+
+did_toggle:
+or      eax, eax           ; nonzero if enabled/disabled, zero if error
+jz      error
+ </PRE>
+
+<P>Enables or disables the high memory area (HMA). The V86MMGR XMS device uses this service to control the state of the HMA for a specified virtual machine, and to notify the instance data manager that the state is changing. If your virtual device needs to toggle the HMA, use the <B>V86MMGR_Toggle_HMA</B> service instead of this one. This service is for exclusive use by the V86MMGR XMS device. Uses EAX. </P>
+
+<P>Returns a value in the EAX register, the meaning of which depends on the operation specified by the flags parameter. If the flags parameter specifies the MMGRHMAEnable or MMGRHMADisable operation, the service returns a nonzero if successful, zero otherwise. </P>
+
+<P>If the flags parameter specifies the MMGRHMAQuerry operation, the service returns a nonzero value if the HMA is enabled, and zero if disabled. 
+
+<DL>
+<DT><I>VM</I></DT>
+
+<DD>Handle of the virtual machine. </DD>
+
+<DT><I>flags</I></DT>
+
+<DD>Operation flags. Can be one or more of these values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=22%>Value </TH>
+<TH align=left width=78%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>MMGRHMADisable </TD>
+<TD width=78%>Disables the HMA, causing addresses greater than 1 megabyte to be wrapped back to addresses in pages 0 through 0Fh. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>MMGRHMAEnable </TD>
+<TD width=78%>Enables the HMA, allowing addresses greater than 1 megabyte to access pages 100h through 10Fh. If the MMGRHMAPhysical value is given, the service maps physical pages 100h through 10Fh into the linear pages 100h through 10Fh for the virtual machine, enabling the global HMA for this virtual machine and which all virtual machines share. 
+<P>the MMGRHMAPhysical value is not given, the service marks the linear pages 100h through 10Fh as not present system pages. To prevent a system crash when these pages are accessed, the virtual device must provide its own physical pages to map into these linear pages. This effectively creates a local HMA that is specific to the given virtual machine. </P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>MMGRHMAQuerry </TD>
+<TD width=78%>Returns the current state of the HMA for the virtual machine. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>MMGRHMAPhysical </TD>
+<TD width=78%>Specifies whether the service maps physical pages 100h through 10Fh into the HMA or expects the virtual device to map some other physical pages into the area. The value is used only if the MMGRHMAEnable value is also given. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>The MMGRHMAEnable, MMGRHMADisable, MMGRHMAQuerry values are mutually exclusive. 
+
+
+<P>All other values are reserved. 
+
+</DD>
+</DL>
+
+<P>This service can fail if the MMGRHMAEnable and MMGRHMAPhysical values are given, but the system is already using the physical pages 100h through 10Fh for some other purpose. </P>
+
+<P>A virtual device must not call this service unless it has already used the <B>_Assign_Device_V86_Pages</B> service to assign the pages 100h through 10Fh to itself. For this reason, this service is intended to be used by one and only one virtual device. </P>
+
+<P>When the system creates a virtual machine, it disables the HMA and causes the virtual machine to operate like an 8086 processor. To override this default, the virtual device responsible for the HMA must enable the HMA while processing the <B>VM_Critical_Init</B> message. </P>
+
+<P>Virtual devices must <I>not</I> identify instance data in the HMA. </P>
+
+<H4>See Also</H4>
+
+<P><B>_Assign_Device_V86_Pages</B>, <B>VM_Critical_Init</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: _MMGR_Toggle_HMA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

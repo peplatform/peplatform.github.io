@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DispatchDeviceControl in Lowest-Level Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DispatchDeviceControl in Lowest-Level Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_dispatchdevicecontrol_in_lowest_level_drivers_kg"></A><I>DispatchDeviceControl</I> in Lowest-Level Drivers</H3>
+
+<P>An <A HREF="k113_0hiq.htm">IRP_MJ_DEVICE_CONTROL</A> request for a lowest-level driver requires that the driver either change the state of its device or provide information about the state of its device. Because most kinds of drivers are required to handle a number of I/O control codes, their <I>DispatchDeviceControl</I> routines usually contain a <B>switch</B> statement somewhat like the following:</P>
+
+<PRE>    :    : 
+switch(irpSp-&gt;Parameters.DeviceIoControl.IoControlCode) { 
+    case IOCTL_DeviceType_XXX: 
+    case IOCTL_DeviceType_YYY: 
+        if (irpSp-&gt;Parameters.DeviceIoControl.InputBufferLength &lt; 
+(sizeof(IOCTL_XXXYYY_STRUCTURE))) { 
+            status = STATUS_BUFFER_TOO_SMALL; 
+            break; 
+} else { 
+            IoMarkIrpPending(Irp); 
+     :    : // pass IRP on for further processing 
+    case ... 
+     :    : </PRE>
+
+<P>As this code fragment shows, a <I>DispatchDeviceControl</I> routine also checks parameters, sometimes on each I/O control code that the driver must support, sometimes on groups of these I/O control codes. </P>
+
+<P>Consider the following implementation guidelines for device drivers’ <I>DispatchDeviceControl</I> routines: 
+
+<UL>
+	<LI><I>DispatchDeviceControl</I> must check the parameters for validity, and immediately complete IRPs with parameter errors, as described in <A HREF="irps_6crr.htm">Completing Irps</A>.</LI>
+
+	<LI>Grouping I/O control codes in a <B>case</B> statement (where practical) when testing for valid parameters is economical in terms of driver performance and size and in code maintenance. As the preceding code fragment suggests, I/O control codes that use a common structure are natural candidates for such a <B>case</B> group. </LI>
+
+	<LI>Switching first on any I/O control codes for which the <I>DispatchDeviceControl</I> routine can satisfy and complete the IRP improves performance because the driver can return control faster. </LI>
+
+	<LI>Switching later on I/O control codes that specify infrequently requested operations also can improve the driver’s performance in processing IRP_MJ_DEVICE_CONTROL_REQUESTS. </LI>
+
+	<LI>For better performance, every lowest-level device driver's <I>DispatchDeviceControl</I> routine should satisfy any device control request that it can, without queuing the IRP to other driver routines. </LI>
+</UL>
+
+<P>If the <I>DispatchDeviceControl</I> routine can complete the IRP, it should call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with a <I>PriorityBoost</I> of IO_NO_INCREMENT. If the <I>DispatchDeviceControl</I> routine must queue the IRP for further processing, it must call <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A> and return STATUS_PENDING. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DispatchDeviceControl%20in%20Lowest-Level%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,74 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Canceling a Wait/Wake IRP</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Canceling a Wait/Wake IRP">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_canceling_a_wait_wake_irp_kg"></A>Canceling a Wait/Wake IRP</H2>
+
+<P>Only the driver that sent a wait/wake IRP can cancel that IRP.</P>
+
+<P>A driver might need to cancel a pending wait/wake IRP under the following circumstances:
+
+<UL>
+	<LI>The driver receives a PnP <A HREF="pnp-irps_3n5e.htm">IRP_MN_STOP_DEVICE</A>, <A HREF="pnp-irps_22k2.htm">IRP_MN_QUERY_REMOVE_DEVICE</A>, <A HREF="pnp-irps_4noy.htm">IRP_MN_REMOVE_DEVICE</A>, or <A HREF="pnp-irps_8e42.htm">IRP_MN_SURPRISE_REMOVAL</A> request for the device.  The driver should reissue the wait/wake IRP (<A HREF="portn_55gy.htm"><B>PoRequestPowerIrp</B></A>) after the device is restarted.</LI>
+
+	<LI>The system is going to sleep, but the device should not be enabled to wake the system.
+<P>For example, the USB hub driver might send an IRP_MN_WAIT_WAKE request at device start-up in case it later puts one of its input devices into a sleep state. While the system is in the working state, a wake signal from the device returns the device to the working state (but has no effect on the system power state). When the system prepares to shut down, the USB hub driver cancels this IRP if the device should not be allowed to awaken the system. 
+</LI>
+
+	<LI>The system is entering a sleep state from which the device cannot awaken it. That is, it is entering a state less powered than the <A HREF="pwrmgmt_4exz.htm"><B>SystemWake</B></A> value specified in its DEVICE_CAPABILITIES structure.</LI>
+
+	<LI>The device is entering a power state from which it cannot respond to a wake-up signal. That is, it is entering a state less-powered than the <A HREF="pwrmgmt_9m3r.htm"><B>DeviceWake</B></A> value specified in its DEVICE_CAPABILITIES structure.</LI>
+</UL>
+
+<P>To cancel a wait/wake IRP, the driver that sent the IRP calls <A HREF="k104_1j8y.htm"><B>IoCancelIrp</B></A>, passing the pointer to the IRP that was previously returned when the driver called <B>PoRequestPowerIrp</B>. </P>
+
+<P>A driver must not cancel a wait/wake IRP that it did not send.</P>
+
+
+
+<H4><A NAME="ddk_cancel_routines_for_wait_wake_irps_kg"></A><I>Cancel</I> Routines for Wait/Wake IRPs</H4>
+
+<P>Many function and bus drivers should set <A HREF="drvrrtns_8y0i.htm"><I>Cancel</I></A> routines for pending wait/wake IRPs; the following types of drivers <I>must</I> set such routines:
+
+<UL>
+	<LI>Drivers that change device settings to enable or disable wake-up. </LI>
+
+	<LI>Drivers that send <A HREF="poirp_44fm.htm">IRP_MN_WAIT_WAKE</A> requests to drivers of parent devices.</LI>
+</UL>
+
+<P>A <I>Cancel</I> routine allows a driver to disable wake-up for its device and to clean up any data related to the pending wait/wake IRP. Drivers that request wait/wake IRPs for parent devices can cancel those IRPs as well.</P>
+
+<P>In its wait/wake <I>Cancel</I> routine, a driver should take the following steps:
+
+<OL>
+	<LI>Call <A HREF="k104_6hiq.htm"><B>IoSetCancelRoutine</B></A> to reset the <I>Cancel</I> routine for the IRP to NULL.</LI>
+
+	<LI>Call <A HREF="k104_5po2.htm"><B>IoReleaseCancelSpinLock</B></A>, passing the <B>CancelIRQL</B> specified in the IRP to release the cancel spin lock for the IRP. </LI>
+
+	<LI>Reset any relevant fields in the device extension. For example, when a wait/wake IRP is pending, most drivers set a flag and keep a pointer to the IRP in the device extension.
+<P>Note that it is possible for a driver to receive a wait/wake IRP while it is canceling another such IRP. The driver must check to see whether it already has an IRP under spin lock protection (or its equivalent). If so, the driver must carefully synchronize its handling to ensure that it cancels the correct IRP. For more information about using spin locks in <I>Cancel</I> routines, see <A HREF="irps_6unb.htm">Canceling IRPs</A>.
+</LI>
+
+	<LI>Change any required device settings. For example, a modem driver would disable the device's wake setting. </LI>
+
+	<LI>Set <B>Irp-&gt;IoStatus.Status</B> to STATUS_CANCELLED.</LI>
+
+	<LI>Call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> to complete the wait/wake IRP, specifying IO_NO_INCREMENT. </LI>
+
+	<LI>If the driver previously requested a related IRP_MN_WAIT_WAKE for a parent device, the driver should cancel that IRP from within its <I>Cancel</I> routine. The driver must release the cancel spin lock before it cancels the parent's IRP.
+<P>For example, a driver that acts as a bus driver for a device and owns power policy driver for its parent should cancel a related wait/wake IRP that it earlier sent to its parent. Calling <A HREF="k104_1j8y.htm"><B>IoCancelIrp</B></A> would invoke the parent's <I>Cancel</I> routine, and so on down the device stack. 
+</LI>
+</OL>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Canceling%20a%20Wait%2FWake%20IRP"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

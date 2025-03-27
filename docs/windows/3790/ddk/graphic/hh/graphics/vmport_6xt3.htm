@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Converting a Windows NT 4.0 Miniport Driver to Windows 2000</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Converting a Windows NT 4.0 Miniport Driver to Windows 2000">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_converting_a_windows_nt_4.0_miniport_driver_to_windows_2000_gg"></A>Converting a Windows NT 4.0 Miniport Driver to Windows 2000</H2>
+
+<P>A good Windows&nbsp;NT&nbsp;4.0 and previous miniport driver can easily become a Windows&nbsp;2000 and later miniport driver. The following are some of the updates necessary to provide Plug and Play support, which is required in Windows&nbsp;2000 and later miniport drivers:
+
+<UL>
+	<LI>See <A HREF="vmport_1wh3.htm">Supporting Plug and Play and Power Management in a Video Miniport</A> for a list of new functions that must be implemented. Be sure to initialize the new members of <A HREF="vstrcts_750n.htm">VIDEO_HW_INITIALIZATION_DATA</A> to point to these new functions.</LI>
+
+	<LI>Update the call to <A HREF="vpfncs_1nzb.htm"><B>VideoPortInitialize</B></A> in your <A HREF="vmpfncs_06g7.htm"><B>DriverEntry</B></A> function. The fourth parameter (<I>HwContext</I>) must be NULL on Windows&nbsp;2000 and later.</LI>
+
+	<LI>Update your <A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A> function. For devices on an enumerable bus, <I>HwVidFindAdapter</I> must be changed as follows:
+<UL>
+	<LI>Remove most of your device detection code. This is because a call to <I>HwVidFindAdapter</I> on Windows&nbsp;2000 means that the PnP Manager has already detected the device.</LI>
+
+	<LI>Call <A HREF="vpfncs_22lj.htm"><B>VideoPortGetAccessRanges</B></A> to obtain the bus-relative physical addresses to which the device will respond. These addresses are assigned by the PnP Manager.</LI>
+
+	<LI>If the driver supports more than one device type, determine the type of device.</LI>
+
+	<LI>Ignore the <I>Again</I> parameter. This is because the system will call <I>HwVidFindAdapter</I> only once per device.</LI>
+</UL>
+
+<P>For a device on a nonenumerable bus such as ISA, PnP still attempts to start the device, although it is the responsibility of <I>HwVidFindAdapter</I> to determine whether the device is actually present. 
+</LI>
+
+	<LI>Update the <I>.Mfg</I> section of the driver's INF file to include the device and vendor ID. This is required so that the PnP Manager can associate the device with its INF file. Samples of the Windows&nbsp;NT&nbsp;4.0 and updated Windows&nbsp;2000 and later <I>.Mfg</I> sections follow:
+<PRE>[ABC.Mfg]   ; Windows NT V4.0 INF
+%ABC% ABC Graphics Accelerator A = abc
+%ABC% ABC Graphics Accelerator B = abc
+
+[ABC.Mfg]   ; Windows 2000 and later INF
+%ABC% ABC Graphics Accelerator A = abc, PCI\VEN_ABCD&amp;DEV_0123
+%ABC% ABC Graphics Accelerator B = abc, PCI\VEN_ABCD&amp;DEV_4567</PRE>
+
+<P>You can use the <I>geninf.exe</I> tool shipped with the Windows DDK to generate an INF. Keep in mind, however, that <I>geninf.exe</I> does not create an INF for Windows&nbsp;NT&nbsp;4.0. You must modify the INF file produced by <I>geninf.exe</I> if you intend to support Windows&nbsp;NT&nbsp;4.0 in addition to Windows&nbsp;2000 and later operating system versions. See <A HREF="vidintro_2fjb.htm">Creating Graphics INF Files</A> for more details.
+</LI>
+</UL>
+
+<P>The Windows&nbsp;2000 and later video port supports Windows&nbsp;NT&nbsp;4.0 miniports as legacy drivers. The graphics adapter for a legacy miniport driver cannot be removed from the system while the system is running, nor are legacy miniports automatically detected when added to a running system.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Converting%20a%20Windows%20NT%204.0%20Miniport%20Driver%20to%20Windows%202000"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,164 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DIF_SELECTDEVICE</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DIF_SELECTDEVICE">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_dif_selectdevice_dr"></A>DIF_SELECTDEVICE</H1>
+
+<P>A DIF_SELECTDEVICE request allows an installer to participate in selecting the driver for a device.</P>
+
+<H4>When Sent</H4>
+
+<P>When choosing a driver for a newly enumerated device or a new driver for an existing device (change driver). For example, when a user selects Add/Remove Hardware and selects the modem class. Or, a user inserts a PnP device and selects "Choose a Driver From a List" in the Found New Hardware Wizard.</P>
+
+<H4>Who Handles</H4>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=48%>Class Co-installer</TD>
+<TD width=52%>Can handle</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>Device Co-installer</TD>
+<TD width=52%>Does not handle</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>Class Installer</TD>
+<TD width=52%>Can handle</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Installer Input</H4>
+
+<DL>
+<DT><I>DeviceInfoSet</I></DT>
+
+<DD>Supplies a handle to the <A HREF="setup-cls_2h9j.htm">device information set</A> containing the device for which a driver is to be selected. 
+
+<DL>
+<DT>Associated Class</DT>
+
+<DD>There is a device setup class associated with the <I>DeviceInfoSet</I>. </DD>
+</DL>
+</DD>
+
+<DT><I>DeviceInfoData</I></DT>
+
+<DD>Optionally supplies a pointer to an <A HREF="di-struct_7nqq.htm">SP_DEVINFO_DATA</A> structure that identifies the device in the device information set.
+
+<P>If <I>DeviceInfoData</I> is NULL, this request is to select a driver for the device setup class associated with the <I>DeviceInfoSet</I>.
+</DD>
+
+<DT>Device Installation Parameters </DT>
+
+<DD>If <I>DeviceInfoData</I> is not NULL, there are device installation parameters (<A HREF="di-struct_7j76.htm">SP_DEVINSTALL_PARAMS</A>) associated with the <I>DeviceInfoData</I>. If <I>DeviceInfoData</I> is NULL, there are device installation parameters associated with the <I>DeviceInfoSet</I>. 
+
+<P>Of particular interest is the <B>DriverPath</B>, which contains the location of INF(s) to use when building the driver list.
+</DD>
+
+<DT>Class Installation Parameters</DT>
+
+<DD>An <A HREF="di-struct_619u.htm">SP_SELECTDEVICE_PARAMS</A> structure is associated with the <I>DeviceInfoData</I> if <I>DeviceInfoData</I> is not NULL. Otherwise, the class installation parameters are associated with the device information set as a whole.
+</DD>
+</DL>
+
+<H4>Installer Output</H4>
+
+<DL>
+<DT>Device Installation Parameters</DT>
+
+<DD>An installer can modify the device installation parameters, but it should not modify the <B>DriverPath</B> field.  </DD>
+
+<DT>Class Installation Parameters</DT>
+
+<DD>An installer can modify the <A HREF="di-struct_619u.htm">SP_SELECTDEVICE_PARAMS</A>. For example, an installer might specify a title and/or instructions for Setup to use in the dialog box that asks the user to select a driver. 
+
+<P>If an installer sets new select-device parameters, versus modifying parameters set by a previous installer, the installer must zero the fields it does not set.
+
+</DD>
+</DL>
+
+<H4>Installer Return Value</H4>
+
+<P>If a co-installer does nothing for this DIF code, it returns NO_ERROR from its preprocessing pass. If a co-installer handles this DIF code, it should do so in its preprocessing pass and return NO_ERROR or a Win32 error code. By the time a co-installer is called for postprocessing, the driver has already been selected.</P>
+
+<P>A class installer returns ERROR_DI_DO_DEFAULT, a Win32 error code, or NO_ERROR. </P>
+
+<P>If an installer builds and modifies the driver list, it returns ERROR_DI_BAD_PATH if <A HREF="di-struct_7j76.htm">SP_DEVINSTALL_PARAMS</A>.<B>DriverPath</B> is not NULL yet there are no valid drivers at that location. This can be true if there are no drivers at that location or if there are drivers, but only ones that the installer marks DNF_BAD_DRIVER. In response to this error code, Setup displays an error to the user.</P>
+
+<H4>Default DIF Code Handler</H4>
+
+<P><A HREF="di-rtns_6fle.htm"><B>SetupDiSelectDevice</B></A> </P>
+
+<H4>Installer Operation</H4>
+
+<P>In response to a DIF_SELECTDEVICE request, an installer performs any selection operations required for its device or device class, besides what the default handler does. An installer typically responds to this DIF request in one of the following ways:
+
+<UL>
+	<LI>Do nothing.
+<P>If an installer has no special selection requirements, it does nothing in response to this DIF code. A class installer returns ERROR_DI_DO_DEFAULT and a co-installer returns NO_ERROR.
+</LI>
+
+	<LI>Supply select strings that Setup will display in the selection UI.
+<P>An installer can supply select strings in the class installation parameters (<A HREF="di-struct_619u.htm">SP_SELECTDEVICE_PARAMS</A>). For example, an installer can modify the <B>Instructions</B> or the window header <B>Title</B>. 
+
+<P>A class installer should not supply select strings if a co-installer already supplied select strings. The co-installer probably has more relevant information.
+
+<P>If an installer modifies the <A HREF="di-struct_619u.htm">SP_SELECTDEVICE_PARAMS</A>, the installer must also set the DI_USECI_SELECTSTRINGS flag in the <A HREF="di-struct_7j76.htm">SP_DEVINSTALL_PARAMS</A>. 
+
+<P>If an installer successfully supplies select strings, Setup still needs to call the default handler. Therefore, in this case, a co-installer returns NO_ERROR and a class installer returns ERROR_DI_DO_DEFAULT.
+</LI>
+
+	<LI>Modify the device installation parameters.
+<P>An installer can modify the device installation parameters (<A HREF="di-struct_7j76.htm">SP_DEVINSTALL_PARAMS</A>). For example, an installer might set the DI_SHOWOEM flag to have Setup display the Have Disk button.
+
+<P>If a class installer successfully modifies the device installation parameters, the class installer returns ERROR_DI_DO_DEFAULT. 
+</LI>
+
+	<LI>Modify the list of drivers from which the user can select.
+<P>This action is less common, but possible. An installer that modifies the driver list might, or might not, also supply select strings.
+
+<P>An installer that modifies the driver list typically marks driver(s) that are inappropriate for the device. An installer marks such drivers with the flag DNF_BAD_DRIVER. Setup omits these drivers from the list it displays to the user. An installer marks bad drivers with a procedure like the following:
+
+<OL>
+	<LI>Build the driver list by calling <A HREF="di-rtns_9pma.htm"><B>SetupDiBuildDriverInfoList</B></A> with a <I>DriverType</I> of SPDIT_CLASSDRIVER.</LI>
+
+	<LI>Get the information about the first driver in the list by calling <A HREF="di-rtns_36r6.htm"><B>SetupDiEnumDriverInfo</B></A> and <A HREF="di-rtns_2goi.htm"><B>SetupDiGetDriverInstallParams</B></A>. If the driver is not appropriate for the device, set the DNF_BAD_DRIVER flag in the <B>Flags</B> field of the parameters. Apply the change to the parameters by calling <A HREF="di-rtns_1nxu.htm"><B>SetupDiSetDriverInstallParams</B></A>. </LI>
+
+	<LI>Repeat the previous step until you have processed all the drivers in the list. Be sure to increment the <I>MemberIndex</I> parameter to <B>SetupDiEnumDriverInfo</B> as described in the reference page for that function.</LI>
+</OL>
+
+<P>An installer might set the DNF_BAD_DRIVER flag for one or more drivers in the driver list, but an installer must not clear that flag. 
+
+<P>If one or more installers successfully modify the driver list, Setup still needs to call the default handler. Therefore, in this case, a co-installer returns NO_ERROR and a class installer returns ERROR_DI_DO_DEFAULT.
+</LI>
+
+	<LI>Display its own driver-selection user interface and set the selected driver.
+<P>Only a class installer can display its own driver-selection user interface; co-installers must not. For example, a class installer might display pictures instead of textual lists.
+
+<P>If the class installer successfully sets the selected driver, the class installer returns NO_ERROR and Setup does not call the default handler and therefore does not display the default selection interface.
+
+<P>If a class installer only needs to display its own interface during the Add Hardware Wizard, the class installer should handle the DIF_NEWDEVICEWIZARD_SELECT request instead of this request.
+</LI>
+</UL>
+
+<P>If the DI_ENUMSINGLEINF flag is set in the device installation parameters, the <B>DriverPath</B> is a path to a single INF instead of a path to a directory. An installer must use only that single INF to build the driver list.</P>
+
+<P>For more information about DIF codes, see <A HREF="coinst_5oiv.htm">Handling DIF Codes</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="dif-codes_9t9u.htm">DIF_NEWDEVICEWIZARD_SELECT</A>, <A HREF="di-rtns_6fle.htm"><B>SetupDiSelectDevice</B></A>, <A HREF="di-struct_7nqq.htm">SP_DEVINFO_DATA</A>, <A HREF="di-struct_7j76.htm">SP_DEVINSTALL_PARAMS</A>, <A HREF="di-struct_619u.htm">SP_SELECTDEVICE_PARAMS</A>  </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DIF_SELECTDEVICE"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

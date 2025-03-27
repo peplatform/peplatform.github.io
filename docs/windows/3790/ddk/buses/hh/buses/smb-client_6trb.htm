@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Defining an SMB Request</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Defining an SMB Request">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_defining_an_smb_request_kg"></A>Defining an SMB Request</H2>
+
+<P>The SMB_REQUEST structure is defined as follows:</P>
+
+<PRE>typedef struct {
+    UCHAR       Status; 
+    UCHAR       Protocol;
+    UCHAR       Address;
+    UCHAR       Command;
+    UCHAR       BlockLength;
+    UCHAR       Data[SMB_MAX_DATA_SIZE];
+} SMB_REQUEST, *PSMB_REQUEST;</PRE>
+
+<P>The bus driver returns one of the following in <B>Status</B>:</P>
+
+<PRE>SMB_STATUS_OK
+SMB_UNKNOWN_FAILURE
+SMB_ADDRESS_NOT_ACKNOWLEDGED
+SMB_DEVICE_ERROR
+SMB_COMMAND_ACCESS_DENIED
+SMB_UNKNOWN_ERROR
+SMB_DEVICE_ACCESS_DENIED
+SMB_TIMEOUT
+SMB_UNSUPPORTED_PROTOCOL
+SMB_BUS_BUSY</PRE>
+
+<P>The client supplies the <B>Protocol</B>, <B>Address</B>, <B>Command</B>, <B>BlockLength</B>, and <B>Data</B> members of the structure, as appropriate to its device and the operation requested.</P>
+
+<P>The class driver supports the protocols listed in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=38%>Protocol name</TH>
+<TH align=left width=62%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>SMB_READ_QUICK</TD>
+<TD width=62%>Reads from a device but returns no data.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>SMB_WRITE_QUICK</TD>
+<TD width=62%>Writes to a device, returning no data.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>SMB_SEND_BYTE</TD>
+<TD width=62%>Sends one byte of data to a device.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>SMB_RECEIVE_BYTE</TD>
+<TD width=62%>Receives one byte of data from the device.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>SMB_READ_BYTE</TD>
+<TD width=62%>Reads a byte from an SMB device.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>SMB_WRITE_BYTE</TD>
+<TD width=62%>Writes a byte to an SMB device.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>SMB_READ_WORD</TD>
+<TD width=62%>Reads a word from an SMB device.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>SMB_WRITE_WORD</TD>
+<TD width=62%>Writes a word to an SMB device.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>SMB_READ_BLOCK</TD>
+<TD width=62%>Reads up to SMB_MAX_DATA_SIZE bytes from an SMB device.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>SMB_WRITE_BLOCK</TD>
+<TD width=62%>Writes up to SMB_MAX_DATA_SIZE bytes to an SMB device.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>SMB_PROCESS_CALL</TD>
+<TD width=62%>Combines functions of SMB_READ_WORD and SMB_WRITE_WORD. Allows a device to return a value that depends on the value input, without a synchronization mechanism to know when the data is ready. </TD>
+</TR>
+</TABLE><BR>
+
+<P>The <B>Command</B> member of the SMB_REQUEST structure provides for a device-specific command code. The client driver should define these codes according to the capabilities of the device. For some devices, not all of the protocols defined by the class driver will be useful. The <B>Address</B> member provides for a bus address, which the client driver must supply in each call.</P>
+
+<P>For a simple device that has only two states, you can use the SMB_READ_QUICK and SMB_WRITE_QUICK protocols to select one of the states. The client driver fills in only the <B>Protocol</B> and <B>Address</B> fields in the request structure.</P>
+
+<P>The SMB_SEND_BYTE and SMB_RECEIVE_BYTE protocols read or write a single byte of data from a device that does not have multiple commands. The client driver must fill in the <B>Protocol</B>, <B>Address</B>, and <B>Data</B>[0] fields when sending a byte. When receiving a byte, the client driver must fill in the <B>Protocol</B> and <B>Address</B> fields. The bus driver returns data in <B>Data</B>[0].</P>
+
+<P>The SMB_READ_BYTE and SMB_WRITE_BYTE protocols are used with the <B>Command</B> field to read or write a byte to a complex device (such as a smart battery) that supports more than one command. The client driver supplies the relevant code in <B>Command</B> and fills in the <B>Protocol</B> and <B>Address</B> fields. Place data to be written in <B>Data</B>[0], and read data from that location.</P>
+
+<P>The SMB_READ_WORD and SMB_WRITE_WORD protocols are also used with a device-specific command to read or write a word. The client driver supplies the <B>Protocol</B>, <B>Command</B>, and <B>Address</B>, and when writing data, the data in <B>Data</B>[0] and <B>Data</B>[1] (most significant byte). On a read request, the word in returned in <B>Data</B>[0] and <B>Data</B>[1], with the most significant byte in <B>Data</B>[1].</P>
+
+<P>The SMB_READ_BLOCK and SMB_WRITE_BLOCK protocols read or write an arbitrary number of bytes of data (up to SMB_MAX_DATA_SIZE). For a read request, the client driver supplies the <B>Protocol</B>, <B>Command</B>, and <B>Address</B>, and the bus driver returns the number of bytes written in BlockLength and the data in Data[0..<B>BlockLength</B> – 1]. For a write request, the client driver supplies the <B>Protocol</B>, <B>Command</B>, <B>Address</B>, <B>BlockLength</B>, and the data in <B>Data</B>[0..<B>Blocklength</B> – 1].</P>
+
+<P>The SMB_PROCESS_CALL request is similar to a combined read-word/write-word request in a single <I>atomic request</I>. It allows the device to return a value that is dependent on the input value without requiring a synchronization mechanism to wait until the returned data is ready. The client driver supplies a <B>Protocol</B>, <B>Address</B>, and <B>Command</B>, and places the data in <B>Data</B>[0] and <B>Data</B>[1] (most significant byte), where the bus driver returns data.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Defining%20an%20SMB%20Request"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

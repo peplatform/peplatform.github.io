@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisMIndicateReceivePacket</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisMIndicateReceivePacket">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndismindicatereceivepacket_nr"></A>NdisMIndicateReceivePacket</H1>
+
+<P><B>NdisMIndicateReceivePacket</B> notifies NDIS that an array of received packets is available to be forwarded to the appropriate bound protocol driver(s). </P>
+
+<PRE class=syntax><B>VOID</B>
+<B>  NdisMIndicateReceivePacket(
+    IN NDIS_HANDLE</B>  <I>MiniportAdapterHandle</I><B>,</B>
+    <B>IN PPNDIS_PACKET</B>  <I>ReceivePackets</I><B>,</B>
+    <B>IN UINT</B>  <I>NumberOfPackets</I>
+    <B>);</B> </PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>MiniportAdapterHandle</I></DT>
+
+<DD>Specifies the handle originally input to <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>. </DD>
+
+<DT><I>ReceivePackets</I></DT>
+
+<DD>Pointer to an array of packet descriptor pointers, with each descriptor set up by the caller to specify the received data. </DD>
+
+<DT><I>NumberOfPackets</I></DT>
+
+<DD>Specifies how many pointers are in the array at <I>ReceivePackets</I>. The value must be at least one. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Drivers of bus-master DMA NICs are most likely to show significant gains in performance by making multipacket receive indications with <B>NdisMIndicateReceivePacket</B>. However, drivers that indicate out-of-band data, such as packet priority and/or timestamps, with receive packets can also call this function with a single packet at a time. </P>
+
+<P>When a miniport driver calls <B>NdisMIndicateReceivePacket</B>, NDIS passes each pointer at <I>ReceivePackets</I> separately, in the miniport driver-determined order, to the <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A> function(s) of bound protocol(s) that export this function. To other bound protocols, NDIS passes each packet pointer to the <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> function(s).</P>
+
+<P>If the miniport driver did not designate its NIC’s medium as a type for which the system supplies a filter package in response to the <A HREF="22genoid_0tma.htm">OID_GEN_MEDIA_IN_USE</A> query, NDIS forwards that driver’s receive indications to all bound protocol drivers that export a <I>ProtocolReceivePacket</I> function. Otherwise, NDIS automatically applies the appropriate filter library to the miniport driver’s receive indications. </P>
+
+<P>Any caller of <B>NdisMIndicateReceivePacket</B> must first set up the packet array, as follows: 
+
+<UL>
+	<LI>Each element is the pointer to a packet descriptor, which the caller must allocate from packet pool. Each packet descriptor has 4*sizeof(PVOID) in its <B>ProtocolReserved</B> section. On 32-bit systems, four pointer’s worth of <B>ProtocolReserved</B> space equals 16 bytes. On 64-bit systems, four pointer’s worth of <B>ProtocolReserved</B> space equals 32 bytes.</LI>
+
+	<LI>All buffer descriptors chained to such a packet descriptor must be allocated from buffer pool. The miniport driver must call <A HREF="103ndisx_2pki.htm"><B>NdisAdjustBufferLength</B></A> with any buffer descriptor mapping a receive buffer on the NIC that contains less received data than the full range of the receive buffer so that the buffer descriptor will map only the received data for the indication. (The NIC driver must readjust the mapping with <B>NdisAdjustBufferLength</B> when it regains ownership of such a buffer descriptor, as well.) </LI>
+
+	<LI>The first buffer in the packet must contain the amount of data specified by the lookahead setting plus the data size of the MAC header. The miniport driver receives the lookahead setting in a set to <A HREF="22genoid_1jzm.htm">OID_GEN_CURRENT_LOOKAHEAD</A>. If the total packet size including the MAC header is less than the lookahead setting plus the MAC header size, the first buffer must contain the entire packet.</LI>
+
+	<LI>If the miniport driver indicates timestamps for received packets, it must set the <B>TimeReceived</B> and/or <B>TimeSent</B> members in the <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A> associated with the packet descriptor, using the <A HREF="103ndisx_3nxu.htm">NDIS_SET_PACKET_TIME_RECEIVED</A> and/or <A HREF="103ndisx_2u42.htm">NDIS_SET_PACKET_TIME_SENT</A> macros. It can call <A HREF="103ndisx_6m42.htm"><B>NdisGetCurrentSystemTime</B></A> once to set the receive timestamp for all packets of a particular packet array. </LI>
+
+	<LI>The <B>HeaderSize</B> in the out-of-band data block must match the header size of each received packet for the medium. For example, a driver that selects Ethernet as its preferred medium initializes the NDIS_PACKET_OOB_DATA block <B>HeaderSize</B> to 14 when it allocates the packet descriptor. A driver should use the <A HREF="103ndisx_5w8j.htm">NDIS_SET_PACKET_HEADER_SIZE</A> macro to set the <B>HeaderSize</B>.</LI>
+
+	<LI>If the driver indicates additional out-of-band information with receives, it must set the <B>SizeMediaSpecificInfo</B> to the number of bytes of information supplied in the caller-allocated buffer at <B>MediaSpecificInformation</B>. The miniport driver can use the <A HREF="103ndisx_6rxu.htm">NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO</A> macro to set these values. Otherwise, <B>SizeMediaSpecificInfo</B> should be zero, and <B>MediaSpecificInformation</B> should be NULL. </LI>
+
+	<LI>The miniport driver can set the <B>Status</B> member of the out-of-band data block to NDIS_STATUS_RESOURCES if it needs to retain ownership of the packet descriptor and buffer descriptors of some element in a particular indication. Setting NDIS_STATUS_RESOURCES forces NDIS to indicate each such packet, one at a time, to bound protocols’ <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> functions, thereby forcing each protocol to copy the packet data and release each packet to be returned back to the miniport driver.</LI>
+
+	<LI>A deserialized miniport driver must save the <B>Status</B> member of the out-of-band data block in a local variable before indicating up the packet descriptor. As explained in more detail below, when <B>NdisMIndicateReceivePacket</B> returns, a deserialized miniport driver must check the saved packet <B>Status</B> to determine whether it can immediately reclaim the packet descriptor and the associated buffers.</LI>
+</UL>
+
+<P>If a serialized miniport driver does not set a packet’s <B>Status</B> member to NDIS_STATUS_RESOURCES, the call to <B>NdisMIndicateReceivePacket</B> gives interested protocols exclusive, read-only access to the buffers chained to each packet. The miniport driver regains ownership of the packet descriptor and the associated buffers as follows:
+
+<UL>
+	<LI>If the <B>Status</B> in the out-of-band data block is set to NDIS_STATUS_SUCCESS on return from <B>NdisMIndicateReceivePacket</B>, the miniport driver immediately regains ownership of the packet descriptor and all buffers chained to the packet. It can prepare these descriptors for reuse in subsequent receive indications.</LI>
+
+	<LI>If the <B>Status</B> is set to NDIS_STATUS_PENDING on return from <B>NdisMIndicateReceivePacket</B>, the miniport driver regains ownership of the packet descriptor and all buffers chained to the packet when NDIS subsequently calls the miniport driver’s <A HREF="101mini_81ki.htm"><I>MiniportReturnPacket</I></A> function. It can then prepare these descriptors for reuse in subsequent receive indications.</LI>
+</UL>
+
+<P>A serialized miniport driver should use <A HREF="103ndisx_05bm.htm">NDIS_GET_PACKET_STATUS</A> to determine whether it has regained ownership of indicated packets when <B>NdisMIndicateReceivePacket</B> returns control.</P>
+
+<P>A deserialized miniport driver must not examine the <B>Status</B> of indicated packets on return of <B>NdisMIndicateReceivePacket</B>. Instead, a deserialized miniport driver must save a packet’s <B>Status</B> in a local variable before indicating up the packet descriptor. When <B>NdisMIndicateReceivePacket</B> returns, the miniport driver should check the saved packet <B>Status</B>. If the miniport driver set the packet's <B>Status</B> to NDIS_STATUS_RESOURCES before indicating up the packet descriptor, it should reclaim the packet descriptor immediately after <B>NdisMIndicateReceivePacket</B> returns, preferably by calling its own <I>MiniportReturnPacket</I> function. In this case, NDIS does not call the miniport driver’s <I>MiniportReturnPacket</I> function to return the packet descriptor. If the miniport driver set the packet's <B>Status</B> to NDIS_STATUS_SUCCESS before indicating up the packet descriptor, the miniport driver must not reclaim the packet descriptor until NDIS subsequently returns the packet descriptor to the miniport driver's <I>MiniportReturnPacket</I> function.</P>
+
+<P>When the miniport driver regains ownership of an indicated packet descriptor, it can prepare the associated out-of-band data block for reuse by passing the pointer returned by <A HREF="103ndisx_43qq.htm">NDIS_OOB_DATA_FROM_PACKET</A> to <A HREF="103ndisx_1ype.htm"><B>NdisZeroMemory</B></A>. As an alternative, the miniport driver can simply reset the relevant member(s) at the subsequent receive with the NDIS_SET_PACKET_<I>XXX</I> macro(s) or with the pointer returned by NDIS_OOB_DATA_FROM_PACKET.</P>
+
+<P>A miniport driver must <I>not</I> pass a packet descriptor pointer to <B>NdisZeroMemory</B>. Doing this destroys the packet descriptor, rendering it unusable for subsequent indications. To clear the associated out-of-band data block, the driver must pass the pointer returned by NDIS_OOB_DATA_FROM_PACKET.</P>
+
+<P>Packet arrays passed to <B>NdisMIndicateReceivePacket</B> can be allocated on the stack, which cannot be paged out in the NDIS library’s receive-indication code path. </P>
+
+<P>When NDIS calls the <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> function of a driver that exports a <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A> function, <I>ProtocolReceive</I> can call <A HREF="103ndisx_4faq.htm"><B>NdisGetReceivedPacket</B></A> and <A HREF="103ndisx_7xma.htm">NDIS_GET_ORIGINAL_PACKET</A> to retrieve the out-of-band information associated with an incoming packet that was indicated as part of a packet array. </P>
+
+<P>Any miniport driver that calls <B>NdisMIndicateReceivePacket</B> must indicate full packets. Consequently, such a driver has no <A HREF="101mini_9a42.htm"><I>MiniportTransferData</I></A> function. </P>
+
+<P>Serialized callers of <B>NdisMIndicateReceivePacket</B> must run at IRQL = DISPATCH_LEVEL. Deserialized callers of <B>NdisMIndicateReceivePacket</B> can run at IRQL &lt;= DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_7s36.htm"><I>MiniportHandleInterrupt</I></A>, <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, <A HREF="101mini_2vw2.htm"><I>MiniportQueryInformation</I></A>, <A HREF="101mini_81ki.htm"><I>MiniportReturnPacket</I></A>, <A HREF="101mini_81v6.htm"><I>MiniportTimer</I></A>, <A HREF="103ndisx_2pki.htm"><B>NdisAdjustBufferLength</B></A>, <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A>, <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_990y.htm"><B>NdisChainBufferAtBack</B></A>, <A HREF="103ndisx_3c36.htm"><B>NdisChainBufferAtFront</B></A>, <A HREF="103ndisx_6m42.htm"><B>NdisGetCurrentSystemTime</B></A>, <A HREF="103ndisx_7xma.htm">NDIS_GET_ORIGINAL_PACKET</A>, <A HREF="103ndisx_05bm.htm">NDIS_GET_PACKET_STATUS</A>, <A HREF="103ndisx_4faq.htm"><B>NdisGetReceivedPacket</B></A>, <A HREF="103ndisx_3fg2.htm"><B>NdisMAllocateSharedMemoryAsync</B></A>, <A HREF="103ndisx_43qq.htm">NDIS_OOB_DATA_FROM_PACKET</A>, <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="103ndisx_3nxu.htm">NDIS_SET_PACKET_TIME_RECEIVED</A>, <A HREF="103ndisx_2u42.htm">NDIS_SET_PACKET_TIME_SENT</A>, <A HREF="103ndisx_1ype.htm"><B>NdisZeroMemory</B></A>, <A HREF="22genoid_1jzm.htm">OID_GEN_CURRENT_LOOKAHEAD</A>, <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A>, <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisMIndicateReceivePacket"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

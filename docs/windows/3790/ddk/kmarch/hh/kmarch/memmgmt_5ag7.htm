@@ -1,0 +1,72 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Map Registers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Map Registers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_map_registers_kg"></A>Map Registers</H1>
+
+<P>Drivers that perform DMA use three different address spaces, as shown in the following figure.</P>
+
+
+
+<P><A NAME="ddk__bmc_3addrspc.wmf__kg"></A><B><IMG SRC="images/3addrspc.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Physical, Logical, and Virtual Address Mappings</B></P>
+
+<P>On any Windows platform, a driver has access to the full virtual address space supported by the processor. On a 32-bit processor, the virtual address space represents four gigabytes. The CPU translates addresses in the virtual address space to addresses in the system's physical address space by means of a page table. Each page table entry (PTE) maps one page of virtual memory to a page of physical memory, resulting in a paging operation when necessary. An MDL (memory descriptor list) provides a similar mapping for a buffer associated with driver DMA operations.</P>
+
+<P>Devices vary in their ability to access the system's full virtual address space. A device uses addresses in logical (device) address space. Each HAL uses <I>map registers</I> to translate a device or logical address to a physical address (a location in physical RAM). For the device hardware, map registers perform the same function that the MDL (and page table) performs for the software (drivers): they translate addresses to physical memory. </P>
+
+<P>Because these address spaces are separately addressed, a driver cannot use a pointer in virtual address space to address a location in physical memory, and vice versa. The driver must first translate the virtual address to a physical address. Similarly, a driver cannot use a logical address to access physical memory; it must first translate the address. </P>
+
+<P>A HAL must set up adapter objects that support DMA for a wide variety of DMA devices and I/O buses on different machines. For example, most ISA DMA controllers, slave devices, and bus-master devices do not have enough address lines to access the full four-gigabyte system physical address space of a 32-bit processor (or the 64-gigabyte system physical address of an x86 processor running in 36-bit PAE mode). By contrast, PCI DMA devices generally have more than enough address lines to access the full system physical address space in 32-bit processors. Consequently, every HAL provides mappings between the <I>logical address</I> ranges that DMA devices can access and <I>physical address</I> ranges of each individual machine.</P>
+
+<P>Each adapter object is associated with one or more map registers, depending on the amount of data to be transferred and the amount of available memory. During DMA transfers, the HAL uses each map register to alias a device-accessible logical page to a page of physical memory in the CPU. In effect, map registers provide scatter/gather support for drivers that use DMA whether or not their devices have scatter/gather capabilities.</P>
+
+<P>The following figure illustrates such a physical-to-logical address mapping for the driver of an ISA DMA device that does not have scatter/gather capabilities.</P>
+
+
+
+<P><A NAME="ddk__bmc_3dmapreg.wmf__kg"></A><B><IMG SRC="images/3dmapreg.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Address Mapping for Sample ISA DMA Device</B></P>
+
+<P>The previous figure shows the following types of mappings:
+
+<OL>
+	<LI>Each map register maps a range of physical addresses (pointed to by solid lines) to low-order logical addresses (dotted lines) for an ISA DMA device.
+<P>Here, three map registers are used to alias three paged ranges of data in system physical memory to three page-sized ranges of low-order logical addresses for an ISA DMA device. 
+</LI>
+
+	<LI>The ISA device uses the mapped logical addresses to access system memory during DMA operations.
+<P>For a comparable PCI DMA device, three map registers would also be used for three page-sized ranges of data. However, the mapped logical address ranges would not necessarily be identical to the corresponding physical address ranges, so a PCI device would also use logical addresses to access system memory.
+</LI>
+
+	<LI>Each entry in the MDL maps a location in virtual address space to a physical address. </LI>
+</OL>
+
+<P>Note the correspondence between a map register and a virtual-to-physical entry in the MDL:
+
+<UL>
+	<LI>Each map register and each virtual entry in an MDL maps at most a full physical page of data for a DMA transfer operation.</LI>
+
+	<LI>Each map register and each virtual entry in an MDL might map less than a full page of data. For example, the initial virtual entry in an MDL can map to an offset from the physical page boundary, as shown previously in the Physical, Logical, and Virtual Address Mappings figure.</LI>
+
+	<LI>Each map register and each virtual entry in an MDL maps, at a minimum, one byte.</LI>
+</UL>
+
+<P>In an IRP requesting a read or write operation, each virtual entry in the opaque-to-drivers MDL at<B> Irp-&gt;MdlAddress</B> represents a page boundary in the system physical memory for a user buffer. Similarly, each additional map register needed for a single DMA transfer represents a page boundary in the device-accessible logical address range aliased to system physical memory.</P>
+
+<P>On every Windows platform, each adapter object has an associated set of one or more map registers located at a platform-specific (and opaque-to-drivers) base address. From a driver's point of view, the map register base shown in the figure illustrating <A HREF="#ddk__bmc_3dmapreg.wmf__kg">address mapping for a sample ISA DMA device</A> is a handle for a set of map registers that could be hardware registers in a chip, in a system DMA controller, or in a bus-master adapter, or could even be HAL-created virtual registers in system memory.</P>
+
+<P>The number of map registers available with an adapter object can vary for different devices and Windows platforms. For example, the HAL can make more map registers available to drivers that use system DMA on some platforms than on others because the DMA controllers on different Windows platforms have different capabilities.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Map%20Registers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

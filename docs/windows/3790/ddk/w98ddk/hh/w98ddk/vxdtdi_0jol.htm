@@ -1,0 +1,29 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Communication Using the TDI Interface</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_vxdtdi_communication_using_the_tdi_interface"></A>Communication Using the TDI Interface</H1>
+
+<P>Communications through TDI centers around two abstractions: the address object and the connection. An address object is the representation of a local address (IP address/port number/protocol ID). An address object is opened through the <B>TdiOpenAddress</B> primitive, which specifies the necessary information. The IP address specified may be zero, indicating a wildcard local address. The <B>TdiOpenAddress</B> call returns a HANDLE that the client uses to identify the address object in subsequent calls. </P>
+
+<P>An address object may have one or more event handlers associated with it. An event handler is a client-specified routine that the TCP VxD will call when certain events occur. The most popular event handlers are connect event handlers, receive data and receive datagram event handlers, and disconnect event handlers. Connect event handlers are routines that the TCP VxD will call when an incoming connect request (a TCP frame with the SYN bit set with no ACK) is received. The client may inspect the remote address and accept or reject the connection. Receive data and datagram handlers are routines that are called when incoming data or datagrams are received. Disconnect event handlers are called when a TCP connection is being torn down, either gracefully through receipt of a FIN or abortively due to a RST or time-out. Clients specify event handlers through the <B>TdiSetEvent</B> primitive. More information on event handlers may be found in the Windows NT/Windows 2000 TDI documentation and in <A HREF="vxdtdi_971w.htm"><B>TdiSetEvent</B></A>.</P>
+
+<P>An address object handle is all that is needed for UDP traffic. A client may send and receive through UDP without opening a connection. Datagrams are sent with <B>TdiSendDatagram</B>, and may be received with either <B>TdiReceiveDatagram</B> or through a receive datagram event handler.</P>
+
+<P>A connection represents the local side of a TCP connection. Connections are opened through <B>TdiOpenConnection</B>. Initially, the connection is “blank” and unassociated with any local address. Clients associate a connection with a local address through <B>TdiAssociateAddress</B>. This routine takes as input a connection context and an address object handle, and associates the connection with the local address represented by the address object. After this is done, a connection to a remote host may be established through <B>TdiConnect</B>, or the connection may be placed into the listening state through <B>TdiListen</B>. As an alternative to <B>TdiListen</B>, clients may set a connect event handler on the associated address object. This is the recommended alternative for VxD TDI clients.</P>
+
+<P>After a connection is established, data may be sent with <B>TdiSend</B>. Data may be received with either <B>TdiReceive</B> or a receive data event handler. TCP connections are torn down with <B>TdiDisconnect</B>. This primitive specifies whether the disconnection is to be graceful or abortive. A graceful disconnect results in a FIN being sent. The disconnect will complete when this FIN is successfully acknowledged. The connection will not be completely gone until this remote peer has sent a FIN and this FIN has been successfully acknowledged. Receipt of a FIN from the remote side will result in a <B>DisconnectWait</B> request being complete, or a disconnect event handler being called. If there is no disconnect event handler set or <B>DisconnectWait</B> primitive outstanding, the client will not be notified. A client may receive a graceful disconnect notification before issuing a disconnect request. </P>
+
+<P>An abortive disconnect destroys the connection immediately by sending a RST. Receiving a RST will result in a client being notified through event handler or <B>DisconnectWait</B> primitives. </P>
+
+<P>Connections are closed through <B>TdiCloseConnection</B>. Closing an established connection will result in a RST being sent. Closing a connection is different from disconnecting a connection. A disconnected connection is still around, associated with an address, and may be connected again through <B>TdiConnect</B>. Closing a connection results in the connection object itself being destroyed.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Communication%20Using%20the%20TDI%20Interface"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

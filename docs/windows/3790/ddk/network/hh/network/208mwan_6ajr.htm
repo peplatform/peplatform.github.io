@@ -1,0 +1,42 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>CoNDIS TAPI Shutdown</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="CoNDIS TAPI Shutdown">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_condis_tapi_shutdown_ng"></A>CoNDIS TAPI Shutdown</H2>
+
+<P>A TAPI session begins after a CoNDIS WAN miniport driver has enumerated its TAPI capabilities to an application. Within a session, one or more lines can be opened and one or more calls can be established. During the time a line is open, many calls can be established and then closed or dropped. During a session, one or more lines can go through transitions from open to closed many times. How a miniport driver handles such transitions is described in this section.</P>
+
+<H4>Closing a Call</H4>
+
+<P>An in-process call can be closed either by the local node or by the remote node. The call can be closed on the local node, either because the last application with a handle to the call has closed the handle, or perhaps because the miniport driver’s <I>MiniportHalt</I> or <I>MiniportReset</I> has been called. If the remote node hangs up an in-process call, the miniport driver must inform upper layers to tear down the call. </P>
+
+<P>If an application on the local node closes the call, it must disconnect the call. A call is disconnected as a result of an application calling the TAPI <B>lineDrop</B> function. This TAPI-function call causes the NDPROXY driver to call the <A HREF="103ndisx_7rsi.htm"><B>NdisClCloseCall</B></A> function and to pass a handle that represents the VC for the call. NDIS in turn calls the CoNDIS WAN miniport driver's <I>ProtocolCmCloseCall</I> function. The miniport driver should return NDIS_STATUS_PENDING to NDPROXY so the miniport driver can complete <B>NdisClCloseCall</B> asynchronously. </P>
+
+<P>The miniport driver's <I>ProtocolCmCloseCall</I> must communicate with network control devices to terminate a connection between the local node and a remote node. The miniport driver must then call the <A HREF="103ndisx_1nqq.htm"><B>NdisMCmDeactivateVc</B></A> function to initiate deactivation of the VC used for the call. </P>
+
+<P>After the miniport driver terminates the connection, its <I>ProtocolCmCloseCall</I> can call the <A HREF="103ndisx_4fzm.htm"><B>NdisMCmCloseCallComplete</B></A> function to complete the call closure. </P>
+
+<P>If the remote node hangs up an in-process call, the miniport driver calls the <A HREF="103ndisx_5w8i.htm"><B>NdisCmDispatchIncomingCloseCall</B></A> function to inform NDISWAN and NDPROXY to tear down the incoming call. </P>
+
+<H4>Closing a Line</H4>
+
+<P>A line is closed when the last application with an open handle to the line has closed the handle. A line is closed as a result of an application calling the TAPI <B>lineClose</B> function. This TAPI-function call causes the NDPROXY driver to initiate the closure of all calls on that line as described in the preceding section. The miniport driver should drop those calls and clean up their state. </P>
+
+<H4>Closing a Session</H4>
+
+<P>Session termination can be initiated by either the upper layers or a CoNDIS WAN miniport driver. After the last client process has detached from the higher-level Telephony module, the NDPROXY driver will be informed that it must terminate its session with each of the registered adapters. To do so, the NDPROXY driver calls the <A HREF="103ndisx_108i.htm"><B>NdisClCloseAddressFamily</B></A> function and passes the handle to the TAPI address family. NDIS in turn calls the miniport driver's <I>ProtocolCmCloseAf</I> function. The miniport driver should terminate any related activities it has in progress on the specified adapter and release any relevant resources. After calling <B>NdisClCloseAddressFamily</B>, the client should consider the handle to the TAPI address family invalid. </P>
+
+<P>Driver-initiated session termination can occur if the miniport driver is being unloaded in its <I>MiniportHalt</I> function. Typically, the miniport driver would complete any outstanding NDPROXY requests and notify NDISWAN that all calls are closing. If the miniport driver were reloaded again later, it would go through the same initialization process described previously.</P>
+
+<P>The CoNDIS WAN miniport driver might also initiate session termination if it underwent some dynamic reconfiguration that necessitated a complete reinitialization of all clients and drivers. For example, if an adapter’s line-device modeling (for example, the number of line devices supported) was changed on the fly.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: CoNDIS%20TAPI%20Shutdown"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WSPCleanup</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WSPCleanup">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wspcleanup_nr"></A>WSPCleanup</H1>
+
+<P><B>WSPCleanup</B> terminates use of the SAN service provider. </P>
+
+<PRE class=syntax><B>int 
+  WSPCleanup(
+    OUT LPINT </B><I> lpErrno</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>lpErrno</I></DT>
+
+<DD>Pointer to a variable that receives the error code.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>Returns zero if successful; otherwise, returns SOCKET_ERROR and, in <I>lpErrno</I>, one of the following error codes: 
+
+<DL>
+<DT>WSANOTINITIALISED</DT>
+
+<DD>Successful <B>WSPStartupEx</B> call did not occur before the <B>WSPCleanup</B> call. </DD>
+
+<DT>WSAENETDOWN</DT>
+
+<DD>Network subsystem failed.
+</DD>
+</DL>
+
+<P>Note that a SAN service provider does not support the WSAEINVAL error code for <B>WSPCleanup</B>.</P>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>Ws2spi.h</I>. Include <I>Ws2spi.h</I>. Requires Windows Sockets version&nbsp;2.0.</P>
+
+<H4>Comments</H4>
+
+<P>The Windows Sockets switch must call a SAN service provider's <A HREF="wsdpref_40he.htm"><B>WSPStartupEx</B></A> function before it can start using that SAN service provider. After the switch no longer requires a SAN service provider, it calls the <B>WSPCleanup</B> function to terminate use of the SAN service provider and to allow the SAN service provider to release any resources that the SAN service provider allocated for operations requested by the switch. </P>
+
+<P>The switch can call a SAN service provider's <B>WSPStartupEx</B> function more than once. For each <B>WSPStartupEx</B> call, the switch must issue a corresponding <B>WSPCleanup</B> call. The SAN service provider must keep an internal reference count of the number of its open instances. Calls to the SAN service provider's <B>WSPCleanup</B> function decrement this internal reference count. Only the final <B>WSPCleanup</B> call does the actual cleanup (that is, when the internal reference count reaches zero).</P>
+
+<P>During cleanup, the SAN service provider releases resources that it previously allocated and cancels any pending calls or uncompleted asynchronous operations. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To cancel a pending call that the switch initiated or forwarded</B>
+
+<OL>
+	<LI>A SAN service provider calls the <B>WPUCompleteOverlappedRequest</B> function to complete the overlapped operation that is related to that pending call. </LI>
+
+	<LI>In this call, the SAN service provider passes a pointer to a WSAOVERLAPPED structure for the overlapped operation, and also passes the WSA_OPERATION_ABORTED error code to specify that the overlapped operation was canceled. </LI>
+
+	<LI>Before calling the <B>WPUCompleteOverlappedRequest</B> function to cancel an overlapped operation, the SAN service provider should release any memory associated with that operation.</LI>
+</OL>
+
+<P>During cleanup, the SAN service provider does not signal event objects to post notification messages. For example, during cleanup, the SAN service provider does not post notification messages that indicate the arrival of an incoming connection (FD_ACCEPT) or the completion of a connection operation (FD_CONNECT). </P>
+
+<P>Any sockets that are open during a final <B>WSPCleanup</B> call are reset and automatically released as if the <B>WSPClosesocket</B> function was called. </P>
+
+<P>A SAN service provider must ensure that its <B>WSPCleanup</B> function leaves the operating environment in a state in which the switch can immediately call the SAN service provider's <B>WSPStartupEx</B> function to reestablish usage. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="wsdpref_4fsi.htm"><B>WSPCloseSocket</B></A>, <A HREF="wsdpref_40he.htm"><B>WSPStartupEx</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WSPCleanup"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

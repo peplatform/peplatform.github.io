@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Surface and Palette Access Counts</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Surface and Palette Access Counts">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_surface_and_palette_access_counts_gg"></A>Surface and Palette Access Counts</H3>
+
+<P><B>This topic applies only to Windows 98/Me.</B></P>
+
+<P>Under DirectX 5.0 and later, DirectDraw has the ability to inform your driver whether the original surface has been updated if the driver creates a copy of the surface in a local display memory cache. This lets you determine whether to update the cached surface. Whenever DirectDraw determines that a particular surface has been updated, it increments the access count in the <B>dwContentsStamp</B> member of the <A HREF="ddstrcts_42ef.htm">DDRAWI_DDRAWSURFACE_GBL_MORE</A> structure. Your driver can check the <B>dwContentsStamp</B> member at any time; if the access count has been incremented, you should update your cache. </P>
+
+<P>DirectDraw also has the ability to inform your driver whether the palette for a particular surface has changed, using the <B>dwContentsStamp</B> member of the <A HREF="ddstrcts_376w.htm">DDRAWI_DDRAWPALETTE_GBL</A> structure. This member is incremented each time the palette changes. </P>
+
+<P>Additionally, the count in the <B>dwContentsStamp</B> members may also be set to zero. In this case, DirectDraw is unable to determine the contents of the surface. This value is set for DDSCAPS_VIDEOPORT, DDSCAPS_OWNDC, and surfaces whose display memory pointer has been changed by <B>SetSurfaceDesc</B>. If this is the case, you should not cache the contents of that surface. </P>
+
+<P>DirectDraw increments the <B>dwContentsStamp</B> member of the DDRAWI_DDRAWSURFACE_GBL_MORE structure when: 
+
+<UL>
+	<LI>An application calls <B>Unlock</B>. </LI>
+
+	<LI>An application calls <B>ReleaseDC</B>. </LI>
+
+	<LI>An application calls <B>Blt</B>. </LI>
+
+	<LI>An application calls <B>Flip</B>. </LI>
+
+	<LI>An application calls <B>SetPalette</B>. </LI>
+
+	<LI>An application calls <B>SetSurfaceDesc</B>, but the display memory pointer does not change. </LI>
+
+	<LI>Surfaces are lost. </LI>
+</UL>
+
+<P>DirectDraw increments the <B>dwContentsStamp</B> member of the DDRAWI_DDRAWPALETTE_GBL structure when an application calls <B>SetEntries</B>. </P>
+
+<P>The following sample shows how to check whether a cached surface needs updating: </P>
+
+<PRE>/*
+ * Given a surface local pointer, is my private cache of the surface out of date?
+ *
+ * I cache a pointer to my private surface data inside the surface global more's
+ * dwDriverReserved field. I keep a private copy of the surface access count in there,
+ * and compare it against the incoming access count. If they are different or the
+ * access counter is zero, then my cache is stale.
+ * I also check the palette and update if necessary.
+ */
+
+if (ddVersion &gt;= 0x500) //Check DDraw runtime version as passed in at initialization time
+{
+    LPDDRAWI_DDRAWSURFACE_GBL_MORE  lpSurfMore = GET_LPDDRAWSURFACE_GBL_MORE(lpSurfGbl);
+    LPMYPRIVATEPALETTEEDATA  lpMyPerPaletteData;
+    LPMYPRIVATESURFACEDATA   lpMyPerSurfaceData  = (LPMYPRIVATESURFACEDATA)lpSurfMore-&gt;dwDriverReserved;
+
+    if( lpSurfMore-&gt;dwContentsStamp == 0 || 
+            lpSurfMore-&gt;dwContentsStamp != lpMyPerSurfaceData-&gt;dwContentsStamp)
+    {
+        /*
+         * My surface cache is stale. Update it.
+         */
+        lpMyPerSurfaceData-&gt;dwContentsStamp = lpSurfMore-&gt;dwContentsStamp;
+        
+        UpdateMyCache(lpSurfLcl); //copy surface to my cache.
+    }
+
+    /*
+     * If there is a palette associated with the surface, did it change?
+     */
+    if ( lpSurfLcl-&gt;lpDDPalette )
+    {
+        /*
+         * There is a palette associated with this surface
+         */
+        LPDDRAWI_DDRAWPALETTE_GBL lpPaletteGbl = lpSurfLcl-&gt;lpDDPalette-&gt;lpLcl-&gt;lpGbl;
+
+        lpMyPerPaletteData = (LPMYPRIVATEPALETTEEDATA) lpPaletteGbl-&gt;dwDriverReserved;
+
+        if (lpPaletteGbl-&gt;dwContentsStamp == 0 ||
+            lpMyPerPaletteData-&gt;dwContentsStamp != lpPaletteGbl-&gt;dwContentsStamp )
+        {
+            /*
+             * Palette has changed
+             */
+            lpMyPerPaletteData-&gt;dwContentsStamp = lpPaletteGbl-&gt;dwContentsStamp;
+
+            UpdateMyPaletteForThisSurface(lpSurfLcl); //Update my palette table
+        }
+    }
+}
+else
+{
+    /*
+     * Runtime less than 5.0 means I can't cache
+     */
+    UpdateMyCache(lpSurfLcl); //copy surface to my cache.
+    UpdateMyPaletteForThisSurface(lpSurfLcl); //Update my palette table
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Surface%20and%20Palette%20Access%20Counts"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,145 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Filter Intermediate Driver Installation</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Filter Intermediate Driver Installation">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_filter_intermediate_driver_installation_ng"></A>Filter Intermediate Driver Installation</H2>
+
+<P>This topic provides an overview of NDIS filter intermediate driver installation issues. For additional information about the structure of intermediate driver INF files, see <A HREF="501install_6jxj.htm">Installation Requirements for Network Filter Intermediate Drivers</A>.</P>
+
+<P>A filter intermediate driver requires two INF files. The protocol INF file defines the installation parameters for the protocol lower edge. The virtual miniport INF file defines the installation parameters for the virtual miniport upper edge. Set the <B>Class</B> INF file entry to <B>Net</B> in the virtual miniport INF file and <B>NetService</B> in the protocol INF file. A sample <B>Class</B> entry for the protocol INF file follows:</P>
+
+<PRE>Class = NetService
+</PRE>
+
+<P>The <I>DDInstall</I> section in a filter intermediate driver INF file must have a <B>Characteristics</B> entry. Define the <B>Characteristics</B> entry in your protocol INF file as demonstrated in the following sample:</P>
+
+<PRE>Characteristics = 0x410
+</PRE>
+
+<P>The 0x410 value indicates that the NCF_FILTER and NCF_NO_SERVICE flags are set. NCF_FILTER is required for filter intermediate drivers. NCF_NO_SERVICE is optional. </P>
+
+<P>Define the <B>Characteristics</B> entry in your virtual miniport INF file as demonstrated in the following sample:</P>
+
+<PRE>Characteristics = 0x29
+</PRE>
+
+<P>The <B>Characteristics</B> value 0x29 indicates the NCF_VIRTUAL (0x1), NCF_HIDDEN (0x8) and NCF_NOT_USER_REMOVABLE (0x20) flags are set. NCF_VIRTUAL specifies that the device is a virtual adapter. NCF_NOT_USER_REMOVABLE is optional and specifies that the user cannot remove the intermediate driver. NCF_HIDDEN is optional. Define NCF_HIDDEN if you want to hide the virtual miniport from the user (you should not do this if your user must install devices manually). </P>
+
+<P>The values of the NCF_* flags are defined in <I>netcfgx.h</I>. For more information about NCF_* flags, see <A HREF="501install_4q5j.htm">DDInstall Section</A>. </P>
+
+<P>The <I>DDInstall</I> section of the protocol INF file for a filter intermediate driver must include an <B>Addreg</B> directive for an <B>Ndi</B> key. The protocol INF file must specify the <B>Service</B> entry under the <B>Ndi</B> key. The virtual miniport INF file, in turn, contains an <B>AddService</B> directive that references a <I>service-install</I> section. The <I>ServiceName</I> value of this <B>AddService</B> directive must match the name of the protocol INF <B>Service</B> entry. The <B>ServiceBinary</B> entry in the <I>service-install</I> section of the virtual miniport INF file specifies the path to the binary for the filter intermediate driver. During virtual miniport installation, this filter intermediate driver must have been already transferred to the target computer using the <B>CopyFiles</B> directive of the protocol INF file. For more information, see <A HREF="501install_60rr.htm">Adding Service-Related Values to the Ndi Key</A> and <A HREF="501install_7nxj.htm">DDInstall.Services Section</A>. </P>
+
+<P>The following example shows how a filter intermediate driver protocol INF file specifies the name of the service: </P>
+
+<PRE>HKR, Ndi,            Service,             , Passthru
+</PRE>
+
+<P>This name is the name of the driver's service as it is reported to NDIS. Note that the name of a filter intermediate driver's service need not be the same as the name of the binary for the driver although typically they are the same. </P>
+
+<P>The following is an example of how the virtual miniport INF file references the name of the filter intermediate driver's service when it adds that service: </P>
+
+<PRE>[PassthruMP.ndi.Services]
+AddService = Passthru,0x2, PassthruMP.AddService
+
+[PassthruMP.AddService]
+DisplayName    = %PassthruMP_Desc%
+ServiceType    = 1 ;SERVICE_KERNEL_DRIVER
+StartType      = 3 ;SERVICE_DEMAND_START
+ErrorControl   = 1 ;SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\passthru.sys
+LoadOrderGroup = PNP_TDI
+</PRE>
+
+<P>The user installs the protocol INF file. The protocol INF file references the virtual miniport INF from the <B>FilterDeviceInfId</B> INF file entry as follows:</P>
+
+<PRE>HKR, Ndi,            FilterDeviceInfId,   , ms_passthrump
+</PRE>
+
+<P>Define the virtual miniport INF part of the reference as follows:</P>
+
+<PRE>%PassthruMP_Desc% = PassthruMP.ndi, ms_passthrump
+
+[Strings]
+Msft = "Microsoft"
+PassthruMP_Desc = "Passthru Miniport"
+</PRE>
+
+<P>The <B>FilterDeviceInfld</B> (ms_passthrump in the example) in the protocol INF file must match the name provided in the virtual miniport INF file.</P>
+
+<P>The <B>FilterClass</B> value of a filter intermediate driver determines its order in a stack of filters. Filter intermediate drivers must define the <B>FilterClass</B> key. The class of the driver can be one of the values in the following table:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=21%>Value</TH>
+<TH align=left width=79%>DescriptionMeaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>scheduler</TD>
+<TD width=79%>Packet-scheduling filter service. This class of filter intermediate driver is the highest driver in a stack. A packet scheduler detects the 802.1p priority classification given to packets by QoS-signaling components, and sends those packets according to their priority levels to underlying drivers. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>loadbalance</TD>
+<TD width=79%>Load-balancing filter service. This class of filter intermediate driver exists between packet-scheduling and fail-over drivers. A load balancing filter service balances its workload of packet transfers by distributing the workload over its bundle of underlying miniport instances. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>failover</TD>
+<TD width=79%>Fail-over filter service. This class of filter intermediate driver is the lowest driver in a stack. That is, no other drivers that belong to other classes, if installed, can be between this driver's virtual miniport and the adapter being filtered. </TD>
+</TR>
+</TABLE><BR>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Only one filter intermediate driver of a specific class can exist in a layered stack of filter intermediate drivers. For example, two filter intermediate drivers of <B>FilterClass</B> "schedule" cannot exist in a stack simultaneously.</P>
+
+<P>A sample <B>FilterClass</B> entry follows:</P>
+
+<PRE>HKR, Ndi,            FilterClass,         , failover
+</PRE>
+
+<P>You must define the following entries in the filter intermediate driver protocol INF file to control the driver bindings:</P>
+
+<PRE>HKR, Ndi\Interfaces, UpperRange,          , noupper
+HKR, Ndi\Interfaces, LowerRange,          , nolower
+HKR, Ndi\Interfaces, FilterMediaTypes,    , "ethernet, tokenring, fddi, wan"
+</PRE>
+
+<P>For more information about controlling the driver bindings, see <A HREF="301int_90br.htm">Intermediate Driver UpperRange And LowerRange INF File Entries</A>.</P>
+
+<P>A filter intermediate driver does not require a notify object for proper installation. When no notify object DLL is provided, the network class installer completes the installation automatically.</P>
+
+<P>A notify object can be used to provide a user interface for the entry of component specific parameters and configuration information. For more information about creating a notify object, see <A HREF="301int_5ief.htm">Intermediate Driver Notify Object</A>.</P>
+
+<H4>Adapting the Passthru Sample INF files</H4>
+
+<P>The best way to create your own filter intermediate driver INF files is to copy the INF files from the Passthru sample driver and modify them.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To adapt the protocol INF file</B>
+
+<OL>
+	<LI>Change <I>passthru.sys</I> to the name of your own driver in the <B>SourceDiskFiles</B> and <B>Passthru.CopyFiles.Sys</B> sections.</LI>
+
+	<LI>Change the values for <B>BindForm</B> and <B>MiniportId</B> in the <B>Passthru.ndi.AddReg </B>section to appropriate values.</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To adapt the virtual miniport INF file</B>
+
+<OL>
+	<LI>Replace "MS_PassthruMP" with the <B>InfId</B> of your virtual miniport.</LI>
+
+	<LI>Change <B>ServiceBinary</B> in the <B>PassthruMP.AddService </B>section<B> </B>to the name of your driver.</LI>
+
+	<LI>Change "Passthru" in the <B>PassthruMP.ndi.AddReg</B> section "Service" line to reflect the appropriate name.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Filter%20Intermediate%20Driver%20Installation"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

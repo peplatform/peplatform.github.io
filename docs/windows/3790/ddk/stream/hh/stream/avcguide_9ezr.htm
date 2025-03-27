@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Connection Management</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Connection Management">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_connection_management_ksg"></A>Connection Management</H1>
+
+<P>The AV/C peer instance provides functions for 1394 (and AV/C subunit) plug connection and format management. Kernel Streaming (KS) pin format negotiation and pin connection mechanisms are translated to plug connections through <I>avc.sys</I>.</P>
+
+<P>Currently, <I>avc.sys</I> does not support Connection and Compatibility Management (CCM) or asynchronous connections, although this functionality can be added to your subunit driver, or provided through a WDM filter driver.</P>
+
+<P>Some key aspects of the architecture are:
+
+<UL>
+	<LI>1394 and AV/C subunit plug connections are represented as KS pin connections on the computer.</LI>
+
+	<LI>1394 serial bus plugs (input and output plugs) are directly represented as KS pins only when there is no internal subunit plug connection capability. In this case, there is one pin per 1394 serial bus plug.</LI>
+
+	<LI>There is a medium GUID representing 1394 serial bus connections.</LI>
+
+	<LI>Medium GUIDs for permanent internal AV/C unit and subunit connections are synthesized from the device unique ID and plug addresses.</LI>
+
+	<LI>There are new <A HREF="ks-struct_065v.htm">KSDATARANGE</A> and <A HREF="ks-struct_0fub.htm">KSDATAFORMAT</A> extensions for AV/C connections.</LI>
+</UL>
+
+<P>The mediums and formats together help to determine whether a KS pin connection represents data to and from the computer, over the 1394 serial bus, or internal to a device.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To Initialize a Subunit Driver and Establish Pin Connections</B>
+
+<OL>
+	<LI>Submit an <A HREF="avcref_986r.htm">AVC_FUNCTION_GET_PIN_COUNT</A> request. Use the resulting pin count in the remaining functions to indicate the pin (offsets from 0 to PinCount-1).</LI>
+
+	<LI>For each pin, submit an<A HREF="avcref_7kc3.htm"> AVC_FUNCTION_GET_PIN_DESCRIPTOR</A> request. Use the returned <A HREF="ks-struct_9kqb.htm">KSPIN_DESCRIPTOR</A> to complete the filter definition. <I>Avc.sys</I> fills in the <B>MediumsCount</B>, <B>Mediums</B>, <B>DataFlow</B>, and <B>Communication</B> members of KSPIN_DESCRIPTOR. The subunit driver is permitted to copy the KSPIN_DESCRIPTOR and override any of the members, although it is recommended that it leave the medium list intact (the list may contain GUIDs synthesized for permanent subunit plug connections).
+<P>The pointers in the KSPIN_DESCRIPTOR structure are to paged pool that remains until the subunit driver’s PDO is removed. Care must be exercised to not destroy the contents.
+
+<P>The subunit driver is permitted to replace the pointer if it has something better to point to. However, it must not free these memory ranges. If using the AVStream KS framework (KS 2.0), the <B>KsEdit</B> routine deals with replacing memory references like this.
+
+<P>Note that <I>avc.sys</I> <I>does not </I>fill in the KSPIN_DESCRIPTOR's <B>Interfaces</B>, <B>DataRanges</B>, <B>Category</B>, <B>Name</B>, or <B>ConstrainedDataRanges</B> members. A fully functional <I>avcstrm.sys</I> driver (or other lower filter driver associated with your subunit driver) might fill in the <B>DataRanges</B> (along with an <B>IntersectHandler</B> and optional <B>Context</B>). However, if the <B>DataRanges</B> are not specified when this function completes, it is the subunit's responsibility to provide them.
+
+<P>Regardless of the origin of the <B>DataRanges</B>, each standard range must be paired with a duplicate range that has an <A HREF="avcref_30vn.htm">AVCPRECONNECTINFO</A> structure appended (using the appropriate specifier GUIDs) to support both device-to-pc <I>and</I> device-to-device connections. <I>Avc.sys</I> can be called upon to provide an AVCPRECONNECTINFO structure for each pin, through the <A HREF="avcref_45kj.htm">AVC_FUNCTION_GET_CONNECTINFO</A> request.
+</LI>
+
+	<LI>The <B>IntersectHandler</B> routine (either the one supplied in the result of AVC_FUNCTION_GET_PIN_DESCRIPTOR, or one provided by your subunit driver) creates a <B>DataFormat</B> structure for a matching pair of <B>DataRanges</B> structures. For more information about data intersection, see <A HREF="avconcep_1wvb.htm">Data Range Intersections in AVStream</A>. The <B>DataFormat</B> structure for matching AVCPRECONNECTINFO ranges has an <A HREF="avcref_516b.htm">AVCCONNECTINFO</A> structure appended to it. This is a copy of the local pin's AVCPRECONNECTINFO structure with the <B>Flags</B> member replaced by the <B>hPlug</B> member. The <B>hPlug</B> member must remain NULL if the KSPIN_FLAG_AVC_PERMANENT bit is set. If the KSPIN_FLAG_AVC_PCRONLY or KSPIN_FLAG_AVC_FIXEDPCR bits were set in <B>Flags</B>, the <B>UnitPlugNumber</B> and <B>DataFlow</B> members would be used to obtain an <B>hPlug</B> handle from 61883. Any other combination of bits (or no bits) means that the <B>hPlug</B> can be obtained for any available plug number (using the <B>DataFlow</B> member to determine plug direction).
+<P>The <B>IntersectHandler</B> routine must pass the resulting AVCCONNECTINFO structure down to <I>avc.sys</I>. This ensures that <I>avc.sys</I> can later make any necessary plug connections within the unit itself (for example, connections between unit input or output plugs with subunit destination or source plugs).
+</LI>
+
+	<LI>Finally, when the data format is set on a pin (after format negotiation), the pin must examine the format for an AVCCONNECTINFO structure. If one is found, then the pin does not move data to or from the 1394 bus from or to the computer. Instead, it uses <A HREF="avcref_6rhv.htm">AVC_FUNCTION_SET_CONNECTINFO</A> to send the AVCCONNECTINFO contents to a lower driver. Potentially, both the lower filter driver (for example, <I>avcstrm.sys</I>) and the <I>avc.sys</I> driver perform connection operations, but, at this point, the AVCCONNECTINFO contents only should be cached (no connection operations performed). The lower driver does not cache an AVCCONNECTINFO that it provided. In this way, only one pin makes <B>hPlug</B> connections between units. If there is no lower filter driver (<I>avcstrm.sys</I>), the subunit driver should decide whether or not to deliver the AVCCONNECTINFO to the lower driver. <I>Avc.sys</I> does not need to see AVCCONNECTINFO structures for plug control register (PCR) only connections.
+<P>If the subunit is not using a lower filter driver for stream format management, the subunit driver is responsible for setting up 1394 serial bus plug connections. For more information, see <A HREF="avcsguide_2ylj.htm">AV/C Streaming</A>.
+
+<P>The subunit driver should cache the <B>hPlug </B>from the format to set up a peer-to-peer connection if:
+
+<UL>
+	<LI>The <B>hPlug</B> does not match the one you created.</LI>
+
+	<LI>The <B>DeviceID</B> does not match the one you received in AVCPRECONNECTINFO.</LI>
+
+	<LI>The <B>DataFlow</B> does not match the data flow of your pin.</LI>
+</UL>
+</LI>
+
+	<LI>When pin connection resources are to be acquired, submit an <A HREF="avcref_6fxv.htm">AVC_FUNCTION_ACQUIRE</A> request. The lower driver (or the subunit driver itself) uses any cached AVCCONNECTINFO to make the <B>hPlug</B> connections. The internal connections between subunit and unit plugs are made by <I>avc.sys</I> upon receiving the AVC_FUNCTION_ACQUIRE request, using the cached AVCCONNECTINFO. <I>Avc.sys</I> does not cache information, nor attempt internal plug connections, if it has no internal plug control or the connection is marked as permanent.</LI>
+
+	<LI>When pin connection resources are to be released, submit an <A HREF="avcref_75pv.htm">AVC_FUNCTION_RELEASE</A> request. The lower driver and <I>avc.sys</I> keep any cached AVCCONNECTINFO, so that alternating <I>acquire</I> and <I>release</I> operations may be performed.</LI>
+
+	<LI>Submit an <A HREF="avcref_7q2b.htm">AVC_FUNCTION_CLR_CONNECTINFO</A> to remove the cached AVCCONNECTINFO data.</LI>
+</OL>
+
+<P>Note that the AVC_FUNCTION_SET_CONNECTINFO must be called once with the AVCCONNECTINFO created during data intersection (the local AVCCONNECTINFO), and once with the AVCCONNECTINFO passed when setting the format (the foreign AVCCONNECTINFO). For connections between subunits of different devices, a filter driver (for example, <I>avcstrm.sys)</I> caches the foreign information (the foreign <B>hPlug</B>), and <I>avc.sys</I> caches the local information. For connections between subunits within the same device, the filter driver does not cache any information, and <I>avc.sys</I> caches only the information for the foreign subunit. The filter driver must pass all AVC_FUNCTION_SET_CONNECTINFO requests down to <I>avc.sys</I>, so it can be shielded from the subunit plug connection decision-making.</P>
+
+<P>The AV/C connection lock bit is set when making the connection. Output pins (source plugs) expose multiple pin instances allowing overlay connections (from the same output to an additional input). However, if this occurs, there is nothing that prevents a <I>disconnect</I> command from deleting all the existing connections. This is inherent in the AV/C specification. When overlaying connections, the subunit sends multiple AVC_FUNCTION_SET_CONNECTINFO and AVC_FUNCTION_ACQUIRE request pairs (without intervening AVC_FUNCTION_RELEASE requests). Furthermore, this same behavior may result when a second computer is introduced to the 1394 bus, or a second incompatible application is run on the same computer.</P>
+
+<P>AV/C external plug connections are not directly supported by <I>avc.sys</I>, but <I>avc.sys</I> can still be used to establish internal connections between subunit plugs and external plugs by providing synthesized AVCCONNECTINFO structures. The subunit driver can create an AVCCONNECTINFO structure by using the <A HREF="avcref_535f.htm">AVC_FUNCTION_GET_UNIQUE_ID</A> function code to fill in the <B>DeviceID </B>member, supplying the unit address (0xff) and the external plug number (plug number logical-ORed with 0x80) for the <B>SubunitAddress</B> and <B>SubunitPlugNumber</B> members, and supplying the correct data flow direction in <B>DataFlow</B>. The <B>hPlug</B> and <B>UnitPlugNumber</B> members should be set to NULL. The number of input and output external plugs can be detected through the AVC_FUNCTION_GET_EXT_PLUG_COUNTS function.</P>
+
+<P>An approach that allows <I>avc.sys</I> to make the proper internal plug connections and exposes possible external plug connections to applications is to have filter factories for each possible external plug. The resulting filter instances would expose an appropriate input or output pin, which in turn would provide AVCCONNECTINFO structures.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Connection%20Management"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Registering a Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_dxddk_registering_a_driver_dsound"></A>Registering a Driver</H3>
+
+<P>It is best to register a DirectSound driver only after all other CONFIG_START handling has been completed. When DirectSound receives the registration call, it assumes that the driver is ready to be accessed through its <B>IDsDriver</B> interface. Also, before calling the registration service, the DirectSound driver must first dynaload the Dsound.vxd module. It must then register with DirectSound by passing a pointer to its <B>IDsDriver</B> vtable of functions. The vtable, which is constructed by the driver, consists of pointers to the functions. </P>
+
+<P>The following example illustrates how a driver might register itself with DirectSound. All driver-defined functions are prefixed by "Impl_" for clarity. The <B>Impl_DsInitialize</B> function would be called from the CONFIG_START handler of the audio driver. </P>
+
+<PRE>const IDSDRIVERVTBL Impl_Vtable = {
+    // These are all driver-defined functions.
+    Impl_QueryInterface,
+    Impl_AddRef,
+    Impl_Release,
+    Impl_GetDesc,
+    Impl_Open,
+    Impl_Close,
+    Impl_GetCaps,
+    Impl_CreateSoundBuffer
+};
+
+typedef struct { 
+    // You gotta have this first...
+    const IDSDRIVERVTBL *pVtable;
+
+    // ... and whatever other context info you need goes after.
+    DEVNODE DevNode;
+    PDEVICEINFO pdiDsoundVxd;
+    ...
+} DRIVERCONTEXT, *PDRIVERCONTEXT;
+
+...
+
+Impl_DsInitialize( DEVNODE dn )
+{
+    PDRIVERCONTEXT pDriverContext;
+    PVMMDDB        pDDB;
+    PDEVICEINFO    pdi;
+    ULONG          uReturn;
+
+    //  Allocate memory for DRIVERCONTEXT structure.
+    pDriverContext = _HeapAllocate(sizeof(*pDriverContext), HEAPZEROINIT);
+    if( pDriverContext )
+    {
+        // Fill in Vtable and other context info.
+        pDriverContext-&gt;pVtable = &amp;Impl_Vtable;
+        pDriverContext-&gt;DevNode = dn;
+
+        // Dynaload DSOUND.VXD and save ptr to device info
+        uReturn = VXDLDR_LoadDevice(&amp;pDDB, &amp;pdi, "dsound.vxd", TRUE);
+        if( !uReturn )
+        {
+            pDriverContext-&gt;pdiDSoundVxd = pdi;
+
+            // Register this driver with DSOUND.VXD
+            uReturn = DSOUND_RegisterDeviceDriver((PIDSDRIVER)pDriverContext,0);
+                                                  // There are no flags currently defined.
+            if( uReturn == DS_OK )
+            {
+                // Succeeded.  Probably want to save pDriverContext somewhere,
+                //   associated with DevNode so we can find it again.
+                Impl_SetDriverContext( dn, pDriverContext );
+                ...
+            } else {
+                // Failed.
+            }
+        }
+    }
+}
+</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Registering%20a%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

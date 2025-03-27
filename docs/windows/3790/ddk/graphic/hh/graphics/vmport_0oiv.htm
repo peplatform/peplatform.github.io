@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DualView Advanced Implementation Details</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DualView Advanced Implementation Details">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_dualview_advanced_implementation_details_gg"></A>DualView Advanced Implementation Details</H2>
+
+<P>An ideal DualView implementation should recognize when its secondary views are enabled or disabled. When the secondary views are disabled, the primary view should behave as it would without DualView enabled. This means that:
+
+<UL>
+	<LI>The primary display can access all parts of video memory.</LI>
+
+	<LI>On a laptop computer, the primary display can be switched to any of the child display devices.</LI>
+</UL>
+
+<H4>Video Memory Arrangement</H4>
+
+<P>In an ideal DualView implementation, memory buffer usage is optimized so that the entire video memory is used by the primary display when the secondary display is disabled. This optimization is optional, however; the video memory allocation strategy to use is completely up to the driver writer.</P>
+
+<P>When secondary views are disabled, the primary view should be able to access all parts of video memory to maximize system performance. When secondary views are enabled, however, the miniport driver should not just appropriate the primary view's memory. Instead, a miniport driver should reserve video memory for secondary views, prior to changing to DualView mode. Starting with Windows&nbsp;2000 (and continuing for later operating system versions), there is a new video request, <A HREF="virqs_4sh3.htm">IOCTL_VIDEO_SWITCH_DUALVIEW</A> to help driver writers handle video memory arrangement. When Windows&nbsp;2000 (and later) handles a call to the <B>ChangeDisplaySettings</B> function (described in the Platform SDK documentation), it sends the IOCTL_VIDEO_SWITCH_DUALVIEW request to each DualView-related view before it attempts to change the mode. Drivers can use that information to make video memory arrangements in advance of their need.</P>
+
+<P><IMG SRC="images/memfig1.gif" ALT="" BORDER=0></P>
+
+<P><B>Memory Arrangement with DualView Disabled</B></P>
+
+<P>The preceding figure illustrates an arrangement of video memory with DualView disabled.</P>
+
+<P><IMG SRC="images/memfig2.gif" ALT="" BORDER=0></P>
+
+<P><B>Memory Arrangement with DualView Enabled</B></P>
+
+<P>The preceding figure illustrates a suggested arrangement of video memory with DualView enabled. Each view has its own screen buffer and offscreen heap.</P>
+
+<H4>Child Relationships</H4>
+
+<P>A typical mobile video chip has multiple child devices, such as LCD, CRT, and TV. In SingleView mode, as shown in the following figure, the primary view owns all of these child devices, while the secondary view owns none of them. A user can switch the primary view from one child device to another. Only one device can be active at a time.</P>
+
+
+
+<P><A NAME="ddk_singleview_mode_gg"></A><IMG SRC="images/childfig1.gif" ALT="" BORDER=0></P>
+
+<P><B>SingleView Mode</B></P>
+
+<P>In DualView mode, however, each child can be assigned to a different view; the question arises as to which view is associated with which child. The relationships between views and devices can be described in two ways: in terms of <I>physical child relations</I> and in terms of <I>logical child relations</I>. </P>
+
+<P><I>Physical child relations</I> reflect the relationship between the adapter's video chip and its display devices. After the system boots, the physical relationship between the video chip and the display devices never changes. In the preceding figure and the following figure, the video chip owns the LCD, CRT and TV display devices; hence, all three display devices are physical children of the video chip. </P>
+
+<P><I>Logical child relations</I> reflect the dynamic relationships between the views and the display devices. In the following figure, DualView has been enabled, and the situation is that the primary view (View 1) owns the LCD device, while the secondary view (View 2) owns both the CRT and TV devices. Another way to say this is that the LCD device is the logical child of the primary view, while the CRT and TV devices are the logical children of the secondary view. The miniport driver reports logical child relationships through the <A HREF="virqs_3b1j.htm">IOCTL_VIDEO_GET_CHILD_STATE</A> request.</P>
+
+<P><IMG SRC="images/childfig2.gif" ALT="" BORDER=0></P>
+
+<P><B>DualView Mode</B></P>
+
+<P>One additional point remains. When DualView is enabled, the primary view may automatically switch children. In <A HREF="#ddk_singleview_mode_gg">SingleView Mode</A>, only the CRT, which is associated with the primary (and only) view, is active. All other display devices are inactive. After DualView has been enabled, the preceding figure shows the primary view has switched to display on the LCD device, while the CRT is a child of the secondary view. This switch might be necessary for a laptop computer due to the fact that the secondary view is removable, which means that the LCD device cannot be associated with that view. Whether and how to make this switch is totally under the control of miniport drivers. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DualView%20Advanced%20Implementation%20Details"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

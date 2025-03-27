@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Co-installer Operation</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Co-installer Operation">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iocompletion_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_co_installer_operation_dg"></A>Co-installer Operation</H1>
+
+<P>Co-installers are called by Setup API as shown in the following figure.</P>
+
+<P><IMG SRC="images/coinsts.gif" ALT="" BORDER=0></P>
+
+<P><B>Co-installers Participate in Device Installation</B></P>
+
+<P>The shaded boxes represent components that IHVs and OEMs can provide. The other components are supplied by the OS. See <A HREF="install-over_6fvr.htm">Device Installation Overview</A> for more information on Setup components.</P>
+
+<P>Co-installers can be device-specific or class-specific. Setup API calls a <I>device-specific co-installer</I> only when installing the device for which the co-installer is registered. The OS and vendors can register zero or more device-specific co-installers for a device. Setup API calls a <I>class co-installer</I> when installing any device of the device setup class for which the co-installer is registered. The OS and vendors can register one or more <I>class co-installers</I> for a device setup class. In addition, a class co-installer can be registered for one or more setup classes.</P>
+
+<P>GUI-mode Setup, the New Device DLL, and Custom Device Installation Applications install devices by calling <A HREF="di-rtns_7fjm.htm"><B>SetupDiCallClassInstaller</B></A> with <A HREF="dif-codes_4x9u.htm">device installation function codes</A> (DIF codes). For each DIF request, <B>SetupDiCallClassInstaller</B> calls any class co-installers registered for the device's setup class, any device co-installers registered for the specific device, and then the Class Installer supplied by the system for the device's setup class, if there is one. </P>
+
+<P>Custom device installation applications must call <B>SetupDiCallClassInstaller</B> rather than calling a co-installer or class installer directly. This function ensures that all registered co-installers are called appropriately.</P>
+
+<P>Class co-installers are typically registered prior to device installation, and device-specific co-installers are registered as part of the device's installation. Class co-installers are therefore typically added to the co-installer list when it is first built and are called for all DIF requests during device installation.</P>
+
+<P>Device-specific co-installers are added to the co-installer list after a <A HREF="dif-codes_33ea.htm">DIF_REGISTER_COINSTALLERS</A> request has been completed for the device (or <A HREF="di-rtns_0z1u.htm"><B>SetupDiRegisterCoDeviceInstallers</B></A> has been called). Device-specific co-installers do not participate in the following DIF requests:</P>
+
+<P class=indent1><A HREF="dif-codes_09yq.htm">DIF_ALLOW_INSTALL</A> <BR>
+<A HREF="dif-codes_771u.htm">DIF_INSTALLDEVICEFILES</A> <BR>
+<A HREF="dif-codes_908i.htm">DIF_SELECTBESTCOMPATDRV</A> </P>
+
+<P>Only a class co-installer (not a device-specific co-installer) can respond to the following DIF requests:</P>
+
+<P class=indent1><A HREF="dif-codes_048i.htm">DIF_DETECT</A> <BR>
+<A HREF="dif-codes_0cc2.htm">DIF_FIRSTTIMESETUP</A> <BR>
+<A HREF="dif-codes_8ub6.htm">DIF_NEWDEVICEWIZARD_PRESELECT</A> <BR>
+<A HREF="dif-codes_9t9u.htm">DIF_NEWDEVICEWIZARD_SELECT</A> <BR>
+<A HREF="dif-codes_435e.htm">DIF_NEWDEVICEWIZARD_PREANALYZE</A> <BR>
+<A HREF="dif-codes_90j6.htm">DIF_NEWDEVICEWIZARD_POSTANALYZE</A> </P>
+
+<P>A device co-installer is not appropriate in these contexts, either because a particular device has not yet been identified or at this early stage of installation the device co-installers have not yet been registered.</P>
+
+<P>The following figure shows the order in which <B>SetupDiCallClassInstaller</B> calls co-installers and a Class Installer after any device-specific co-installers have been registered.</P>
+
+<P><IMG SRC="images/callco.gif" ALT="" BORDER=0></P>
+
+<P><B>Example of Calling Co-installers for DIF Request Processing and PostProcessing</B></P>
+
+<P>In the example illustrated by the previous figure, two class co-installers are registered for this device's setup class and one device-specific co-installer is registered for the device. The following steps correspond to the circled numbers in the previous figure:
+
+<OL>
+	<LI><B>SetupDiCallClassInstaller</B> calls the first class co-installer, specifying a DIF code that indicates the install request being processed (<A HREF="dif-codes_7d9u.htm">DIF_INSTALLDEVICE</A>, in this example). The co-installer has the option of participating in the install request. In this example, the first registered class co-installer returns NO_ERROR. </LI>
+
+	<LI><B>SetupDiCallClassInstaller</B>, in turn, calls any additional registered class co-installers. In this example, the second class co-installer returns ERROR_DI_POSTPROCESSING_REQUIRED, which requests that the co-installer be called later for postprocessing.</LI>
+
+	<LI><B>SetupDiCallClassInstaller</B> calls any registered device-specific co-installers. </LI>
+
+	<LI>After all registered co-installers have been called, <B>SetupDiCallClassInstaller</B> calls the system-supplied Class Installer, if there is one for the device's setup class. In this example, the class installer returns ERROR_DI_DO_DEFAULT, which is a typical return value for class installers.</LI>
+
+	<LI><B>SetupDiCallClassInstaller</B> calls the default handler for the installation request, if there is one. DIF_INSTALLDEVICE has a default handler, <A HREF="di-rtns_3f8y.htm"><B>SetupDiInstallDevice</B></A>, which is part of Setup API.</LI>
+
+	<LI><B>SetupDiCallClassInstaller</B> calls any co-installers that requested postprocessing. In this example, the second class co-installer requested postprocessing. </LI>
+</OL>
+
+<P>Co-installer post-processing is similar to driver <A HREF="JavaScript:hhobj_1.Click()"><I>IoCompletion</I></A> routines, except that the co-installer is called a second time at its single entry point. When <B>SetupDiCallClassInstaller</B> calls a co-installer for post-processing, it sets <I>PostProcessing</I> to TRUE and <I>InstallResult</I> to the appropriate value in the <I>Context</I> parameter. In this example, <I>Context</I>.<I>InstallResult</I> is NO_ERROR because the default handler executed successfully.</P>
+
+<P>For postprocessing, <B>SetupDiCallClassInstaller</B> calls co-installers in reverse order. If all the co-installers in the previous figure had returned ERROR_DI_POSTPROCESSING_REQUIRED, <B>SetupDiCallClassInstaller</B> would call Device_Coinstaller_1 first for postprocessing, followed by Class_Coinstaller_2, and then Class_Coinstaller_1. Class Installers do not request postprocessing; only co-installers do.</P>
+
+<P>A co-installer that requests postprocessing is called even if a previous co-installer failed the install request. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Co-installer%20Operation"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

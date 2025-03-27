@@ -1,0 +1,95 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Virtual Subunit Enumeration</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Virtual Subunit Enumeration">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_inf_file_sections_and_directives_dr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ieee1394_api_add_virtual_device_kr">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ieee1394_api_remove_virtual_device_kr">
+</OBJECT>
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ioctl_ieee1394_api_request_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_virtual_subunit_enumeration_ksg"></A>Virtual Subunit Enumeration</H3>
+
+<P>This section describes the mechanism for subunit enumeration and the format of the device IDs associated with a <I>virtual</I> AV/C device.</P>
+
+<P><I>Avc.sys</I> creates one device object for each virtual AV/C subunit. Examples of virtual AV/C subunits would include a hard disk or a web camera. As each virtual subunit is added and removed, <I>avc.sys</I> triggers a 1394 bus reset. This allows other devices on the 1394 bus to detect the new functionality being exposed by the computer. Subunit drivers are added based on the <I>avc.sys</I> instance’s registry settings, and can be added and removed at run time by I/O control (IOCTL) requests. <I>Avc.sys</I> cannot distinguish between multiple subunits of the same type, so addition and removal of these subunits loads and unloads the drivers with the highest subunit IDs.</P>
+
+<P>Each virtual device object has a hardware ID and multiple compatible IDs. These are PnP device IDs, and are used to find suitable drivers to load for each subunit. For more information about implementing subunit INF files, see <A HREF="JavaScript:hhobj_1.Click()">INF File Sections and Directives</A>.</P>
+
+<P>The device and compatible IDs for virtual subunit drivers are as follows:
+
+<UL>
+	<LI>Device ID</LI>
+</UL>
+
+<DL>
+<DT>VAVC\VEN_*\MOD_*\TYP_*\ID_*</DT>
+</DL>
+
+<UL>
+	<LI>Compatible IDs</LI>
+</UL>
+
+<DL>
+<DT>VAVC\TYP_*\ID_*</DT>
+
+<DT>VAVC\TYP_*</DT>
+
+<DT>VAVC\GENERIC.</DT>
+
+<DD></DD>
+</DL>
+
+<P>Note that * is the appropriate value in hex.</P>
+
+<P>The VEN_ and MOD_ values are the same as specified in the INF file that caused the virtual instance of <I>61883.sys</I> to load. The TYP_ and ID_ values are as specified when <I>avc.sys</I> is told to enumerate the device.</P>
+
+<P>The enumeration of the device is accomplished through use of the <A HREF="avcref_8uur.htm">IOCTL_AVC_UPDATE_VIRTUAL_SUBUNIT_INFO</A>, <A HREF="avcref_4kab.htm">IOCTL_AVC_REMOVE_VIRTUAL_SUBUNIT_INFO</A> and <A HREF="avcref_9zn7.htm">IOCTL_AVC_BUS_RESET</A> I/O control codes.</P>
+
+<P>It is necessary to send the proper 1394 IOCTLs to begin the enumeration process. See <A HREF="JavaScript:hhobj_2.Click()">IEEE1394_API_ADD_VIRTUAL_DEVICE</A> and <A HREF="JavaScript:hhobj_3.Click()">IEEE1394_API_REMOVE_VIRTUAL_DEVICE</A> (subcommands of the <A HREF="JavaScript:hhobj_4.Click()">IOCTL_IEEE1394_API_REQUEST</A> IOCTL) for more information. The 61883.inf file already contains a device ID for this purpose: “V1394\A02D&amp;10001”, although a different ID may be provided in a custom INF file. </P>
+
+<P>An alternate way to statically enumerate a virtual subunit can be accomplished using an INF file.</P>
+
+<P>Each value under the “Virtual Device List” key is a packed subunit address (subunit type and max Id combined as described in the AV/C General Spec). The name associated with the subunit address does not matter, although it must be unique for that instance. When created programmatically, the value names are given sequential numbers to avoid collisions.</P>
+
+<P>For example, to create a single virtual tuner subunit through an INF file, the following AddReg directive would be used:</P>
+
+<P class=indent1>HKR,%VirtualAvc.DeviceList%,Tuner,0x00000001,0x28</P>
+
+<P>This would add a REG_BINARY value of 0x28 (subunit type 0x5 packed into the most significant 5 bits and max Id of 0x0 packed into the least significant 3 bits). A max Id of 0x0 in this case means that there will be a single subunit of that type.</P>
+
+<P>It is also necessary to define the %VirtualAvc.DeviceList% string again in subunit's INF file.</P>
+
+<P>For a description of the mechanism and format of the device and compatible IDs, see <A HREF="avcguide_2so7.htm">Peer Subunit Enumeration</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Virtual%20Subunit%20Enumeration"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

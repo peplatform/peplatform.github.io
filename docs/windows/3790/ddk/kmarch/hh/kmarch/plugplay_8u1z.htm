@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Passing PnP IRPs Down the Device Stack</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Passing PnP IRPs Down the Device Stack">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_passing_pnp_irps_down_the_device_stack_kg"></A>Passing PnP IRPs Down the Device Stack</H1>
+
+<P>The PnP Manager uses IRPs to direct drivers to start, stop, and remove devices and to query drivers about their devices. All PnP IRPs have the major function code IRP_MJ_PNP, and all PnP drivers must provide a <A HREF="drvrrtns_8uya.htm"><I>DispatchPnP</I></A> routine to service this function code. The PnP Manager initializes <B>Irp-&gt;IoStatus.Status</B> to STATUS_NOT_SUPPORTED when it sends an IRP. For more information, see <A HREF="drvcomps_7jjb.htm"><I>DispatchPnP</I> Routines</A>.</P>
+
+<P>All drivers for a device must have the opportunity to respond to a PnP IRP unless a driver in the stack fails the IRP. (See the following figure.) </P>
+
+<P><IMG SRC="images/passpnp.gif" ALT="" BORDER=0></P>
+
+<P><B>Passing a PnP IRP Down the Device Stack</B></P>
+
+<P>No single driver for a device can assume that it is the only driver that will respond to a PnP IRP. Consider, for example, a function driver that responds to an IRP_MN_QUERY_CAPABILITIES request and completes the IRP without passing it to the next-lower driver. None of the capabilities supported by lower drivers, such as a unique instance ID or power management capabilities supported by the parent bus driver, is reported.</P>
+
+<P>A PnP IRP travels back up the device stack when the parent bus driver calls <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> and the I/O Manager calls any <A HREF="drvrrtns_4rsi.htm"><I>IoCompletion</I></A> routines registered by the function driver or filter drivers.</P>
+
+<P>A function or filter driver must do the following when it receives a PnP IRP:
+
+<UL>
+	<LI>If the driver performs actions in response to the IRP:
+<OL>
+	<LI>Perform the appropriate actions.</LI>
+
+	<LI>Set <B>Irp-&gt;IoStatus.Status</B> to an appropriate status, such as STATUS_SUCCESS. Set <B>Irp-&gt;IoStatus.Information</B>, if appropriate for the IRP.</LI>
+
+	<LI>Set up the next stack location with <A HREF="k104_1ohe.htm"><B>IoSkipCurrentIrpStackLocation</B></A> or <A HREF="k104_4fqq.htm"><B>IoCopyCurrentIrpStackLocationToNext</B></A>. Call the latter routine if you set an <I>IoCompletion</I> routine.</LI>
+
+	<LI>Set an <I>IoCompletion</I> routine, if necessary.</LI>
+
+	<LI>Do not complete the IRP. (Do not call <B>IoCompleteRequest</B>.) The parent bus driver will complete the IRP.</LI>
+</OL>
+</LI>
+
+	<LI>If the driver does not perform actions for this IRP, it simply prepares to pass the IRP to the next driver:
+<OL>
+	<LI>Call <B>IoSkipCurrentIrpStackLocation</B> to remove its stack location from the IRP.</LI>
+
+	<LI>Do not set any fields in <B>Irp-&gt;IoStatus</B>.</LI>
+
+	<LI>Do not set an <I>IoCompletion</I> routine.</LI>
+
+	<LI>Do not complete the IRP. (Do not call <B>IoCompleteRequest</B>.) The parent bus driver will complete the IRP.</LI>
+</OL>
+</LI>
+</UL>
+
+<P>If a function or filter driver did not fail the IRP, it passes the IRP to the next-lower driver with <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A>. A driver has a pointer to the next-lower driver; that pointer was returned from the <A HREF="k104_9tiq.htm"><B>IoAttachDeviceToDeviceStack</B></A> call in the higher driver’s <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine.</P>
+
+<P>The parent bus driver completes the IRP after performing any tasks to respond to the IRP. After the bus driver calls <B>IoCompleteRequest</B>, the I/O Manager calls any <I>IoCompletion</I> routines registered by the function or filter drivers for the device.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Passing%20PnP%20IRPs%20Down%20the%20Device%20Stack"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

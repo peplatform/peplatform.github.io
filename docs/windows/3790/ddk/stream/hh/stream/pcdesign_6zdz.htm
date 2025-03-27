@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Applying Speaker-Configuration Settings</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Applying Speaker-Configuration Settings">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_applying_speaker_configuration_settings_ksg"></A>Applying Speaker-Configuration Settings</H3>
+
+<P>DirectSound keeps track of its current speaker-configuration setting in the registry and applies that setting to the audio hardware each time a new DirectSound device is created.</P>
+
+<P>An application program can change the system-wide speaker configuration by calling the <B>IDirectSound::SetSpeakerConfig</B> method, which updates the speaker-configuration setting in the registry. The method also attempts to apply the new setting immediately to the hardware, although audio devices are typically unable to change speaker settings while the DirectSound object exists. For a list of the speaker configurations that DirectSound defines for this method, see <A HREF="pcdesign_6vfr.htm">Translating Speaker-Configuration Requests</A>.</P>
+
+<P>A user can change the configuration through the speaker-configuration dialog in the <B>Multimedia Properties </B>page (<I>mmsys.cpl</I>) in Control Panel. To locate the DirectSound speaker-configuration dialog under Windows&nbsp;XP, for example, follow these steps:
+
+<OL>
+	<LI>In Control Panel, double-click the <B>Sounds and Audio Devices</B> icon.</LI>
+
+	<LI>On the <B>Audio</B> tab, select a device from the <B>Sound Playback</B> list.</LI>
+
+	<LI>Click the <B>Advanced</B> button.</LI>
+
+	<LI>Click the <B>Speakers</B> tab.</LI>
+</OL>
+
+<P>At this point, you should see the label <B>Speaker Setup</B> next to a list of the speaker configurations that you can select from.</P>
+
+<P>DirectSound uses a <A HREF="aud-prop_4aib.htm">KSPROPERTY_AUDIO_CHANNEL_CONFIG</A> <I>set</I>-property request to send the speaker-configuration information to a 3D node or DAC node (<A HREF="aud-prop_8ugj.htm">KSNODETYPE_3D_EFFECTS</A> or <A HREF="aud-prop_090z.htm">KSNODETYPE_DAC</A>) in an audio filter graph. For a 3D node, the target for the property request is actually the pin (3D-stream object) that feeds the node. For a DAC node, the target is the filter object that contains the DAC node. In either case, the speaker-configuration setting is global and affects the audio device as a whole. All audio applications that subsequently run are subject to the new setting until DirectSound changes the setting again.</P>
+
+<P>Note that only versions of DirectSound that ship with Windows&nbsp;Me, and with Windows&nbsp;XP and later, send speaker-configuration property requests to DAC nodes—earlier versions of DirectSound do not support this feature. However, all versions of DirectSound send these requests to 3D nodes.</P>
+
+<P>If an application program has created more than one 3D node, DirectSound sends speaker-configuration requests only to the first 3D node to be created.</P>
+
+<P>DirectSound sends speaker-configuration requests to the 3D and DAC nodes each time an application creates a DirectSound object or calls the <B>IDirectSound::SetSpeakerConfig</B> method. Audio devices are typically unable to change their speaker configuration while they are managing active streams, and DirectSound tries to avoid this limitation where possible. For example, when creating a DirectSound object, DirectSound sends the speaker-configuration requests <I>after</I> instantiating the filter but <I>before</I> instantiating any pins on the filter—that is, before creating any streams.</P>
+
+<P>This limitation is more difficult to avoid in the case of a call to <B>SetSpeakerConfig</B>. When an application calls <B>SetSpeakerConfig</B>, the adapter driver typically fails DirectSound's speaker-configuration request. This is because the DirectSound object already exists, which means that the device already has active streams to manage.</P>
+
+<P>In this situation, the adapter driver has two options for dealing with a speaker-configuration request that it has failed:
+
+<UL>
+	<LI>The driver can remember the requested configuration and apply it just as soon as all its streams are destroyed.</LI>
+
+	<LI>The driver can ignore the request and rely on DirectSound to send another speaker-configuration request the next time that a DirectSound object is created.</LI>
+</UL>
+
+<P>The first option gives a better user experience because if the user selects a new setting through the speaker-configuration dialog, the change takes effect immediately in <I>all</I> applications—not just DirectSound applications. (Of course, if any audio applications are running at the time that the new setting is selected, the change is deferred until all audio applications terminate.) With the second option, however, the change does not take effect until a DirectSound application runs. For example, if an application that uses the Windows Multimedia <B>waveOut</B> API is the first application to run after changing a Control Panel setting, the user may wonder why the new setting has no apparent effect.</P>
+
+<P>In response to a speaker-configuration request sent to a 3D or DAC node, a typical adapter driver updates the speaker configuration in the audio hardware only if no pins are currently instantiated by <I>any</I> audio application. That means that if a <B>waveOut</B> application, for example, has one or more pins open at the time that a second application calls <B>DirectSoundCreate</B>, the driver might need to defer any pending changes to the audio device's speaker configuration until a later time.</P>
+
+<P>If your driver is unable to fulfill a request to change the device's speaker-configuration, it should simply fail the request. Failing a speaker-configuration request during DirectSound object creation or a <B>SetSpeakerConfig</B> call does not cause the DirectSound object creation or <B>SetSpeakerConfig</B> call to fail.</P>
+
+<P>At boot time, an audio adapter driver initializes the hardware's speaker configuration to its default setting, which is typically stereo. As soon as any application creates a DirectSound object, DirectSound applies the setting stored in the registry to the hardware. An application program must create a DirectSound device before it can call <B>SetSpeakerConfig</B> to change the speaker-configuration setting in the registry, but this registry setting typically takes effect in the hardware only after the DirectSound device is released and a second DirectSound device is created.</P>
+
+<P>Immediately after installing an audio device or when a speaker-configuration error occurs, the DirectSound speaker configuration defaults to stereo.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Applying%20Speaker-Configuration%20Settings"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

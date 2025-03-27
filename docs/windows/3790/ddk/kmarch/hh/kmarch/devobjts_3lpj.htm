@@ -1,0 +1,71 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Local and Global MS-DOS Device Names</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Local and Global MS-DOS Device Names">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_local_and_global_ms_dos_device_names_kg"></A>Local and Global MS-DOS Device Names</H3>
+
+<P>The Windows 2000 and later versions of the NT-based operating system maintain multiple versions of the <B>DosDevices</B> directory.</P>
+
+<P>On these platforms, there is one <I>global</I> <B>\DosDevices</B> directory, and multiple <I>local</I> <B>\DosDevices</B> directories.  The global <B>\DosDevices</B> directory holds the MS-DOS device names that are visible system-wide.  A local <B>\DosDevices</B> directory holds MS-DOS device names that are visible only in a particular <I>local </I><B>DosDevices</B> <I>context</I>. </P>
+
+<P>The local <B>DosDevices</B> contexts are as follows.
+
+<UL>
+	<LI>On Windows XP and later, each logon session has its own local <B>DosDevices</B> context.  The system process, and any process running as the LocalSystem user, does not run in a local <B>DosDevices</B> context.</LI>
+
+	<LI>On Windows 2000, each terminal server session has its own local <B>DosDevices</B> context.  Any process running as part of the console session does not run in a local <B>DosDevices</B> context.</LI>
+</UL>
+
+<P>Each process has a current <B>DosDevices</B> context, which can change over the lifetime of a process.  A process that does not run in a local <B>DosDevices</B> context is said to run in the <I>global</I> <B>DosDevices</B> <I>context</I>.  Thus the system process runs in the global <B>DosDevices</B> context.</P>
+
+<P>If a process is currently running in a local <B>DosDevices</B> context, then any MS-DOS device names that it creates are created only in the local <B>DosDevices</B> directory.  Thus, processes running in a local <B>DosDevices</B> context cannot affect the MS-DOS device names that are visible to processes running in another local <B>DosDevices</B> context or in the global <B>DosDevices</B> context.  For example, if a user on Windows XP or later mounts a network drive as <B>X:</B>, this does not affect the meaning of <B>X:</B> for any other user, or for the system as a whole.</P>
+
+<P>On Windows XP and later, when the Object Manager looks up a name in <B>\DosDevices</B>, it first searches the local <B>\DosDevices</B> directory, and then the global <B>\DosDevices</B> directory.  If the name exists in both places, the local name shadows the global name.</P>
+
+<P>On Windows 2000, whenever a new terminal server session is initiated, the system builds local \<B>DosDevices</B> directory by copying the global <B>\DosDevices</B> directory.  Any subsequent changes to the global directory are not propagated to the local directory.</P>
+
+<P>A driver that must create its MS-DOS device names in the global <B>\DosDevices</B> directory can do so by creating its symbolic links in a standard driver routine that is guaranteed to run in the system process context, such as <B>DriverEntry</B>.  Alternatively, the global <B>\DosDevices</B> directory is available as <B>\DosDevices\Global</B>; drivers can use a name of the <B>\DosDevices\Global\</B><I>DosDeviceName</I> to specify a name in the global directory.</P>
+
+<P>Note that <B>\DosDevices\Global</B> does not exist on platforms that do not support local and global versions of <B>\DosDevices</B>, such as Windows 98/Me.  Here is sample code for creating a global symbolic link that works on Windows 98/Me as well as Windows 2000 and later operating systems.:</P>
+
+<PRE>UNICODE_STRING deviceName; // already initialized.
+UNICODE_STRING symbolicLinkName; // initializing below.
+
+if (IoIsWdmVersionAvailable(1, 0x10)) {
+    // We're on Windows 2000 or later, so we use \DosDevices\Global.
+    
+    RtlInitUnicodeString(&amp;symbolicLinkName, L"\\DosDevices\\Global\\<I>SymbolicLinkName</I>");
+
+} else {
+    // Windows 98/Me.  We just use DosDevices.
+    
+    RtlInitUnicodeString(&amp;symbolicLinkName, L"\\DosDevices\\<I>SymbolicLinkName</I>");
+}
+
+IoCreateSymbolicLink(&amp;symbolicLinkName, &amp;deviceName);
+</PRE>
+
+<P>A driver can create MS-DOS device names in a local <B>\DosDevices</B> directories by creating the symbolic link in response to an IOCTL.  When a process in a particular local <B>DosDevices</B> context sends the IOCTL, the driver's <I>DispatchDeviceControl</I> is called from within the current process context. </P>
+
+<P>For more information about the context in which a standard driver routine executes, see <A HREF="drvcomps_1ezr.htm">Dispatch Routines and IRQLs</A>.</P>
+
+<P>The system distinguishes local <B>\DosDevices</B> directories as follows:
+
+<UL>
+	<LI>On Windows XP and later, local <B>\DosDevices</B> directories are identified by the <B>AuthenticationID</B> for the logon session's access token.  For more information about the <B>AuthenticationID</B>, see the TOKEN_STATISTICS structure in the Platform SDK documentation.</LI>
+
+	<LI>On Windows 2000, local <B>\DosDevices</B> directories are identified by the <B>SessionId</B> for the terminal server session.  For more information about the <B>SessionId</B>, see the WTS_SESSION_INFO structure in the Platform SDK documentation.</LI>
+</UL>
+
+<P>Windows NT 4.0 Terminal Server Edition supports local \<B>DosDevices</B> directories in the exact same manner as Windows 2000. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Local%20and%20Global%20MS-DOS%20Device%20Names"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

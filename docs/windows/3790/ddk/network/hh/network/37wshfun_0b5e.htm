@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WSHNotify</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WSHNotify">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wshnotify_nr"></A>WSHNotify</H1>
+
+<P>The <B>WSHNotify</B> function is called by the Windows Sockets DLL when a socket-state transition occurs for which the helper DLL's <B>WSHOpenSocket</B> or <B>WSHOpenSocket2 </B>function already requested notifications. </P>
+
+<PRE class=syntax><B>INT</B>
+  <B>WSHNotify(</B>
+<B>    IN PVOID</B>  <I>HelperDllSocketContext</I><B>,</B>
+<B>    IN SOCKET</B>  <I>SocketHandle</I><B>,</B>
+<B>    IN HANDLE</B>  <I>TdiAddressObjectHandle</I><B>,</B>
+<B>    IN HANDLE</B>  <I>TdiConnectionObjectHandle</I><B>,</B>
+<B>    IN DWORD</B>  <I>NotifyEvent</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>HelperDllSocketContext</I></DT>
+
+<DD>Pointer to a per-socket context area, allocated and initialized by the WSH DLL <B>WSHOpenSocket </B>or <B>WSHOpenSocket2 </B>function.</DD>
+
+<DT><I>SocketHandle</I></DT>
+
+<DD>Specifies the handle to the socket returned by <B>socket</B> or <B>accept</B>.</DD>
+
+<DT><I>TdiAddressObjectHandle</I></DT>
+
+<DD>Specifies the handle to a file object representing the open transport address for the socket. If the socket is not currently bound to an address, this parameter is NULL.</DD>
+
+<DT><I>TdiConnectionObjectHandle</I></DT>
+
+<DD>Specifies the handle to a file object representing the connection endpoint associated with the socket. If the socket is not currently connected, this parameter is NULL.</DD>
+
+<DT><I>NotifyEvent</I></DT>
+
+<DD>Specifies the state change that just occurred. Exactly one bit of the WSH_NOTIFY_<I>XXX</I> values, defined in <I>wsahelp.h, </I>is set in this parameter at each call to <B>WSHNotify</B>. The WSH_NOTIFY_<I>XXX</I> values include the following: 
+
+<DL>
+<DT>WSH_NOTIFY_BIND</DT>
+
+<DD>A successful call to <B>bind</B> occurred.</DD>
+
+<DT>WSH_NOTIFY_LISTEN</DT>
+
+<DD>A successful call to <B>listen</B> occurred.</DD>
+
+<DT>WSH_NOTIFY_ACCEPT</DT>
+
+<DD>A socket handle is being returned from a call to <B>accept</B>.</DD>
+
+<DT>WSH_NOTIFY_CONNECT</DT>
+
+<DD>A successful call to <B>connect</B> occurred.</DD>
+
+<DT>WSH_NOTIFY_SHUTDOWN_RECEIVE</DT>
+
+<DD>A successful call to <B>shutdown </B>for the receive side of the socket occurred.</DD>
+
+<DT>WSH_NOTIFY_SHUTDOWN_SEND</DT>
+
+<DD>A successful call to <B>shutdown </B>for the send side of the socket occurred.</DD>
+
+<DT>WSH_NOTIFY_SHUTDOWN_ALL</DT>
+
+<DD>A successful call to <B>shutdown </B>for both sides of the socket occurred.</DD>
+
+<DT>WSH_NOTIFY_CLOSE</DT>
+
+<DD>The socket is being closed.</DD>
+
+<DT>WSH_NOTIFY_CONNECT_ERROR</DT>
+
+<DD>A failed call to <B>WSAConnect</B> or <B>connect</B>.</DD>
+</DL>
+
+
+<P>The helper DLL's <B>WSHOpenSocket(2)</B> function already selected the set of possible events for which <B>WSHNotify</B> will be called from the preceding values. 
+
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>WSHNotify</B> returns zero to confirm that the specified state-transition occurred. Otherwise, it returns a Windows Sockets error code. When the return value is nonzero, the application's call to the socket function that would cause a state transition fails and the error is set to the value returned by <B>WSHNotify</B>.</P>
+
+<P>Because <B>WSHNotify</B> is called after all other aspects of a particular state-change succeeded, the socket can be left in a state where the only valid operation is to close the socket when <B>WSHNotify</B> returns an error.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wsahelp.h</I>. Include <I>wsahelp.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>WSHNotify</B> serves two purposes: 
+
+<OL>
+	<LI>To allow a helper DLL to track the state of a socket</LI>
+
+	<LI>To give a helper DLL an opportunity to support options requiring the socket to be in a specific state </LI>
+</OL>
+
+<P>For example, the Windows Sockets helper DLL for TCP/IP uses this routine to set a reminder to enable its keep-alive option when an application calls <B>setsockopt </B>before the socket is connected. In these circumstances, no TDI connection object exists when the keep-alive reminder is set, but the helper DLL can actually set the option as soon as the socket becomes connected.</P>
+
+<P>Whenever a helper DLL's <B>WSHNotify</B> function receives a WSH_NOTIFY_CLOSE<B> </B>event, it can free any context it has set up for the socket. After a successful call to <B>WSHNotify </B>with this event, the Windows Sockets DLL never again calls the helper DLL with the same <I>HelperDllSocketContext</I> unless that helper DLL reuses the context areas it allocates. That is, the helper DLL returns the same value from a subsequent call to <B>WSHOpenSocket </B>or <B>WSHOpenSocket2</B>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="37wshfun_7egi.htm"><B>WSHOpenSocket</B></A>, <A HREF="37wshfun_9jle.htm"><B>WSHOpenSocket2</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WSHNotify"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Aborting a stream</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Aborting a stream">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_aborting_a_stream_ksg"></A>Aborting a stream</H2>
+
+<P>When a subunit encounters special conditions, such as device removal or stream data IOCTL cancellation, then the streaming operation should be aborted. The abort operation <I>request</I> is synchronous but the abort completion is not. Only the first abort stream request is accepted and processed; duplicate requests will be ignored but returned with STATUS_SUCCESS. The AV/C Streaming filter driver then schedules a work item to abort streaming. When a stream is aborted, it starts to complete the <A HREF="avcsref_7qnn.htm">AVCSTRM_READ</A>/<A HREF="avcsref_3zxv.htm">AVCSTRM_WRITE</A> request with STATUS_CANCELLED. The stream state is not changed with the abort request, and the data stream still must be closed to clean up and release resources.</P>
+
+<P>In the abort work item routine, AV/C Streaming will first stop the isochronous data transfer, but it does not affect the stream state. AV/C Streaming then goes through the attached streams data queue to detach stream buffers and return them with STATUS_CANCELLED. </P>
+
+<P>To issue this request, an AV/C Streaming request is initialized with the AVCSTRM_ABORT_STREAMING request and the data stream context.</P>
+
+<PRE>INIT_AVCSTRM_HEADER(pAVCStrmReq, AVCSTRM_ABORT_STREAMING);
+pAVCStrmReq-&gt;AVCStreamContext = pStrmExt-&gt;AVCStreamContext;  // from cached context saved in OPEN_STREAM request
+
+Status = 
+    AVCStrmReqSubmitIrpSynch( 
+        pStrmExt-&gt;pDevExt-&gt;pBusDeviceObject,
+        pStrmExt-&gt;pIrpAbort,
+        pAVCStrmReq
+        );</PRE>
+
+<P>When a data stream is aborted, it can be resumed (if the device has not been removed) after its stream state has been reset to KSSTATE_STOP by its client application.</P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Aborting%20a%20stream"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

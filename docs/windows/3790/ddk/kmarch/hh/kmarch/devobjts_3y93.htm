@@ -1,0 +1,74 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Creating a Device Object</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Creating a Device Object">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_creating_a_device_object_kg"></A>Creating a Device Object</H1>
+
+<P>A monolithic driver must create a device object for each physical, logical, or virtual device for which it handles I/O requests.  A driver that does not create a device object for a device does not receive any IRPs for the device.</P>
+
+<P>In some technology areas, a minidriver that is associated with a class driver or port driver does not have to create its own device objects.  Instead, the class or port driver creates the device object, and receives all IRPs for the device.  The class or port driver then uses a driver-specific method to pass the I/O request to the minidriver.  See the documentation for your particular technology area to determine if Microsoft supplies a class or port driver that creates device objects on behalf of your driver.</P>
+
+<P>Drivers call either <A HREF="k104_8piq.htm"><B>IoCreateDevice</B></A> or <A HREF="k104_1ycy.htm"><B>IoCreateDeviceSecure</B></A> to create their device objects.  For more information on which routine to use, see the following sections.</P>
+
+<P class=indent1><A HREF="#ddk_creating_device_objects_for_wdm_function_and_filter_drivers_kg">Creating Device Objects for WDM Function and Filter Drivers</A> </P>
+
+<P class=indent1><A HREF="#ddk_creating_device_objects_for_wdm_bus_drivers_kg">Creating Device Objects for WDM Bus Drivers</A> </P>
+
+<P class=indent1><A HREF="#ddk_creating_device_objects_for_non_wdm_drivers_kg">Creating Device Objects for non-WDM Drivers</A> </P>
+
+<P>When the driver creates a device object, it supplies the following information to <B>IoCreateDevice</B> or <B>IoCreateDeviceSecure</B>:
+
+<UL>
+	<LI>The size of the device's <I>device extension</I>.  The device extension is a system-allocated storage area that the driver can use for device-specific storage.  For more information, see <A HREF="devobjts_1gdj.htm">Device Extensions</A>.</LI>
+
+	<LI>A system-defined constant, indicating the <I>DeviceType</I> represented by the device object. For more information, see <A HREF="devobjts_5hnr.htm">Specifying Device Types</A>.</LI>
+
+	<LI>One or more ORed, system-defined constants that indicate the device characteristics for the device.  For more information, see <A HREF="devobjts_7usn.htm">Specifying Device Characteristics</A>. </LI>
+
+	<LI>A Boolean value, named <I>Exclusive</I>, that specifies whether a bit in the device object's <B>Flags</B> should be set with DO_EXCLUSIVE, indicating the driver services an exclusive device, such as a video, serial, parallel, or sound device. WDM drivers must set <I>Exclusive</I> to FALSE. For more information, see <A HREF="devobjts_1qxz.htm">Specifying Exclusive Access to Device Objects</A>.</LI>
+
+	<LI>A pointer to the driver object for the driver.  A WDM function or filter driver receives a pointer to its driver object as a parameter to its <I>AddDevice</I> routine.  All drivers receive a pointer to their driver object in their <B>DriverEntry</B> routine.  The system uses this pointer to associate the driver with its device object.  </LI>
+
+	<LI>An optional pointer to a zero-terminated Unicode string (<I>DeviceName</I>) naming the device.  WDM drivers, other than bus drivers, do not supply a device name; doing so bypasses the PnP Manager's security features.  For more information, see <A HREF="devobjts_4zl3.htm">Named Device Objects</A>.  </LI>
+</UL>
+
+<P>If the call to <B>IoCreateDevice</B> or <B>IoCreateDeviceSecure</B> succeeds, the I/O Manager provides storage for the device object itself and for all other data structures associated with the device object, including the device extension, which it initializes with zeros. </P>
+
+
+
+<H4><A NAME="ddk_creating_device_objects_for_wdm_function_and_filter_drivers_kg"></A>Creating Device Objects for WDM Function and Filter Drivers</H4>
+
+<P>WDM drivers, other than bus drivers, call <B>IoCreateDevice</B> to create their device objects.  Most WDM drivers create their device objects from within their <I>AddDevice</I> routines. Some drivers, such as disk drivers that must respond to drive layout IOCTLs, call <B>IoCreateDevice</B> from a dispatch routine.  </P>
+
+<P>Unless device type-specific sections of the DDK documentation state otherwise, your driver should create its device objects in its <I>AddDevice</I> routine.  For more information, see <A HREF="drvcomps_2o13.htm">Writing an <I>AddDevice</I> Routine</A>.</P>
+
+
+
+<H4><A NAME="ddk_creating_device_objects_for_wdm_bus_drivers_kg"></A>Creating Device Objects for WDM Bus Drivers</H4>
+
+<P>A WDM bus driver creates a PDO when it is enumerating a new device in response to an <A HREF="pnp-irps_5aia.htm">IRP_MN_QUERY_DEVICE_RELATIONS</A> request, if the relation type is <B>BusRelations</B>.</P>
+
+<P>The following rules determine if a bus driver calls <B>IoCreateDevice</B> or <B>IoCreateDeviceSecure</B> to create a device object:
+
+<UL>
+	<LI>If a device can be used in raw mode, then it must call <B>IoCreateDeviceSecure</B>.</LI>
+
+	<LI>If the device is not raw-mode capable, then the bus driver can use either <B>IoCreateDevice</B> or <B>IoCreateDeviceSecure</B>.  <B>IoCreateDevice</B> can be used when the default system security for devices on the bus is adequate; <B>IoCreateDeviceSecure</B> can be used to specify a more stringent security descriptor.  For more information, see <A HREF="devobjts_2xt3.htm">Controlling Device Access</A>.</LI>
+</UL>
+
+
+
+<H4><A NAME="ddk_creating_device_objects_for_non_wdm_drivers_kg"></A>Creating Device Objects for non-WDM Drivers</H4>
+
+<P>A non-WDM driver uses <B>IoCreateDevice</B> to create unnamed device objects, and <B>IoCreateDeviceSecure</B> to create named device objects.  Note the unnamed device objects of a non-WDM driver are not accessible from user mode, so the driver usually must create at least one named object.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Creating%20a%20Device%20Object"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

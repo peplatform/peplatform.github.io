@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using VideoPortGetProcAddress</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using VideoPortGetProcAddress">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_using_videoportgetprocaddress_gg"></A>Using <I>VideoPortGetProcAddress</I></H2>
+
+<P>A video miniport driver developed on one NT-based operating system version can be loaded and run on an earlier operating system version, as long as the miniport driver does not attempt to use functionality that is specific to the newer operating system version. </P>
+
+<P>When the video miniport driver is loaded, the <B>VideoPortGetProcAddress</B> member of the <A HREF="vstrcts_459j.htm">VIDEO_PORT_CONFIG_INFO</A> structure contains the address of a callback routine that the video port driver exports, <A HREF="vpfncs_7c13.htm"><I>VideoPortGetProcAddress</I></A>. A miniport driver can use this callback routine to find the address of a video port function exported from <I>videoprt.sys</I>. After the miniport driver has the function's address, it can use this address to call the function. This is shown in the following example code.</P>
+
+<PRE>  // Useful typedef for a function pointer type
+  //   that points to a function with same argument types
+  //   as VideoPortCreateSecondaryDisplay
+typedef VP_STATUS ( *pFunc(PVOID, PVOID *, ULONG));
+
+  // Declare a pointer to a function
+pFunc pVPFunction;
+
+  // Declare a pointer to a VIDEO_PORT_CONFIG_INFO struct
+PVIDEO_PORT_CONFIG_INFO pConfigInfo;
+
+  // Call through VideoPortGetProcAddress callback
+  //   to get address of VideoPortCreateSecondaryDisplay
+pVPFunction = (pFunc)
+  ( *(pConfigInfo-&gt;VideoPortGetProcAddress)(
+                        pDeviceExt, 
+                       "VideoPortCreateSecondaryDisplay")
+  );
+if (NULL == pVPFunction) {
+  // Video port does not export the function
+  ...
+}
+else {
+  Status = pVPFunction(DevExtension, 
+                      &amp;SecondDevExtension,
+                       VIDEO_DUALVIEW_REMOVABLE);
+} </PRE>
+
+<P>After the call through the <I>VideoPortGetProcAddress</I> callback routine has executed, <I>pVPFunction</I> either is NULL or contains the address of the <B>VideoPortCreateSecondaryDisplay</B> function. If <I>pVPFunction</I> is NULL, the video port driver does not export the function you are trying to find, and the miniport driver must not attempt to use it. If <I>pVPFunction</I> is not NULL, you can use this pointer to call <B>VideoPortCreateSecondaryDisplay</B> as shown in the preceding example.</P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20VideoPortGetProcAddress"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

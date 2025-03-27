@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Accepting Incoming Calls</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Accepting Incoming Calls">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_accepting_incoming_calls_ng"></A>Accepting Incoming Calls</H2>
+
+<P>Before an application can accept an incoming call, it first must have a line open. A line is opened as a result of an application calling the TAPI <B>lineOpen</B> function. This TAPI-function call causes underlying drivers to encapsulate TAPI parameters in NDIS structures in order to prepare to receive an incoming call. After the CoNDIS WAN miniport driver receives an incoming call, the miniport driver must first create a virtual connection (VC) with the NDPROXY driver and then notify NDPROXY of the incoming call. NDPROXY in turn notifies the application through TAPI. The following describes how the incoming call is set up, connected, and made: 
+
+<UL>
+	<LI>NDPROXY specifies the TAPI parameters for an incoming connection in a <A HREF="105nstru_854i.htm">CO_AF_TAPI_SAP</A> structure. NDPROXY fills this structure's members with the following information that was passed in the TAPI <B>lineOpen</B> function: 
+<UL>
+	<LI>Open-line identifier in the <B>ulLineID</B> member </LI>
+
+	<LI>Address of the incoming connection in the <B>ulAddressID</B> member </LI>
+
+	<LI>Media mode of the incoming connection's information stream in the <B>ulMediaModes</B> member </LI>
+</UL>
+</LI>
+
+	<LI>NDPROXY overlays the CO_AF_TAPI_SAP structure on the <B>Sap</B> member of a <A HREF="105nstru_6pki.htm">CO_SAP</A> structure and sets the <B>SapLength</B> member of CO_SAP to the size of CO_AF_TAPI_SAP. NDPROXY must also set the <B>SapType</B> member of CO_SAP to AF_TAPI_SAP_TYPE. </LI>
+
+	<LI>Once NDPROXY encapsulates TAPI parameters, NDPROXY calls the <A HREF="103ndisx_22nm.htm"><B>NdisClRegisterSap</B></A> function to make itself ready to receive incoming calls. In this function call, NDPROXY passes a pointer to the filled CO_SAP structure that specifies the Service Access Point (SAP) on which NDPROXY can receive incoming calls. NDIS forwards the CO_SAP structure to the <I>ProtocolCmRegisterSap</I> function of the CoNDIS WAN miniport call manager (MCM) driver. <I>ProtocolCmRegisterSap</I> communicates with network control devices or other media-specific agents, as necessary, to register the SAP on the network for NDPROXY. After the miniport driver has registered the SAP, it can accept an incoming-call offer directed to that SAP. </LI>
+
+	<LI>A CoNDIS WAN miniport driver is alerted to an incoming call by signaling messages from the network. From these signaling messages, the miniport driver extracts the call parameters for the call, including the SAP to which the incoming call is addressed. </LI>
+
+	<LI>Before indicating an incoming call to NDPROXY, the miniport driver calls the <A HREF="103ndisx_1fci.htm"><B>NdisMCmCreateVc</B></A> function to initiate the creation of a VC with NDPROXY. NDPROXY allocates and initializes resources required for the VC and stores the handle to the VC. </LI>
+
+	<LI>The CoNDIS WAN miniport driver sets the TAPI parameters for an incoming call in a <A HREF="105nstru_54aa.htm">CO_AF_TAPI_INCOMING_CALL_PARAMETERS</A> structure. The miniport driver fills this structure's members with the following information that was extracted from signaling messages: 
+<UL>
+	<LI>Line identifier in the <B>ulLineID</B> member </LI>
+
+	<LI>Address of the incoming call in the <B>ulAddressID</B> member </LI>
+
+	<LI>CO_TAPI_FLAG_INCOMING_CALL bit in the <B>ulFlags</B> member. All other bits of <B>ulFlags</B> are reserved and must be set to 0. </LI>
+
+	<LI>LINECALLPARAMS structure in the <B>LineCallInfo</B> member. Members of LINECALLPARAMS specify TAPI call parameters for an incoming call. </LI>
+</UL>
+</LI>
+
+	<LI>The miniport driver overlays CO_AF_TAPI_INCOMING_CALL_PARAMETERS on the <B>Parameters</B> member of a <A HREF="105nstru_5zw2.htm">CO_SPECIFIC_PARAMETERS</A> structure and sets the <B>Length</B> member of CO_SPECIFIC_PARAMETERS to the size of CO_AF_TAPI_INCOMING_CALL_PARAMETERS. </LI>
+
+	<LI>The miniport driver sets the CO_SPECIFIC_PARAMETERS structure to the <B>MediaSpecific</B> member of a <A HREF="105nstru_74oi.htm">CO_MEDIA_PARAMETERS</A> structure. </LI>
+
+	<LI>The miniport driver sets a pointer to the CO_MEDIA_PARAMETERS structure to the <B>MediaParameters</B> member of a <A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A> structure. </LI>
+
+	<LI>The miniport driver must also set the <B>CallMgrParameters</B> member of the CO_CALL_PARAMETERS structure to specify the quality of service (QoS) of transferring packets, such as the bandwidth. To set this <B>CallMgrParameters</B> member, the miniport driver fills members of a <A HREF="105nstru_7vn6.htm">CO_CALL_MANAGER_PARAMETERS</A> structure and points this structure to <B>CallMgrParameters</B>. For example, to identify the transmit and receive speeds in bytes per second for the VC, the miniport driver must set the <B>PeakBandwidth</B> members of the <B>Transmit</B> and <B>Receive</B> members of CO_CALL_MANAGER_PARAMETERS. The <B>Transmit</B> and <B>Receive</B> members are FLOWSPEC structures. For more information on the FLOWSPEC structure, see the Platform SDK. </LI>
+
+	<LI>After the miniport driver encapsulates TAPI parameters and fills the <B>CallMgrParameters</B> member of CO_CALL_MANAGER_PARAMETERS, it calls the <A HREF="103ndisx_5zoy.htm"><B>NdisMCmDispatchIncomingCall</B></A> function to indicate the incoming call to NDPROXY. In this call, the miniport driver passes the following: 
+<UL>
+	<LI>a handle that identifies the SAP to which the incoming call is addressed </LI>
+
+	<LI>a handle that identifies the VC for the incoming call </LI>
+
+	<LI>a pointer to the filled CO_CALL_PARAMETERS structure </LI>
+</UL>
+</LI>
+
+	<LI>NDPROXY returns NDIS_STATUS_PENDING to the miniport driver so NDPROXY can complete <B>NdisMCmDispatchIncomingCall</B> asynchronously. </LI>
+
+	<LI>After the TAPI application answers the incoming call with the <B>lineAnswer</B> function, NDPROXY calls the <A HREF="103ndisx_3n5e.htm"><B>NdisClIncomingCallComplete</B></A> function. NDIS in turn calls the miniport driver's <I>ProtocolCmIncomingCallComplete</I> function. If NDPROXY returns an NDIS_STATUS_SUCCESS code, it indicates acceptance of the call parameters. If NDPROXY finds the call parameters unacceptable, it can request a change in the call parameters by setting the <B>Flags</B> member in the CO_CALL_PARAMETERS structure to CALL_PARAMETERS_CHANGED and by supplying revised call parameters. If NDPROXY accepts the incoming call, the miniport driver should send signaling messages to indicate to the calling entity that the call has been accepted. Otherwise, the miniport driver should send signaling messages to indicate that the call has been rejected. If NDPROXY is requesting a change in call parameters, the miniport driver sends signaling messages to request a change in call parameters.</LI>
+
+	<LI>The miniport driver activates the VC that the miniport driver created with NDPROXY and must also call the <A HREF="103ndisx_2xde.htm"><B>NdisMCmActivateVc</B></A> function to notify NDPROXY that the miniport driver is ready to transfer packets on the VC.</LI>
+
+	<LI>If NDPROXY rejects the call, the miniport driver calls the <A HREF="103ndisx_1nqq.htm"><B>NdisMCmDeactivateVc</B></A> function to deactivate the VC that the miniport driver created for the incoming call. After the VC is deactivated, the miniport driver calls the <A HREF="103ndisx_6qur.htm"><B>NdisMCmDeleteVc</B></A> function to delete the VC.</LI>
+
+	<LI>Depending on whether NDPROXY accepted the incoming call and whether the end-to-end connection was successfully established, the miniport driver calls either <A HREF="103ndisx_9u5u.htm"><B>NdisMCmDispatchCallConnected</B></A> or <A HREF="103ndisx_3saa.htm"><B>NdisMCmDispatchIncomingCloseCall</B></A> functions. Note that if the remote calling entity tore down the call, it sends signaling messages to indicate that the end-to-end connection was not successfully established. <B>NdisMCmDispatchCallConnected</B> notifies NDPROXY that data transfers can begin on the VC that the miniport driver created and activated for the incoming call. <B>NdisMCmDispatchIncomingCloseCall</B> informs NDPROXY to tear down the incoming call. </LI>
+
+	<LI>If NDPROXY is directed to tear down the incoming call, it calls the <A HREF="103ndisx_7rsi.htm"><B>NdisClCloseCall</B></A> function to acknowledge that it will neither attempt to send nor expect to receive data on the VC. NDIS in turn calls the miniport driver's <I>ProtocolCmCloseCall</I> function. The miniport driver then calls the <B>NdisMCmDeactivateVc</B> function to deactivate the VC. After the VC is deactivated, the miniport driver calls the <B>NdisMCmDeleteVc</B> function to delete the VC. </LI>
+
+	<LI>After the TAPI application accepts the incoming call and NDPROXY notifies the application that the call is connected, the application calls the TAPI <B>lineGetID</B> function to inform NDPROXY to locate the appropriate CoNDIS client. In this <B>lineGetID</B> call, the TAPI application supplies a string for a particular TAPI device class to which the application requires a handle. NDPROXY uses this string to locate the CoNDIS client that previously registered a SAP for the particular TAPI device class. If the CoNDIS client is NDISWAN, the string is NDIS. If NDPROXY locates a SAP with a string that matches the string passed by the TAPI application, NDPROXY calls <B>NdisMCmCreateVc</B> to set up a connection endpoint with NDISWAN on which it can dispatch notification of the incoming call. NDIS in turn calls NDISWAN's <I>ProtocolCoCreateVc</I> function and passes a handle that represents the VC.</LI>
+
+	<LI>After NDPROXY sets up the connection endpoint with NDISWAN, it calls the <A HREF="103ndisx_2v76.htm"><B>NdisCmDispatchIncomingCall</B></A> function to notify NDISWAN about the incoming call. In this call, NDPROXY passes the encapsulated CO_AF_TAPI_INCOMING_CALL_PARAMETERS structure that contains the incoming call parameters. NDIS in turn calls NDISWAN's <I>ProtocolClIncomingCall</I> function, within which NDISWAN either accepts or rejects the requested connection. </LI>
+
+	<LI>After deciding whether to accept the connection and after possibly changing the call parameters, NDISWAN calls the <B>NdisClIncomingCallComplete</B> function. NDIS in turn calls the miniport driver's <I>ProtocolCmIncomingCallComplete</I> function. Depending on whether NDISWAN accepted the incoming call and whether the miniport driver accepts or rejects NDISWAN's proposed changes to the call parameters, the miniport driver calls either <B>NdisCmDispatchCallConnected</B> or <B>NdisCmDispatchIncomingCloseCall</B> functions. <B>NdisCmDispatchCallConnected</B> notifies NDISWAN that data transfers can begin on the VC that the miniport driver created for the incoming call. <B>NdisCmDispatchIncomingCloseCall</B> informs NDISWAN and NDPROXY to tear down the incoming call. </LI>
+
+	<LI>After NDISWAN accepts the incoming call, NDPROXY calls the <A HREF="103ndisx_1aia.htm"><B>NdisCoGetTapiCallId</B></A> function to retrieve a string that identifies NDISWAN’s context for the VC. NDPROXY passes this string back to the TAPI application. The TAPI application uses this VC-context string to complete its call to <B>lineGetID</B>. </LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Accepting%20Incoming%20Calls"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

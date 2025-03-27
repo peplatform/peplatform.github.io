@@ -1,0 +1,73 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Font Metric Functions</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Font Metric Functions">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_font_metric_functions_gg"></A>Font Metric Functions</H3>
+
+<P>When a driver must support fonts, it must supply font information to GDI through the <A HREF="grstrcts_36lj.htm">IFIMETRICS</A> structure. There is a separate IFIMETRICS structure for each font. Most of the fields are expressed in terms of FWORDs, each a signed 16-bit quantity, in the design space. If the font is a raster font, the design space and device space are the same and a font unit is equivalent to the distance between pixels.</P>
+
+<P>Basically, the IFIMETRICS structure is the graphics DDI version of a text-metric structure. All distances refer to the notional coordinate system of the font designer. The notional space coordinate system is a right-handed Cartesian coordinate system in which the y-coordinate increases towards the top and the x-coordinate increases towards the right.</P>
+
+<P>The IFIMETRICS structure is designed to be of variable length. No restriction is placed on the length of the character strings associated with the font. It is common practice to store the strings immediately following the last field of the IFIMETRICS structure.</P>
+
+<P>Any driver that provides fonts must support the <A HREF="ddifncs_66uf.htm"><I>DrvQueryFont</I></A> function. The driver also can include the function <A HREF="ddifncs_2kvb.htm"><I>DrvQueryFontData</I></A> to retrieve information about a realized font. In a call to <I>DrvQueryFontData</I>, GDI provides a pointer to an array of glyphs or kerning handles. The driver returns information about associated glyphs in GDI <A HREF="grstrcts_37on.htm">GLYPHDATA</A> structures. If <I>DrvQueryFontData</I> has been given kerning handles, it returns information about kerning pairs in the form of Win32 POINTL structures. The following table lists the font metric functions.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=31%>Function</TH>
+<TH align=left width=69%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%><A HREF="ddifncs_1ynb.htm"><I>DrvDestroyFont</I></A></TD>
+<TD width=69%>Notifies the driver that a font realization is no longer needed so the driver can free any data structures that it allocated. GDI calls this function once for the font producer and once for the font consumer. Optional—should be supported only if the driver must free allocated resources.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%><A HREF="ddifncs_9dev.htm"><I>DrvFree</I></A></TD>
+<TD width=69%>Informs the driver that the indicated data structure is no longer needed. Optional—should be implemented only if the driver’s memory management requires this information.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%><A HREF="ddifncs_66uf.htm"><I>DrvQueryFont</I></A></TD>
+<TD width=69%>Returns a pointer to the <A HREF="grstrcts_36lj.htm">IFIMETRICS</A> structure for a font. Required by all drivers that deal with fonts.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%><A HREF="ddifncs_2kvb.htm"><I>DrvQueryFontData</I></A></TD>
+<TD width=69%>Returns information about a realized font. Required (for selected <I>iMode</I> values) by all drivers that deal with fonts.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%><A HREF="ddifncs_9faf.htm"><I>DrvQueryFontTree</I></A></TD>
+<TD width=69%>Returns pointers to structures that define either the mapping from Unicode to glyph handles or the mapping of kerning pairs to kerning handles. Required by all drivers that deal with fonts.</TD>
+</TR>
+</TABLE><BR>
+
+<P>The function <I>DrvQueryFontTree</I> allows GDI to obtain pointers to tree structures that define one of the following:
+
+<UL>
+	<LI>Mapping from Unicode to glyph handles, including glyph variants (GDI <A HREF="grstrcts_83dz.htm">FD_GLYPHSET</A> structure) </LI>
+
+	<LI>Mapping of kerning pairs to kerning handles (<A HREF="grstrcts_1ezr.htm">FD_KERNINGPAIR</A> structure) </LI>
+</UL>
+
+<P><I>DrvQueryFontTree</I> requires effort to generate the needed structures, so the driver should precompute these files if possible. The structures can be stored in a resource or in a file. If the structures are stored in a file, the ideal method for loading or reading them is to call the <A HREF="gdifncs_3up3.htm"><B>EngMapFontFile</B></A> function, which maps a file to the memory. Because the file does not get added to the swap file, the memory can be made available if needed, which is more efficient than opening and reading in a file.</P>
+
+<P>In particular, the driver returns an identifier in the <I>pid</I> parameter. GDI passes it to the <A HREF="ddifncs_9dev.htm"><I>DrvFree</I></A> function, with the returned pointer, when the <A HREF="grstrcts_83dz.htm">FD_GLYPHSET</A> structure or an array of <A HREF="grstrcts_1ezr.htm">FD_KERNINGPAIR</A> structures is no longer needed. Depending on how memory is managed in the driver, <I>pid</I> can identify the structure, identify how the structure was allocated, or do nothing at all.</P>
+
+<P><A HREF="ddifncs_9dev.htm"><I>DrvFree</I></A> and <A HREF="ddifncs_1ynb.htm"><I>DrvDestroyFont</I></A> are both optional functions. GDI calls <I>DrvFree</I> to inform the driver that the specified data structure is no longer needed. The driver does not need to implement it unless it allocates memory for the structure and needs to be informed when the corresponding data structure can be released. For example, if the data is associated with the <A HREF="grstrcts_3w9z.htm">FONTOBJ</A> structure, the deletion could be deferred until a call to <I>DrvDestroyFont</I>, so it would not be necessary to implement <I>DrvFree</I>.</P>
+
+<P><I>DrvDestroyFont</I><B> </B>notifies the driver that a font realization is no longer needed so the driver can free any data structures it allocated. GDI calls this function once for the font producer and once for the font consumer. It should be implemented only if the driver must free allocated resources when the font instance is destroyed.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Font%20Metric%20Functions"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

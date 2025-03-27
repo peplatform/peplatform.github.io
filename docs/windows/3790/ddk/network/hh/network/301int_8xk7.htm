@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Intermediate Driver Reset Operations</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Intermediate Driver Reset Operations">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_intermediate_driver_reset_operations_ng"></A>Intermediate Driver Reset Operations</H2>
+
+<P>An intermediate driver must be prepared to handle the situation where its outstanding sends on a binding to an underlying driver can be dropped because the underlying NIC is reset.</P>
+
+<P>An underlying driver typically resets its NIC because NDIS calls the miniport driver’s <A HREF="101mini_5hiq.htm"><I>MiniportReset</I></A> function when NDIS times out queued sends or requests bound for the NIC. A miniport driver can also reset its NIC because a higher-level driver called <A HREF="103ndisx_9ib6.htm"><B>NdisReset</B></A>. If an underlying NIC is reset, NDIS calls the <A HREF="104tdlow_6e42.htm"><I>ProtocolStatus</I></A> (or <A HREF="104tdlow_3khe.htm"><I>ProtocolCoStatus</I></A>) function of each bound protocol and intermediate driver with a status of NDIS_STATUS_RESET_START, and then calls the same bound driver’s <A HREF="104tdlow_3lrm.htm"><I>ProtocolStatusComplete</I></A> function. When the miniport driver completes the reset, NDIS again calls <I>ProtocolStatus</I> (or <I>ProtocolCoStatus</I>) with a status of NDIS_STATUS_RESET_END followed by a call to <I>ProtocolStatusComplete</I>. </P>
+
+<P>When a NIC is reset, if a bound intermediate driver has any transmit packets pending to that NIC, NDIS completes those packets back to the intermediate driver with an appropriate status. The intermediate driver must resubmit these packets again when the reset is completed. </P>
+
+<P>When an intermediate driver receives a status of NDIS_STATUS_RESET_START, it should:
+
+<UL>
+	<LI>Hold any packets ready to be transmitted until <I>ProtocolStatus</I> or <I>ProtocolCoStatus</I> receives an NDIS_STATUS_RESET_END notification and <I>ProtocolStatusComplete</I> is called.</LI>
+
+	<LI>Hold any received packets that are ready to be indicated up to the next higher driver until <I>ProtocolStatus</I> (or <I>ProtocolCoStatus</I>) receives an NDIS_STATUS_RESET_END notification and <I>ProtocolStatusComplete</I> is called.</LI>
+
+	<LI>Clean up any internal state it maintains for in-progress operations and NIC status.</LI>
+</UL>
+
+<P>After until <I>ProtocolStatus</I> (or <I>ProtocolCoStatus</I>) receives NDIS_STATUS_RESET_END and <I>ProtocolStatusComplete</I> is called, the intermediate driver can resume sending packets, making requests and making indications to higher-level drivers. </P>
+
+<P>Because an intermediate driver usually disables timing out of sends and requests by NDIS when it calls <A HREF="103ndisx_1pmb.htm"><B>NdisMSetAttributesEx</B></A>, its <A HREF="101mini_5hiq.htm"><I>MiniportReset</I></A> function is seldom called. If <I>MiniportReset</I> is called, possibly because a higher-level driver called <A HREF="103ndisx_9ib6.htm"><B>NdisReset</B></A>, the intermediate driver should reset its internal state if necessary and it should always set <I>AddressingReset</I> to TRUE before it returns.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Intermediate%20Driver%20Reset%20Operations"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

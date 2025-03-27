@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ExtDeviceMode</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_748"></A>ExtDeviceMode</H1>
+
+<PRE class=syntax><B>int ExtDeviceMode(
+  HWND </B><I>hWnd</I><B>, </B>
+<B>  HANDLE </B><I>hDriver</I><B>, </B>
+<B>  LPDEVMODE </B><I>lpDevModeOutput</I><B>, </B>
+<B>  LPSTR </B><I>lpDeviceName</I><B>, </B>
+<B>  LPSTR </B><I>lpPort</I><B>, </B>
+<B>  LPDEVMODE </B><I>lpDevModeInput</I><B>, </B>
+<B>  LPSTR </B><I>lpProfile</I><B>, </B>
+<B>  WORD  </B><I>wMode</I>
+<B> );</B>
+<B> </B></PRE>
+
+<P>Retrieves or modifies device-initialization information for a given graphics driver, or displays a driver-supplied dialog box for configuring the graphics driver. Applications call the <B>ExtDeviceMode</B> function when the user requests setting up the printer as part of preparing for a print job. </P>
+
+<P>All printer drivers must export the <B>ExtDeviceMode</B> function. </P>
+
+<P>If the wMode parameter is zero, the return value is the size of the DEVMODE structure required to contain the printer-driver initialization data. If the function displays the initialization-dialog box, the return value is either IDOK or IDCANCEL, depending on which button the user chose. If the function does not display the dialog box and was successful, the return value is IDOK. The return value is less than zero if the function failed. 
+
+<DL>
+<DT><I>hWnd</I> </DT>
+
+<DD>Parent window for the dialog box. </DD>
+
+<DT><I>hDriver</I> </DT>
+
+<DD>Module instance of the device driver. </DD>
+
+<DT><I>lpDevModeOutput</I> </DT>
+
+<DD>Address of a <B>DEVMODE</B> structure. The driver writes the initialization information supplied in the <I>lpDevModeInput</I> parameter to this structure. </DD>
+
+<DT><I>lpDeviceName</I> </DT>
+
+<DD>Address of a null-terminated string that contains the name of the device, such as PCL/HP LaserJet. </DD>
+
+<DT><I>lpPort</I> </DT>
+
+<DD>Address of a null-terminated string that contains the name of the port to which the device is connected, such as LPT1. </DD>
+
+<DT><I>lpDevModeInput</I> </DT>
+
+<DD>Address of a <B>DEVMODE</B> structure that contains initialization information set by the application. </DD>
+
+<DT><I>lpProfile</I> </DT>
+
+<DD>Address of a null-terminated string that contains the name of the initialization file in which initialization information is recorded and read from. If this parameter is NULL, the [<I>Model Name, Port</I>] section of the WIN.INI file is the default. </DD>
+
+<DT><I>wMode</I> </DT>
+
+<DD>Which operations the function will perform. If the <I>wMode</I> parameter is zero, <B>ExtDeviceMode</B> returns the number of bytes required by the device driver's <B>DEVMODE</B> structure. Otherwise, <I>wMode</I> can be a combination of the following values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=21%>DM_UPDATE (1) </TD>
+<TD width=79%>Writes the driver's current settings to the environment and the WIN.INI initialization file. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>DM_COPY (2) </TD>
+<TD width=79%>Writes the driver's current settings to the <B>DEVMODE</B> structure identified by the <I>lpDevModeOutput</I> parameter. The calling application must allocate a buffer sufficiently large to contain the information. If this bit is clear, <I>lpDevModeOutput</I> can be NULL. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>DM_PROMPT (4) </TD>
+<TD width=79%>Presents the driver's dialog box and then changes the current settings according to user specifications. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>DM_MODIFY (8) </TD>
+<TD width=79%>Changes the printer driver's current settings to match the partial initialization data in the <B>DEVMODE</B> structure identified by <I>lpDevModeInput</I> before prompting, copying, or updating the printer driver's setting. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+</DL>
+
+<P>The export ordinal for this function is 90. </P>
+
+<P>If <I>wMode</I> includes DM_PROMPT, the <B>ExtDeviceMode</B> function creates an application-modal dialog box using the <B>DialogBox</B> function (USER.240). The dialog box must provide options for the user to set the various settings of the device. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>ExtDeviceMode does the following</B>
+
+<OL>
+	<LI>Initializes the dialog box settings by using the environment specified by lpDevModeInput, by retrieving the current environment using the GetEnvironment function (GDI.133), or by reading the environment from the corresponding, device-specific section in the WIN.INI file. </LI>
+
+	<LI>Calls the DialogBox box to display the dialog box, then waits for the user to complete their changes. When the value returns from DialogBox, check the return value. Make subsequent updates only if the return value is IDOK. </LI>
+
+	<LI>Updates the current device environment by using the SetEnvironment function (GDI.132). Also, it updates the corresponding device-specific section in the WIN.INI file (or specified initialization file) if wMode includes DM_UPDATE. </LI>
+
+	<LI>Sends a WM_DEVMODE message to all applications informing them of a change to the device's operating modes. </LI>
+</OL>
+
+<P>The dialog box must provide at least a title bar and OK and Cancel buttons in addition to controls for the various operating modes. The title bar should contain the name of the current printer model (if the driver supports several models), but no other printer model information should be presented in the dialog box. (The <B>ExtDeviceMode</B> dialog box cannot permit the user to change device models.) </P>
+
+<P>If a device has too many options to fit in a single dialog box, <B>ExtDeviceMode</B> can provide nested dialog boxes, using buttons in the first dialog box to access the others. In all cases, a dialog function for a <B>ExtDeviceMode</B> dialog box must close the dialog box if it receives a WM_COMMAND message with the <I>wParam</I> parameter set to IDCANCEL. This message occurs when the user presses the ESC key, chooses the Cancel button in the dialog box, or when Windows Help needs to close the dialog box in order to respond to a request for help from another application. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ExtDeviceMode"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

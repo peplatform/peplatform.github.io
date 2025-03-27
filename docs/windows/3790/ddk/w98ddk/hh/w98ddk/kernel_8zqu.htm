@@ -1,0 +1,47 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>List_Allocate</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_1376"></A>List_Allocate</H1>
+
+<PRE>include vmm.inc
+
+mov     esi, List       ; list handle
+VMMCall List_Allocate
+
+jc      not_allocated   ; carry flag set if error
+mov     [Node], eax     ; address of new node
+ </PRE>
+
+<P>Allocates a new node for the specified list. A virtual device can attach the new node to the list using the <B>List_Attach, List_Attach_Tail</B> or <B>List_Insert</B> service. The contents of the new node are undefined. Uses EAX, Flags. 
+
+<UL>
+	<LI>Returns with the carry flag clear and the address of the new node in the EAX register if successful. For lists created using the LF_Alloc_Error value, the service returns with the carry flag set if a node cannot be allocated. For other lists, the service does not return if a node cannot be allocated. (It crashes the current virtual machine instead.) </LI>
+</UL>
+
+<DL>
+<DT><I>List</I></DT>
+
+<DD>Handle of the list. 
+</DD>
+</DL>
+
+<P>If the list is created using the LF_Use_Heap value, this service calls the <B>_HeapAllocate</B> service for each node, in which case all the rules regarding heap access apply to <B>List_Allocate</B> as well. </P>
+
+<P>Otherwise, the service allocates nodes from a pool of free nodes. This avoids the overhead of calling the <B>_HeapAllocate</B> service for every node allocation. This non-reliance on <B>_HeapAllocate</B> has both positive and negative consequences. On the positive side, it means that <B>List_Allocate</B> can be called at times when <B>_HeapAllocate</B> cannot be called, such as during hardware interrupts. On the negative side, this means that if the VMM cannot satisfy the allocation request from its pool of free nodes, it cannot obtain more memory from the heap because it might not be safe to call <B>_HeapAllocate</B> at the time the call to <B>List_Allocate</B> made. VMM maintains an emergency pool of memory into which it can dip when faced with this situation. The emergency pool is refreshed from the system heap at a time when <B>_HeapAllocate</B> is safe to call. </P>
+
+<P>The consequence of this tradeoff is that virtual devices should not allocate large numbers of nodes in rapid succession from lists not marked LF_Use_Heap, because that would dry up the free list and emergency pool, causing <B>List_Allocate</B> to fail. </P>
+
+<H4>See Also</H4>
+
+<P><B>List_Attach</B>, <B>List_Attach_Tail</B>, <B>List_Create</B>, <B>List_Deallocate</B>, <B>List_Insert</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: List_Allocate"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

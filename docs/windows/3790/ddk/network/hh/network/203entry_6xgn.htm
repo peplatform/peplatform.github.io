@@ -1,0 +1,38 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Bus-Master DMA Device Initialization</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Bus-Master DMA Device Initialization">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_bus_master_dma_device_initialization_ng"></A>Bus-Master DMA Device Initialization</H3>
+
+<P>A miniport driver that manages a bus-master DMA NIC calls <B>NdisMInitializeScatterGatherDma</B> from its <I>MiniportInitialize</I> function to initialize DMA resources. The benefits of using <B>NdisMInitializeScatterGatherDma</B> are that system resources, such as map registers, are dynamically allocated and deallocated for each DMA transfer (thereby better utilizing system resources) and that DMA performance is improved through a streamlined procedure for obtaining the physical addresses of mapped virtual ranges. <B>NdisMInitializeScatterGatherDma</B> supports only 32-bit and 64-bit DMA addresses; it does not support 24-bit DMA addresses.</P>
+
+<P>A legacy miniport driver that manages a bus-master DMA NIC calls <A HREF="103ndisx_44j6.htm"><B>NdisMAllocateMapRegisters</B></A>from its <I>MiniportInitialize</I> function instead of <B>NdisMInitializeScatterGatherDma</B>. In effect, <B>NdisMAllocateMapRegisters</B> statically allocates map registers; however, this results in poorer DMA performance and poorer utilization of system resources. A miniport driver allocates map registers once, during initialization. After the registers are successfully allocated, they belong to the miniport driver until they are deallocated until the driver is halted.</P>
+
+<H4>Allocating a Packet Pool, a Buffer Pool, and Shared Memory for Buffers</H4>
+
+<P>The amount of memory allocated for packet pool, buffer descriptors, and shared memory allocated for buffers, should be driven by the number of map registers and, possibly, by whether the miniport driver is running on a uniprocessor or multiprocessor machine. A miniport driver can determine the type of machine with <A HREF="103ndisx_14ky.htm"><B>NdisSystemProcessorCount</B></A>. Typically, a machine with more than one processor is a server. Servers usually handle more network traffic than uniprocessor machines (which are typically clients); therefore, it generally makes sense to allocate more resources for servers.</P>
+
+<P>In addition to the memory allocated for its miniport driver adapter context, a bus-master DMA miniport driver should set up the packet pool it will use for indicated packets. During initialization, the miniport driver must:
+
+<UL>
+	<LI>Allocate packet pool for packet descriptors by calling <A HREF="103ndisx_6t82.htm"><B>NdisAllocatePacketPool</B></A>. It must call <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A> to allocate single packet descriptors from the packet pool.</LI>
+
+	<LI>Allocate buffer pool for buffer descriptors to map the buffers that will make up the packet by calling <B>NdisAllocateBufferPool</B>.</LI>
+
+	<LI>Allocate shared memory for the number of buffers that will be used for receiving data incoming from the network by calling <A HREF="103ndisx_1ywi.htm"><B>NdisMAllocateSharedMemory</B></A>. The memory must be shared memory because it is accessible both by the NIC and the miniport driver. When the memory is used for sending and receiving, the NIC is using host memory. The NIC uses the physical address of the memory; the miniport driver uses the virtual address. Note that the call to <B>NdisMAllocateSharedMemory</B> fails unless the caller has first allocated map registers with <B>NdisMAllocateMapRegisters</B> or initialized system resources with <B>NdisMInitializeScatterGatherDma</B>.</LI>
+</UL>
+
+<P>Generally, a miniport driver for a DMA NIC should allocate cached memory. There are exceptions that are noted in <A HREF="204trnsf_5aav.htm">Cache Considerations for Receiving Data</A>. The miniport driver for such a NIC must flush its buffers to ensure cache coherency on sends on receives.</P>
+
+<P>If the miniport driver supports multipacket receive indications up to NDIS, it must also allocate memory for the array used to pass the pointers to the packets, which can be of any type.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Bus-Master%20DMA%20Device%20Initialization"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

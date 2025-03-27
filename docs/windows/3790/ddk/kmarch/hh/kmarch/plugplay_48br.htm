@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling an IRP_MN_CANCEL_STOP_DEVICE Request (Windows 98/Me)</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling an IRP_MN_CANCEL_STOP_DEVICE Request (Windows 98/Me)">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_handling_an_irp_mn_cancel_stop_device_request_windows_98_me_kg"></A>Handling an IRP_MN_CANCEL_STOP_DEVICE Request (Windows&nbsp;98/Me)</H3>
+
+<P>An <A HREF="pnp-irps_4tpu.htm">IRP_MN_CANCEL_STOP_DEVICE</A> request must be handled first by the parent bus driver for a device and then by each next higher driver in the device stack. A driver handles stop IRPs in its <I>DispatchPnP</I> routine.</P>
+
+<P>In response to an IRP_MN_CANCEL_STOP_DEVICE request, a driver must return the device to its started state and resume normal operation. Drivers must succeed a cancel-stop IRP.</P>
+
+<P>A driver handles an IRP_MN_CANCEL_STOP_DEVICE request with a procedure such as the following:
+
+<OL>
+	<LI>Postpone restarting the device until lower drivers have completed their restart operations. (See <A HREF="plugplay_6wx3.htm">Postponing PnP IRP Processing Until Lower Drivers Finish</A>.)</LI>
+
+	<LI>After lower drivers finish, return the device to its started state.
+<P>Exact operations depend on the device and the driver.
+</LI>
+
+	<LI>Restart I/O.  </LI>
+
+	<LI>Complete the IRP with <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>.
+<UL>
+	<LI>In a function or filter driver:
+<P>The driver's <I>IoCompletion</I> routine returned STATUS_MORE_PROCESSING_REQUIRED, as described in <A HREF="plugplay_6wx3.htm">Postponing PnP IRP Processing Until Lower Drivers Finish</A>, so the driver's <I>DispatchPnP</I> routine must call <B>IoCompleteRequest</B> to resume I/O completion processing.
+
+<P>The driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS, calls <B>IoCompleteRequest</B> with a priority boost of IO_NO_INCREMENT, and returns STATUS_SUCCESS from its <I>DispatchPnP</I> routine.
+
+<P>Drivers must not fail this operation. If a driver fails the restart IRP, the device is in an inconsistent state and will not operate properly.
+</LI>
+
+	<LI>In a parent bus driver:
+<P>The driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS and calls <B>IoCompleteRequest</B> specifying a priority boost of IO_NO_INCREMENT. The bus driver returns STATUS_SUCCESS from its <I>DispatchPnP</I> routine.
+
+<P>A bus driver must not fail this operation. If a driver fails the restart IRP, the device is in an inconsistent state and will not operate properly.
+</LI>
+</UL>
+</LI>
+</OL>
+
+<P>A driver might receive a spurious cancel-stop request when the device is started and active. This can occur, for example, if the driver (or a driver higher in the device stack) failed an IRP_MN_QUERY_STOP_DEVICE request. When a device is started and active, drivers can safely succeed spurious cancel-stop requests for the device. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20an%20IRP_MN_CANCEL_STOP_DEVICE%20Request%20(Windows%2098%2FMe)"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

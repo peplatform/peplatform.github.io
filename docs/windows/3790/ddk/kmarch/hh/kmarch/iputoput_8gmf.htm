@@ -1,0 +1,66 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using Common-Buffer System DMA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using Common-Buffer System DMA">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_using_common_buffer_system_dma_kg"></A>Using Common-Buffer System DMA</H3>
+
+
+
+<P><A NAME="ddk_figure_3..9_kg"></A>A driver that uses a system DMA controller's auto-initialize mode must allocate memory for a buffer into which or from which DMA transfers can be carried out. The driver calls <A HREF="kdma_6otu.htm"><B>AllocateCommonBuffer</B></A> to get this buffer, typically from the <A HREF="drvrrtns_8uya.htm"><I>DispatchPnP</I></A> routine that handles an IRP_MN_START_DEVICE request. The following figure shows how a driver allocates the buffer and maps its virtual address range to system physical memory.</P>
+
+<P><B><IMG SRC="images/3hlsysbf.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Allocating a Common Buffer for System DMA</B></P>
+
+<P>As the previous figure shows, a driver takes the following steps to allocate a buffer for system DMA:
+
+<OL>
+	<LI>The driver calls <A HREF="kdma_6otu.htm"><B>AllocateCommonBuffer</B></A>, passing a pointer to the adapter object that was returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A>, along with the length in bytes requested for its buffer. To use memory economically, the input <I>Length</I> value for the buffer should either be less than or equal to PAGE_SIZE or should be an integral multiple of PAGE_SIZE.</LI>
+
+	<LI>If <B>AllocateCommonBuffer</B> returns a NULL pointer, the driver should free any system resources it has already claimed and return STATUS_INSUFFICIENT_RESOURCES in response to the IRP_MN_START_DEVICE request.
+<P>Otherwise, <B>AllocateCommonBuffer</B> allocates the requested amount of memory in system virtual address space and returns two different types of pointers to that buffer:
+
+<UL>
+	<LI>The <I>LogicalAddress</I> of the buffer (BufferLogicalAddress in the previous figure), for which the driver must provide storage but which it should ignore thereafter</LI>
+
+	<LI>The virtual address of the buffer (BufferVirtualAddress in the previous figure), which the driver also must store so that it can build an MDL describing its buffer for DMA operations</LI>
+</UL>
+
+<P>The driver should store these pointers in the device extension or other driver-allocated resident memory.
+</LI>
+
+	<LI>The driver calls <A HREF="k104_3c8i.htm"><B>IoAllocateMdl</B></A> to allocate an MDL for the buffer. The driver passes the <I>VirtualAddress</I> of the buffer returned by <B>AllocateCommonBuffer</B> and the <I>Length</I> of its buffer to allocate an MDL. </LI>
+
+	<LI>The driver calls <A HREF="k106_4vua.htm"><B>MmBuildMdlForNonPagedPool</B></A> with the pointer returned by <B>IoAllocateMdl</B> to map the virtual address range for its resident buffer to system physical memory</LI>
+</OL>
+
+<P>After allocating a common buffer and mapping its virtual address range, the driver of a slave device can begin to process an IRP that requests a DMA transfer. To do so, the driver calls the following general sequence of support routines:
+
+<OL>
+	<LI>At the driver writer's discretion, <A HREF="k109_0w8i.htm"><B>RtlMoveMemory</B></A> to copy data from a locked-down user buffer into the driver-allocated common buffer for a transfer to the device</LI>
+
+	<LI><B>AllocateAdapterChannel</B> when the driver is ready to program its device for DMA and needs the system DMA controller</LI>
+
+	<LI><A HREF="kdma_1hv6.htm"><B>MapTransfer</B></A>, with the MDL that describes the driver-allocated common buffer, to set up the system DMA controller for the transfer operation
+<P>Note that the driver calls <B>MapTransfer</B> only once to set up the system DMA controller to use its common buffer. During a transfer, the driver can call <A HREF="kdma_0muq.htm"><B>ReadDmaCounter</B></A> to determine how many bytes remain to be transferred, and if necessary, call <B>RtlMoveMemory</B> to copy more data to or from a user buffer.
+</LI>
+
+	<LI><A HREF="kdma_9cxe.htm"><B>FlushAdapterBuffers</B></A> when the driver has completed its DMA transfer to/from the slave device</LI>
+
+	<LI><A HREF="kdma_3bua.htm"><B>FreeAdapterChannel</B></A> as soon as all the requested data has been transferred or if the driver must fail the IRP because of a device I/O error</LI>
+</OL>
+
+<P>The adapter object pointer returned by <B>IoGetDmaAdapter</B> is a required parameter to each of these support routines except <B>RtlMoveMemory</B>.</P>
+
+<P>Individual drivers call this sequence of support routines at different points, depending on how each driver is implemented to service its device. For example, one driver's StartIo routine might make the call to <B>AllocateAdapterChannel</B>, another driver might make this call from a routine that removes IRPs from a driver-created interlocked queue, and still another driver might make this call when its slave DMA device indicates it is ready to transfer data.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20Common-Buffer%20System%20DMA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

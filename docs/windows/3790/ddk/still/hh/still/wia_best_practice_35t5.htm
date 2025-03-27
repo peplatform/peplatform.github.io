@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WIA Security and Security Descriptors</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WIA Security and Security Descriptors">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_wia_security_and_security_descriptors_si"></A>WIA Security and Security Descriptors</H3>
+
+<P>Many of the solutions to the problems listed in <A HREF="wia_best_practice_34bt.htm">Common WIA Security Problems</A> require the objects in question to have security descriptors that grant access to the appropriate entities, such as <B>LocalService</B> accounts.</P>
+
+<P>Generally, the <B>LocalService</B> account has access to resources whose ACLs allow access by a <B>LocalService</B> account, Everyone, or Authenticated users. The service cannot share objects (pipes, file mapping, synchronization, and so on) with other applications, unless it creates a discretionary access control list(DACL) that allows a user or group of users access to the object.</P>
+
+<P>The following code example illustrates how to set the security descriptor. This approach can be used if an application and driver need to share a named event object.</P>
+
+<PRE>//
+//  Security descriptor in SDDL form:
+//  D:           - Indicates what follows is a 
+//                 Discretionary Access Control List (DACL)
+//  (A;;GA;;;LS) - Grants generic all access to LocalService
+//  (A;;GA;;;BA) - Grants generic all access to Built-in Admins
+//  (A;;GA;;;IU) - Grants generic all access to Interactive User 
+//
+#define MY_EVENT_DACL TEXT("D:(A;;GA;;;LS)(A;;GA;;;BA)(A;;GA;;;IU)")
+
+//
+//  Allocate appropriate security attributes for the named event
+//  to be shared between driver and app running under 
+//  interactive user's account.
+//
+SECURITY_ATTRIBUTES sa = { sizeof(sa), FALSE, NULL };
+if(ConvertStringSecurityDescriptorToSecurityDescriptor(
+              MY_EVENT_DACL,
+              SDDL_REVISION_1, 
+              &amp;(sa.lpSecurityDescriptor), NULL))
+{
+  h_MyEvent = CreateEvent(&amp;sa,           // Our security descriptor 
+                                         //  allowing access to 
+                                         //  Admins, LocalService
+                                         //  and the Interactive
+                                         //  User
+                          bManualReset,
+                          bInitialState, 
+                          tszName);
+  if (h_MyEvent != NULL)
+  {
+      //  Success!
+  }
+  else
+  {
+      // Failed.  Do error cleanup...
+      .
+      .
+      .
+  }
+}
+else
+{
+  // Failed.  Do error cleanup...
+  .
+  .
+  .
+}</PRE>
+
+<P>Registry keys can also be created with the appropriate ACLs through an INF file. For example, to create a registry key in the SOFTWARE key that is accessible only to Administrators and the driver running under <B>LocalService</B>, add the following entries to your INF file:</P>
+
+<PRE>[DDInstallSection]
+Addreg=MyAddReg
+
+[DDInstallSection.MyAddReg]
+HKLM,"SOFTWARE\MyCompany\MySpecialKey\"
+
+[DDInstallSection.MyAddReg.Security]
+"D:(A;CIOI;GA;;;BA)(A;CIOI;GA;;;LS)"</PRE>
+
+<P>For more information on INF files, see <A HREF="wia_gs_07ft.htm">INF Files for WIA Devices</A>.</P>
+
+<P>See the Windows Security documentation on MSDN for more information on the Windows Security model. Driver writers should also be aware of general security best practices that reduce the chance of destructive users successfully exploiting vulnerabilities in their drivers. “<I>Writing Secure Code</I>” (ISBN 0-7356-1588-8) from Microsoft Press is one of the several helpful resources available.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WIA%20Security%20and%20Security%20Descriptors"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

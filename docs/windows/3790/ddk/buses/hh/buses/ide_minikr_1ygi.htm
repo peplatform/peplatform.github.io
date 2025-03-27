@@ -1,0 +1,63 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IOCTL_ATA_PASS_THROUGH</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IOCTL_ATA_PASS_THROUGH">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ioctl_ata_pass_through_kr"></A>IOCTL_ATA_PASS_THROUGH</H1>
+
+<H4>Operation</H4>
+
+<P>Allows an application to send almost any ATA command to a target device, with the following restrictions: 
+
+<UL>
+	<LI>If a class driver for the target type of device exists, the application must send the request to the class driver. Thus, an application can send this request directly to the system port driver for a target logical unit (LU) only if there is no class driver for the type of device connected to that LU. The system port driver does not check to determine if a device has been claimed by a class driver before processing a pass-through request. Therefore, if an application bypasses a class driver that has claimed a device and sends a pass-through request for that device directly to the port driver, a conflict for control of the device can occur between the class driver and the application. </LI>
+
+	<LI>This request cannot be used if the command requires the underlying driver to access memory directly. If the caller's command might require direct access to memory, use <A HREF="ide_minikr_9iya.htm">IOCTL_ATA_PASS_THROUGH_DIRECT</A> instead. </LI>
+
+	<LI>Applications must not attempt to send a pass-through request asynchronously. All pass-through requests must be synchronous. </LI>
+
+	<LI>Applications do not require administrative privileges to send a pass-through request to a device, but they must have read-write access to the device. </LI>
+</UL>
+
+<P>The calling application provides the ATA task file register contents for the intended command in the <A HREF="ide_struct_2b76.htm">ATA_PASS_THROUGH_EX</A> structure. The system double buffers all data transfers. This request is typically used for transferring small amounts of data (less than 16 KB). </P>
+
+<H4>Input</H4>
+
+<P><B>Parameters.DeviceIoControl.InputBufferLength</B> indicates the size in bytes of the buffer at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B>. If the embedded ATA command is a write operation, the size of the input buffer should be the sum of <B>sizeof</B>(<A HREF="ide_struct_2b76.htm">ATA_PASS_THROUGH_EX</A>) and the value in the <B>DataTransferLength</B> member of ATA_PASS_THROUGH_EX. The following pseudocode example shows how to calculate the buffer size:</P>
+
+<PRE class=syntax>ULONG buffsize; // size of the buffer
+ATA_PASS_THROUGH_EX hdr;
+hdr.<B>DataTransferLength</B> = size in bytes of the data transfer
+buffsize = <B>sizeof</B> (ATA_PASS_THROUGH_EX) + hdr.<B>DataTransferLength</B></PRE>
+
+<P>If the embedded ATA command is a read operation or a device control operation that does not involve data transfer, <B>InputBufferLength</B> should be equal to <B>sizeof</B> (ATA_PASS_THROUGH_EX). </P>
+
+<P>In either case, if <B>InputBufferLength</B> is less than <B>sizeof</B> (ATA_PASS_THROUGH_EX), the port driver fails the I/O request and returns an error.</P>
+
+<P>The buffer at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B> should contain an ATA_PASS_THROUGH_EX structure, which includes a set of task file input registers that indicate the sort of command to be performed and its parameters. The caller must initialize all the members of this structure except for <B>PathId</B>, <B>TargetId</B>, and <B>Lun</B>, which the port driver fills in. For a data-out command, the <B>DataBufferOffset</B> member of the structure must point to a cache-aligned buffer containing the data to be written. </P>
+
+<H4>Output</H4>
+
+<P>The port driver formats the return data using an <A HREF="ide_struct_2b76.htm">ATA_PASS_THROUGH_EX</A> structure and stores the data in the buffer at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B>. </P>
+
+<P>The port driver updates the <B>DataTransferLength</B> member of ATA_PASS_THROUGH_EX to indicate the amount of data actually transferred from the device. If the embedded ATA command is a write operation or a device control operation that does not transfer data, <B>OutputBufferLength</B> is equal to <B>sizeof</B>(ATA_PASS_THROUGH_EX). If the embedded ATA command is a read operation, <B>OutputBufferLength</B> is equal to <B>sizeof</B>(ATA_PASS_THROUGH_EX) + <B>DataTransferLength</B>. </P>
+
+<P>The port driver fills the <B>CurrentTaskFile</B> member with the values that are present in the device's output registers at the completion of the embedded ATA command. If the command was a data transfer, the port driver stores the transferred data in a cache-aligned buffer that is located at an offset of <B>DataBufferOffset</B> bytes from the beginning of the structure. The application is responsible for interpreting the contents of the output registers to determine what errors, if any, were returned by the device. </P>
+
+<H4>I/O Status Block</H4>
+
+<P>The <B>Information</B> member is set to the number of bytes returned in the output buffer at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B>. The <B>Status</B> member is set to STATUS_SUCCESS or possibly to STATUS_BUFFER_TOO_SMALL or STATUS_INVALID_PARAMETER if the input <B>Length </B>value in ATA_PASS_THROUGH is improperly set. </P>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>ntddscsi.h</I>. Include <I>ntddscsi.h</I>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IOCTL_ATA_PASS_THROUGH"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

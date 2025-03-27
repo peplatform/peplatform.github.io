@@ -1,0 +1,110 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Mirror Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Mirror Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_mirror_driver_kg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_clip_region_gg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_pdev_gg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_mirror_drivers_gg"></A>Mirror Drivers</H1>
+
+<P>A <A HREF="JavaScript:hhobj_1.Click()"><I>mirror driver</I></A><I> </I>is a display driver for a virtual device that mirrors the drawing operations of one or more additional physical display devices. It is implemented and behaves much like any other display driver; however, its paired video miniport driver is minimal in comparison to a typical miniport driver. See <A HREF="vmport_2pwn.htm">Mirror Driver Support in the Miniport</A> for more information about miniport drivers in mirroring systems. The Windows DDK contains a sample mirror driver which includes component source files that are contained in three directories.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Directory</TH>
+<TH align=left width=52%>Contains Source Files For</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><I>src\video\displays\mirror\disp</I></TD>
+<TD width=52%>The mirror driver.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><I>src\video\miniport\mirror\mini</I> </TD>
+<TD width=52%>The miniport driver.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><I>src\video\displays\mirror\app</I> </TD>
+<TD width=52%>The user-mode service. Also contains <I>mirror.inf.</I></TD>
+</TR>
+</TABLE><BR>
+
+<P>GDI supports a <I>virtual desktop</I> and provides the ability to replicate a portion of the virtual desktop on a mirror device. GDI implements the virtual desktop as a graphics layer above the physical display driver layer. All drawing operations start in this virtual desktop space; GDI clips and renders them on the appropriate physical display devices that exist in the virtual desktop. </P>
+
+<P>A mirror device can specify an arbitrary <A HREF="JavaScript:hhobj_2.Click()">clip region</A> in the virtual desktop, including one that spans more than one physical display device. GDI then sends the mirror device all drawing operations that intersect that driver's clip region. A mirror device can set a clip region that exactly matches a particular physical device; therefore, it can effectively mirror that device.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;In Windows&nbsp;2000 and later, the mirror driver's clip region must include the primary display device.</P>
+
+<P>The <I>mirror</I> driver code sample illustrates how to implement a mirror driver. For more information that will help you understand the sample:
+
+<UL>
+	<LI>Use the sample INF file, <I>mirror.inf</I>, as a template. See <A HREF="dpyddi_9fs7.htm">Mirror Driver INF File</A> for details.</LI>
+
+	<LI>See the <I>mirror.exe </I>application, which demonstrates how the mirror driver is attached to the virtual desktop. See <A HREF="dpyddi_5e3r.htm">Mirror Driver Installation</A> for details.</LI>
+
+	<LI>Refer to the Platform SDK documentation for information about using the Win32 <B>EnumDisplayDevices</B> function. You use this function to determine the <B>\\.\Display#</B> name associated with your mirrored display device. This number is required to change the settings for your mirrored device. For multiple instances, <B>#</B> is a different number for each instance; therefore you must determine this number by iterating through the available display devices.</LI>
+</UL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To attach the mirrored device to the global desktop</B>
+
+<OL>
+	<LI>Add the REG_DWORD registry entry <B>Attach.ToDesktop</B> to your driver's services keys.</LI>
+
+	<LI>Set this key's entry to 1 (one).</LI>
+</OL>
+
+<P>To disable the mirror driver, set this entry to 0 (zero).</P>
+
+<P>As mentioned previously, the driver is installed and operates in a drawing layer that resides above the device layer. Because the mirror driver's coordinate space is the desktop coordinate space, it can span more than one device. If the mirror driver is intended to mirror the primary display, its display coordinates should coincide with the primary display's desktop coordinates.
+
+<UL>
+	<LI>After the mirror driver is installed, it will be called for all rendering operations that intersect the driver's display region. On a <A HREF="dpyddi_9c87.htm">multiple-monitor system</A>, this might not include all drawing operations if the mirror driver overlaps only the primary display device.</LI>
+
+	<LI>It is recommended that a user mode service be used to maintain the mirror driver's settings. This application can ensure that the driver is loaded correctly at boot time and it can respond appropriately to changes to the desktop by getting notifications of display changes via the WM_DISPLAYCHANGE message.</LI>
+
+	<LI>GDI calls the mirror driver for any 2D graphics DDI drawing operation that intersects the driver's bounding rectangle. Note that GDI does not perform a bounding rectangle check if the surface is a device format bitmap; that is, if the <A HREF="grstrcts_3rtz.htm">SURFOBJ</A> has an <B>iType</B> of STYPE_DEVBITMAP.</LI>
+
+	<LI>As always, the mirror driver must be implemented without the use of global variables. All state must exist in the <A HREF="JavaScript:hhobj_3.Click()">PDEV</A> for that particular driver. GDI will call <A HREF="ddifncs_0zzb.htm"><I>DrvEnablePDEV</I></A> for every hardware device extension created by the video miniport driver.</LI>
+
+	<LI>The mirror driver should not support DirectDraw.</LI>
+
+	<LI>A mirror driver must set the GCAPS_LAYERED flag to TRUE in the <B>flGraphicsCaps</B> member of the <A HREF="grstrcts_4ilj.htm">DEVINFO</A> structure.</LI>
+
+	<LI>A mirror driver can optionally support brush realizations by implementing <A HREF="ddifncs_6krr.htm"><I>DrvRealizeBrush</I></A>.</LI>
+</UL>
+
+<P>GDI allows the same driver to run on both a single and multiple-monitor system. A driver in a multiple-monitor system need only track its position within the global desktop. GDI provides this position to the driver whenever a Win32 <B>ChangeDisplaySettings</B> call occurs, such as when a user dynamically changes the monitor's position in the desktop by using the Display program in Control Panel. GDI updates the <B>dmPosition</B> member of the <A HREF="grstrcts_6v8n.htm">DEVMODEW</A> structure accordingly when such a change occurs. A driver can receive notification of such a change by implementing <A HREF="ddifncs_1ztz.htm"><I>DrvNotify</I></A>. See <A HREF="dpyddi_5e3r.htm">Mirror Driver Installation</A> for more information.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Mirror drivers are not required to render with pixel-perfect accuracy when rendering on the client side with such accuracy may be difficult. For example, the adapter/monitor receiving the mirrored image is not required to render <A HREF="ddioview_3fon.htm">Grid Intersect Quantization</A> (GIQ) line drawing and polygon fills with the same precision as the adapter/monitor being mirrored.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Mirror%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

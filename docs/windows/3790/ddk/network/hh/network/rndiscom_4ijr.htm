@@ -1,0 +1,210 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Multi-Packet Messages</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Multi-Packet Messages">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_multi_packet_messages_ng"></A>Multi-Packet Messages</H3>
+
+<P>Multiple <A HREF="rndisref_78xe.htm">REMOTE_NDIS_PACKET_MSG</A> messages may be sent in a single transfer, in either direction. A multi-packet message is formed by concatenating multiple <A HREF="rndisref_78xe.htm">REMOTE_NDIS_PACKET_MSG</A> elements. The maximum length of such a transfer is governed by the <I>MaxTransferSize</I> parameter passed in the <A HREF="rndisref_1r76.htm">REMOTE_NDIS_INITIALIZE_MSG</A> and response messages. The host will also limit the number of messages it bundles into a single transfer to the <I>MaxPacketsPerMessage</I> parameter returned by the device in the <A HREF="rndisref_0k4y.htm">REMOTE_NDIS_INITIALIZE_CMPLT</A> response message.</P>
+
+<P>The difference from the single-packet message case is that the <I>MessageLength</I> field in each <A HREF="rndisref_78xe.htm">REMOTE_NDIS_PACKET_MSG</A> header includes some additional padding bytes. These padding bytes are added to all but the last <A HREF="rndisref_78xe.htm">REMOTE_NDIS_PACKET_MSG</A> such that the succeeding REMOTE_NDIS_PACKET_MSG starts at an appropriate byte boundary. For messages sent from the device to the host, this padding should result in each REMOTE_NDIS_PACKET_MSG starting at a byte offset that is a multiple of 8 bytes starting from the beginning of the multi-packet message. When the host sends a multi-packet message to the device, it will adhere to the <I>PacketAlignmentFactor</I> specified by the device in the <A HREF="rndisref_0k4y.htm">REMOTE_NDIS_INITIALIZE_CMPLT</A> response message.</P>
+
+<P>Note that neither the combined length of a multi-packet message nor the number of <A HREF="rndisref_78xe.htm">REMOTE_NDIS_PACKET_MSG</A> elements in a combined message is given explicitly in any Remote NDIS defined field. The combined length is implicit in the bus-specific transfer mechanism, and the host or device must walk the <I>MessageLength</I> fields of the combined message to determine the number of combined messages.</P>
+
+<P>The following table is an example of a multi-packet message that is made up of two REMOTE_NDIS_PACKET_MSGs, sent from the host to the device. During the <A HREF="rndisref_1r76.htm">REMOTE_NDIS_INITIALIZE_MSG</A> exchange, the device requested a <I>PacketAlignmentFactor</I> of 3 (an alignment along an 8-byte boundary).</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=22%>Offset</TH>
+<TH align=left width=12%>Size</TH>
+<TH align=left width=33%>Field</TH>
+<TH align=left width=33%>Value</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>0</TD>
+<TD width=12%>4</TD>
+<TD width=33%>MessageType</TD>
+<TD width=33%>0x1</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>4</TD>
+<TD width=12%>4</TD>
+<TD width=33%>MessageLength</TD>
+<TD width=33%>72 (includes 2 padding bytes; see below)</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>8</TD>
+<TD width=12%>4</TD>
+<TD width=33%>DataOffset</TD>
+<TD width=33%>36</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>12</TD>
+<TD width=12%>4</TD>
+<TD width=33%>DataLength</TD>
+<TD width=33%>26</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>16</TD>
+<TD width=12%>4</TD>
+<TD width=33%>OOBDataOffset</TD>
+<TD width=33%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>20</TD>
+<TD width=12%>4</TD>
+<TD width=33%>OOBDataLength</TD>
+<TD width=33%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>24</TD>
+<TD width=12%>4</TD>
+<TD width=33%>NumOOBDataElements</TD>
+<TD width=33%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>28</TD>
+<TD width=12%>4</TD>
+<TD width=33%>PerPacketInfoOffset</TD>
+<TD width=33%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>32</TD>
+<TD width=12%>4</TD>
+<TD width=33%>PerPacketInfoLength</TD>
+<TD width=33%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>36</TD>
+<TD width=12%>4</TD>
+<TD width=33%>VcHandle</TD>
+<TD width=33%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>40</TD>
+<TD width=12%>4</TD>
+<TD width=33%>Reserved</TD>
+<TD width=33%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>44</TD>
+<TD width=12%>26</TD>
+<TD width=33%>Payload (data)</TD>
+<TD width=33%>Some network data of 26 bytes in length</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>70</TD>
+<TD width=12%>2</TD>
+<TD width=33%>Padding</TD>
+<TD width=33%>Doesn’t matter – unused</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>72</TD>
+<TD width=12%>4</TD>
+<TD width=33%>MessageType (start of second REMOTE_NDIS_PACKET<BR>
+_MSG)</TD>
+<TD width=33%>0x1 </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>76</TD>
+<TD width=12%>4</TD>
+<TD width=33%>MessageLength</TD>
+<TD width=33%>60</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>80</TD>
+<TD width=12%>4</TD>
+<TD width=33%>DataOffset</TD>
+<TD width=33%>36</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>84</TD>
+<TD width=12%>4</TD>
+<TD width=33%>DataLength</TD>
+<TD width=33%>16</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>88</TD>
+<TD width=12%>4</TD>
+<TD width=33%>OOBDataOffset</TD>
+<TD width=33%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>92</TD>
+<TD width=12%>4</TD>
+<TD width=33%>OOBDataLength</TD>
+<TD width=33%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>96</TD>
+<TD width=12%>4</TD>
+<TD width=33%>NumOOBDataElements</TD>
+<TD width=33%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>100</TD>
+<TD width=12%>4</TD>
+<TD width=33%>PerPacketInfoOffset</TD>
+<TD width=33%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>104</TD>
+<TD width=12%>4</TD>
+<TD width=33%>PerPacketInfoLength</TD>
+<TD width=33%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>108</TD>
+<TD width=12%>4</TD>
+<TD width=33%>VcHandle</TD>
+<TD width=33%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>112</TD>
+<TD width=12%>4</TD>
+<TD width=33%>Reserved</TD>
+<TD width=33%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>116</TD>
+<TD width=12%>16</TD>
+<TD width=33%>Payload (data)</TD>
+<TD width=33%>Some network data of 16 bytes in length</TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Multi-Packet%20Messages"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

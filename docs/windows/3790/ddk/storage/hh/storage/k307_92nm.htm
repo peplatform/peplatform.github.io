@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IOCTL_MOUNTMGR_CREATE_POINT</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IOCTL_MOUNTMGR_CREATE_POINT">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ioctl_mountmgr_create_point_kr"></A>IOCTL_MOUNTMGR_CREATE_POINT</H1>
+
+<H4>Operation</H4>
+
+<P>Mount Manager clients can use this IOCTL to request that the Mount Manager create a persistent symbolic link name for the indicated volume. For a discussion of the various sorts of persistent symbolic links managed by the Mount Manager see <A HREF="03class_5mp3.htm">Supporting Mount Manager Requests in a Storage Class Driver</A>.</P>
+
+<P>The input to this request is the persistent symbolic link name to be created and a name that is already valid for purposes of identifying the volume. The name given for purposes of identifying the volume can be of any type: a unique volume name, a symbolic link name, or a nonpersistent device name. If the new persistent name is not already in use, the call will succeed and the Mount Manager database will be modified to reflect that the new persistent name belongs to the volume. If the Mount Manager database already contains the new persistent name, but the volume that owns that name is not in the system, this call will overwrite ownership of the given persistent name.</P>
+
+<P>The Mount Manager allows the creation of a new persistent symbolic link name even if it has not yet been notified of the given volume in the MOUNTDEV_MOUNTED_DEVICE_GUID device interface notification. In such a case, the Mount Manager simply creates the symbolic link and updates the Mount Manager database. </P>
+
+<P>The Mount Manager enforces a policy of at most one persistent drive letter per volume. If an <A HREF="#ddk_ioctl_mountmgr_create_point_kr">IOCTL_MOUNTMGR_CREATE_POINT</A> request is sent with a drive letter, the request will fail if there is already a drive letter assigned to the volume, unless the Mount Manager has not yet been notified of the volume by means of the MOUNTDEV_MOUNTED_DEVICE_GUID device interface notification. In the latter case, the call succeeds and the Mount Manager purges the Mount Manager database of any other drive letters previously assigned to the volume.</P>
+
+<P>Note that a client can discover whether the Mount Manager has received the MOUNTDEV_MOUNTED_DEVICE_GUID device interface notification for its volume by querying the Mount Manager with <A HREF="k307_0l9u.htm">IOCTL_MOUNTMGR_QUERY_POINTS</A>.</P>
+
+<P>In this pseudocode sample, a Mount Manager client uses IOCTL_MOUNTMGR_CREATE_POINT to send the Mount Manager a device object name and its corresponding symbolic link:</P>
+
+<PRE>    // The persistent symbolic link is a drive letter in
+    // this case:
+    wsprintf(dosBuffer, L"\\DosDevices\\%c:", DriveLetter);
+    RtlInitUnicodeString(&amp;dosName, dosBuffer);
+    // The non-persistent volume (device) object name is
+    // formed using the volume number as a suffix
+    wsprintf(ntBuffer, L"\\Device\\HarddiskVolume%d", 
+                       Extension-&gt;VolumeNumber);
+    RtlInitUnicodeString(&amp;ntName, ntBuffer);
+    createPointSize = sizeof(MOUNTMGR_CREATE_POINT_INPUT) +
+                      dosName.Length + ntName.Length;
+    // Allocate a header with length and offset information
+    createPoint = (PMOUNTMGR_CREATE_POINT_INPUT)
+                  ExAllocatePool(PagedPool, 
+                  createPointSize);
+    createPoint-&gt;SymbolicLinkNameOffset = 
+                  sizeof(MOUNTMGR_CREATE_POINT_INPUT);
+    createPoint-&gt;SymbolicLinkNameLength = dosName.Length;
+    createPoint-&gt;DeviceNameOffset = 
+        createPoint -&gt; SymbolicLinkNameOffset +
+        createPoint -&gt; SymbolicLinkNameLength;
+    createPoint-&gt;DeviceNameLength = ntName.Length;
+    RtlCopyMemory((PCHAR) createPoint + 
+                  createPoint -&gt; SymbolicLinkNameOffset,
+                  dosName.Buffer, dosName.Length);
+    RtlCopyMemory((PCHAR) createPoint + 
+                  createPoint-&gt;DeviceNameOffset,
+                  ntName.Buffer, ntName.Length);
+    // Use the name of the Mount Manager device object
+    // defined in mountmgr.h (MOUNTMGR_DEVICE_NAME) to
+    // obtain a pointer to the Mount Manager.
+    RtlInitUnicodeString(&amp;name, MOUNTMGR_DEVICE_NAME);
+    status = IoGetDeviceObjectPointer(&amp;name,
+                              FILE_READ_ATTRIBUTES, 
+                              &amp;fileObject, &amp;deviceObject);
+    KeInitializeEvent(&amp;event, NotificationEvent, FALSE);
+    irp = IoBuildDeviceIoControlRequest(
+            IOCTL_MOUNTMGR_CREATE_POINT,
+            deviceObject, createPoint, createPointSize, 
+            NULL, 0, FALSE, &amp;event, &amp;ioStatus);
+    // Send the irp to the mount manager requesting
+    // that a new mount point (persistent symbolic link)
+    // be created for the indicated volume.
+    status = IoCallDriver(deviceObject, irp);</PRE>
+
+<H4>Input</H4>
+
+<P><B>Parameters.DeviceIoControl.InputBufferLength</B> in the I/O stack location of the IRP indicates the size, in bytes, of the input buffer, which must be greater than or equal to <B>sizeof</B>(MOUNTMGR_CREATE_POINT_INPUT).</P>
+
+<P>The Mount Point Manager places a header, defined the structure <A HREF="k306_6xwy.htm">MOUNTMGR_CREATE_POINT_INPUT</A> in <I>mountmgr.h</I>, at the beginning of the buffer at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B>. The Mount Manager inserts the newly-assigned persistent symbolic link name at the address pointed to by the <I>SymbolicLinkNameOffset</I> member of this structure, and it inserts the nonpersistent device name at the address pointed to by the <I>DeviceNameOffset</I> member of this structure. </P>
+
+<H4>Output</H4>
+
+<P>None</P>
+
+<H4>I/O Status Block</H4>
+
+<P>If the operation is successful, the <B>Status</B> field is set to STATUS_SUCCESS.</P>
+
+<P>If <B>InputBufferLength</B> is less than <B>sizeof</B>(MOUNTMGR_CREATE_POINT_INPUT), the <B>Status</B> field is set to STATUS_INVALID_PARAMETER.</P>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>mountmgr.h</I>. Include <I>mountmgr.h</I>. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k306_6xwy.htm">MOUNTMGR_CREATE_POINT_INPUT</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IOCTL_MOUNTMGR_CREATE_POINT"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

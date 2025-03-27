@@ -1,0 +1,180 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Processing SRBs</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Processing SRBs">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_processing_srbs_ksg"></A>Processing SRBs</H2>
+
+<P>The following procedures illustrate the flow between the camera minidriver and USBCAMD in the processing of SRBs sent from the stream class driver to USBCAMD.</P>
+
+<P>Processing of the following SRBs is described:</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>SRB_INITIALIZE_DEVICE</B>
+
+<OL>
+	<LI><I>Camera minidriver:</I> Initialize the USBCAMD library by calling <A HREF="usbcmdpr_90oj.htm">USBCAMD_InitializeNewInterface</A>, indicating video or still raw processing requirements in kernel, such as enable device events.</LI>
+
+	<LI><I>Camera minidriver:</I> Call <A HREF="usbcmdpr_5ak3.htm">USBCAMD_AdapterReceivePacket</A>.</LI>
+
+	<LI><I>USBCAMD:</I> Acquire USB device and configuration descriptors.</LI>
+
+	<LI><I>USBCAMD:</I> Call minidriver's <A HREF="usbcmdpr_04ab.htm">CamConfigureEx</A> routine.</LI>
+
+	<LI><I>Camera minidriver:</I> Complete the configuration. Choose an alternate setting and maximum transfer size. Fill in the array of <A HREF="usbcmdpr_8j77.htm">USBCAMD_Pipe_Config_Descriptor</A> structures.</LI>
+
+	<LI><I>USBCAMD:</I> Parse the array of USBCAMD_Pipe_Config_Descriptor structures.</LI>
+
+	<LI><I>USBCAMD:</I> Call minidriver's <A HREF="usbcmdpr_1s8j.htm">CamInitialize</A> routine.</LI>
+
+	<LI><I>Camera minidriver:</I> Complete the initialization. Set the device power and activate the default setting on the camera.</LI>
+
+	<LI><I>USBCAMD:</I> Provide the number of streams and stream descriptor size to stream class.</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>SRB_GET_STREAM_INFO</B>
+
+<OL>
+	<LI><I>Camera minidriver:</I> Provide the <A HREF="strclass-struct_7stv.htm">HW_STREAM_INFORMATION</A> stream information structure to stream class.</LI>
+
+	<LI><I>Camera minidriver:</I> Fill in pointer to the array of device property sets in stream class’s <A HREF="strclass-struct_3wz7.htm">HW_STREAM_HEADER</A> structure.</LI>
+
+	<LI><I>Camera minidriver:</I> Call <A HREF="usbcmdpr_5ak3.htm">USBCAMD_AdapterReceivePacket</A>.</LI>
+
+	<LI><I>USBCAMD:</I> Fill in the number of pins in the stream header.</LI>
+
+	<LI><I>USBCAMD:</I> Expose the device event table, if any.</LI>
+
+	<LI><I>USBCAMD:</I> Fix entry values in the stream information table. Set category name (capture/still).</LI>
+
+	<LI><I>USBCAMD:</I> Fill in pointer to the stream property array.</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>SRB_INITIALIZATION_COMPLETE</B>
+
+<OL>
+	<LI><I>Camera minidriver:</I> Acquire GUID_USBCAMD_INTERFACE for USBCAMD2 using IRP_MJ_PNP and IRP_MN_QUERY_INTERFACE.</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>SRB_GET_DEVICE_PROPERTY</B>
+
+<OL>
+	<LI><I>Camera minidriver:</I> Get the properties the camera driver handles such as <B>PROPSETID_VIDCAP_VIDPROCAMP</B>, <B>PROPSETID_VIDCAP_CAMERACONTROL</B> and <B>PROPSETID_VIDCAP_VIDEOCONTROL</B> and any other custom property sets.</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>SRB_SET_DEVICE_PROPERTY</B>
+
+<OL>
+	<LI><I>Camera minidriver:</I> Set the properties the camera driver handles by acquiring the parameters of <B>PROPSETID_VIDCAP_VIDPROCAMP</B>, <B>PROPSETID_VIDCAP_CAMERACONTROL</B> and <B>PROPSETID_VIDCAP_VIDEOCONTROL</B> and any other custom property sets.</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>SRB_GET_DATA_INTERSECTION</B>
+
+<OL>
+	<LI><I>Camera minidriver:</I> Return a <A HREF="ks-struct_0fub.htm">KSDATAFORMAT</A> structure from a <A HREF="ks-struct_065v.htm">KSDATARANGE</A> structure.</LI>
+
+	<LI><I>Camera minidriver:</I> Check that the framerate requested (VideoInfoHeader.AvgTimePerFrame) is within the upper and lower limits for the video format requested. If it exceeds the limits, the minidriver should correct the following values in pSrb-&gt;CommandData.IntersectInfo-&gt;Datarange: VideoInfoHeader.AvgTimePerFrame, VideoInfoHeader.dwBitRate</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>SRB_OPEN_STREAM</B>
+
+<OL>
+	<LI><I>Camera minidriver:</I> Verify the video format.</LI>
+
+	<LI><I>Camera minidriver:</I> Call <A HREF="usbcmdpr_5ak3.htm">USBCAMD_AdapterReceivePacket</A>.</LI>
+
+	<LI><I>USBCAMD:</I> Save the video format accepted by the camera minidriver.</LI>
+
+	<LI><I>USBCAMD:</I> Call the minidriver's <A HREF="usbcmdpr_4yb7.htm">CamAllocateBandwidthEx</A> routine to allocate bandwidth based on video-format data and get the maximum buffer size for this format.</LI>
+
+	<LI><I>Camera minidriver:</I> Calculate the isochronous channel's maximum packet size that satisfies the requested frame rate and output windows size.</LI>
+
+	<LI><I>Camera minidriver:</I> Choose the closest alternate setting by calling <A HREF="usbcmdpr_2kkz.htm">USBCAMD_SelectAlternateInterface</A>. The minidriver should provide USBCAMD with the maximum possible frame size that can be produced by the camera.</LI>
+
+	<LI><I>Camera minidriver:</I> Set the hardware scaling on the camera. Set the camera controls to the stored values in the registry, or to the default setting if the first time.</LI>
+
+	<LI><I>Camera minidriver:</I> Ensure that the framerate (VideoInfoHeader.AvgTimePerFrame) falls within the limits for the video format, and correct it if it does not</LI>
+
+	<LI><I>USBCAMD:</I> Call the minidriver's <A HREF="usbcmdpr_5gs3.htm">CamStartCaptureEx</A> routine.</LI>
+
+	<LI><I>Camera minidriver:</I> Set the hardware to capture mode.</LI>
+
+	<LI><I>USBCAMD:</I> Initialize isochronous or bulk transfer.</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>SRB_CLOSE_STREAM</B>
+
+<OL>
+	<LI><I>USBCAMD:</I> Cancel pending IRPs submitted to USBCAMD. Return any pending data SRBs to stream class.</LI>
+
+	<LI><I>USBCAMD:</I> Call the minidriver's <A HREF="usbcmdpr_2xf7.htm">CamStopCaptureEx</A> routine.</LI>
+
+	<LI><I>Camera minidriver:</I> Send a stop capture command to the camera.</LI>
+
+	<LI><I>USBCAMD:</I> Call the minidriver's <A HREF="usbcmdpr_16ib.htm">CamFreeBandwidthEx</A> to free isochronous bus bandwidth, if applicable.</LI>
+
+	<LI><I>Camera minidriver:</I> Select an idle alternate setting.</LI>
+
+	<LI><I>USBCAMD:</I> Free resources associated with USB pipes.</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>SRB_UNINITIALIZE_DEVICE</B>
+
+<OL>
+	<LI><I>USBCAMD:</I> If any streams are still open, close them by calling <A HREF="usbcmdpr_2xf7.htm">CamStopCaptureEx</A>/<A HREF="usbcmdpr_16ib.htm">CamFreeBandwidthEx</A> for each stream</LI>
+
+	<LI><I>USBCAMD:</I> Call <A HREF="usbcmdpr_3t83.htm">CamUninitialize</A>.</LI>
+
+	<LI><I>Camera minidriver:</I> Clean up and free resources.</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>SRB_SURPRISE_REMOVAL</B>
+
+<OL>
+	<LI><I>USBCAMD:</I> Cancel pending data SRBs and return the SRBs with STATUS_CANCELLED.</LI>
+
+	<LI><I>USBCAMD:</I> Call <A HREF="usbcmdpr_2xf7.htm">CamStopCaptureEx</A>/<A HREF="usbcmdpr_16ib.htm">CamFreeBandwidthEx</A> on all opened streams</LI>
+
+	<LI><I>USBCAMD:</I> Return STATUS_CANCELLED on any read/write SRBs that come down after SRB_SURPRISE_REMOVAL.</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>SRB_SET_DATA_FORMAT</B>
+
+<OL>
+	<LI><I>Camera minidriver:</I> Verify the new video format.</LI>
+
+	<LI><I>Camera minidriver:</I> Call <A HREF="usbcmdpr_2z3n.htm">USBCAMD_SetVideoFormat</A>.</LI>
+
+	<LI><I>USBCAMD:</I> Save the new format with the associated stream extension.</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>SRB_CHANGE_POWER_STATE from Power ON to Power OFF</B>
+
+<OL>
+	<LI><I>USBCAMD:</I> Stop streaming on isochronous pipe if applicable, or cancel pending bulk or interrupt transfers.</LI>
+
+	<LI><I>USBCAMD:</I> Call minidriver's <A HREF="usbcmdpr_2xf7.htm">CamStopCaptureEx</A> routine.</LI>
+
+	<LI><I>Camera minidriver:</I> Send stop capture command to hardware.</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>SRB_CHANGE_POWER_STATE from Power OFF to Power ON</B>
+
+<OL>
+	<LI><I>USBCAMD:</I> Restart streaming on isochronous pipe if applicable, or resubmit bulk or interrupt transfer to USB class.</LI>
+
+	<LI><I>Camera minidriver:</I> Restore camera settings and camera power consumption to normal levels.</LI>
+
+	<LI><I>USBCAMD:</I> Call minidriver's <A HREF="usbcmdpr_2xf7.htm">CamStopCaptureEx</A> routine.</LI>
+
+	<LI><I>USBCAMD:</I> Call minidriver's <A HREF="usbcmdpr_5gs3.htm">CamStartCaptureEx</A> routine.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Processing%20SRBs"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Processing IRPs in an Intermediate-Level Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Processing IRPs in an Intermediate-Level Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_mirror_driver_kg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_processing_irps_in_an_intermediate_level_driver_kg"></A>Processing IRPs in an Intermediate-Level Driver</H2>
+
+<P>Higher-level drivers have a different set of standard routines than lowest-level device drivers, with an overlapping subset of standard routines common to both types of drivers. </P>
+
+<P>The set of routines for intermediate and highest-level drivers also varies according to the following criteria: 
+
+<UL>
+	<LI>The nature of the underlying physical device </LI>
+
+	<LI>Whether an underlying device driver sets up device objects for direct or buffered I/O </LI>
+
+	<LI>The design of the individual higher-level driver </LI>
+</UL>
+
+<P>The following figure illustrates the path an IRP might take through the standard routines of an intermediate <A HREF="JavaScript:hhobj_1.Click()">mirror driver</A> layered somewhere over the lowest-level device driver described in the previous section. </P>
+
+<P>The driver shown in the following figure has the following characteristics: 
+
+<UL>
+	<LI>The driver is layered over more than one physical device and possibly over more than one device driver. </LI>
+
+	<LI>The driver sometimes allocates additional IRPs for lower-level drivers, depending on the requested operation in the input IRP. </LI>
+
+	<LI>The driver has at least one file system driver layered above it, and that file system driver might be layered over other intermediate drivers at a higher level than this one. </LI>
+</UL>
+
+
+
+<P><A NAME="ddk__bmc_4hiddirp.wmf__kg"></A><IMG SRC="images/4hiddirp.gif" ALT="" BORDER=0></P>
+
+<P><B>IRP Path through Intermediate Driver Routines</B></P>
+
+<P>As the previous figure shows, the I/O manager creates an IRP and sends it to the driver’s dispatch routine for the given major function code. Assuming the function code is IRP_MJ_WRITE, the dispatch routine is <B>DDDispatchWrite</B>. The intermediate driver’s I/O stack location is shown in the middle, with an indefinite number of I/O stack locations for higher- and lower-level drivers shown shaded. </P>
+
+<H4>Allocating IRPs </H4>
+
+<P>The mirror driver's purpose is to send write requests to several physical devices, and to send read requests alternately to the drivers of these devices. For write requests, the driver creates duplicate IRPs for each device on which the data is to be written, assuming the parameters in the input IRP are valid. </P>
+
+<P>The previous figure shows a call to <A HREF="k104_42pe.htm"><B>IoAllocateIrp</B></A> but higher-level drivers can call other support routines to allocate IRPs for lower-level drivers. See <A HREF="irps_5k13.htm">Creating IRPs for Lower-Level Drivers</A>.</P>
+
+<P>When the dispatch routine calls <B>IoAllocateIrp</B>, it specifies the number of I/O stack locations needed for the IRP. The driver must specify a stack location for each lower driver in the chain, getting the appropriate value from the device objects of each driver just below the mirror driver. Optionally, the driver can add one to this value when it calls <B>IoAllocateIrp</B> to get a stack location of its own for each IRP it allocates, as the driver in the previous figure does. </P>
+
+<P>This intermediate driver’s dispatch routine calls <A HREF="k104_89pu.htm"><B>IoGetCurrentIrpStackLocation</B></A> (not shown) with the original IRP, to check parameters. </P>
+
+<P>It calls <A HREF="k104_5qr6.htm"><B>IoSetNextIrpStackLocation</B></A> because it allocated its own stack location in each newly created IRP and <A HREF="k104_89pu.htm"><B>IoGetCurrentIrpStackLocation</B></A> to create a context for itself that it uses later in the <I>IoCompletion</I> routine. </P>
+
+<P>Next, it calls <A HREF="k104_6u5u.htm"><B>IoGetNextIrpStackLocation</B></A> with each newly created IRP so that it can set up the next lower-level drivers’ I/O stack locations in the IRPs it allocated. The mirror driver’s dispatch routine copies the IRP function codes and parameters (pointer to the transfer buffer, length in bytes to be transferred for IRP_MJ_WRITE) into the I/O stack locations for the next-lower drivers. These drivers, in turn, will set up the I/O stack locations for the drivers just below them, if any. </P>
+
+<H4>Calling IoSetCompletionRoutine and IoCallDriver</H4>
+
+<P>The dispatch routine in the previous figure calls <A HREF="k104_5w6q.htm"><B>IoSetCompletionRoutine</B></A> for each IRP it allocated. Because the driver in the previous figure must dispose of the IRPs it allocated, this driver sets its <I>IoCompletion</I> routine to be called when lower drivers complete its IRPs, whether the I/O operation completed successfully, failed, or was canceled. </P>
+
+<P>Because the driver in the previous figure mirrors in parallel, it passes both IRPs that it allocated on to the next-lower-level drivers by calling <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A> twice, once for each target device object representing a mirrored partition. </P>
+
+<H4>Processing IRPs in the Driver’s <I>IoCompletion</I> Routine</H4>
+
+<P>When either set of lower-level drivers completes the requested operation, the I/O Manager calls the intermediate mirror driver’s <I>IoCompletion</I> routine. The mirror driver maintains a count in its own I/O stack location for the original IRP, to track when the lower drivers have completed all the duplicate IRPs. </P>
+
+<P>Assuming that the I/O status block indicates that one set of lower drivers has completed the duplicate IRP shown in the <A HREF="#ddk__bmc_4hiddirp.wmf__kg">previous</A> figure successfully, the mirror driver’s <I>IoCompletion</I> routine decrements its count but cannot complete the original IRP until it decrements the count to zero. If the decremented count is not yet zero, the <I>IoCompletion</I> routine calls <A HREF="k104_82wj.htm"><B>IoFreeIrp</B></A> with the first-returned IRP (DupIRP1 in Figure 4.5) that the driver allocated and returns STATUS_MORE_PROCESSING_REQUIRED. </P>
+
+<P>When the mirror driver’s <I>IoCompletion</I> routine is called again with the DupIRP2 shown in the <A HREF="#ddk__bmc_4hiddirp.wmf__kg">previous</A> figure, the <I>IoCompletion</I> routine decrements the count in the original IRP and determines that both sets of lower-level drivers have carried out the requested operations. </P>
+
+<P>Assuming the I/O status block in DupIRP2 also is set with STATUS_SUCCESS, the <I>IoCompletion</I> routine copies the I/O status block from DupIRP2 into the original IRP and frees DupIRP2. It calls <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with the original IRP and returns STATUS_MORE_PROCESSING_REQUIRED. Returning this status prevents the I/O Manager from attempting any further completion processing on DupIRP2; because the IRP is not associated with a thread, its completion processing should end with the driver that created it. </P>
+
+<P>If either set of lower-level drivers does not complete the mirror driver’s IRPs successfully, the mirror driver’s <I>IoCompletion</I> routine should log an error and attempt appropriate mirrored-data recovery. For more information, see <A HREF="other_92jr.htm">Logging Errors</A>.</P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Processing%20IRPs%20in%20an%20Intermediate-Level%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

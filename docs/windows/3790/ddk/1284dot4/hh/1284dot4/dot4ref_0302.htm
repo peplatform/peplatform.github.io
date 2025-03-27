@@ -1,0 +1,134 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IOCTL_DOT4_WRITE</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IOCTL_DOT4_WRITE">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>IEEE&nbsp;1284.4&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ioctl_dot4_write_dot4_kr"></A>IOCTL_DOT4_WRITE</H1>
+
+<H4>Operation</H4>
+
+<P>The IOCTL_DOT4_WRITE request copies data from a client-allocated write buffer to a specified <A HREF="dot4dvr_3wvb.htm">Dot4 channel</A>.</P>
+
+<P>The <A HREF="dot4dvr_0kkn.htm">Dot4 driver</A> supports the following two types of write requests:
+
+<UL>
+	<LI>Write-bytes<I> </I>request
+<P>Copies data to a channel from a client-allocated write buffer. The Dot4 driver uses direct I/O to copy the data from the write buffer to the channel.
+</LI>
+
+	<LI>Query-write-bytes<I> </I>request
+<P>Determines the number of data bytes that a channel is ready to accept.
+</LI>
+</UL>
+
+<P>If the request is a write-bytes request, the Dot4 driver continues to copy data from the write buffer to the channel until one of the following events occurs:
+
+<UL>
+	<LI>The requested number of bytes is written to the channel.</LI>
+
+	<LI>The time limit specified for the request is exceeded and the channel is not ready to receive additional data.</LI>
+
+	<LI>The channel is closed.</LI>
+
+	<LI>An internal error occurs that ends the <A HREF="dot4dvr_957r.htm">Dot4 session</A>.</LI>
+</UL>
+
+<P>If the request is a query-write-bytes request, the Dot4 driver immediately completes the request and returns the number of data bytes that the channel can accept.</P>
+
+<H4>Input</H4>
+
+<P>The following input depends on the two types of write requests:
+
+<UL>
+	<LI>Write-bytes request
+<P><B>Irp</B>-&gt;<B>MdlAddress</B> points to a client-allocated MDL write buffer from which data is copied to a channel.
+
+<P>The <B>Parameters.DeviceIoControl.OutputBufferLength</B> member of the IRP's current I/O stack location specifies the size of the write buffer.
+</LI>
+
+	<LI>Query-write-bytes request
+<P>The client sets<B> Irp</B>-&gt;<B>MdlAddress</B> to NULL and <B>Parameters.DeviceIoControl.OutputBufferLength</B> to zero.
+</LI>
+</UL>
+
+<P>The following input applies to both types of write requests:</P>
+
+<P><B>Irp</B>-&gt;<B>AssociatedIrp.SystemBuffer</B> is a pointer to a client-allocated <A HREF="dot4ref_8xf6.htm">DOT4_DRIVER_CMD</A> structure that inputs the following information:
+
+<DL>
+<DT><B>hChannelHandle</B> </DT>
+
+<DD>Specifies a channel handle.</DD>
+
+<DT><B>ulSize</B></DT>
+
+<DD>Specifies the number of bytes to write to the channel.</DD>
+
+<DT><B>ulOffset</B></DT>
+
+<DD>Specifies a byte offset in the write buffer. The Dot4 driver copies data from the write buffer to the channel, starting at the byte specified by <B>ulOffset</B>.</DD>
+
+<DT><B>ulTimeout</B></DT>
+
+<DD>Specifies the maximum time, in milliseconds, that the request can take to complete. The Dot4 driver starts timing the request immediately after it is queued. If the request times out and the channel is not ready to accept data, the Dot4 driver completes the request.
+</DD>
+</DL>
+
+<P>The <B>Parameters.DeviceIoControl.InputBufferLength</B> member of the IRP's current I/O stack location is set to the size, in bytes, of a DOT4_DRIVER_CMD structure.</P>
+
+<H4>Output</H4>
+
+<P>None.</P>
+
+<H4>I/O Status Block</H4>
+
+<P>The <B>Information</B> member depends on the two types of write requests as follows:
+
+<UL>
+	<LI>Query-write-bytes request
+<P>The number of bytes that a channel is ready to accept.
+</LI>
+
+	<LI>Write-bytes request
+<P>The current byte offset in the write buffer that specifies the start of the next block of data that the Dot4 driver will write to a channel. The byte offset is initialized to <B>ulOffset</B>. While the request remains pending, The Dot4 driver dynamically updates the <B>Information</B> member each time it copies a block of data from the write buffer to the channel.
+</LI>
+</UL>
+
+<P>The <B>Status</B> member is set to one of the <A HREF="dot4ref_04s2.htm#ddk_generic_status_values_for_dot4_ioctls_kr">generic status values for Dot4 IOCTLS</A> or to one of the following request-specific values:
+
+<DL>
+<DT>STATUS_BUFFER_TOO_SMALL</DT>
+
+<DD>The MDL write buffer can not hold the requested write data.</DD>
+
+<DT>STATUS_NO_MEMORY</DT>
+
+<DD>The system could not map the client-allocated MDL write buffer.</DD>
+
+<DT>STATUS_TIMEOUT</DT>
+
+<DD>The device did not satisfy the request within the specified time limit.</DD>
+
+<DT>STATUS_UNSUCCESSFUL</DT>
+
+<DD>The channel is closed.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in<I> d4drvif.h. </I>Include d<I>4drvif.h</I>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="dot4ref_7r1u.htm">IOCTL_DOT4_READ</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IOCTL_DOT4_WRITE"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

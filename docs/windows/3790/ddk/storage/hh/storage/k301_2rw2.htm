@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ScsiPortValidateRange</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ScsiPortValidateRange">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_scsiportvalidaterange_kr"></A>ScsiPortValidateRange</H1>
+
+<P>The <B>ScsiPortValidateRange</B> routine indicates whether the specified access range values have already been claimed in the registry by another driver.</P>
+
+<PRE class=syntax><B>BOOLEAN 
+  ScsiPortValidateRange(
+    IN PVOID </B> <I>HwDeviceExtension</I><B>,</B>
+<B>    IN INTERFACE_TYPE</B>  <I>BusType</I><B>,</B>
+<B>    IN ULONG</B>  <I>SystemIoBusNumber</I><B>,</B>
+<B>    IN SCSI_PHYSICAL_ADDRESS </B><I> IoAddress</I><B>,</B>
+<B>    IN ULONG </B><I> NumberOfBytes</I><B>,</B>
+<B>    IN BOOLEAN </B><I> InIoSpace</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>HwDeviceExtension</I></DT>
+
+<DD>Pointer to the hardware device extension. This is a per-HBA storage area that the port driver allocates and initializes on behalf of the miniport driver. Miniport drivers usually store HBA-specific information in this extension, such as the state of the HBA and the HBA's mapped access ranges. This area is available to the miniport driver in the <B>DeviceExtension-&gt;HwDeviceExtension</B> member of the HBA's device object immediately after the miniport driver calls <A HREF="k301_9n76.htm"><B>ScsiPortInitialize</B></A>. The port driver frees this memory when it removes the device. </DD>
+
+<DT><I>BusType</I></DT>
+
+<DD>Specifies the value of the <B>AdapterInterfaceType</B> member in the PORT_CONFIGURATION_INFORMATION structure when <I>HwScsiFindAdapter</I> is called.</DD>
+
+<DT><I>SystemIoBusNumber</I></DT>
+
+<DD>Specifies the value of the <B>SystemIoBusNumber</B> member in the configuration information when <I>HwScsiFindAdapter</I> is called.</DD>
+
+<DT><I>IoAddress</I></DT>
+
+<DD>Specifies a bus-relative base address for the range of ports or device memory to be validated <I>before</I> the miniport driver's <I>HwScsiFindAdapter</I> routine attempts to map the access range for the adapter at that address.</DD>
+
+<DT><I>NumberOfBytes</I></DT>
+
+<DD>Specifies the size in bytes or number of elements in the range.</DD>
+
+<DT><I>InIoSpace</I></DT>
+
+<DD>Indicates when TRUE that the range is in I/O space, rather than in memory. When FALSE, the range is in memory space. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>ScsiPortValidateRange</B> returns TRUE if the HwScsiFindAdapter routine can safely map and use the mapped range to access the adapter. <B>ScsiPortValidateRange</B> returns FALSE if the specified access range values have already been claimed in the registry by another driver.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>srb.h</I>. Include <I>miniport.h</I> and <I>scsi.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P><B>ScsiPortValidateRange </B>can be called only from a miniport driver's <A HREF="k302_9vsi.htm"><I>HwScsiFindAdapter</I></A> routine. Calls from other miniport driver routines will result in system failure or incorrect operation for the caller.</P>
+
+<P>If the OS-specific port driver initializes any <B>AccessRanges</B> element of the PORT_CONFIGURATION_INFORMATION structure before it calls the miniport driver's <I>HwScsiFindAdapter</I> routine, the miniport driver must pass the supplied values to <B>ScsiPortGetDeviceBase</B> and use the mapped logical addresses for the range to determine whether an HBA is one that it supports.</P>
+
+<P>The port driver either fills an ACCESS_RANGE-type element with a complete description of a bus-relative address range for an adapter, or the port driver zeros all members of the element.</P>
+
+<P>For input <B>AccessRanges</B> elements set with default zeros, the <I>HwScsiFindAdapter</I> routine can attempt to locate an adapter it supports on the given I/O bus. In these circumstances, a miniport driver usually has a set of driver-determined default addresses for its type(s) of HBA. However, a previously loaded driver might already be using an initialized adapter at one of this miniport driver's default address ranges, particularly in x86-only systems in which some devices are initialized in x86 real mode. To prevent such a device from being inadvertently reprogrammed, each miniport driver's <I>HwScsiFindAdapter</I> routine should call <B>ScsiPortValidateRange</B> before it maps any driver-supplied addresses with <B>ScsiPortGetDeviceBase</B> and then uses the mapped logical addresses to interrogate adapters on an I/O bus.</P>
+
+<P>If <B>ScsiPortValidateRange</B> returns FALSE, <I>HwScsiFindAdapter</I> must not attempt to map the input range addresses because another driver has already claimed the range in the registry.</P>
+
+<P>If <B>ScsiPortValidateRange</B> returns TRUE, <I>HwScsiFindAdapter</I> can safely do the following:
+
+<OL>
+	<LI>Map the bus-relative range addresses to system-space logical range addresses with <B>ScsiPortGetDeviceBase</B>.</LI>
+
+	<LI>Use the mapped logical addresses with the <B>ScsiPortRead/Write</B><I>Xxx</I> to determine whether the adapter actually is an HBA that the driver supports.</LI>
+</OL>
+
+<P>If a miniport driver uses a range successfully passed to <B>ScsiPortValidateRange</B> for an HBA it supports, that driver must invert the <I>InIoSpace</I> value when it sets the <B>RangeInMemory</B> member of an <B>AccessRanges</B> element in the PORT_CONFIGURATION_INFORMATION.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k306_1os2.htm">ACCESS_RANGE</A>, <A HREF="k302_9vsi.htm"><I>HwScsiFindAdapter</I></A>, <A HREF="k306_2h4i.htm">PORT_CONFIGURATION_INFORMATION</A>, <A HREF="k301_8c6q.htm"><B>ScsiPortGetDeviceBase</B></A>, <A HREF="k301_9n76.htm"><B>ScsiPortInitialize</B></A>, <B>ScsiPortRead</B><I>Xxx</I>, <B>ScsiPortWrite</B><I>Xxx</I> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ScsiPortValidateRange"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

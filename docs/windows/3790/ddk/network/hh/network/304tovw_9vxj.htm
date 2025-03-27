@@ -1,0 +1,53 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TDI Driver Initialization</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TDI Driver Initialization">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_summary_of_kernel_mode_support_routines_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdi_driver_initialization_ng"></A>TDI Driver Initialization</H1>
+
+<P>Every TDI transport driver must provide an initialization routine explicitly named <B>DriverEntry</B>. In addition, a transport driver should have as many TdiDispatch<I>Xxx</I> routines and internal driver functions as it needs to satisfy the I/O requests of its kernel-mode clients. A TDI transport driver or one of the underlying protocol drivers in its transport stack also must provide the NDIS driver lower-edge functions described in <A HREF="302pro_8ezr.htm">NDIS Protocol Drivers</A> and in <A HREF="104tdlow_6gvm.htm">NDIS Driver Lower-Edge Functions</A>.</P>
+
+<P>Every transport driver must have a <B>DriverEntry</B> routine to be called by the I/O Manager when the transport is loaded. <B>DriverEntry</B> must be declared in the driver code to make the transport automatically loadable.</P>
+
+<P>When it loads the driver, the I/O Manager creates a driver object to represent the transport and passes a pointer to the driver object when it calls the TDI transport's <B>DriverEntry</B> routine. Then, its <B>DriverEntry</B> routine does the following:
+
+<UL>
+	<LI>Possibly, reads the registry (using kernel-mode support routines) to retrieve configuration information written into the registry by the transport's INF file. Using the registry information, configure itself as needed.</LI>
+
+	<LI>Sets all the driver's TdiDispatch<I>Xxx</I> entry points in the driver object. The driver’s TdiDispatch<I>Xxx</I> routines will be called later by the I/O Manager to handle requests from TDI clients.</LI>
+
+	<LI>Calls <A HREF="33tdifun_99te.htm"><B>TdiRegisterProvider</B></A> to notify TDI of the transport's Plug and Play and power management support. </LI>
+
+	<LI>Creates at least one named device object for itself with <B>IoCreateDevice</B>. The names of each driver’s device objects are the device names stored under the transport driver’s registry section <B>Linkage</B> key in the <B>Export</B> entry. Each transport driver’s <B>Export</B> entry determines what device objects will be created by any particular transport driver during system setup.
+<P>Some transport drivers, such as NWLink, create only one named device object no matter how many NICs they bind themselves to. Some transports, such as TCP/IP, create one or more named device objects and "export" a set of device interfaces for each such device object. Other transport drivers create a separate named device object for each bound NIC, such as Nbf_Elnkii1, Nbf_Elnkii2, and so forth. 
+</LI>
+
+	<LI>Performs any other necessary initialization tasks, such as binding to underlying NDIS intermediate and/or NIC drivers. </LI>
+
+	<LI>As it establishes bindings to each underlying NIC, a PnP-aware transport for Windows&nbsp;2000 and later also calls <A HREF="33tdifun_2d0y.htm"><B>TdiRegisterDeviceObject</B></A> with the named device object that the transport creates. Then, it makes one or more calls to <A HREF="33tdifun_6uia.htm"><B>TdiRegisterNetAddress</B></A> to register all known network addresses (whether of the local machine or of remote nodes) associated with the transport-created device object for its newly established binding. </LI>
+</UL>
+
+<P>When such a PnP-aware transport has completed its initialization on at least one but possibly more bindings so that it is capable of transferring data over the network, the transport must call <A HREF="33tdifun_9r02.htm"><B>TdiProviderReady</B></A>. Typically, such a PnP-aware TDI transport calls <B>TdiProviderReady</B> as a consequence of an NDIS call to the <I>ProtocolPnPEvent</I> function at the lower edge of the transport stack with the input NET_PNP_EVENT code <B>NetEventBindsComplete</B>. </P>
+
+<P>A TDI transport driver must provide an Unload routine unless that driver cannot be unloaded without rendering the system unusable. Most TDI transport drivers declare an Unload routine, and their <B>DriverEntry</B> routines set its entry point in the driver object. For more information about transport Unload routines, see <A HREF="304tovw_63tz.htm">Unloading and Deregistering a TDI Transport Driver</A>. </P>
+
+<P>For more information about the kernel-mode support routines and objects used by TDI drivers, see <A HREF="JavaScript:hhobj_1.Click()">Summary of Kernel-Mode Support Routines</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TDI%20Driver%20Initialization"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,82 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IServiceGroup</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IServiceGroup">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_iservicegroup_ks"></A>IServiceGroup</H1>
+
+<P>The <B>IServiceGroup</B> interface encapsulates a group of objects that all require notification of the same service request. When the service-group object receives notification of the request, it forwards the notification to each of the objects in the group. The <B>IServiceGroup</B> interface is implemented by the PortCls system driver and exposed to miniport drivers. A miniport driver creates an <B>IServiceGroup</B> object by calling <A HREF="audpc-routines_77zn.htm"><B>PcNewServiceGroup</B></A>. <B>IServiceGroup</B> inherits from the <A HREF="audmp-routines_7wz8.htm"><B>IServiceSink</B></A> interface.</P>
+
+<P>Service-group objects exposing an <B>IServiceGroup</B> interface are typically used to demultiplex requests for interrupt service, although the functionality of a service group is general enough to make it potentially useful for other purposes as well. The miniport driver's ISR (interrupt-service routine) calls a notification method in the lower-edge interface of the port driver; the notification method takes a pointer to the service group as a call parameter. During this call, the port driver calls <B>RequestService</B> (see <A HREF="audmp-routines_4vg3.htm"><B>IServiceSink::RequestService</B></A>) on the service group and queues a DPC (deferred procedure call). When the DPC executes, it forwards the service request to all member objects in the service group.</P>
+
+<P>The miniport-driver code typically does not need to call any <B>IServiceGroup</B> interface methods. Instead, the port driver calls these methods to add its own <B>IServiceSink</B> objects to the service groups that it obtains from the miniport driver. Miniport drivers create service-group objects as required and associate those service groups with objects that will require service. For example, a WaveCyclic miniport driver associates a stream object with the service group that it specifies as an output parameter to the <A HREF="audmp-routines_735f.htm"><B>IMiniportWaveCyclic::NewStream</B></A> method.</P>
+
+<P>In the context of WaveCyclic miniport drivers, associating all streams with one service group causes the port driver to service all streams based on a single notification. Associating each stream with its own service group allows the interrupt-service routine to select the stream that will be serviced by the port driver during the execution of the DPC.</P>
+
+<P>A miniport driver's ISR calls one of the following port methods to notify a service group of a service request:</P>
+
+<P class=indent1><A HREF="audmp-routines_7po3.htm"><B>IPortDMus::Notify</B></A> </P>
+
+<P class=indent1><A HREF="audmp-routines_6ysz.htm"><B>IPortMidi::Notify</B></A> </P>
+
+<P class=indent1><A HREF="audmp-routines_9ar7.htm"><B>IPortWaveCyclic::Notify</B></A> </P>
+
+<P class=indent1><A HREF="audmp-routines_2vn7.htm"><B>IPortWavePci::Notify</B></A> </P>
+
+<P>A miniport driver outputs a reference to its service group when the port driver calls one of the following initialization methods:</P>
+
+<P class=indent1><A HREF="audmp-routines_2lrn.htm"><B>IMiniportDMus::Init</B></A> </P>
+
+<P class=indent1><A HREF="audmp-routines_6jsj.htm"><B>IMiniportMidi::Init</B></A> </P>
+
+<P class=indent1><A HREF="audmp-routines_12ur.htm"><B>IMiniportWavePci::Init</B></A> </P>
+
+<P>The port driver adds its own <B>IServiceSink</B> object to the service group that it obtains from the <B>Init</B> call. When the miniport driver's ISR later calls <B>Notify</B> to send notification to that service group, the service group queues a DPC that forwards notification to the port driver's <B>IServiceSink</B> object, which in turn forwards notification to the miniport driver by calling one of the following service methods:</P>
+
+<P class=indent1><A HREF="audmp-routines_8gj7.htm"><B>IMiniportDMus::Service</B></A> (not used)</P>
+
+<P class=indent1><A HREF="audmp-routines_0p83.htm"><B>IMiniportMidi::Service</B></A> </P>
+
+<P class=indent1><A HREF="audmp-routines_9yyb.htm"><B>IMiniportWavePci::Service</B></A> </P>
+
+<P>A miniport driver also outputs a reference to its service group when the port driver calls one of the following stream-creation methods:</P>
+
+<P class=indent1><A HREF="audmp-routines_8oqb.htm"><B>IMiniportDMus::NewStream</B></A> </P>
+
+<P class=indent1><A HREF="audmp-routines_9kj7.htm"><B>IMiniportMidi::NewStream</B></A> </P>
+
+<P class=indent1><A HREF="audmp-routines_735f.htm"><B>IMiniportWaveCyclic::NewStream</B></A> </P>
+
+<P class=indent1><A HREF="audmp-routines_0g1f.htm"><B>IMiniportWavePci::NewStream</B></A> </P>
+
+<P>As discussed above, the miniport driver has the option of creating a different service group for each stream or sharing a single service group across all streams.</P>
+
+<P>In the case of a WavePci port driver, the port object adds its own <B>IServiceSink</B> object to the service group that it obtains from the <B>IMiniportWavePci::NewStream</B> call. When the miniport driver's ISR later calls <B>Notify</B> to send notification to that service group, the service group queues a DPC that forwards the notification to the port driver's <B>IServiceSink</B> object, which in turn does the following:
+
+<UL>
+	<LI>Forwards notification to the miniport stream by calling the service method <A HREF="audmp-routines_7sxf.htm"><B>IMiniportWavePciStream::Service</B></A>.</LI>
+
+	<LI>Triggers any position and/or clock events on the pin that are ready to fire.</LI>
+</UL>
+
+<P>In addition to the methods that <B>IServiceGroup</B> inherits from the <B>IServiceSink</B> interface, <B>IServiceGroup</B> supports the following methods:</P>
+
+<P class=indent1><A HREF="audmp-routines_84kz.htm"><B>IServiceGroup::AddMember</B></A> </P>
+
+<P class=indent1><A HREF="audmp-routines_8kdv.htm"><B>IServiceGroup::CancelDelayedService</B></A></P>
+
+<P class=indent1><A HREF="audmp-routines_3m7n.htm"><B>IServiceGroup::RequestDelayedService</B></A> </P>
+
+<P class=indent1><A HREF="audmp-routines_3rjn.htm"><B>IServiceGroup::RemoveMember</B></A> </P>
+
+<P class=indent1><A HREF="audmp-routines_7ub8.htm"><B>IServiceGroup::SupportDelayedService</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IServiceGroup"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

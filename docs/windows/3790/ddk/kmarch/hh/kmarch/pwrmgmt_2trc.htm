@@ -1,0 +1,34 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Overview of Wait/Wake IRP Completion</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Overview of Wait/Wake IRP Completion">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_overview_of_wait_wake_irp_completion_kg"></A>Overview of Wait/Wake IRP Completion</H3>
+
+<P>A wait/wake IRP completes when a wake-up signal arrives. The wake-up signal is device-specific but is generally a normal service event for the device. For example, an incoming ring might cause a sleeping modem to awaken.</P>
+
+<P>The following figure shows the steps in completing a wait/wake IRP.</P>
+
+<P><IMG SRC="images/comp-waitwake.gif" ALT="" BORDER=0></P>
+
+<P><B>Steps for Completing a Wait/Wake IRP</B></P>
+
+<P>When the signal occurs, control reenters the bus driver at the point where the bus detects that the device has awakened. The bus driver services the event as required and calls <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> to complete the IRP_MN_WAIT_WAKE IRP for its PDO.</P>
+
+<P>The I/O Manager then calls the<I> <A HREF="drvrrtns_4rsi.htm">IoCompletion</A></I> routine set by the next-higher driver in the device stack. In the<I> IoCompletion</I> routine, that driver services the wake-up signal as necessary and calls <B>IoCompleteRequest</B> to complete the IRP. The I/O Manager continues to call<I> IoCompletion</I> routines working back up the device stack until all drivers have completed the IRP. </P>
+
+<P>In its<I> IoCompletion</I> routine, any driver that enumerates more than one child device (creates more than one PDO) and has received wait/wake requests from more than one such device must send itself a wait/wake IRP to rearm itself for wait/wake on another child. For details, see <A HREF="pwrmgmt_8vjb.htm">Understanding the Path of Wait/Wake IRPs Through a Device Tree</A>. </P>
+
+<P>After calling<I> IoCompletion</I> routines set by drivers as they passed the IRP down the stack, the I/O Manager invokes the callback routine set by the power policy owner when it requested the wait/wake IRP. In the callback routine, the policy owner should return its device to the working state and complete a pending wait/wake IRP for its child's PDO, if any. </P>
+
+<P>Completing the child's IRP causes the I/O Manager to call<I> IoCompletion</I> routines set by drivers in the child's device stack, and so on. Eventually, the policy owner that started the original wait/wake IRP on the devnode determines that its device asserted the wake-up signal, and all the pending wait/wake IRPs will be complete.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Overview%20of%20Wait%2FWake%20IRP%20Completion"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

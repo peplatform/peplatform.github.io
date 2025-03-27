@@ -1,0 +1,168 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>REQUEST_ASYNC_READ</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="REQUEST_ASYNC_READ">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_request_async_read_kr"></A>REQUEST_ASYNC_READ</H1>
+
+<P>The REQUEST_ASYNC_READ request performs an asynchronous read operation to the device specified. </P>
+
+<P>The relevant members of the IRB for this request are:</P>
+
+<PRE class=syntax>typedef struct _IRB {
+  ULONG FunctionNumber;
+    .
+    .
+    .
+  union {
+    struct {
+      IO_ADDRESS    DestinationAddress;
+      ULONG         nNumberOfBytesToRead;
+      ULONG         nBlockSize;
+      ULONG         fulFlags;
+      PMDL          Mdl;
+      ULONG         ulGeneration;
+      UCHAR         chPriority;
+      UCHAR         nSpeed;
+      UCHAR         tCode;
+      ULONG         Reserved;
+      ULONG         ElapsedTime;
+    } AsyncRead;
+    .
+    .
+    .
+  } u;
+} IRB;</PRE>
+
+<H4>IRB Input</H4>
+
+<DL>
+<DT><B>FunctionNumber</B></DT>
+
+<DD>REQUEST_ASYNC_READ</DD>
+
+<DT><B>u.AsyncRead.DestinationAddress</B></DT>
+
+<DD>Specifies the 1394 64-bit destination address for this read operation. The driver only needs to fill in the <B>IA_Destination_Offset</B> member of <B>DestinationAddress</B>; the bus driver fills in the <B>IA_Destination_ID</B> member. See <A HREF="1394stct_12cy.htm">IO_ADDRESS</A> for the structure description.</DD>
+
+<DT><B>u.AsyncRead.nNumberOfBytesToRead</B></DT>
+
+<DD>Specifies the number of bytes to be read from the 1394 node.</DD>
+
+<DT><B>u.AsyncRead.nBlockSize</B></DT>
+
+<DD>Specifies the size of each individual block within the data stream that is read as a whole from the 1394 node. If this parameter is zero, the maximum packet size for the device and speed selected is used to issue these read requests.</DD>
+
+<DT><B>u.AsyncRead.fulFlags</B></DT>
+
+<DD>Specifies any nondefault settings for this operation. The following flags are provided.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=57%>Flag</TH>
+<TH align=left width=43%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>ASYNC_FLAGS_NONINCREMENTING</TD>
+<TD width=43%>When the bus driver splits the request into blocks, begin the operation for each block at the same address, rather than treating each block as consecutive sections of the device's address space. Used only in asynchronous requests larger than <B>u.AsyncRead.nBlockSize</B> or the maximum packet size for the current speed.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>ASYNC_FLAGS_PING</TD>
+<TD width=43%>The bus driver returns the elapsed time of the operation in <B>u.AsyncRead.ElapsedTime</B>.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>u.AsyncRead.Mdl</B></DT>
+
+<DD>Points to an MDL that describes the device driver’s buffer, which receives data from the 1394 node.</DD>
+
+<DT><B>u.AsyncRead.ulGeneration</B></DT>
+
+<DD>Specifies the bus reset generation as known by the device driver that submits this asynchronous request. If the generation count specified does not match the actual generation of the bus, this request is returned with an error of STATUS_INVALID_GENERATION. </DD>
+
+<DT><B>u.AsyncRead.chPriority</B></DT>
+
+<DD>Reserved. Drivers must set this to zero.</DD>
+
+<DT><B>u.AsyncRead.nSpeed</B></DT>
+
+<DD>Reserved. Drivers must set this to zero.</DD>
+
+<DT><B>u.AsyncRead.tCode</B></DT>
+
+<DD>Reserved. Drivers must set this to zero.</DD>
+
+<DT><B>u.AsyncRead.Reserved</B></DT>
+
+<DD>Reserved. Drivers must set this to zero.
+</DD>
+</DL>
+
+<H4>IRB Output</H4>
+
+<DL>
+<DT><B>u.AsyncRead.ElapsedTime</B></DT>
+
+<DD>If the driver specifies the ASYNC_FLAGS_PING flag, the bus driver returns the time required, in nanoseconds, to complete the read request.
+</DD>
+</DL>
+
+<H4>I/O Status Block</H4>
+
+<P>If successful, the bus driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS. If <B>u.AsyncLock.ulGeneration</B> does not match the current bus reset generation count, the bus driver sets <B>Irp-&gt;IoStatus.Status</B> as STATUS_INVALID_GENERATION.</P>
+
+<H4>Operation</H4>
+
+<P>A REQUEST_ASYNC_READ request reads from the device's address space, beginning at the <B>AddressOffset</B> member of <B>u.AsyncRead.DestinationAddress</B>. The buffer is broken up into blocks, and one block is read per transaction. If the ASYNC_FLAGS_NONINCREMENTING flag is set, the driver reads each block beginning at <B>u.AsyncRead.DestinationAddress</B>; otherwise it reads each block from successive regions in the device's memory address space.</P>
+
+<P>The <I>IEEE 1394-1995 Specification</I> constrains the size of reads to be ASYNC_PAYLOAD_xxx_RATE, where xxx is the approximate connection speed in megabits per second. (The speeds allowed are 100, 200, and 400 Mb/s.) </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=57%>Payload Rate</TH>
+<TH align=left width=43%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>ASYNC_PAYLOAD_100_RATE</TD>
+<TD width=43%>100 Mb/s</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>ASYNC_PAYLOAD_200_RATE</TD>
+<TD width=43%>200 Mb/s</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>ASYNC_PAYLOAD_400_RATE</TD>
+<TD width=43%>400 Mb/s</TD>
+</TR>
+</TABLE><BR>
+
+<P>If the block size exceeds the maximum payload size, the payload size is used as the block size. </P>
+
+<P>The size of packets may also be constrained by the device itself. The device reports the maximum packet size in the MAX_REC field of its configuration ROM. If this value is smaller than requested block size and the maximum payload size, the bus driver uses this as the block size.</P>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>1394.h</I>. Include <I>1394.h</I>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="1394irp_06ya.htm">IOCTL_IEEE1394_API_REQUEST</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: REQUEST_ASYNC_READ"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

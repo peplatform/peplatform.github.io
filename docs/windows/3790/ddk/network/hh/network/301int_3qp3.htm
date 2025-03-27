@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Initializing as a Miniport</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Initializing as a Miniport">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_initializing_as_a_miniport_ng"></A>Initializing as a Miniport</H3>
+
+<P>An intermediate driver initializes its virtual miniports after it has successfully opened an underlying NIC and is ready to accept requests and sends on its virtual miniports. An intermediate driver calls <A HREF="103ndisx_0jn6.htm"><B>NdisIMInitializeDeviceInstanceEx</B></A> from its <A HREF="104tdlow_2bqq.htm"><I>ProtocolBindAdapter</I></A> handler one or more times to request initialization of one or more virtual miniports. </P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;An intermediate driver is not required to call <B>NdisIMInitializeDeviceInstanceEx</B> when it opens an underlying NIC. There does not have to be a one-to-one relationship between virtual miniports and open adapters.</P>
+
+<P>Set the <I>DriverInstance</I> parameter of <B>NdisIMInitializeDeviceInstanceEx</B> to the device name for the virtual miniport being initialized. The intermediate driver obtains the device name from the <B>UpperBindings</B> registry key.</P>
+
+<P>A filter intermediate driver has a one-to-one relationship between virtual miniports and physical NICs. Therefore, the <B>UpperBindings</B> registry key contains exactly one name. For filter intermediate drivers, the net class installer creates a virtual miniport instance for each physical NIC and stores a string that identifies the virtual miniport in the <B>UpperBindings</B> registry key.</P>
+
+<P>For an n-to-one MUX intermediate driver that layers multiple virtual miniports over a single physical NIC, there must be a device name for every virtual miniport. The MUX intermediate driver requires a notify object that maintains the list of virtual miniport device names. The recommended location for the list is the <B>UpperBindings</B> registry key. In this case, the <B>UpperBindings</B> registry key is a MULTI_SZ entry containing the list of device names. The MUX intermediate driver calls <B>NdisIMInitializeDeviceInstanceEx</B> once for each device name specified in the device name list.</P>
+
+<P>Calling <B>NdisIMInitializeDeviceInstanceEx</B> results in a call to the intermediate driver’s <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A> function to perform the initialization of the specified virtual miniport. The call to <I>MiniportInitialize</I> can happen at a later time and therefore is not necessarily within the context of the call to <B>NdisIMInitialzieDeviceInstanceEx</B>.  If NDIS never calls <I>MiniportInitialize</I> for the virtual miniport referenced in a call to <B>NdisIMInitialzieDeviceInstanceEx</B>, and the intermediate driver no longer requires the virtual miniport, the intermediate driver should call <A HREF="103ndisx_8nhu.htm"><B>NdisIMCancelInitializeDeviceInstance</B></A> to cancel the initialization of the virtual miniport. For example, suppose that an intermediate driver creates a virtual miniport in response to a successful binding to an underlying miniport. If that binding is removed before NDIS calls <I>MiniportInitialize</I>, the intermediate driver should call <B>NdisIMCancelInitializeDeviceInstance</B> to cancel the initialization of the miniport.</P>
+
+<P><I>MiniportInitialize</I> must allocate and initialize a virtual-miniport-specific context area. As part of initialization, <I>MiniportInitialize</I> must call <A HREF="103ndisx_1pmb.htm"><B>NdisMSetAttributesEx</B></A> and pass a handle to that context area. NDIS will pass this context handle in subsequent calls to the <I>MiniportXxx</I> functions. <I>MiniportInitialize</I> also <I>must</I> set the NDIS_ATTRIBUTE_INTERMEDIATE_DRIVER flag the <I>AttributeFlags</I> passed to <B>NdisMSetAttributesEx</B>. An intermediate driver sets the NDIS_ATTRIBUTE_INTERMEDIATE_DRIVER flag to identify its driver type to NDIS. </P>
+
+<P>In addition, <I>MiniportInitialize</I> should set the NDIS_ATTRIBUTE_IGNORE_PACKET_TIMEOUT and NDIS_ATTRIBUTE_IGNORE_REQUEST_TIMEOUT flags in <I>AttributeFlags</I> passed to <B>NdisMSetAttributesEx</B>. These timeouts are not needed because intermediate drivers are reserialized and NDIS does not queue packets for reserialized drivers. </P>
+
+<P>If the intermediate driver registers a <B>CheckForHangHandler</B>, and does not change the time-out interval, NDIS calls the drivers <A HREF="101mini_2zua.htm"><I>MiniportCheckForHang</I></A> function, by default, every two seconds. If <I>MiniportCheckForHang</I> returns TRUE, NDIS calls the <A HREF="101mini_5hiq.htm"><I>MiniportReset</I></A> function. If the driver supplies a <I>MiniportCheckForHang</I> function, it can change the default two-second interval by specifying a different <I>TimeInSeconds</I> when it calls <B>NdisMSetAttributesEx</B>.</P>
+
+<P>An intermediate driver must operate as a deserialized driver and must register itself as such by setting the NDIS_ATTRIBUTE_DESERIALIZE flag in the <I>AttributeFlags</I> parameter that it passes to <B>NdisMSetAttributesEx</B>. A deserialized driver serializes the operation of its <I>MiniportXxx</I> functions and queues internally all incoming send packets rather than relying on NDIS to maintain its send queue. For more information about deserialized drivers, see <A HREF="201ndis_81gn.htm">Deserialized NDIS Miniport Drivers</A>.</P>
+
+<P>An intermediate driver must also set the NDIS_ATTRIBUTE_NO_HALT_ON_SUSPEND flag in the <I>AttributeFlags</I> parameter that it passes to <B>NdisMSetAttributesEx</B>. Setting this flag prevents NDIS from halting the virtual miniport when the system makes a transition to a low-power state. </P>
+
+<P>An intermediate driver should verify that the state information it maintains is properly initialized. If the driver requires send-related resources—for example, new packet descriptors for packets that <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A> or <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A> will transmit to the next lower layer—the packet pool can be allocated at this time. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Initializing%20as%20a%20Miniport"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,41 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Run-Time Dynamic Device Loading</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_pss_3659"></A>Run-Time Dynamic Device Loading</H2>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Plug and Play permits devices to be loaded dynamically after the system is already running when</B>
+
+<OL>
+	<LI>An enumerator detects the addition of a device to the system and calls Configuration Manger to reenumerate its own device node, using <B>CONFIGMG_Reenumerate_DevNode</B> as follows: 
+<PRE>CM_Reenumerate_DevNode(DevNode, 0);
+ </PRE>
+</LI>
+
+	<LI><B>CONFIGMG_Reenumerate_DevNode</B> causes Configuration Manager to call back the enumerator at application time. When called back, the enumerator detects the new hardware and constructs a device ID (for example, PCMCIA\3C08AF\0). The enumerator creates a new child device node with this ID and returns from the enumeration function. </LI>
+
+	<LI>Configuration Manager uses the device ID to determine which key in the registry to inspect. In this example, Configuration Manager will look in HARDWARE\ENUM\PCMCIA\3C08AF\0\DRV\, where it will find DEVLOADER=NetWrap.386. If this VxD is not already loaded, Configuration Manager dynamically loads NetWrap.386. </LI>
+
+	<LI>Once the device loader is available, Configuration Manager sends a system control call to the network wrapper, passing it the device node for which it is the device loader, as follows: 
+<PRE>DirectedSysCtrl("NetWrap", PNP_NEW_DEVNODE, DEVLOADER, pdnNew)
+ </PRE>
+</LI>
+
+	<LI>NetWrap registers as the enumerator for this node, and then examines the registry to find the appropriate NDIS driver to load. In our example, NetWrap would find 
+<PRE>SYSTEM\CurrentControlSet\Services\Class\PCMCIA
+&lt; NdisDriver=XYZ.VXD
+ </PRE>
+</LI>
+
+	<LI>Once loaded, XYZ.VXD registers as the device driver for the device node, forcing Configuration Manager to assign resources to it. Configuration Manager informs the NDIS driver of the assigned configuration, thus enabling the network adapter. </LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Run-Time%20Dynamic%20Device%20Loading"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

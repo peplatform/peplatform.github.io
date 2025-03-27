@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Exception Handling When Accessing User-Mode Memory</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Exception Handling When Accessing User-Mode Memory">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_mmsecurevirtualmemory_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_exception_handling_when_accessing_user_mode_memory_gg"></A>Exception Handling When Accessing User-Mode Memory</H2>
+
+<P>A display driver must use exception handling around code that accesses data structures allocated in user mode. The runtime secures ownership of such data structures before passing them to the driver. To secure ownership of user-mode memory, the runtime calls the <A HREF="JavaScript:hhobj_1.Click()"><B>MmSecureVirtualMemory</B></A> function. When the runtime secures ownership of user-mode memory, it prevents any other thread from modifying the type of access to the memory. For example, if the runtime secures ownership of a data structure that a user-mode thread allocated with read and write access, other threads cannot restrict the data structure's access type to read only. Also, securing ownership of user-mode memory does not guarantee that the memory remains valid. </P>
+
+<P>Therefore, unless exception handling is implemented around code that accesses such memory, the operating system crashes if the driver attempts to access invalid user-mode memory. For invalid kernel-memory accesses, the only available option for the operating system is to crash. However, for invalid user-memory accesses, the driver can terminate the application that invalidated the memory and leave the operating system and the driver's device in a stable state.</P>
+
+<P>The driver must implement exception handling rather than rely on the runtime to handle exceptions. If the runtime handled exceptions and the driver accessed invalid user-mode memory, the stack would unwind up to the exception-handling code in the runtime, leaving the driver or the device in an unknown state. The driver must implement exception handling so that it can perform the following operations if an exception occurs: 
+
+<UL>
+	<LI>Restore its state and the state of its device. </LI>
+
+	<LI>Release any spinlocks that it acquired. </LI>
+</UL>
+
+<P>In the following scenarios, the runtime secures ownership of memory allocated in user mode before passing the memory to the driver:
+
+<UL>
+	<LI>The driver processes vertex data that is specified by a pointer to user-mode memory. The driver receives this memory pointer in a call to its <A HREF="d3dfncs_5usn.htm"><I>D3dDrawPrimitives2</I></A> function with the D3DHALDP2_USERMEMVERTICES flag of the <B>dwFlags</B> member of the <A HREF="d3dstrct_47fr.htm">D3DHAL_DRAWPRIMITIVES2DATA</A> structure set.</LI>
+
+	<LI>The driver updates the render state array to which the <B>lpdwRStates</B> member of D3DHAL_DRAWPRIMITIVES2DATA points. The driver updates this array during a call to its <I>D3dDrawPrimitives2</I> function. </LI>
+
+	<LI>The driver updates its state at the <B>lpdwStates</B> member of the <A HREF="d3dstrct_8p7r.htm">DD_GETDRIVERSTATEDATA</A> structure during a call to its <A HREF="d3dfncs_3r8n.htm"><I>D3dGetDriverState</I></A> function.</LI>
+
+	<LI>The driver blts or accesses in some way a system texture that was allocated in user memory.</LI>
+</UL>
+
+<P>A display driver can use the <B>try/except</B> mechanism to implement exception handling. For more information on <B>try/except</B>, see the Visual C++® documentation. </P>
+
+<P>The following code snippet shows how the driver can use the <B>try/except</B> mechanism to throw an exception if an error occurs due to accessing invalid memory:</P>
+
+<PRE>__try
+{
+    // Access user-mode memory.
+}
+__except(EXCEPTION_EXECUTE_HANDLER)
+{
+    // Recover and leave driver and hardware in a stable state.
+}</PRE>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Aside from accessing and copying the user-mode value into a local variable, the driver should not perform any other operations inside the <B>__try</B> block. Other operations can cause their own exceptions to occur. The operating system handles these exceptions differently.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Exception%20Handling%20When%20Accessing%20User-Mode%20Memory"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisAllocateMemory</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisAllocateMemory">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndisallocatememory_nr"></A>NdisAllocateMemory</H1>
+
+<P>This function is <B>obsolete</B> for Windows&nbsp;XP and later. Windows&nbsp;XP supports this function for legacy drivers. Use <A HREF="103ndisx_4m42.htm"><B>NdisAllocateMemoryWithTag</B></A> instead. </P>
+
+<P><B>NdisAllocateMemory</B> allocates resident (nonpaged) system-space memory, optionally within a specified address limit, as a physically contiguous allocation, and/or as a noncached allocation. </P>
+
+<PRE class=syntax><B>NDIS_STATUS
+  NdisAllocateMemory(</B>
+    <B>OUT PVOID</B>  *<I>VirtualAddress</I><B>,</B>
+    <B>IN UINT</B>  <I>Length</I><B>,</B>
+    <B>IN UINT</B>  <I>MemoryFlags</I><B>,</B>
+    <B>IN NDIS_PHYSICAL_ADDRESS</B>  <I>HighestAcceptableAddress</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>VirtualAddress</I></DT>
+
+<DD>Pointer to a caller-supplied variable in which this function returns the base virtual address of the allocated memory or NULL if memory of the specified type is unavailable.</DD>
+
+<DT><I>Length</I></DT>
+
+<DD>Specifies the size in bytes to be allocated.</DD>
+
+<DT><I>MemoryFlags</I></DT>
+
+<DD>Specifies zero or a bitmask designating the type(s) of memory to allocate, as follows: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Value</TH>
+<TH align=left width=52%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>zero</TD>
+<TD width=52%>Allocate nonpaged system-space memory. 
+<P>Note: A driver should call <A HREF="103ndisx_4m42.htm"><B>NdisAllocateMemoryWithTag</B></A> to allocate nonpaged system-space memory.</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>NDIS_MEMORY_CONTIGUOUS</TD>
+<TD width=52%>Allocate physically contiguous memory.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>NDIS_MEMORY_NONCACHED</TD>
+<TD width=52%>Allocate noncached memory.</TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>Only NIC drivers specify the allocation of either contiguous or noncached memory during driver initialization. 
+</DD>
+
+<DT><I>HighestAcceptableAddress</I></DT>
+
+<DD>Specifies -1. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>NdisAllocateMemory</B> can return either of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>The caller can use the allocated memory range starting at the value returned at <I>VirtualAddress</I>. </DD>
+
+<DT>NDIS_STATUS_FAILURE</DT>
+
+<DD>An attempt to allocate the requested memory failed. This return does not necessarily mean that a subsequent call will fail.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Any NDIS driver might call <B>NdisAllocateMemory</B> with the <I>MemoryFlags</I> set to zero. For example, NDIS drivers that export a set of NDIS upper-edge (<I>MiniportXxx</I>) functions can call <B>NdisAllocateMemory</B> to allocate a context area in which the driver will maintain per-NIC (or per-virtual-NIC) runtime state information and pass the pointer returned at <I>VirtualAddress</I> to <B>NdisMSetAttributes(Ex)</B>. NDIS drivers that export a set of NDIS lower-edge (<I>ProtocolXxx</I>) functions also can call <B>NdisAllocateMemory</B> whenever such a driver needs to allocate buffer space. </P>
+
+<P>Only miniport drivers can set the <I>MemoryFlags</I> with either or both of the NDIS_MEMORY_<I>XXX</I> when they make initialization-time calls to <B>NdisAllocateMemory</B>. During initialization, miniport drivers allocate these types of memory to be shared with their NICs. </P>
+
+<P>If such a miniport driver specifies physically contiguous memory in a call to <B>NdisAllocateMemory</B>, the virtual memory allocation maps to a single physically contiguous region. If a miniport driver specifies noncached memory, the allocated virtual range is not cached. A NIC driver can access noncached memory without flushing cache buffers during DMA operations.</P>
+
+<P>Whatever the value of the input <I>MemoryFlags</I>, a successful caller of <B>NdisAllocateMemory</B> uses a range of virtual addresses to access the allocated memory. Depending on the size of the allocation and on the type of memory requested, one or more physical memory ranges (pages) back this single virtual range. </P>
+
+<P>While the NDIS_MEMORY_<I>XXX</I> can be ORed in <I>MemoryFlags</I> to request a contiguous and noncached allocation by a NIC driver, both contiguous and noncached memory are very limited system resources. A NIC driver should never request more contiguous memory and/or more noncached memory than it needs. Attempts to allocate either of these types of memory except during driver initialization are a programming error. Such an attempt is unlikely to be successful because system-space memory becomes fragmented due to allocations by other kernel-mode components, including other drivers, and due to runtime paging. </P>
+
+<P>If such an initialization-time call fails, a NIC driver can attempt to allocate one or more smaller blocks of contiguous and/or noncached memory, rather than failing to initialize if it cannot allocate a large block.</P>
+
+<P>Callers of <B>NdisAllocateMemory</B> can run at IRQL &lt;= DISPATCH_LEVEL to allocate memory from nonpaged pool. NIC drivers that allocate contiguous and/or noncached memory must be running at IRQL = PASSIVE_LEVEL during initialization.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, <A HREF="103ndisx_4m42.htm"><B>NdisAllocateMemoryWithTag</B></A>, <A HREF="103ndisx_6sc2.htm"><B>NdisFreeMemory</B></A>, <A HREF="103ndisx_1ywi.htm"><B>NdisMAllocateSharedMemory</B></A>, <A HREF="103ndisx_175e.htm"><B>NdisMSetAttributes</B></A>, <A HREF="103ndisx_1pmb.htm"><B>NdisMSetAttributesEx</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisAllocateMemory"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Determining the Parent of a Nonpresent Device</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Determining the Parent of a Nonpresent Device">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_nonpresent_device_dg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_co_installer_dg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_determining_the_parent_of_a_nonpresent_device_dg"></A>Determining the Parent of a Nonpresent Device</H3>
+
+<P>You can use the approach described in this section to determine the parent of a <A HREF="JavaScript:hhobj_1.Click()">nonpresent device</A> only if the relationship between the nonpresent device and its parent is fixed. (If the relationship between a nonpresent device and its parent is not fixed, you cannot use this method because the nonpresent device does not have a specific parent).</P>
+
+<P>For example, this method applies to a USB composite device, such as a multifunction printer, that has one or more interfaces, each of which is represented as a child device. Because all of the child interface devices depend on the presence of a specific composite device as their parent, the relationship between the device and its parent is fixed. </P>
+
+<P>The following topics describe this method:</P>
+
+<P class=indent1><A HREF="#ddk_saving_the_parent_child_relationship_dg">Saving the Parent-Child Relationship</A></P>
+
+<P class=indent1><A HREF="#ddk_retrieving_the_parent_child_relationship_dg">Retrieving the Parent-Child Relationship</A></P>
+
+<P class=indent1><A HREF="#ddk_handling_a_chain_of_ancestors_for_a_nonpresent_device_dg">Handling a Chain of Ancestors for a Nonpresent Device</A></P>
+
+
+
+<H4><A NAME="ddk_saving_the_parent_child_relationship_dg"></A>Saving the Parent-Child Relationship</H4>
+
+<P>To save the parent-child relationship of a device, supply a <A HREF="JavaScript:hhobj_2.Click()">device co-installer</A> that saves the device instance ID of the device's parent in a user-created entry value under the hardware registry key of the device. You should use a device instance ID because it remains constant across system boots and between system processes, whereas a device instance handle does not. When you process a <A HREF="dif-codes_7d9u.htm">DIF_INSTALLDEVICE</A> request in the co-installer, follow the steps below to save the device instance ID.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To save the device instance ID of the immediate parent in the registry</B>
+
+<OL>
+	<LI>Call <A HREF="cfgmgrfn_248i.htm"><B>CM_Get_Parent</B></A><B> </B>to obtain a device instance handle for the parent of the device.</LI>
+
+	<LI>Using the device instance handle for the parent device, call <A HREF="cfgmgrfn_00vm.htm"><B>CM_Get_Device_ID</B></A> to obtain the device instance ID for the parent device.</LI>
+
+	<LI>Call <A HREF="di-rtns_8g36.htm"><B>SetupDiOpenDevRegKey</B></A> using the DIREG_DEV flag to obtain a handle to the hardware registry key of the device.</LI>
+
+	<LI>Call <B>RegSetValueEx</B> to save the device instance ID of the parent device in a user-created entry value under the hardware registry key of the device.</LI>
+</OL>
+
+
+
+<H4><A NAME="ddk_retrieving_the_parent_child_relationship_dg"></A>Retrieving the Parent-Child Relationship</H4>
+
+<P>After a device co-installer has saved the device instance ID of the parent device in an entry value under a device's hardware registry key, you can retrieve the device instance ID.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To retrieve the device instance ID of the parent from the registry</B>
+
+<OL>
+	<LI>Call <B>SetupDiOpenDevRegKey</B> using the DIREG_DEV flag to obtain a handle to the hardware registry key for the device.</LI>
+
+	<LI>Call <B>RegQueryValueEx</B> to retrieve the device instance ID of the parent device that you saved in the entry value that you set in your device co-installer.</LI>
+</OL>
+
+<P>After you retrieve the device instance ID of the parent device, call <B><U>SetupDiOpenDeviceInfo</U></B> to obtain an <A HREF="di-struct_7nqq.htm">SP_DEVINFO_DATA</A> structure for the parent device.</P>
+
+
+
+<H4><A NAME="ddk_handling_a_chain_of_ancestors_for_a_nonpresent_device_dg"></A>Handling a Chain of Ancestors for a Nonpresent Device</H4>
+
+<P>If you require the device instance IDs of a connected sequence of ancestors for a given device, you should save the device instance ID for each ancestor in the registry in a way that you can retrieve them. Note that this is valid only if the relationship between the device and all of the ancestors is fixed.</P>
+
+<P>One way to do this is for your device co-installer to use <B>CM_Get_Parent </B>to obtain all of the device instance IDs for all of the ancestors and save each instance ID in a different entry value under the hardware registry key of the device. You can use the method described in <A HREF="#ddk_saving_the_parent_child_relationship_dg">Saving the Parent-Child Relationship</A> to save the device instance ID of each ancestor. You can then retrieve each device instance ID in the same way as is described in <A HREF="#ddk_retrieving_the_parent_child_relationship_dg">Retrieving the Parent-Child Relationship</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Determining%20the%20Parent%20of%20a%20Nonpresent%20Device"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

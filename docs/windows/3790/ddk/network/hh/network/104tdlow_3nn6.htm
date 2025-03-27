@@ -1,0 +1,82 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProtocolRequestComplete</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProtocolRequestComplete">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocolrequestcomplete_nr"></A>ProtocolRequestComplete</H1>
+
+<P>The <I>ProtocolRequestComplete</I> function is a required driver function. This function completes the processing of a protocol-initiated query or set for which <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A> returned NDIS_STATUS_PENDING. </P>
+
+<P>A connection-oriented protocol that calls <A HREF="103ndisx_8xde.htm"><B>NdisCoRequest</B></A> but never <B>NdisRequest</B> must have a fully functional <A HREF="104tdlow_860i.htm"><I>ProtocolCoRequestComplete</I></A> function, rather than a <I>ProtocolRequestComplete</I> function.</P>
+
+<PRE class=syntax><B>VOID
+</B>  <B>ProtocolRequestComplete(</B>
+    <B>IN NDIS_HANDLE </B> <I>ProtocolBindingContext</I><B>,
+</B>    <B>IN PNDIS_REQUEST</B>  <I>NdisRequest</I><B>,
+</B>    <B>IN NDIS_STATUS</B>  <I>Status</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>ProtocolBindingContext</I></DT>
+
+<DD>Specifies the handle to a protocol-allocated context area in which the protocol driver maintains per-binding run-time state. The driver supplied this handle when it called <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A>.  </DD>
+
+<DT><I>NdisRequest</I></DT>
+
+<DD>Pointer to the protocol-supplied structure previously passed to <B>NdisRequest</B>. </DD>
+
+<DT><I>Status</I></DT>
+
+<DD>Specifies the final status of the request set by the underlying driver or by NDIS. This argument determines what <I>ProtocolRequestComplete</I> does with the information at <I>NdisRequest</I>. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><I>ProtocolRequestComplete</I> uses the input <I>Status</I> as follows:
+
+<UL>
+	<LI>If this argument is NDIS_STATUS_SUCCESS, the <B>BytesRead</B> or <B>BytesWritten</B> member of the NDIS_REQUEST structure has been set by NDIS or the underlying driver to specify how much protocol-supplied information was transferred from the buffer at <B>InformationBuffer</B> to the NIC in a set operation or how much information was returned at <B>InformationBuffer</B> in response to a query operation. 
+<P>If the protocol made a query, <I>ProtocolRequestComplete</I> can use the data returned at <B>InformationBuffer</B> in any protocol-determined way, depending on the value of the <B>Oid</B> member. 
+
+<P>For example, if the protocol originally initiated an <A HREF="22genoid_9roy.htm">OID_GEN_MAXIMUM_SEND_PACKETS</A> query, <I>ProtocolRequestComplete</I> might set up state variables in the <I>ProtocolBindingContext</I> area to throttle the number of outstanding sends the driver will set up for subsequent calls to <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A>. 
+</LI>
+
+	<LI>If this argument is NDIS_STATUS_INVALID_LENGTH or NDIS_STATUS_BUFFER_TOO_SHORT, the <B>BytesNeeded</B> member specifies the <B>Oid</B>-specific value of the <B>InformationBufferLength</B> member required to carry out the requested operation.
+<P>In these circumstances, <I>ProtocolRequestComplete</I> can allocate sufficient buffer space for the request, set up another <A HREF="105nstru_3f8y.htm">NDIS_REQUEST</A> structure with the required <B>InformationBufferLength</B> and same <B>Oid</B>, and retry the call to <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A>. 
+
+<P><I>ProtocolRequestComplete</I> can retry requests for certain other NDIS_STATUS_<I>XXX</I> arguments, as well, as described in the reference for <B>NdisRequest</B>. 
+</LI>
+
+	<LI>If this argument is an NDIS_STATUS_<I>XXX</I> that is an unrecoverable error, <I>ProtocolRequestComplete</I> should release the memory allocated for the NDIS_REQUEST structure and determine whether the driver should call <A HREF="103ndisx_9ib6.htm"><B>NdisReset</B></A>, close the binding, or adjust its binding-specific state information to handle continued network I/O operations on the binding. </LI>
+</UL>
+
+<P>For global queries and sets, the underlying connectionless miniport driver’s call to <A HREF="103ndisx_4ktu.htm"><B>NdisMQueryInformationComplete</B></A> or <A HREF="103ndisx_3alu.htm"><B>NdisMSetInformationComplete</B></A> causes NDIS to call the <I>ProtocolRequestComplete</I> function. NDIS forwards the miniport driver-determined <I>Status</I> passed to <B>NdisM..InformationComplete</B> as the input <I>Status</I> to <I>ProtocolRequestComplete</I>. </P>
+
+<P>For binding-specific queries, NDIS calls the <I>ProtocolRequestComplete</I> function itself. Because the NDIS library maintains bindings for all miniport drivers, NDIS can return binding-specific information only about underlying drivers that report their medium-type as one for which the system provides a filter library. NDIS returns NDIS_STATUS_NOT_SUPPORTED for protocol-initiated binding-specific queries to other miniport drivers. </P>
+
+<P>For more information about system-defined OIDs, see <A HREF="21oidovw_8q9e.htm">NDIS Object Identifiers</A>.  </P>
+
+<P><I>ProtocolRequestComplete</I> can be called before the protocol has had time to inspect the status code that <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A> returns at <I>Status</I>. </P>
+
+<P><I>ProtocolRequestComplete</I> runs at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_2vw2.htm"><I>MiniportQueryInformation</I></A>, <A HREF="101mini_7ng2.htm"><I>MiniportSetInformation</I></A>, <A HREF="103ndisx_8xde.htm"><B>NdisCoRequest</B></A>, <A HREF="103ndisx_4ktu.htm"><B>NdisMQueryInformationComplete</B></A>, <A HREF="103ndisx_3alu.htm"><B>NdisMSetInformationComplete</B></A>, <A HREF="105nstru_3f8y.htm">NDIS_REQUEST</A>, <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A>, <A HREF="103ndisx_9ib6.htm"><B>NdisReset</B></A>, <A HREF="104tdlow_860i.htm"><I>ProtocolCoRequestComplete</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProtocolRequestComplete"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

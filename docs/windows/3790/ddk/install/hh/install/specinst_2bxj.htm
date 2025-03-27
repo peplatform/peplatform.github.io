@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Installing a Filter Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Installing a Filter Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_types_of_wdm_drivers_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_installing_a_filter_driver_dg"></A>Installing a Filter Driver</H1>
+
+<P>A PnP filter driver can support a specific device or all devices in a setup class and can attach below a device's function driver (a lower filter) or above a device's function driver (an upper filter). See <A HREF="JavaScript:hhobj_1.Click()">Types of WDM Drivers</A> for more information on PnP driver layers. </P>
+
+
+
+<H4><A NAME="ddk_installing_a_device_specific_filter_driver_dg"></A>Installing a Device-Specific Filter Driver</H4>
+
+<P>To register a device-specific filter driver, create a registry entry through an <B>AddReg</B> entry in the <I>DDInstall</I><B>.HW</B> section of the device's INF file. For a device-specific upper filter, create an entry named <B>UpperFilters</B>. For a device-specific lower filter, create an entry named <B>LowerFilters</B>. For example, the following INF excerpt installs <I>cdaudio</I> as an upper filter on the <I>cdrom</I> driver: </P>
+
+<PRE>:
+; Installation section for cdaudio. Sets cdrom as the service 
+; and adds cdaudio as a PnP upper filter driver. 
+;
+[cdaudio_install]
+CopyFiles=cdaudio_copyfiles, cdrom_copyfiles
+ 
+[cdaudio_install.HW]
+AddReg=cdaudio_addreg
+ 
+[cdaudio_install.Services]
+AddService=cdrom,0x00000002,cdrom_ServiceInstallSection
+AddService=cdaudio,,cdaudio_ServiceInstallSection
+: 
+
+[cdaudio_addreg] 
+HKR,,"UpperFilters",0x00010000,"cdaudio" ; REG_MULTI_SZ value 
+:
+
+[cdaudio_ServiceInstallSection]
+DisplayName    = %cdaudio_ServiceDesc%
+ServiceType    = 1     ; SERVICE_KERNEL_DRIVER
+StartType      = 3     ; SERVICE_DEMAND_START
+ErrorControl   = 1     ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\cdaudio.sys
+:</PRE>
+
+
+
+<H4><A NAME="ddk_installing_a_class_filter_driver_dg"></A>Installing a Class Filter Driver</H4>
+
+<P>To install a class-wide upper- or lower-filter for a <A HREF="setup-cls_1wpz.htm">device setup class</A>, you can supply a <A HREF="custom-install_7n53.htm">device installation application</A> that installs the necessary services. The application can then register the service as being an upper- or lower-filter for the desired device setup classes. To copy the service binaries, the application can use <B>SetupInstallFilesFromInfSection</B>. To install the services, the application can use <B>SetupInstallServicesFromInfSection</B>. To register the services as upper- and/or lower-filters for particular device setup classes, the application calls <B>SetupInstallFromInfSection</B> for each device setup class of interest, using the registry key handle they retrieved from <A HREF="di-rtns_26pe.htm"><B>SetupDiOpenClassRegKey</B></A> for the <I>RelativeKeyRoot </I>parameter. For example, consider the following INF sections:</P>
+
+<PRE>:
+
+[DestinationDirs]
+upperfilter_copyfiles = 12
+
+[upperfilter_inst]
+CopyFiles = upperfilter_copyfiles
+AddReg = upperfilter_addreg
+
+[upperfilter_copyfiles]
+upperfilt.sys
+
+[upperfilter_addreg]
+; append this service to existing REG_MULTI_SZ list, if any
+HKR,,”UpperFilters”,0x00010008,”upperfilt” 
+
+[upperfilter_inst.Services]
+AddService = upperfilt,,upperfilter_service
+
+[upperfilter_service]
+DisplayName   = %upperfilter_ServiceDesc%
+ServiceType   = 1   ; SERVICE_KERNEL_DRIVER
+StartType     = 3   ; SERVICE_DEMAND_START
+ErrorControl  = 1   ; SERVICE_ERROR_NORMAL
+ServiceBinary = %12%\upperfilt.sys
+:</PRE>
+
+<P>The device installation application would: 
+
+<OL>
+	<LI>Call <B>SetupInstallFilesFromInfSection</B> for the [upperfilter_inst] section. </LI>
+
+	<LI>Call <B>SetupInstallServicesFromInfSection</B> for the [upperfilter_inst.Services] section.</LI>
+
+	<LI>Call <B>SetupInstallFromInfSection</B> for the [upperfilter_inst] section, once for each class key it wants to register the <I>upperfilt </I>service for. </LI>
+</OL>
+
+<P>Each call would specify <B>SPINST_REGISTRY </B>for the <I>Flags </I>argument, to indicate that only registry modifications need to be performed.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Installing%20a%20Filter%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

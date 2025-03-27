@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling Color Values for Pixel Formats</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling Color Values for Pixel Formats">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_handling_color_values_for_pixel_formats_gg"></A>Handling Color Values for Pixel Formats</H3>
+
+<P><B>This topic applies to DirectX 7.0 and later.</B></P>
+
+<P>A display driver must convert input color values for the ARGB and YUV classes of color formats because applications request color-fill and clear operations on surfaces with these formats in a uniform way. However, the driver must directly use the color values from other class formats. For example, applications use A8R8G8B8 as the uniform color value for all surfaces that have at most 8 bits for the alpha (A), red (R), green (G), and blue (B) components; the driver must convert the A8R8G8B8 color to the color value that is specific to the actual ARGB format by copying the bits with the highest significance.</P>
+
+<P>The display driver receives color values when it processes the <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_clear_gg">D3DDP2OP_CLEAR</A> and <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_colorfill_gg">D3DDP2OP_COLORFILL</A> operation codes in its <A HREF="d3dfncs_5usn.htm"><I>D3dDrawPrimitives2</I></A> function. </P>
+
+<P>The display driver can use the following code to convert color values for the ARGB and YUV class formats:</P>
+
+<PRE>DWORD Convert2N(DWORD Color, DWORD n)
+{
+    return (Color * (1 &lt;&lt; n)) / 256;
+}
+
+DWORD CPixel::ConvertFromARGB(D3DCOLOR  InputColor,
+                              D3DFORMAT OutputFormat)
+{
+    DWORD Output = (DWORD) InputColor;
+    DWORD Alpha = InputColor &gt;&gt; 24;
+    DWORD Red = (InputColor &gt;&gt; 16) &amp; 0x00ff;
+    DWORD Green = (InputColor &gt;&gt; 8) &amp; 0x00ff;
+    DWORD Blue = InputColor &amp; 0x00ff;
+    switch(OutputFormat) {
+    case D3DFMT_R8G8B8:
+    case D3DFMT_X8R8G8B8:
+        Output = InputColor &amp; 0x00ffffff;
+        break;
+
+    case D3DFMT_A8R8G8B8:
+        Output = InputColor;
+        break;
+
+    case D3DFMT_R5G6B5:
+        Output = (Convert2N(Red,5) &lt;&lt; 11) | 
+                    (Convert2N(Green,6) &lt;&lt; 5) | 
+                    (Convert2N(Blue,5));
+        break;
+
+    case D3DFMT_X1R5G5B5:
+        Output = (Convert2N(Red,5) &lt;&lt; 10) | 
+                    (Convert2N(Green,5) &lt;&lt; 5) | 
+                    (Convert2N(Blue,5));
+        break;
+
+    case D3DFMT_A1R5G5B5:
+        Output = (Convert2N(Alpha, 1) &lt;&lt; 15) | 
+                    (Convert2N(Red,5) &lt;&lt; 10) | 
+                    (Convert2N(Green,5) &lt;&lt; 5) | 
+                    (Convert2N(Blue,5));
+        break;
+
+    case D3DFMT_X4R4G4B4:
+        Output = (Convert2N(Red,4) &lt;&lt; 8) | 
+                    (Convert2N(Green,4) &lt;&lt; 4) | 
+                    (Convert2N(Blue,4));
+        break;
+
+    case D3DFMT_A4R4G4B4:
+        Output = (Convert2N(Alpha,4) &lt;&lt; 12) |
+                    (Convert2N(Red,4) &lt;&lt; 8) | 
+                    (Convert2N(Green,4) &lt;&lt; 4) | 
+                    (Convert2N(Blue,4));
+        break;
+
+    case D3DFMT_R3G3B2:
+        Output = (Convert2N(Red,3) &lt;&lt; 5) | 
+                    (Convert2N(Green,3) &lt;&lt; 2) | 
+                    (Convert2N(Blue,2));
+        break;
+
+    case D3DFMT_A8R3G3B2:
+        Output = (Alpha &lt;&lt; 8) |
+                    (Convert2N(Red,3) &lt;&lt; 5) | 
+                    (Convert2N(Green,3) &lt;&lt; 2) | 
+                    (Convert2N(Blue,2));
+        break;
+
+    case D3DFMT_A2B10G10R10:
+        Output = (Convert2N(Alpha,2) &lt;&lt; 30) |
+                    (Convert2N(Red,10)) | 
+                    (Convert2N(Green,10) &lt;&lt; 10) | 
+                    (Convert2N(Blue,10) &lt;&lt; 20);
+        break;
+
+    case D3DFMT_X8B8G8R8:
+        Output = (Convert2N(Red,8)) | 
+                    (Convert2N(Green,8) &lt;&lt; 8) | 
+                    (Convert2N(Blue,8) &lt;&lt; 16);
+        break;
+
+    case D3DFMT_A8B8G8R8:
+        Output = (Alpha &lt;&lt; 24) |
+                    (Convert2N(Red,8)) | 
+                    (Convert2N(Green,8) &lt;&lt; 8) | 
+                    (Convert2N(Blue,8) &lt;&lt; 16);
+        break;
+
+#if (DXPIXELVER &gt; 8)
+    case D3DFMT_A2R10G10B10:
+        Output = (Convert2N(Alpha,2) &lt;&lt; 30) |
+                    (Convert2N(Red,10) &lt;&lt; 20) | 
+                    (Convert2N(Green,10) &lt;&lt; 10) | 
+                    (Convert2N(Blue,10));
+        break;
+#endif
+
+    case D3DFMT_UYVY:
+#if (DXPIXELVER &gt; 8)
+    case D3DFMT_R8G8_B8G8:
+#endif
+        Output = (Red &lt;&lt; 24) |
+                    (Green &lt;&lt; 16) |
+                    (Red &lt;&lt; 8) |
+                    (Blue);
+        break;
+        
+    case D3DFMT_YUY2:
+#if (DXPIXELVER &gt; 8)
+    case D3DFMT_G8R8_G8B8:
+#endif
+        Output = (Green &lt;&lt; 24) |
+                    (Red &lt;&lt; 16) |
+                    (Blue &lt;&lt; 8) |
+                    (Red);
+        break;
+
+    case MAKEFOURCC('A', 'Y', 'U', 'V'):
+    case MAKEFOURCC('N', 'V', '1', '2'):
+    case MAKEFOURCC('Y', 'V', '1', '2'):
+    case MAKEFOURCC('I', 'C', 'M', '1'):
+    case MAKEFOURCC('I', 'C', 'M', '2'):
+    case MAKEFOURCC('I', 'C', 'M', '3'):
+    case MAKEFOURCC('I', 'C', 'M', '4'):
+        Output = InputColor;
+        break;
+    }
+    return Output;
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20Color%20Values%20for%20Pixel%20Formats"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

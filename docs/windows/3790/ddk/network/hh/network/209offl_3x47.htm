@@ -1,0 +1,73 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Offloading TCP/IP Checksum Tasks</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Offloading TCP/IP Checksum Tasks">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_offloading_tcp_ip_checksum_tasks_ng"></A>Offloading TCP/IP Checksum Tasks</H1>
+
+<P>TCP/IP checksum tasks cannot be offloaded to a load-balancing miniport driver. For more information on load balancing, see <A HREF="210lbfo_8z8n.htm">Load Balancing and Fail Over</A>.</P>
+
+<P>Before passing to the miniport driver a packet descriptor for a packet on which the miniport driver will perform one or more checksum tasks, the TCP/IP transport specifies the checksum information associated with the packet descriptor. This information is specified by an <A HREF="105nstru_3i7m.htm">NDIS_TCP_IP_CHECKSUM_PACKET_INFO</A> structure, which is part of the per-packet information (extended out-of-band data) that is associated with the packet descriptor.</P>
+
+<P>The NDIS_TCP_IP_CHECKSUM_PACKET_INFO structure is defined as:</P>
+
+<PRE>typedef struct _NDIS_TCP_IP_CHECKSUM_PACKET_INFO
+{
+  union
+  {
+    struct
+    {
+      ULONG    NdisPacketChecksumV4:1;
+      ULONG    NdisPacketChecksumV6:1;
+      ULONG    NdisPacketTcpChecksum:1;
+      ULONG    NdisPacketUdpChecksum:1;
+      ULONG    NdisPacketIpChecksum:1;
+    } Transmit;
+ 
+    struct
+    {
+      ULONG   NdisPacketTcpChecksumFailed:1;
+      ULONG   NdisPacketUdpChecksumFailed:1;
+      ULONG   NdisPacketIpChecksumFailed:1;
+      ULONG   NdisPacketTcpChecksumSucceeded:1;
+      ULONG   NdisPacketUdpChecksumSucceeded:1;
+      ULONG   NdisPacketIpChecksumSucceeded:1;
+      ULONG   NdisPacketLoopback:1;
+    } Receive;
+ 
+  ULONG    Value;
+  };
+} NDIS_TCP_IP_CHECKSUM_PACKET_INFO, *PNDIS_TCP_IP_CHECKSUM_PACKET_INFO;
+</PRE>
+
+<P>Before offloading the checksum calculation for a TCP packet, the TCP/IP transport calculates the one’s complement sum for the TCP pseudoheader. The TCP/IP transport calculates the one’s complement sum across all fields in the pseudoheader, including Source IP Address, Destination IP Address, Protocol, and the TCP length for TCP packets. The TCP/IP transport enters the one’s complement sum for the pseudoheader in the Checksum field of the TCP header.</P>
+
+<P>The one’s complement sum for the pseudoheader provided by the TCP/IP transport gives the NIC an early start in calculating the real TCP checksum for the send packet. To calculate the actual TCP checksum, the NIC calculates the variable part of the TCP checksum (for the TCP header and payload), adds this checksum to the one’s complement sum for the pseudoheader calculated by the TCP/IP transport, and calculates the 16-bit one's complement for the checksum. For more information on calculating such checksums, see RFC&nbsp;793 and RFC&nbsp;1122.</P>
+
+<P>After it receives the packet descriptor in its <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A>, <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A>, or <A HREF="101mini_0ycy.htm"><I>MiniportCoSendPackets</I></A> function, a miniport driver typically does the following checksum processing:
+
+<OL>
+	<LI>To determine the packet's protocol, the miniport driver calls the <A HREF="103ndisx_7muq.htm">NDIS_GET_PACKET_PROTOCOL_TYPE</A> macro.</LI>
+
+	<LI>If the protocol ID that the macro returns is not NDIS_PROTOCOL_ID_TCP_IP, the miniport driver's NIC should not perform any checksum operations on the packet.</LI>
+
+	<LI>If the returned protocol ID is NDIS_PROTOCOL_ID_TCP_IP, the miniport driver calls the <A HREF="103ndisx_0bjm.htm">NDIS_PER_PACKET_INFO_FROM_PACKET</A> macro with an <I>InfoType</I> of <B>TcpIpCheckSumPacketInfo</B> to obtain a <A HREF="105nstru_3i7m.htm">NDIS_TCP_IP_CHECKSUM_PACKET_INFO</A> structure. Alternatively, the miniport driver can call the <A HREF="103ndisx_6pyq.htm">NDIS_PACKET_EXTENSION_FROM_PACKET</A> macro to obtain a pointer to the NDIS_PACKET_EXTENSION structure. The miniport driver can then use the <B>TcpIpCheckSumPacketInfo</B> array index to obtain the NDIS_TCP_IP_CHECKSUM_PACKET_INFO structure.</LI>
+
+	<LI>The miniport driver tests the <B>NdisPacketChecksumV4</B> flag in the NDIS_TCP_IP_CHECKSUM_PACKET_INFO structure. If the <B>NdisPacketChecksumV4</B> flag is not set, the miniport driver's NIC should not perform any checksum operations on the packet.</LI>
+
+	<LI>If the <B>NdisPacketChecksumV4</B> flag is set, the miniport driver tests the <B>NdisPacketTcpChecksum</B>, <B>NdisPacketUdpChecksum</B>, and <B>NdisPacketIpChecksum</B> flags to determine which checksums its NIC should calculate for the packet.</LI>
+
+	<LI>The miniport driver passes the packet to its NIC, which calculates the appropriate checksums for the packet. If a packet has both a tunnel IP header and a transport IP header, a NIC that supports IP checksum offloads performs IP checksum tasks only on the tunnel header. The TCP/IP transport performs IP checksum tasks on the transport IP header.</LI>
+</OL>
+
+<P>Before indicating up a receive packet on which it performs checksum tasks, the miniport driver validates the appropriate checksum(s) and sets the appropriate <B>NdisPacke<I>Xxx</I>ChecksumFailed</B> and/or <B>NdisPacket<I>Xxx</I>ChecksumSucceeded</B> flags in the NDIS_TCP_IP_CHECKSUM_PACKET_INFO structure.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Offloading%20TCP%2FIP%20Checksum%20Tasks"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

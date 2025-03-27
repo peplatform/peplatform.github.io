@@ -1,0 +1,75 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Halt Handler</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Halt Handler">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_halt_handler_ng"></A>Halt Handler</H1>
+
+<P>A miniport driver must supply a <I>MiniportHalt</I> function to <B>NdisMRegisterMiniport</B>. The definition of <I>MiniportHalt</I> is:</P>
+
+<PRE class=syntax><B>VOID
+</B>  <B>MiniportHalt(
+</B>    <B>IN NDIS_HANDLE</B>  <I>MiniportAdapterContext</I>
+    <B>);</B></PRE>
+
+<P><I>MiniportHalt</I> can be called:
+
+<UL>
+	<LI>After the failure of a request to set up multicast addresses or to set MAC_OPTIONS</LI>
+
+	<LI>After the unbinding of all the protocol drivers bound to the miniport driver</LI>
+
+	<LI>During an unload operation; for instance, when a NetStop command has caused an unload operation to be carried out</LI>
+
+	<LI>During system shutdown</LI>
+</UL>
+
+<P><I>MiniportHalt</I> should undo everything that <I>MiniportInitialize </I>did, including the following:
+
+<UL>
+	<LI>Free ports</LI>
+
+	<LI>Release all the hardware resources it claimed</LI>
+
+	<LI>Free interrupt resources by calling <A HREF="103ndisx_7g1e.htm"><B>NdisMDeregisterInterrupt</B></A> </LI>
+
+	<LI>Free any memory it has allocated</LI>
+
+	<LI>Stop the NIC, unless the <I>MiniportShutdown</I> function has already restored the NIC to its initial state</LI>
+</UL>
+
+<P><IMG SRC="images/207-11.gif" ALT="" BORDER=0></P>
+
+<P><B>Unloading a Miniport Driver</B></P>
+
+<P><I>MiniportHalt</I> should carry out the operations necessary to unload the driver before returning. If the miniport driver has any outstanding receive packets (packets that it has indicated up to NDIS but which NDIS has not yet returned), <I>MiniportHalt</I> must not return until such packets are returned to the miniport driver’s <I>MiniportReturnPacket</I> function.</P>
+
+<P>The preceding figure shows a set of calls that could be made by a <I>MiniportHalt</I> function. These calls are only a subset of the calls that could be made. The actual set of calls depends on previous actions of the miniport driver. The miniport driver can make these same calls in <I>MiniportInitialize</I> if it cannot successfully initialize the network adapter because of hardware problems or because it cannot acquire a resource that it needs. In such a case, <I>MiniportInitialize</I> should unload the driver by undoing its previous actions. Otherwise, <I>MiniportHalt</I> will undo the actions of <I>MiniportInitialize</I>.</P>
+
+<P>The following lists the calls required to reverse certain actions that have been taken by the miniport driver:
+
+<UL>
+	<LI>If the miniport driver registered an interrupt, it should call <A HREF="103ndisx_7g1e.htm"><B>NdisMDeregisterInterrupt</B></A>. </LI>
+
+	<LI>If the miniport driver registered a shutdown handler, it should call <A HREF="103ndisx_7q7m.htm"><B>NdisMDeregisterAdapterShutdownHandler</B></A>.</LI>
+
+	<LI>If the miniport driver set up a timer or timers, it should call <A HREF="103ndisx_6pgy.htm"><B>NdisMCancelTimer</B></A> for each timer that it created. If a call to <B>NdisMCancelTimer</B> fails, the timer might have already fired. In this case, the miniport driver should wait for the timer handler to complete before returning from <I>MiniportHalt</I>.</LI>
+
+	<LI>If the miniport driver allocated any memory with <A HREF="103ndisx_4m42.htm"><B>NdisAllocateMemoryWithTag</B></A>, it should call <A HREF="103ndisx_6sc2.htm"><B>NdisFreeMemory</B></A> to free that memory.</LI>
+
+	<LI>If the miniport driver allocated any memory with <A HREF="103ndisx_1ywi.htm"><B>NdisMAllocateSharedMemory</B></A>, or <A HREF="103ndisx_3fg2.htm"><B>NdisMAllocateSharedMemoryAsync</B></A>, it should call <A HREF="103ndisx_9fjm.htm"><B>NdisMFreeSharedMemory</B></A> to free that memory.</LI>
+
+	<LI>If the miniport driver allocated and initialized storage for a pool of packet descriptors with <A HREF="103ndisx_6t82.htm"><B>NdisAllocatePacketPool</B></A>, it should call <A HREF="103ndisx_59f6.htm"><B>NdisFreePacketPool</B></A> to free that storage.</LI>
+
+	<LI>If the miniport driver allocated or reserved any hardware resources, these should be returned—for example, by calling <A HREF="103ndisx_7ape.htm"><B>NdisMDeregisterIoPortRange</B></A> or, if the NIC is a bus-master DMA NIC, by calling <A HREF="103ndisx_1l6a.htm"><B>NdisMFreeMapRegisters</B></A>. A miniport driver that allocated shared memory must call <B>NdisMFreeSharedMemory</B> before calling <B>NdisMFreeMapRegisters</B>.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Halt%20Handler"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

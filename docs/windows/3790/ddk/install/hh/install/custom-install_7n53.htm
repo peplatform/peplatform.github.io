@@ -1,0 +1,237 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Writing a Device Installation Application</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Writing a Device Installation Application">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_writing_a_device_installation_application_dg"></A>Writing a Device Installation Application</H1>
+
+<P>If your driver package includes drivers and INF files that replace "in-box" drivers and INF files, or if your package includes device<I>-specific</I> applications, it should include a device<I> installation </I>application that installs those components. The device installation application should be invoked by Autorun (described in Platform SDK documentation), so that it starts automatically when a user inserts your distribution disk.</P>
+
+<P>Your driver package must handle two situations:
+
+<OL>
+	<LI>The user plugs in your hardware before inserting your distribution medium.</LI>
+
+	<LI>The user inserts your distribution medium before plugging in your hardware.</LI>
+</OL>
+
+<H4>User Plugs in Hardware Before Inserting Distribution Medium</H4>
+
+<P>If the user plugs in new hardware before inserting your distribution medium into a drive, there are two scenarios to deal with:
+
+<OL>
+	<LI>System-supplied in-box drivers support the device.
+<P>In this case, Setup automatically installs the device based on INF files and drivers stored on the system disk. The system will not ask the user to insert vendor-supplied distribution media, so if you have provided a distribution medium containing device-specific applications, the applications are not installed at this time.
+</LI>
+
+	<LI>System-supplied in-box drivers do not support the device.
+<P>In this case the Found New Hardware wizard starts executing and asks the user for a distribution medium. When the user inserts the medium, the Autorun-invoked device installation application <A HREF="#ddk_checking_for_in_progress_installations_dg">checks for in-progress installations</A>. Because the Found New Hardware wizard is active, the device installation application should stop itself. The wizard can then search the medium for an appropriate INF file. You can provide a co-installer that installs device-specific applications, as described in <A HREF="#ddk_installing_device_specific_applications_dg">Installing Device-Specific Applications</A>.
+</LI>
+</OL>
+
+<P>In either of these cases, the system will also attempt to access the Windows Update Web site to see if newer drivers and INF files are available. If they are, these drivers and INFs will be used instead of those already on the system or on the distribution medium. If the Web site is inaccessible or if no new drivers are available there, the system uses the drivers and INFs available in-box or on the distribution medium (whichever are newer).</P>
+
+<P>Your distribution medium can contain an Autorun-invoked device installation application. When the user inserts your distribution medium, this application will start automatically. Assuming the user inserts the medium after the device has been plugged in and installed, the device installation application can do either or both of the following:
+
+<UL>
+	<LI>If the system installed the device using in-box drivers, the device installation application can reinstall the device using drivers and INF files supplied on the distribution medium, using <A HREF="di-rtns_01ki.htm"><B>UpdateDriverForPlugAndPlayDevices</B></A>. </LI>
+
+	<LI>If the distribution medium contains device-specific applications, and a co-installer didn't install those applications in response to a <A HREF="dif-codes_2msy.htm">DIF_NEWDEVICEWIZARD_FINISHINSTALL</A> function code, the device installation application can use Microsoft® Installer to install them. (Microsoft Installer is described in Platform SDK documentation.)</LI>
+</UL>
+
+<H4>User Inserts Distribution Medium Before Plugging in Hardware</H4>
+
+<P>If the user inserts your distribution medium before plugging in the hardware, an Autorun-invoked device installation application on the medium can:
+
+<UL>
+	<LI>Check for in-progress installations, and stop executing if other installation activities are in progress.</LI>
+
+	<LI>"Preinstall" driver files and INFs (see <A HREF="#ddk_pre_installing_driver_files_dg">Pre-installing Driver Files</A>). </LI>
+
+	<LI>Use Microsoft Installer to install device-specific applications.</LI>
+
+	<LI>If the device is "hot-pluggable," tell the user to plug it in. (If the bus doesn't provide hot-plug notification, initiate reenumeration by calling <A HREF="cfgmgrfn_67oy.htm"><B>CM_Reenumerate_DevNode</B></A>.)</LI>
+
+	<LI>If the device is not hot-pluggable, tell the user to turn the system off, plug in the device, and turn the system back on.</LI>
+</UL>
+
+<H4>Determining Whether the Device Is Plugged In</H4>
+
+<P>Note that the behavior of an Autorun-invoked device installation application must depend on whether the user plugs in the hardware first or inserts the distribution medium first. Since vendors typically provide one distribution disk, and a disk can only have one Autorun-invoked application, your Autorun-invoked device installation application must determine if your device has been plugged in.</P>
+
+<P>To determine if a device is plugged in, the application can call the <A HREF="di-rtns_01ki.htm"><B>UpdateDriverForPlugAndPlayDevices</B></A> function, passing the hardware ID of the device. The device is plugged in if:
+
+<UL>
+	<LI>the function returns TRUE. (This also installs the driver for the device.)</LI>
+
+	<LI>the function returns FALSE and the Win32 <B>GetLastError </B>function returns NO_ERROR. (No installation occurs.)</LI>
+</UL>
+
+<P>The device is not plugged in if the function returns FALSE and <B>GetLastError</B> returns NO_SUCH_DEVINST. (No installation occurs.)</P>
+
+<H4>Reinstalling an Unplugged Device</H4>
+
+<P>When a device that formerly was attached has been unplugged, the device's devnode remains in the system, although it is both inactive and hidden. Before you can reinstall such a device, you must first find this "phantom" devnode, and mark it as needing reinstallation. Then, when the device is plugged back in, Plug and Play will reenumerate the device, find the new driver for it, and install the driver for the device.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To reinstall an unplugged device:</B>
+
+<OL>
+	<LI>Call the <B>SetupCopyOEMInf</B> function (described in the Platform SDK documentation).
+<P>The <B>SetupCopyOEMInf</B> function ensures that the correct INF file is present in the <I>%windir%\inf</I> directory.
+</LI>
+
+	<LI>Find the unplugged devices. 
+<P>Call the <A HREF="di-rtns_9ks2.htm"><B>SetupDiGetClassDevs</B></A> function. In the call to this function, clear the DIGCF_PRESENT flag in the <I>Flags</I> parameter. You need to find <I>all</I> devices, not just those that are present. You can narrow the results of your search by specifying the particular device class in the <I>ClassGuid</I> parameter. 
+</LI>
+
+	<LI>Find the hardware IDs and compatible IDs of unplugged devices. 
+<P><B>SetupDiGetClassDevs</B> returns a handle to the <A HREF="setup-cls_2h9j.htm">device information set</A> that contains all installed devices, whether plugged in or not, in the device class (assuming that you specified a device class in the first step). By making successive calls to the <A HREF="di-rtns_8z5e.htm"><B>SetupDiEnumDeviceInfo</B></A> function, you can use this handle to enumerate all of the devices in the device information set. Each call provides you with an <A HREF="di-struct_7nqq.htm">SP_DEVINFO_DATA</A> structure for the device. To get the list of hardware IDs, call the <A HREF="di-rtns_4x2q.htm"><B>SetupDiGetDeviceRegistryProperty</B></A> function with the <I>Property</I> parameter set to SPDRP_HARDWAREID. To get the list of the compatible IDs, call the same function, but with the <I>Property</I> parameter set to SPDRP_COMPATIBLEIDS. Both lists are MULTI-SZ strings.
+</LI>
+
+	<LI>Look for a match between the ID of your device and the hardware IDs (or compatible IDs) of the previous step.
+<P>Make sure that you perform full string comparisons between the hardware ID/compatible ID and the ID for your device. A partial comparison can lead to inappropriate matches. 
+
+<P>When you find a match, call the <A HREF="cfgmgrfn_86sy.htm"><B>CM_Get_DevNode_Status</B></A> function, passing SP_DRVINFO_DATA.<B>DevInst</B> in the <I>dnDevInst</I> parameter. If this function returns CR_NO_SUCH_DEVINST, that confirms that the device is unattached (that is, has a phantom devnode). 
+</LI>
+
+	<LI>Mark the device.
+<P>Call the <B>SetupDiGetDeviceRegistryProperty</B> function with the <I>Property</I> parameter set to SPDRP_CONFIGFLAGS. When this function returns, the <I>PropertyBuffer</I> parameter points to the device's <B>ConfigFlags</B> value from the registry. Perform a bitwise OR of this value with CONFIGFLAG_REINSTALL (defined in <I>regstr.h</I>). After doing this, call the <B>SetupDiSetDeviceRegistryProperty</B> function, passing SPDRP_CONFIGFLAGS. This action modifies the registry's <B>ConfigFlags</B> value to incorporate the CONFIGFLAG_REINSTALL flag. This causes the device to be reinstalled the next time the device is reenumerated. 
+</LI>
+
+	<LI>Plug in the device.
+<P>Plug and Play will reenumerate the device, find the new driver for it, and install that driver.
+</LI>
+</OL>
+
+<P></P>
+
+
+
+<H4><A NAME="ddk_pre_installing_driver_files_dg"></A>Pre-installing Driver Files</H4>
+
+<P>To preinstall driver files, your device installation application should follow these steps:
+
+<OL>
+	<LI>On the target system, create a directory for the driver files. If your device installation application installs an application, the driver files should be stored in a subdirectory of the application directory.</LI>
+
+	<LI>Copy all files in the driver package from the distribution media to the directory created in Step 1. The driver package includes the driver or drivers, the INF file, the catalog file, and so forth.</LI>
+
+	<LI>Call <B>SetupCopyOEMInf</B> (described in Platform SDK documentation), specifying the INF file in the directory created in Step 1. Specify SPOST_PATH for the <I>OEMSourceMediaType</I> parameter and specify NULL for the <I>OEMSourceMediaLocation</I> parameter. <B>SetupCopyOEMInf</B> copies the INF file for the driver package into the <I>%windir%\Inf</I> directory on the target system and directs SetupAPI to store the source location of the INF file in its list of preprocessed INF files. <B>SetupCopyOEMInf</B> also processes the catalog file, so the PnP Manager will install the driver the next time it recognizes a device listed in the INF file.</LI>
+</OL>
+
+<P>When the user plugs in the device, the PnP Manager recognizes the device, finds the INF file copied by <B>SetupCopyOEMInf</B>, and installs the drivers copied in Step 2. (For more information about copying INF files, see <A HREF="create-inf_8rtz.htm">Copying INFs</A>.)</P>
+
+
+
+<H4><A NAME="ddk_installing_device_specific_applications_dg"></A>Installing Device-Specific Applications</H4>
+
+<P>If your distribution medium includes device-specific applications, the medium should include two methods for installing those applications:
+
+<OL>
+	<LI>A device-specific co-installer that installs the device-specific applications when it receives the <A HREF="dif-codes_2msy.htm">DIF_NEWDEVICEWIZARD_FINISHINSTALL</A> function code.
+<P>If the user plugs in the device before inserting the distribution medium, and the device is not supported by in-box drivers, Setup calls the co-installer during the installation process. The co-installer should determine if the device-specific applications have already been installed and if they have not, it should install them. For more information, see <A HREF="coinst_5p0n.htm">Writing a Co-installer</A>. 
+</LI>
+
+	<LI>A device installation application that uses Windows Installer to install the device-specific applications.
+<P>If the user inserts the distribution medium before plugging in the device, the medium's Autorun-invoked device installation application should determine if the device-specific applications have already been installed and if they have not, it should install them using Windows Installer. For more information, see the Platform SDK documentation.
+</LI>
+</OL>
+
+
+
+<H4><A NAME="ddk_checking_for_in_progress_installations_dg"></A>Checking for In-Progress Installations</H4>
+
+<P>If your device installation application will be invoked by Autorun when the installation CD is inserted, there is another consideration. If your application is meant for use on Windows&nbsp;2000 and later (but not Windows 95/98/Me), it should determine if other installation activities are in progress before performing its installations. To make this determination, the application should call <A HREF="cfgmgrfn_7e5u.htm"><B>CMP_WaitNoPendingInstallEvents</B></A>, typically with a zero time-out value. If the return value from this function indicates other installation activities are pending (for instance, the Found New Hardware wizard might be active), the device installation application should exit. </P>
+
+<P>To make your device installation application compatible with platforms that don't support <B>CMP_WaitNoPendingInstallEvents</B>, the application should include the following code:</P>
+
+<PRE>BOOL
+IsDeviceInstallInProgress (VOID)
+{
+    HMODULE hModule;
+    CMP_WAITNOPENDINGINSTALLEVENTS_PROC pCMP_WaitNoPendingInstallEvents;
+
+    hModule = GetModuleHandle(TEXT("setupapi.dll"));
+    if(!hModule)
+    {
+        // Should never happen since we're linked to SetupAPI, but...
+        return FALSE;
+    }
+
+    pCMP_WaitNoPendingInstallEvents = 
+        (CMP_WAITNOPENDINGINSTALLEVENTS_PROC)GetProcAddress(hModule,
+                                             "CMP_WaitNoPendingInstallEvents");
+    if(!pCMP_WaitNoPendingInstallEvents)
+    {
+        // We're running on a release of the operating system that doesn't supply this function.
+        // Trust the operating system to suppress Autorun when appropriate.
+        return FALSE;
+    }
+    return (pCMP_WaitNoPendingInstallEvents(0) == WAIT_TIMEOUT);
+}
+
+int
+__cdecl
+_tmain(IN int argc, IN PTCHAR argv[])
+{
+    if(IsDeviceInstallInProgress()) {
+        //
+        // We don't want to start right now.  Instead, our 
+        // device co-installer will invoke this application 
+        // (if necessary) during finish-install processing.
+        //
+        return -1;
+    }
+    .
+    .
+}</PRE>
+
+<P>Use of this code is based on the premise that if a platform doesn't support <B>CMP_WaitNoPendingInstallEvents</B>, the platform does not invoke Autorun if installation activities are in progress. For a sample usage of this code, see the toaster installation package under the DDK's <I>src/general</I> subdirectory.</P>
+
+<H4>Guidelines for Writing Device Installation Applications</H4>
+
+<P>Device installation applications <I>must</I> do the following:
+
+<UL>
+	<LI>Support removal ("uninstall") of all device-specific applications that it installs. As part of that uninstall process, the device installation application should check to see if any associated devices are still present on the system and, if so, warn the user. </LI>
+
+	<LI>Follow the guidelines for <A HREF="install-over_84tj.htm">installing devices on 64-bit systems</A>.</LI>
+
+	<LI>List all installed applications in <B>Add/Remove Programs</B>, using Microsoft® Windows® Installer (MSI), so the user can uninstall them if desired.</LI>
+
+	<LI>Follow the guidelines for Microsoft® Windows® applications. See the <a href="http://go.microsoft.com/fwlink/?linkid=8714&clcid=0x409" target="_blank">Microsoft Developer Network (MSDN)</A> Web site for more information. (Submit device-specific applications to the appropriate Windows Logo program for software. See the MSDN Web site for more information.)</LI>
+</UL>
+
+<P>Device installation applications <I>must not</I> do the following:
+
+<UL>
+	<LI>Do not instruct the user to copy or overwrite any files, especially .<I>inf</I> and .<I>sys</I> files.</LI>
+
+	<LI>Do not delete the installed driver files from the system during the uninstall operation, even if the hardware has been removed. </LI>
+
+	<LI>Do not force any unnecessary system reboots. Reboots are generally not required for installing PnP devices or software applications. The <A HREF="di-rtns_01ki.htm"><B>UpdateDriverForPlugAndPlayDevices</B></A> function's <I>bRebootRequired</I> parameter indicates the need for a reboot. </LI>
+
+	<LI>Do not use "RunOnce" registry entries to spawn device installation applications, because this requires a system reboot.</LI>
+
+	<LI>Do not use a device or class co-installer, or a class installer, to spawn a device installation application, because the state of the system during device installation cannot be guaranteed to be safe for installing software applications. Specifically, if the device installation application runs on the server side, the system will hang. (However, device installation applications can be spawned from within finish-install wizard pages supplied by class installers or co-installers.)</LI>
+
+	<LI>Do not use the Startup Group to spawn device installation applications.</LI>
+
+	<LI>Do not use <I>win.ini</I> entries to spawn device installation applications.</LI>
+
+	<LI>Do not force the user to install any device-specific applications, unless the device will not operate without the application. Examples might include utilities for setting configurable keyboard keys or for setting a modem's country/region code, if an in-box application does not support such a capability.</LI>
+</UL>
+
+<P></P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Writing%20a%20Device%20Installation%20Application"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

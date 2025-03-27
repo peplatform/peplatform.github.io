@@ -1,0 +1,386 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using GDI 8-Bit-Per-Pixel CMY Mask Modes</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_using_gdi_8_bit_per_pixel_cmy_mask_modes_gg"></A>Using GDI 8-Bit-Per-Pixel CMY Mask Modes</H4>
+
+<P>In Microsoft® Windows®&nbsp;2000, the <A HREF="gdifncs_6k6f.htm"><B>HT_Get8BPPMaskPalette</B></A> function returned 8-bit-per-pixel monochrome or CMY palettes. In Windows XP and later, this function has been modified so that it also returns inverted-index CMY palettes when the <I>Use8BPPMaskPal</I> parameter is set to TRUE. The type of palette returned depends on the value stored in <I>pPaletteEntry</I>[0] when <B>HT_Get8BPPMaskPalette</B> is called. If <I>pPaletteEntry</I>[0] is set to 'RGB0', an inverted-index palette is returned. If <I>pPaletteEntry</I>[0] is set to 0, a normal CMY palette is returned.</P>
+
+<P>The reason for this change in behavior of <B>HT_Get8BPPMaskPalette</B> is that when Windows GDI uses ROPs, which are based on the indexes in a palette and not on the palette colors, it assumes that index 0 of the palette is always black and that the last index is always white. GDI does not check the palette entries. This change in <B>HT_Get8BPPMaskPalette</B> ensures correct ROP output, instead of a result that is inverted.</P>
+
+<P>To correct the GDI ROP behavior, GDI in Windows XP and later supports a special CMY palette composition format in which the CMY mask palette entries start at index 255 (white) and work down to index 0 (black), instead of starting at index 0 (white) and working up to index 255 (black). The CMY inverted modes also move all CMY mask color entries to the middle of a full 256-entry palette, with the beginning and end of the palette padded with equal numbers of black and white entries.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;In the discussion that follows, the term <I>CMY mode</I> refers to a mode supported in the previous implementation of <A HREF="gdifncs_6k6f.htm"><B>HT_Get8BPPMaskPalette</B></A>. The term <I>CMY_INVERTED mode</I> refers to modes supported only on Windows XP and later GDI, in which this function inverts bitmask indexes when <I>pPalleteEntry</I>[0] is set to 'RGB0'.</P>
+
+<P>The following steps are required for all Windows XP and later drivers that use Windows GDI halftone 8-bit-per-pixel CMY mask modes. If you are developing a driver for Windows&nbsp;2000, you should limit the driver's use to 8-bit-per-pixel monochrome palettes.
+
+<OL>
+	<LI>Set the <B>flHTFlags</B> member of the <A HREF="grstrcts_2k9z.htm">GDIINFO</A> structure to HT_FLAG_INVERT_8BPP_BITMASK_IDX so that GDI will render images in one of the CMY_INVERTED modes.</LI>
+
+	<LI>Set <I>pPaleteEntry</I>[0] as follows prior to a call to <B>HT_Get8BPPMaskPalette</B>:
+<PRE>pPaletteEntry[0].peRed   = 'R';
+pPaletteEntry[0].peGreen = 'G';
+pPaletteEntry[0].peBlue  = 'B';
+pPaletteEntry[0].peFlags = '0';</PRE>
+
+<P>To do this, a caller should use the <B>HT_SET_BITMASKPAL2RGB</B> macro (defined in <I>winddi.h</I>). Here is an example showing the use of this macro:
+
+<PRE>HT_SET_BITMASKPAL2RGB(pPaletteEntry)</PRE>
+
+<P>Here <I>pPaletteEntry</I> is the pointer to the PALETTEENTRY that was passed in the call to the <B>HT_Get8BPPMaskPalette</B> function. When this macro completes execution, <I>pPaletteEntry</I>[0] will contain the string 'RGB0'.
+</LI>
+
+	<LI>Check the <I>pPaletteEntry</I> parameter returned from the call to <A HREF="gdifncs_6k6f.htm"><B>HT_Get8BPPMaskPalette</B></A> using the <B>HT_IS_BITMASKPALRGB</B> macro, which is defined in <I>winddi.h</I>. Here is an example showing the use of this macro. 
+<PRE>InvCMYSupported = HT_IS_BITMASKPALRGB(pPaletteEntry)</PRE>
+
+<P>In this expression, <I>pPaletteEntry</I> is the pointer to the PALETTEENTRY that was passed to the <B>HT_GET8BPPMaskPalette</B> function. If this macro returns TRUE, then GDI <I>does</I> support the inverted CMY 8-bit-per-pixel bitmask modes. The caller must use a translation table to convert the palette indexes to ink levels. See <A HREF="gdioview_1q93.htm">Translating 8-Bit-Per-Pixel Halftone Indexes to Ink Levels</A> for an example of a function that generates this translation table.
+
+<P>If this macro returns FALSE, then the current version of GDI <I>does</I> <I>not</I> support the inverted CMY 8-bit-per-pixel bitmask modes. In that case, GDI supports only the older CMY non-inverted modes.
+</LI>
+</OL>
+
+<P>For GDI versions that support the 8-bit-per-pixel CMY_INVERTED modes, the meaning of the <I>CMYMask</I> parameter value passed to the <A HREF="gdifncs_6k6f.htm"><B>HT_GET8BPPMaskPalette</B></A> function has been changed. The following table summarizes the changes:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=16%>CMYMask<BR>
+Value</TH>
+<TH align=left width=40%>CMY Mode Indexes<BR>
+(pPaletteEntry[0] != 'RGB0')</TH>
+<TH align=left width=44%>CMY_INVERTED Mode Indexes<BR>
+(pPaletteEntry[0] == 'RGB0')</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=16%>0</TD>
+<TD width=40%>0: White<BR>
+1 to 254: Light Gray --&gt; Dark Gray<BR>
+255: Black</TD>
+<TD width=44%>0 - Black<BR>
+1 to 254: Dark Gray --&gt; Light Gray<BR>
+255: White</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=16%>1</TD>
+<TD width=40%>0: White<BR>
+1 to 123: 123 5x5x5 colors<BR>
+124 to 255: Black</TD>
+<TD width=44%>0 to 65: Black<BR>
+66 to 189: 123 5x5x5 colors plus one duplicate. The entry at index 127 is copied to index 128.<BR>
+190 to 255: White
+<P>The values at indexes 127 and 128 are duplicated to ensure that the XOR ROP works correctly.</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=16%>2</TD>
+<TD width=40%>0: White<BR>
+1 to 214: 214 6x6x6 colors<BR>
+215 to 255: Black</TD>
+<TD width=44%>0 to 20: Black<BR>
+21 to 234: 214 6x6x6 colors<BR>
+235 to 255: White</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=16%>3 to 255</TD>
+<TD width=40%>0: White<BR>
+1 to 254: CxMxY color bitmask<BR>
+255: Black
+<P>In the product above, C, M, and Y represent the number of levels of cyan, magenta, and yellow, respectively.</P>
+
+<P><B>Note</B>: For these modes, a valid combination must not have any of the cyan, magenta, or yellow ink levels equal to zero. For such a combination, <A HREF="gdifncs_6k6f.htm"><B>HT_Get8BPPMaskPalette</B></A> indicates an error condition by returning a zero-count palette in its <I>pPaletteEntry</I> parameter.</P>
+</TD>
+<TD width=44%>0: Black<BR>
+1 to 254: Centered CxMxY colors padded with black at the beginning and white at the end<BR>
+If CxMxY is an odd number, then the entry at index 128 is a duplicate of the one at index 127.<BR>
+255: White
+<P>In the product above, C, M, and Y represent the number of levels of cyan, magenta, and yellow, respectively.</P>
+
+<P><B>Note:</B> The (C x M x Y) indexes are centered in the 256-entry palette. That is, there are equal numbers of black entries padding the low end of the palette and white entries padding the high end.</P>
+
+<P><B>Note</B>: For these modes, a valid combination must not have any of the cyan, magenta, or yellow ink levels equal to zero. For such a combination, <A HREF="gdifncs_6k6f.htm"><B>HT_Get8BPPMaskPalette</B></A> indicates an error condition by returning a zero-count palette in its <I>pPaletteEntry</I> parameter.</P>
+</TD>
+</TR>
+</TABLE><BR>
+
+<UL>
+	<LI>For a value of <I>CMYMask</I> of 0 (Gray scale), the caller can process either the CMY mode or the CMY_INVERTED mode. Note, however, that GDI ROPs are correctly processed only in the CMY_INVERTED mode.
+<P>CMY Mode: Indexes 0 to 255 represent a gray scale from white to black.
+
+<P>CMY_INVERTED Mode: Indexes 0 to 255 represent a gray scale ranging from black to white.
+</LI>
+
+	<LI>For any valid value of <I>CMYMask</I> from 1 to 255, the caller should use the example function shown in <A HREF="gdioview_1q93.htm">Translating 8-Bit-Per-Pixel Halftone Indexes to Ink Levels</A> to translate indexes to ink levels.</LI>
+
+	<LI>For any valid value of <I>CMYMask</I> from 1 to 255, the CMY_INVERTED modes pad the palettes with black entries at the beginning of the array, and an equal number of white entries at the end of the array. The middle of the array is filled with the other colors. This ensures that all 256 of the color palette entries are symmetrically distributed so that GDI ROPs, which are index-based, not color-based, work correctly. The colors are symmetrically distributed when the color at index <I>N</I> is the inverse of the color at index (256 - <I>N</I>). When a color and its inverse are printed together, the result is black. In other words, for a given color and its inverse, the two cyan ink levels add to the maximum cyan ink level, as do the two magenta ink levels, and the two yellow ink levels. The resulting ink levels correspond to black.
+<P>For example; a CMY palette with three levels each of cyan, magenta, and yellow has a total of 27 (3 x 3 x 3) indexes for colors, including black and white. Because 27 is an odd number, and because GDI requires that a CMY_INVERTED mode palette be padded with equal numbers of black and white entries, GDI duplicates the entry at the middle index (index 13 of the 27 colors). With the entries at indexes 13 and 14 now the same, palette will now have 28 colors. To fill the palette, GDI places 114 black entries at the beginning of the palette (indexes 0 to 113), places the 28 colors at indexes 114 (black) through 141 (white), and fills the remaining 114 entries with white (indexes 142 through 255). This makes a total of 256 entries (114 + 28 + 114 = 256 entries). This layout of the indexes ensures that all ROPs will be correctly rendered. The example function in <A HREF="gdioview_1q93.htm">Translating 8-Bit-Per-Pixel Halftone Indexes to Ink Levels</A> shows how to generate the ink levels as well as a Windows 2000 CMY332 index translation table.
+
+<P>The following table lists the cyan, magenta, and yellow levels for the 3 x 3 x 3 palette discussed in the previous paragraph. The 28 colors (27 original palette colors plus one duplicate) are embedded in the middle of the 256-color palette, with equal amounts of black padding at the beginning and white padding at the end. The palette is symmetric, meaning that if the ink levels at index <I>N</I> are added to those at index (256 - <I>N</I>), the result will be black (cyan, magenta, and yellow levels = 2).
+</LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=22%>Palette Index
+<P>(3x3x3 Index)</P>
+</TH>
+<TH align=left width=26%>Cyan Level
+<P>0 to 2</P>
+</TH>
+<TH align=left width=26%>Magenta Level
+<P>0 to 2</P>
+</TH>
+<TH align=left width=26%>Yellow Level
+<P>0 to 2</P>
+</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>0 to 113<BR>
+Black</TD>
+<TD width=26%>2</TD>
+<TD width=26%>2</TD>
+<TD width=26%>2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>114 (0)
+<P>Black</P>
+</TD>
+<TD width=26%>2</TD>
+<TD width=26%>2</TD>
+<TD width=26%>2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>115 (1)</TD>
+<TD width=26%>2</TD>
+<TD width=26%>2</TD>
+<TD width=26%>1</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>116 (2)</TD>
+<TD width=26%>2</TD>
+<TD width=26%>2</TD>
+<TD width=26%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>117 (3)</TD>
+<TD width=26%>2</TD>
+<TD width=26%>1</TD>
+<TD width=26%>2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>118 (4)</TD>
+<TD width=26%>2</TD>
+<TD width=26%>1</TD>
+<TD width=26%>1</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>119 (5)</TD>
+<TD width=26%>2</TD>
+<TD width=26%>1</TD>
+<TD width=26%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>120 (6)</TD>
+<TD width=26%>2</TD>
+<TD width=26%>0</TD>
+<TD width=26%>2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>121 (7)</TD>
+<TD width=26%>2</TD>
+<TD width=26%>0</TD>
+<TD width=26%>1</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>122 (8)</TD>
+<TD width=26%>2</TD>
+<TD width=26%>0</TD>
+<TD width=26%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>123 (9)</TD>
+<TD width=26%>1</TD>
+<TD width=26%>2</TD>
+<TD width=26%>2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>124 (10)</TD>
+<TD width=26%>1</TD>
+<TD width=26%>2</TD>
+<TD width=26%>1</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>125 (11)</TD>
+<TD width=26%>1</TD>
+<TD width=26%>2</TD>
+<TD width=26%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>126 (12)</TD>
+<TD width=26%>1</TD>
+<TD width=26%>1</TD>
+<TD width=26%>2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>127 (13)
+<P>Copied to index 128</P>
+</TD>
+<TD width=26%>1</TD>
+<TD width=26%>1</TD>
+<TD width=26%>1</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>128 (14)
+<P>Duplicate of entry at index 127</P>
+</TD>
+<TD width=26%>1</TD>
+<TD width=26%>1</TD>
+<TD width=26%>1</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>129 (15)</TD>
+<TD width=26%>1</TD>
+<TD width=26%>1</TD>
+<TD width=26%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>130 (16)</TD>
+<TD width=26%>1</TD>
+<TD width=26%>0</TD>
+<TD width=26%>2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>131 (17)</TD>
+<TD width=26%>1</TD>
+<TD width=26%>0</TD>
+<TD width=26%>1</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>132 (18)</TD>
+<TD width=26%>1</TD>
+<TD width=26%>0</TD>
+<TD width=26%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>133 (19)</TD>
+<TD width=26%>0</TD>
+<TD width=26%>2</TD>
+<TD width=26%>2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>134 (20)</TD>
+<TD width=26%>0</TD>
+<TD width=26%>2</TD>
+<TD width=26%>1</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>135 (21)</TD>
+<TD width=26%>0</TD>
+<TD width=26%>2</TD>
+<TD width=26%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>136 (22)</TD>
+<TD width=26%>0</TD>
+<TD width=26%>1</TD>
+<TD width=26%>2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>137 (23)</TD>
+<TD width=26%>0</TD>
+<TD width=26%>1</TD>
+<TD width=26%>1</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>138 (24)</TD>
+<TD width=26%>0</TD>
+<TD width=26%>1</TD>
+<TD width=26%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>139 (25)</TD>
+<TD width=26%>0</TD>
+<TD width=26%>0</TD>
+<TD width=26%>2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>140 (26)</TD>
+<TD width=26%>0</TD>
+<TD width=26%>0</TD>
+<TD width=26%>1</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>141 (27)
+<P>White</P>
+</TD>
+<TD width=26%>0</TD>
+<TD width=26%>0</TD>
+<TD width=26%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>142 to 255
+<P>White</P>
+</TD>
+<TD width=26%>0</TD>
+<TD width=26%>0</TD>
+<TD width=26%>0</TD>
+</TR>
+</TABLE><BR>
+
+<UL>
+	<LI>If the requested palette is a CMY mode palette (not a CMY_INVERTED mode palette), then for values of <I>CMYMask</I> from 3 to 255, the rendered 8-bit-per-pixel byte index bits have the following meaning. In this case, the bit patterns represent ink levels that can be used directly without translation. This also applies when a CMY_INVERTED mode byte index is mapped to CMY mode using a translation table's <B>CMY332Idx</B> member. See <A HREF="gdioview_1q93.htm">Translating 8-Bit-Per-Pixel Halftone Indexes to Ink Levels</A> for more information.
+<PRE>  Bit     7 6 5 4 3 2 1 0
+          |   | |   | | |
+          +---+ +---+ +-+
+            |     |    |
+            |     |    +-- Yellow 0-3 (Max. 4 levels)
+            |     |
+            |     +-- Magenta 0-7 (Max. 8 levels)
+            |
+            +-- Cyan 0-7 (Max. 8 levels)</PRE>
+</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20GDI%208-Bit-Per-Pixel%20CMY%20Mask%20Modes"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

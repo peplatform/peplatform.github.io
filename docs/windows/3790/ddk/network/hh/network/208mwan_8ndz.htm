@@ -1,0 +1,70 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>CoNDIS TAPI Initialization</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="CoNDIS TAPI Initialization">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_condis_tapi_initialization_ng"></A>CoNDIS TAPI Initialization</H2>
+
+<P>This section discusses how a CoNDIS WAN miniport driver enumerates its TAPI capabilities for applications. These TAPI capabilities consist of: 
+
+<UL>
+	<LI>Number of line devices the miniport driver supports—Line devices include, for example, a modem, a fax board, and an ISDN card. </LI>
+
+	<LI>Information for specific lines—Line information includes, for example, a line identifier and the number of channel addresses (telephone numbers) the line supports for simultaneous transmission of voice and data.</LI>
+
+	<LI>Information for specific channel addresses on lines of devices—Address information includes, for example, the identity of a caller (Caller ID) and the number of active calls possible.</LI>
+</UL>
+
+<P>To retrieve information about underlying hardware, NDPROXY issues requests for line and channel-address capabilities. That is, the NDPROXY driver queries the TAPI capabilities of a CoNDIS WAN miniport driver. The NDPROXY driver calls the <A HREF="103ndisx_8xde.htm"><B>NdisCoRequest</B></A> function to query the TAPI capabilities of the miniport driver. In this call, NDPROXY passes an NDIS_REQUEST structure. NDPROXY specifies the following in NDIS_REQUEST:
+
+<UL>
+	<LI><B>NdisRequestQueryInformation</B> value in the <B>RequestType</B> member </LI>
+
+	<LI>Object identifier (OID) that specifies the TAPI capability to retrieve from the miniport driver in the <B>Oid</B> member </LI>
+
+	<LI>Buffer to hold the TAPI-capability information that is returned in the <B>InformationBuffer</B> member </LI>
+</UL>
+
+<P>All queries sent to a CoNDIS WAN miniport driver by the NDPROXY driver can be completed either synchronously or asynchronously. If a CoNDIS WAN miniport driver determines that it cannot complete the query immediately, then it can simply return NDIS_STATUS_PENDING and call the <A HREF="103ndisx_2qr6.htm"><B>NdisMCmRequestComplete</B></A> function from within its <I>ProtocolCoRequest</I> function when it has completed the query. </P>
+
+<P>After a CoNDIS WAN miniport driver notifies NDPROXY about the registration of a new address family as specified in <A HREF="208mwan_30tj.htm">CoNDIS TAPI Registration</A>, NDPROXY queries the following OIDs to determine the TAPI-specific capabilities of the CoNDIS WAN miniport driver and the miniport driver's NIC. 
+
+<UL>
+	<LI>NDPROXY queries the miniport driver with <A HREF="211cooid_6ub6.htm">OID_CO_TAPI_CM_CAPS</A> to determine the number of lines supported by the miniport driver's device (the device for which it provides TAPI services). This OID also requests the miniport driver to indicate whether these lines have dissimilar line capabilities.</LI>
+
+	<LI>NDPROXY next queries the miniport driver with <A HREF="211cooid_1vn6.htm">OID_CO_TAPI_LINE_CAPS</A> to determine the telephony capabilities for the specified line. This OID also requests the miniport driver to indicate whether addresses on this line have dissimilar address capabilities.
+<UL>
+	<LI>If the previous query of OID_CO_TAPI_CM_CAPS indicated that the miniport driver's device supports only one line, or if the device supports multiple lines that have the same line capabilities, NDPROXY only has to query OID_CO_TAPI_LINE_CAPS once to obtain the line capabilities of the device. In this case, the line capabilities returned by the miniport driver apply to all lines on the device.</LI>
+
+	<LI>If the device supports multiple lines with dissimilar line capabilities, NDPROXY must query OID_CO_TAPI_LINE_CAPS once for each line to obtain the line capabilities of each line.</LI>
+</UL>
+</LI>
+
+	<LI>Finally, NDPROXY queries the miniport driver with <A HREF="211cooid_6ooi.htm">OID_CO_TAPI_ADDRESS_CAPS</A> to determine the telephony capabilities for a specified address on a specified line.
+<UL>
+	<LI>If the previous query of OID_CO_TAPI_LINE_CAPS indicated that the line supports only one address or that all addresses on the line have the same address capabilities, NDPROXY queries OID_CO_TAPI_ADDRESS_CAPS only once to determine the capabilities of all the addresses on the line.</LI>
+
+	<LI>If a line supports multiple addresses that have dissimilar capabilities, NDPROXY queries OID_CO_TAPI_ADDRESS_CAPS once for each address on the line.</LI>
+</UL>
+</LI>
+</UL>
+
+<P>The NDPROXY driver uses the information obtained with the TAPI enumeration OIDs to do the following:
+
+<UL>
+	<LI>Create TAPI parameters for subsequent TAPI calls</LI>
+
+	<LI>Determine whether to accept or reject subsequent incoming TAPI calls</LI>
+
+	<LI>Register one or more TAPI service access points (SAPs) on which to receive subsequent incoming TAPI calls.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: CoNDIS%20TAPI%20Initialization"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,71 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Acquiring USBCAMD2 Services Code Example</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Acquiring USBCAMD2 Services Code Example">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_query_interface_dr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_acquiring_usbcamd2_services_code_example_ksg"></A>Acquiring USBCAMD2 Services Code Example</H2>
+
+<P>To obtain the new USBCAMD version 2.0 services, the camera minidriver must send an <A HREF="JavaScript:hhobj_1.Click()">IRP_MN_QUERY_INTERFACE</A>. This IRP is processed by the USBCAMD minidriver library, which returns a direct-call interface to the camera minidriver.</P>
+
+<P>The camera minidriver should not send IRP_MN_QUERY_INTERFACE to USBCAMD until after the camera minidriver has received an <A HREF="strclass-srbs_6q7n.htm">SRB_INITIALIZATION_COMPLETE</A> notification.</P>
+
+<P>The following code demonstrates how a camera minidriver sends the IRP_MN_QUERY_INTERFACE request.</P>
+
+<PRE>    KeInitializeEvent(&amp;Event, NotificationEvent, FALSE);
+    Irp = IoBuildSynchronousFsdRequest(
+        IRP_MJ_PNP,
+        pDeviceObject,
+        NULL,
+        0,
+        NULL,
+        &amp;Event,
+        &amp;IoStatusBlock);
+    
+    if (Irp) {
+        Irp-&gt;RequestorMode = KernelMode;
+        IrpStackNext = IoGetNextIrpStackLocation(Irp);
+        //
+        // Create an interface query out of the Irp.
+        //
+        IrpStackNext-&gt;MinorFunction = IRP_MN_QUERY_INTERFACE;
+        IrpStackNext-&gt;Parameters.QueryInterface.InterfaceType = (GUID*)&amp;GUID_USBCAMD_INTERFACE;
+        IrpStackNext-&gt;Parameters.QueryInterface.Size = sizeof(*pUsbcamdInterface);
+        IrpStackNext-&gt;Parameters.QueryInterface.Version = USBCAMD_VERSION_200;
+        IrpStackNext-&gt;Parameters.QueryInterface.Interface = (PINTERFACE)pUsbcamdInterface;
+        IrpStackNext-&gt;Parameters.QueryInterface.InterfaceSpecificData = NULL;
+        Status = IoCallDriver(pDeviceObject, Irp);
+        if (Status == STATUS_PENDING) {
+            //
+            // This waits using KernelMode, so that the stack, and therefore the
+            // event on that stack, is not paged out.
+            //
+            KeWaitForSingleObject(&amp;Event, Executive, KernelMode, FALSE, NULL);
+            Status = IoStatusBlock.Status;
+        }
+ 
+    } else {
+        Status = STATUS_INSUFFICIENT_RESOURCES;
+    }</PRE>
+
+<P>IRP_MN_QUERY_INTERFACE returns an interface of the type <A HREF="usbcmdpr_7u0j.htm">USBCAMD_INTERFACE</A>, which is essentially a table of function pointers.</P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Acquiring%20USBCAMD2%20Services%20Code%20Example"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

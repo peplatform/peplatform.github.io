@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>EnumDisplayMonitors</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="EnumDisplayMonitors">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_multimon_enumdisplaymonitors"></A>EnumDisplayMonitors</H1>
+
+<P>The <B>EnumDisplayMonitors</B> function has been added so applications can revise their code to take advantage of the different color depths on different displays. </P>
+
+<P>This function lets the application paint into a DC that spans more than one display. The function calls back for each monitor that intersects the specified window and gives an HDC that is appropriate to that monitor. The capabilities and color depth information from that HDC will match those of the monitor. The application can then paint the piece of its window on that monitor into that DC.</P>
+
+<P>For example, this is how Microsoft PowerPoint uses this function. Assume that half of  a slide show window is on a 256-color monitor and the other half is on a 24-bit true color monitor. The function calls PowerPoint once for the 256-color monitor piece. PowerPoint sees that it only has 256 colors and dithers the wash for the background. The function then calls PowerPoint a second time for the piece on the 24-bit display. PowerPoint can take advantage of all of the colors to draw. </P>
+
+<P>Again, no application must do this; applications can continue to paint assuming the whole screen is the color depth of the primary monitor. The display will look fine. However, a graphical photo editing application, for example, can paint optimally for its particular current display.</P>
+
+<PRE class=syntax><B>BOOL
+  WINAPI EnumDisplayMonitors(
+</B>    <B>HDC</B> <I>hdc</I><B>,</B> 
+    <B>LPCRECT</B> <I>lprcClip</I><B>,</B>
+    <B>MONITORENUMPROC</B> <I>lpfnEnum</I><B>,</B> 
+    <B>LPARAM</B> <I>dwData</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>hdc </I></DT>
+
+<DD>A handle to a DC with a particular visible region. The <I>hdcMonitor</I> passed to <A HREF="multimon_2cdf.htm"><B>MonitorEnumProc</B></A> has the capabilities of that monitor, with its visible region clipped to the monitor and <I>hdc.</I> If <I>hdc</I> is NULL, the <I>hdcMonitor</I> passed to <B>MonitorEnumProc</B> is NULL.</DD>
+
+<DT><I>lprcClip</I> </DT>
+
+<DD>Points to a rectangle to which the area may be clipped. If <I>hdc</I> is non-NULL, the coordinates have the origin of <I>hdc.</I> If <I>hdc</I> is NULL, the coordinates are virtual screen coordinates. If <I>lprcClip</I> is NULL, no clipping is performed.</DD>
+
+<DT><I>lpfnEnum</I> </DT>
+
+<DD>Pointer to the enumeration function.</DD>
+
+<DT><I>dwData</I> </DT>
+
+<DD>Application-defined data that is passed through to the enumeration function.
+</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>Following are some examples of how to use <B>EnumDisplayMonitors</B>:
+
+<UL>
+	<LI>To paint in response to a WM_PAINT message using the capabilities of each monitor, an application would write the following in its window procedure:
+<PRE>case WM_PAINT:
+    hdc = BeginPaint(hwnd, &amp;ps);
+    EnumDisplayMonitors(hdc, NULL, MyPaintEnumProc, 0);
+    EndPaint(hwnd, &amp;ps);</PRE>
+</LI>
+
+	<LI>To paint the top half of a window using the capabilities of each monitor, an application would write the following:
+<PRE>GetClientRect(hwnd, &amp;rc);
+rc.bottom = (rc.bottom - rc.top) / 2;
+hdc = GetDC(hwnd);
+EnumDisplayMonitors(hdc, &amp;rc, MyPaintEnumProc, 0);
+ReleaseDC(hwnd, hdc);</PRE>
+</LI>
+
+	<LI>To paint the entire screen using the capabilities of each monitor, the application would call the following:
+<PRE>hdc = GetDC(NULL);
+EnumDisplayMonitors(hdc, NULL, MyPaintScreenEnumProc, 0);
+ReleaseDC(NULL, hdc);</PRE>
+</LI>
+
+	<LI>To get information on all the displays on the desktop, the application would call the following:
+<PRE>EnumDisplayMonitors(NULL, NULL, MyInfoEnumProc, 0);
+ </PRE>
+</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: EnumDisplayMonitors"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

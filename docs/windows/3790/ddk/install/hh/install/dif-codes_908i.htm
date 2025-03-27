@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DIF_SELECTBESTCOMPATDRV</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DIF_SELECTBESTCOMPATDRV">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_dif_selectbestcompatdrv_dr"></A>DIF_SELECTBESTCOMPATDRV</H1>
+
+<P>A DIF_SELECTBESTCOMPATDRV request allows an installer to select the best driver from the device information element's compatible driver list.</P>
+
+<H4>When Sent</H4>
+
+<P>When the OS is preparing to install a new PnP device or is performing a change-driver operation on a PnP device. </P>
+
+<P>This DIF request is typically used during a PnP configuration. If a device is being manually installed, Setup sends a <A HREF="dif-codes_822a.htm">DIF_SELECTDEVICE</A> request.</P>
+
+<H4>Who Handles</H4>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=38%>Class Co-installer</TD>
+<TD width=62%>Can handle</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>Device Co-installer</TD>
+<TD width=62%>Does not handle</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>Class Installer</TD>
+<TD width=62%>Can handle</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Installer Input</H4>
+
+<DL>
+<DT><I>DeviceInfoSet</I></DT>
+
+<DD>Supplies a handle to the <A HREF="setup-cls_2h9j.htm">device information set</A> containing the device. </DD>
+
+<DT><I>DeviceInfoData</I></DT>
+
+<DD>Supplies a pointer to an <A HREF="di-struct_7nqq.htm">SP_DEVINFO_DATA</A> structure that identifies the device in the device information set.</DD>
+
+<DT>Device Installation Parameters </DT>
+
+<DD>There are device installation parameters (<A HREF="di-struct_7j76.htm">SP_DEVINSTALL_PARAMS</A>) associated with the <I>DeviceInfoData</I>. </DD>
+
+<DT>Class Installation Parameters</DT>
+
+<DD>None
+</DD>
+</DL>
+
+<H4>Installer Output</H4>
+
+<DL>
+<DT>Device Installation Parameters</DT>
+
+<DD>An installer can modify the device installation parameters, but they typically do not when handling this DIF request.</DD>
+
+<DT><I>DeviceInfoData</I></DT>
+
+<DD>As a side effect, an installer can modify the driver list associated with the <I>DeviceInfoData</I>, in particular, the SP_DRVINSTALL_PARAMS.
+</DD>
+</DL>
+
+<H4>Installer Return Value</H4>
+
+<P>A co-installer can return NO_ERROR, ERROR_DI_POSTPROCESSING_REQUIRED, or a Win32 error code. </P>
+
+<P>A class installer typically returns ERROR_DI_DO_DEFAULT or a Win32 error code. In some cases, a class installer returns NO_ERROR. </P>
+
+<H4>Default DIF Code Handler</H4>
+
+<P><A HREF="di-rtns_2gvm.htm"><B>SetupDiSelectBestCompatDrv</B></A> </P>
+
+<H4>Installer Operation</H4>
+
+<P>An installer handles this DIF request to participate in selecting a driver for a PnP device. An installer typically responds to this DIF request in one of the following ways:
+
+<UL>
+	<LI>Do nothing.
+<P>If an installer has no special selection requirements, it does nothing in response to this DIF request. A class installer returns ERROR_DI_DO_DEFAULT and a co-installer returns NO_ERROR.
+</LI>
+
+	<LI>Modify the parameters of one or more drivers in the driver list.
+<P>For example, an installer might remove a driver from consideration for the device by marking it DNF_BAD_DRIVER. An installer modifies driver parameters with a procedure like the following:
+
+<OL>
+	<LI>Get the information about the first driver in the list by calling <A HREF="di-rtns_36r6.htm"><B>SetupDiEnumDriverInfo</B></A> and <A HREF="di-rtns_2goi.htm"><B>SetupDiGetDriverInstallParams</B></A>. If appropriate, modify the driver parameters and apply the change by calling <A HREF="di-rtns_1nxu.htm"><B>SetupDiSetDriverInstallParams</B></A>. 
+<P>If a driver is a worst-case choice, set the driver's rank to 0xFFFF or higher in the driver install parameters. See <A HREF="install-over_7dnr.htm">How Setup Selects Drivers</A> for more information.
+</LI>
+
+	<LI>Repeat the previous step until you have processed all the drivers in the list. Be sure to increment the <I>MemberIndex</I> parameter to <A HREF="di-rtns_36r6.htm"><B>SetupDiEnumDriverInfo</B></A> as described in the reference page for that function.</LI>
+</OL>
+
+<P>After a class installer modifies the driver list, it returns ERROR_DI_DO_DEFAULT. If a co-installer modifies the driver list, it should do so in preprocessing and return NO_ERROR.
+</LI>
+
+	<LI>Select the best driver for the device.
+<P>This action is less common, but an installer might choose the best driver for the device. Such an installer would examine the data for each driver, choose a driver, and call <A HREF="di-rtns_5d2q.htm"><B>SetupDiSetSelectedDriver</B></A> to set the driver. After an installer sets the selected driver, it returns NO_ERROR. 
+
+<P>If a co-installer selects a driver, it should do so in postprocessing.
+</LI>
+</UL>
+
+<P>For more information about DIF codes, see <A HREF="coinst_5oiv.htm">Handling DIF Codes</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="di-rtns_2gvm.htm"><B>SetupDiSelectBestCompatDrv</B></A>, <A HREF="di-rtns_5d2q.htm"><B>SetupDiSetSelectedDriver</B></A>, <A HREF="di-struct_7nqq.htm">SP_DEVINFO_DATA</A>, <A HREF="di-struct_7j76.htm">SP_DEVINSTALL_PARAMS</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DIF_SELECTBESTCOMPATDRV"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

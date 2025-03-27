@@ -1,0 +1,59 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Requesting and Responding to SMB Alarm Notifications</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Requesting and Responding to SMB Alarm Notifications">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ioallocateirp_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iogetnextirpstacklocation_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_requesting_and_responding_to_smb_alarm_notifications_kg"></A>Requesting and Responding to SMB Alarm Notifications</H1>
+
+<P>The SMB host controller can notify a client driver when an SMB device reports an alarm. To register for alarm notification, an SMB client sends an IRP_MJ_INTERNAL_DEVICE_CONTROL IRP to the host controller.  </P>
+
+<P>The client driver calls <A HREF="JavaScript:hhobj_1.Click()"><B>IoAllocateIrp</B></A> to allocate the IRP, calls <A HREF="JavaScript:hhobj_2.Click()"><B>IoGetNextIrpStackLocation</B></A> to set the pointer to the IRP stack, then sets values in the IRP as follows:
+
+<UL>
+	<LI><B>Irp </B><B>–</B><B>&gt; UserBuffer</B> to a location to receive the returned notification handle (PVOID)</LI>
+
+	<LI><B>IrpStack </B><B>–</B><B>&gt; MajorFunction</B> to IRP_MJ_INTERNAL_DEVICE_CONTROL</LI>
+
+	<LI><B>IrpStack </B><B>–</B><B>&gt; Parameters.DeviceIoControl.IoControlCode</B> to SMB_REGISTER_ALARM_NOTIFY</LI>
+
+	<LI><B>IrpStack </B><B>–</B><B>&gt; Parameters.DeviceIoControl.Type3InputBuffer</B> to the address of an SMB_REGISTER_ALARM structure containing information about the requested alarm</LI>
+
+	<LI><B>IrpStack </B><B>–</B><B>&gt; Parameters.DeviceIoControl.InputBufferLength</B> to the size of the SMB_REGISTER_ALARM structure</LI>
+
+	<LI><B>IrpStack </B><B>–</B><B>&gt; Parameters.DeviceIoControl.OutputBufferLength</B> to the size of the location allocated for the handle</LI>
+</UL>
+
+<P>The <A HREF="smb-struct_2ipe.htm">SMB_REGISTER_ALARM</A> structure specifies the range of addresses at which the driver requests notification, a pointer to a notification function to be called when the alarm occurs, and a pointer to the context to be passed to the notification function. Typically the context is the device extension in the client driver's FDO.</P>
+
+<P>If the input or output buffer is too small, or if the SMB class driver cannot allocate sufficient space for its alarm record, then the IRP fails. Otherwise, the SMB class driver registers the alarm notification and returns a registration handle at the specified location. </P>
+
+<P>To remove the notification, the client driver sends an IRP_MJ_INTERNAL_DEVICE_CONTROL request with <B>IoControlCode</B> SMB_DEREGISTER_ALARM_NOTIFY, and passes a pointer to the handle in <B>Type3InputBuffer</B>. In response, the class driver deletes its alarm notification. </P>
+
+<P>The class driver acquires a spin lock on the SMB device when it registers or unregisters the notification. In either case, it releases this lock before completing the IRP.</P>
+
+<P>In its notification function, the client driver handles the alarm as appropriate for its device. The SMB class driver passes the bus address at which the alarm occurred as a parameter to the notification function, along with two bytes of alarm data. The significance of the data is device-dependent.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Requesting%20and%20Responding%20to%20SMB%20Alarm%20Notifications"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

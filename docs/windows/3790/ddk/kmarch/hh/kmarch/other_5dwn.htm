@@ -1,0 +1,71 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Technique 2: Using IoIs32bitProcess</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Technique 2: Using IoIs32bitProcess">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_technique_2_using_iois32bitprocess_kg"></A>Technique 2: Using IoIs32bitProcess</H3>
+
+<P>In cases where it is not practical to define separate IOCTL or FSCTL control codes for I/O requests from 32-bit and 64-bit applications, it is left to the driver to determine which type of application sent the I/O request. The 64-bit version of Microsoft® Windows® introduces a new kernel-mode routine, <A HREF="k104_8zea.htm"><B>IoIs32bitProcess</B></A>, that detects whether the current I/O request originated in a 32-bit user-mode process. Its prototype is:</P>
+
+<PRE>BOOLEAN
+  IoIs32bitProcess(
+  IN PIRP <I>Irp</I> OPTIONAL   //NULL for fast I/O call, IRP otherwise
+  );</PRE>
+
+<P><B>IoIs32bitProcess</B> returns TRUE if the originator of the current I/O request is a 32-bit user-mode application. </P>
+
+<P>The following code sample shows how to use <B>IoIs32bitProcess</B>: </P>
+
+<PRE>typedef struct _IOCTL_PARAMETERS {
+    PVOID   Addr;
+    SIZE_T  Length;
+    HANDLE  Handle;
+} IOCTL_PARAMETERS, *PIOCTL_PARAMETERS;
+
+typedef struct _IOCTL_PARAMETERS_32 {
+    VOID*POINTER_32  Addr;
+    INT32            Length;
+    VOID*POINTER_32  Handle;
+} IOCTL_PARAMETERS_32, *PIOCTL_PARAMETERS_32;
+.
+.
+.
+if (IoIs32bitProcess(Irp)) { /* 32-bit process IOCTL */
+  params32 = (PIOCTL_PARAMETERS_32)
+             (Irp-&gt;AssociatedIrp.SystemBuffer);
+  if (irpSp-&gt;Parameters.DeviceIoControl.InputBufferLength &lt;
+      sizeof(IOCTL_PARAMETERS_32)) {
+    status = STATUS_INVALID_PARAMETER;
+  } else {
+    LocalParam.Addr = params32-&gt;Addr;
+    LocalParam.Handle = params32-&gt;Handle;
+    LocalParam.Length = params32-&gt;Length;
+    /* Handle the IOCTL here */
+    status = STATUS_SUCCESS;
+    Irp-&gt;IoStatus.Information = 0;
+  }
+} else { /* 64-bit process IOCTL */
+  params = (PIOCTL_PARAMETERS)
+           (Irp-&gt;AssociatedIrp.SystemBuffer);
+  if (irpSp-&gt;Parameters.DeviceIoControl.InputBufferLength &lt;
+      sizeof(IOCTL_PARAMETERS)) {
+    status = STATUS_INVALID_PARAMETER;
+  } else {
+    RtlCopyMemory(&amp;LocalParam, 
+                  params, 
+                  sizeof(IOCTL_PARAMETERS));
+     /* Handle the ioctl here */
+     status = STATUS_SUCCESS;
+  }
+  Irp-&gt;IoStatus.Information = 0;
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Technique%202:%20Using%20IoIs32bitProcess"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

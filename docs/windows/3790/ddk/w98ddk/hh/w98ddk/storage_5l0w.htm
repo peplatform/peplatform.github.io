@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Port Registration</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_pss_4060"></A>Port Registration</H2>
+
+<P>The IOS carries out port registration for port drivers. Such drivers usually have direct access to the device hardware and typically register at the lowest initialization layers. </P>
+
+<P>The IOS first sends a packet for an AEP_INITIALIZE function to the driver's asynchronous event routine. The packet consists of an <B>AEP_bi_init</B> structure in which the IOS has set these members: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=27%><B>AEP_func</B> </TD>
+<TD width=73%>AEP_INITIALIZE </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%><B>AEP_lgn</B> </TD>
+<TD width=73%>Current initialization layer </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%><B>AEP_bi_i_hdevnode</B> </TD>
+<TD width=73%>Address of device node for the driver </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%><B>AEP_bi_i_dcb</B> </TD>
+<TD width=73%>Inquiry <B>DCB</B> structure </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%><B>AEP_bi_flags</B> </TD>
+<TD width=73%>0 </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%><B>AEP_bi_reference_data</B> </TD>
+<TD width=73%>Reference data from the driver's <B>DRP</B> structure </TD>
+</TR>
+</TABLE><BR>
+
+<P>All other members are undefined. </P>
+
+<P>When the driver receives this function, the driver creates one or more <B>DDB</B> structures using the ISP_CREATE_DDB function (sent to the IOS service routine whose address is given by the <B>ILB_service_rtn</B> member). The ISP_CREATE_DDB function creates a <B>DDB</B> structure of a given size and adds it to the chain of <B>DDB</B> structures associated with the <B>DVT</B> structure for the driver. After the driver has created the <B>DDB</B> structures, it indicates success by setting the <B>AEP_result</B> member to AEP_SUCCESS and returning to the IOS. </P>
+
+<P>If a port driver successfully completes initialization, the IOS sends a AEP_DEVICE_INQUIRY function to the driver. The IOS sets the <B>AEP_i_d_dcb</B> member to the address of a <B>DCB</B> structure called the inquiry DCB. This structure includes a zero-based unit number identifying the unit that the IOS is querying. If the given unit exists, the driver sets the <B>DCB_product_id</B>, <B>DCB_vendor_id</B> and <B>DCB_rev_level</B> members to appropriate values and returns AEP_SUCCESS. The IOS then sends an AEP_CONFIG_DCB function to all the layer drivers. </P>
+
+<P>If the given unit does not exist, the driver returns AEP_NO_INQ_DATA to direct the IOS to inquire about the next unit. If the given unit number is greater than the maximum number of units supported by the device, the driver returns AEP_NO_MORE_DEVICES to stop the inquiry. The IOS continues to send AEP_DEVICE_INQUIRY functions until the driver returns AEP_NO_MORE_DEVICES or the IOS has sent 128 (units zero through 127) functions for the given <B>DDB</B> structure. </P>
+
+<P>The IOS automatically repeats the entire initialization sequence, starting with the AEP_INITIALIZE function, for the port driver if the port driver controls more than one controller. Although not typically needed, a port driver can also direct the IOS to repeat the initialization sequence by setting the <B>AEP_bi_flags</B> member to AEP_BI_FL_SEND_CONFIG_AGAIN. </P>
+
+<P>If a SCSI port driver initializes successfully, IOS makes as many inquiries as is specified in <B>AEP_bi_i_max_target</B> member returned in response to the AEP_INITIALIZE function. The IOS uses the scan order specified by the <B>AEP_bi_flags</B> value. If AEP_BI_FL_SCSI_SCAN_DOWN is set, the IOS scans in the reverse order. </P>
+
+<P>Then the IOS sends a packet for an AEP_CONFIG_DCB function. The packet consists of a <B>AEP_dcb_config</B> structure in which the IOS has set these members: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=21%><B>AEP_func</B> </TD>
+<TD width=79%>AEP_CONFIG_DCB </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%><B>AEP_lgn</B> </TD>
+<TD width=79%>Current initialization layer </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%><B>AEP_d_c_dcb</B> </TD>
+<TD width=79%>Initialized <B>DCB</B> structure </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%><B>AEP_ddb</B> </TD>
+<TD width=79%>Current <B>DDB</B> structure </TD>
+</TR>
+</TABLE><BR>
+
+<P>The driver processes the AEP_CONFIG_DCB function by setting the various members of the <B>DCB</B> structure to values specifying geometry information, such as cylinder count and sector count. The driver then inserts itself in the calldown list for the <B>DCB</B> by the ISP_INSERT_CALLDOWN function (sent to the IOS service routine whose address is given by the <B>ILB_service_rtn</B> member). The ISP_INSERT_CALLDOWN function places the address of the driver's I/O request handling routine in the list. To indicate success, the driver sets the <B>AEP_result</B> member to zero and returns to the IOS. To complete the function, the IOS creates a real <B>DCB</B> and fills it with information supplied by the driver. </P>
+
+<P>The IOS completes port registration by sending the AEP_BOOT_COMPLETE function to all drivers. The function is a notification to the driver to unload itself if desired. For example, a VSD may choose to unload if it has determined that it has inserted itself in none of the DCBs in the system. A driver unloads itself by returning AEP_FAILURE. This directs the IOS to deregister and unload the driver. No DDB pointer is passed with the function, so the driver receives the call once only. </P>
+
+<P>In some cases, the IOS may send an AEP_CONFIG_DCB command before sending an AEP_DEVICE_INQUIRY function. In particular, the IOS does this if the driver has set the DRP_IO_FOR_INQ_AEP bit in the <B>DRP_feature_code</B> member of its <B>DRP</B> structure. This bit indicates that the driver needs to issue I/O requests to process the AEP_DEVICE_INQUIRY function. During port registration, the IOS checks for this bit and passes a packet for an AEP_CONFIG_DCB function for the given <B>DCB</B> prior to calling AEP_DEVICE_INQUIRE functions. The driver processes this call by inserting the driver's I/O request handler in the calldown stack of the <B>DCB</B>. </P>
+
+<H4>See Also</H4>
+
+<P><B>AEP</B>, <B>DCB</B>, <B>DDB</B>, <B>DRP</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Port%20Registration"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

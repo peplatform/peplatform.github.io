@@ -1,0 +1,74 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Querying a Connection-Oriented Miniport Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Querying a Connection-Oriented Miniport Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_querying_a_connection_oriented_miniport_driver_ng"></A>Querying a Connection-Oriented Miniport Driver</H2>
+
+<P>To query information objects maintained by a connection-oriented miniport driver, a bound protocol calls <A HREF="103ndisx_8xde.htm"><B>NdisCoRequest</B></A> and passes a structure of type <A HREF="105nstru_3f8y.htm">NDIS_REQUEST</A> that specifies the object (OID) being queried and that provides a buffer into which NDIS eventually writes the requested information. The call to <B>NdisCoRequest</B> causes NDIS to call the miniport driver's <A HREF="101mini_0pgy.htm"><I>MiniportCoRequest</I></A> function, which returns the requested information to NDIS. <I>MiniportCoRequest</I> can complete synchronously or asynchronously with a call to <A HREF="103ndisx_0kmq.htm"><B>NdisMCoRequestComplete</B></A> (see the following figure).</P>
+
+<P>NDIS can also call a miniport driver's <I>MiniportCoRequest</I> function on its own behalf—for example, after the miniport driver's <I>MiniportInitialize</I> function has returned NDIS_STATUS_SUCCESS—to query the miniport driver's capabilities, status, or statistics.</P>
+
+<P><IMG SRC="images/fig5_3.gif" ALT="" BORDER=0></P>
+
+<P><B>Querying a Connection-Oriented Miniport Driver</B></P>
+
+<P>A connection-oriented miniport driver must be able to provide information on a global basis for all VCs for a particular NIC and also on a per-VC basis. For example, if a nonNULL <I>NdisVcHandle</I> is supplied to <I>MiniportCoRequest</I> for a query of <A HREF="211cooid_5t6a.htm#ddk_oid_gen_co_rcv_crc_error_nr">OID_GEN_CO_RCV_CRC_ERROR</A>, the miniport driver returns the number of CRC errors encountered in all receives on the specified VC. For the same request with a NULL <I>NdisVcHandle</I>, the miniport driver returns the total number of CRC errors encountered for all incoming receives through its NIC.</P>
+
+<P>The set of mandatory general operational OIDs for connection-oriented miniport drivers includes:</P>
+
+<P class=indent1><A HREF="211cooid_692q.htm">OID_GEN_CO_SUPPORTED_LIST</A> </P>
+
+<P class=indent1><A HREF="211cooid_4icy.htm">OID_GEN_CO_HARDWARE_STATUS</A> </P>
+
+<P class=indent1><A HREF="211cooid_0tbm.htm">OID_GEN_CO_MEDIA_SUPPORTED</A> </P>
+
+<P class=indent1><A HREF="211cooid_4nsi.htm">OID_GEN_CO_MEDIA_IN_USE</A> </P>
+
+<P class=indent1><A HREF="211cooid_1242.htm">OID_GEN_CO_LINK_SPEED</A> </P>
+
+<P class=indent1><A HREF="211cooid_8dma.htm">OID_GEN_CO_VENDOR_ID</A> </P>
+
+<P class=indent1><A HREF="211cooid_1ppu.htm">OID_GEN_CO_VENDOR_DESCRIPTION</A> </P>
+
+<P class=indent1><A HREF="211cooid_52lu.htm">OID_GEN_CO_VENDOR_DRIVER_VERSION</A> </P>
+
+<P class=indent1><A HREF="211cooid_222a.htm">OID_GEN_CO_DRIVER_VERSION</A> </P>
+
+<P class=indent1><A HREF="211cooid_3uk2.htm">OID_GEN_CO_MAC_OPTIONS</A> </P>
+
+<P class=indent1><A HREF="211cooid_7l6a.htm">OID_GEN_CO_MEDIA_CONNECT_STATUS</A> </P>
+
+<P class=indent1><A HREF="211cooid_4776.htm">OID_GEN_CO_MINIMUM_LINK_SPEED</A> </P>
+
+<P>The miniport driver’s <I>MiniportCoRequest</I> function must be prepared to respond to queries or sets, as appropriate, to any of the above OIDs.</P>
+
+<P>When <I>MiniportCoRequest</I> is called with OID_GEN_CO_MAC_OPTIONS, it must return a bit mask that specifies the optional operations that the miniport driver performs. The set of flags includes:
+
+<UL>
+	<LI>NDIS_MAC_OPTION_NO_LOOPBACK
+<P>If set, indicates the miniport driver does not loopback a packet passed to <I>MiniportCoSendPackets</I> that is directed to a receiver on the same machine, and that the miniport driver expects NDIS to perform the loopback. If NDIS performs the loopback of a packet, the packet is not passed down to the miniport driver. A miniport driver always sets this flag unless its NIC performs hardware loopbacks. 
+</LI>
+
+	<LI>NDIS_MAC_ETOX_INDICATION
+<P>If set, indicates that the miniport driver indicates that a send is complete only after the packet has been transmitted by the NIC.
+</LI>
+</UL>
+
+<P>A miniport driver must never use the flag NDIS_MAC_OPTION_RESERVED, which is reserved for NDIS internal use. </P>
+
+<P><I>MiniportCoRequest</I> will also be queried with a media-specific OID to determine the NIC’s current address. For instance, the miniport driver for a NIC of type ATM is queried with OID_ATM_HW_CURRENT_ADDRESS.</P>
+
+<P>For more information, see <A HREF="211cooid_74du.htm">OIDs for Connection-Oriented Call Managers and Clients</A> and <A HREF="22genoid_1m2a.htm">General Objects</A>.</P>
+
+<P>Miniport drivers should support 64-bit statistics OID queries. For a statistics OID query, the requester sets the <B>InformationBufferLength</B> member of the NDIS_REQUEST structure to four (bytes) to indicate a 32-bit statistics request or to eight (bytes) to indicate a 64-bit statistics request. In its response, the miniport driver sets the <B>BytesNeeded</B> member to the size of the statistics supported by the miniport driver (four for 32-bits or eight for 64-bits). The miniport driver sets the <B>BytesWritten</B> member to the smaller of the <B>InformationBufferlength</B> value and the size of statistics supported by the miniport driver. For more information about statistics OIDs for connection-oriented miniport drivers, see <A HREF="211cooid_5t6a.htm">General Statistics for Connection-Oriented Miniport Drivers</A>. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Querying%20a%20Connection-Oriented%20Miniport%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TdiDispatchCleanup</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TdiDispatchCleanup">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mj_cleanup_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iogetcurrentirpstacklocation_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdidispatchcleanup_nr"></A>TdiDispatchCleanup</H1>
+
+<P>The <I>TdiDispatchCleanup</I> routine completes any outstanding IRPs for an address, connection endpoint, or control channel that is about to be closed.</P>
+
+<PRE class=syntax><B>NTSTATUS 
+  TdiDispatchCleanup(
+</B>    <B>IN PDEVICE_OBJECT</B>  <I>DeviceObject</I>,
+    <B>IN PIRP</B>  <I>Irp
+</I><B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the device object created by the TDI transport.</DD>
+
+<DT><I>Irp</I></DT>
+
+<DD>Pointer to an IRP with <A HREF="JavaScript:hhobj_1.Click()">IRP_MJ_CLEANUP</A> set as the <B>MajorFunctionCode</B> in the I/O stack location of the transport driver. 
+
+<P>A transport calls <A HREF="JavaScript:hhobj_2.Click()"><B>IoGetCurrentIrpStackLocation</B></A> with the given <I>Irp</I> to get a pointer to its own stack location in the IRP, shown in the following list as IrpSp. <B>TdiDispatchCleanup</B> can use the information set in the following members of the IRP in processing a cleanup request:
+
+
+<DL>
+<DT><B>IoStatus.Status</B></DT>
+
+<DD>Specifies the final status of the cleanup operation. The transport sets this member to the same value that will be returned by <B>TdiDispatchCleanup</B>. (<B>IoStatus.Information</B> is set to zero.)</DD>
+
+<DT>IrpSp<B>-&gt;MajorFunction</B></DT>
+
+<DD>Specifies IRP_MJ_CLEANUP. The transport can ignore this member if it exports a <B>TdiDispatchCleanup</B> routine that handles only cleanup requests. </DD>
+
+<DT>IrpSp<B>-&gt;FileObject</B></DT>
+
+<DD>Pointer to the open file object representing an address, connection endpoint, or control channel. The transport driver uses the values of the <B>FsContext</B> and possibly <B>FsContext2</B> fields in this file object to access the state that <A HREF="31tddisp_6foy.htm"><B>TdiDispatchCreate</B></A> originally set up for the address, connection endpoint, or control channel when the file object was opened by the client. 
+</DD>
+</DL>
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>TdiDispatchCleanup</B> returns STATUS_SUCCESS when its cleanup operation is done and the transport has completed any pending IRPs it was holding queued for the address, connection endpoint, or control channel. </P>
+
+<H4>Comments</H4>
+
+<P><B>TdiDispatchCleanup</B> runs when the I/O Manager is closing the last handle to an open file object representing an address, connection endpoint, or control channel. <B>TdiDispatchCleanup</B> is responsible for completing any IRPs currently held in the transport that reference the open file object. </P>
+
+<P>When the I/O Manager is removing its last reference to such a file object handle, it calls <A HREF="31tddisp_7t9u.htm"><B>TdiDispatchClose</B></A>. In other words, the I/O Manager always submits an IRP_MJ_CLEANUP request to a transport before it submits an IRP_MJ_CLOSE request for a particular file object. </P>
+
+<P>Cleaning up for an address, connection endpoint, or control channel is an inherently synchronous operation. <B>TdiDispatchCleanup</B> can block waiting for internal driver functions to handle particular cleanup subtasks, but <B>TdiDispatchCleanup</B> must complete the input cleanup IRP itself. </P>
+
+<P>Closing the handle to a file object that represents an address cancels the use of a transport address previously opened by a client. On receipt of a cleanup request for which the <B>FileObject</B> represents an address, the transport does the following:
+
+<UL>
+	<LI>Completes any pending requests directed to the address</LI>
+
+	<LI>Deregisters any client event handlers registered on the address </LI>
+
+	<LI>Optionally releases the driver-allocated state set up to track the address, unless the transport defers resource deallocation to <B>TdiDispatchClose</B></LI>
+</UL>
+
+<P>On return from <B>TdiDispatchCleanup</B>, the transport holds no outstanding IRPs queued for the address, but the driver can have outstanding references of its own to the file object representing that address, particularly if <B>TdiDispatchCleanup</B> did not release the driver-allocated context at <B>FsContext</B> and <B>FsContext2</B> in the file object.</P>
+
+<P><B>TdiDispatchCleanup</B> can be called to close a connection endpoint even if the client has not made a request to disassociate the connection from the previously associated address. On receipt of a cleanup request for which the <B>FileObject</B> represents a connection endpoint, the transport does the following:
+
+<UL>
+	<LI>Cancels any active connection associated with the endpoint</LI>
+
+	<LI>If necessary, simulates the effects of a disassociation between the connection endpoint and the associated address </LI>
+
+	<LI>Deregisters any client event handlers registered on the address associated with the connection</LI>
+
+	<LI>Completes any pending requests directed to the connection</LI>
+
+	<LI>Optionally releases the driver-allocated state set up to track the connection, unless the transport defers resource deallocation to <B>TdiDispatchClose</B></LI>
+</UL>
+
+<P>On return from <B>TdiDispatchCleanup</B>, the transport holds no outstanding sends or receives queued for the connection endpoint, but the driver can have outstanding references of its own to the file object representing that connection, particularly if <B>TdiDispatchCleanup</B> did not release the driver-allocated context at <B>FsContext</B> and <B>FsContext2</B> in the file object.</P>
+
+<P>On receipt of a cleanup request for which the <B>FileObject</B> represents a control channel, the transport completes any outstanding requests on the control channel. Such a request has no effect on addresses and connection endpoints open in the TDI driver.</P>
+
+<P>How a transport handles pending IRPs when it receives a cleanup request is driver-determined. Usually, a transport sets STATUS_CANCELLED in the I/O status block and, then, calls <B>IoCompleteRequest</B> with each pending IRP. As an alternative, a transport might complete pending operations and complete each IRP when the requested operation was done; that is, return any resources allocated by the next-lower driver for pending receives and transmit all pending sends for an address or connection endpoint, and collect a set of current statistics for a control channel before completing the corresponding IRPs. </P>
+
+<P>In whatever manner a given transport handles pending IRPs for an address, connection endpoint, or control channel that is being closed, <B>TdiDispatchCleanup</B> cannot complete the cleanup IRP and return control until there are no outstanding IRPs that reference the <B>FileObject</B> in the given cleanup IRP. </P>
+
+<P><B>TdiDispatchCleanup</B> runs at IRQL=PASSIVE_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="31tddisp_7t9u.htm"><B>TdiDispatchClose</B></A>, <A HREF="31tddisp_6foy.htm"><B>TdiDispatchCreate</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TdiDispatchCleanup"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

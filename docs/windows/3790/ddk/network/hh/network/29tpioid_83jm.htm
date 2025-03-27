@@ -1,0 +1,116 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>OID_TAPI_MAKE_CALL</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="OID_TAPI_MAKE_CALL">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_oid_tapi_make_call_nr"></A>OID_TAPI_MAKE_CALL</H1>
+
+<P>The OID_TAPI_MAKE_CALL OID requests the miniport driver to place a call on the specified line to the specified destination address. Optionally, additional call parameters can be specified if the miniport driver is to use something other than default call-setup parameters. </P>
+
+<P>Support for this request is mandatory. </P>
+
+<P>This request uses an NDIS_TAPI_MAKE_CALL structure, defined as follows:</P>
+
+<PRE class=syntax>typedef struct _NDIS_TAPI_MAKE_CALL { 
+  IN ULONG  ulRequestID; 
+  IN HDRV_LINE  hdLine; 
+  IN HTAPI_CALL  htCall; 
+  OUT HDRV_CALL  hdCall; 
+  IN ULONG  ulDestAddressSize; 
+  IN ULONG  ulDestAddressOffset; 
+  IN BOOLEAN  bUseDefaultLineCallParams; 
+  IN LINE_CALL_PARAMS  LineCallParams; 
+} NDIS_TAPI_MAKE_CALL, *PNDIS_TAPI_MAKE_CALL; </PRE>
+
+<P>The members of this structure contain the following information:
+
+<DL>
+<DT><B>ulRequestID</B></DT>
+
+<DD>Reserved.</DD>
+
+<DT><B>hdLine</B></DT>
+
+<DD>Specifies the miniport driver's handle to the line on which the new call is to be originated.</DD>
+
+<DT><B>htCall</B></DT>
+
+<DD>Specifies NDISTAPI's handle to the call. 
+
+<P>The miniport driver must save this handle for use in subsequent notifications, in particular the initial <A HREF="105nstru_4agi.htm">NDIS_MAC_LINE_UP</A> notification to establish a link or data channel.
+</DD>
+
+<DT><B>hdCall</B></DT>
+
+<DD>Specifies the miniport driver's handle to the call. The miniport driver must fill this member with its handle for the call before completing this request successfully. This handle is ignored if the miniport driver returns an error status.</DD>
+
+<DT><B>ulDestAddressSize</B></DT>
+
+<DD>Specifies the size in bytes of the variable-size buffer at <B>ulDestAddressOffset</B> containing the destination address. 
+
+<P>This member can be zero for undialed addresses, such as for a hot phone, which always automatically connects to a predefined number, or when dialing will be done subsequently with an <A HREF="29tpioid_66b6.htm">OID_TAPI_DIAL</A> request. 
+</DD>
+
+<DT><B>ulDestAddressOffset</B></DT>
+
+<DD>Specifies the offset in bytes from the beginning of this structure to the destination address. This destination addresss is in standard dialable number format. This member should be zero if <B>ulDestAddressSize</B> is zero. 
+
+<P>If dialing will be done subsequently with an OID_TAPI_DIAL request, the driver should allocate an available call appearance on receipt of this request and remain in the dialtone state until dialing begins. Drivers of NICs that have inverse multiplexing capabilities can allow an application to specify many addresses at once.
+</DD>
+
+<DT><B>bUseDefaultLineCallParams</B></DT>
+
+<DD>Specifies whether the miniport driver should use the default call-setup parameters or the parameters specified in <B>LineCallParams</B> when making the call. If this member is FALSE, the driver should ignore <B>LineCallParams</B>.</DD>
+
+<DT><B>LineCallParams</B></DT>
+
+<DD>The LINE_CALL_PARAMS structure at this member specifies how the call should be set up. It selects elements such as the call's bearer mode, data rate, expected media mode, origination address, blocking of caller ID information, and dialing parameters. For more information, see <I>ndistapi.h</I>. 
+</DD>
+</DL>
+
+<P>To place a telephony call on a previously opened line, an application supplies a specific destination address and information that specifies how the telephony call should be set up. The NDISWAN driver receives this address and information and passes them down in a NDIS_TAPI_MAKE_CALL structure to a WAN miniport driver in order to place a call on the given line. For example, for an underlying X.25 network, an X.25 WAN miniport driver can access the following information from NDIS_TAPI_MAKE_CALL: 
+
+<UL>
+	<LI>The X.25 network address from the <B>ulDestAddressOffset</B> member </LI>
+
+	<LI>TRUE from the <B>bUseDefaultLineCallParams</B> member to inform the X.25 WAN miniport driver to use the call parameters in the <B>LineCallParams</B> member </LI>
+
+	<LI>X.25-facilities information from the <B>ulDevSpecificOffset</B> member of the <B>LineCallParams</B> member </LI>
+
+	<LI>X.25-user information from the <B>ulUserUserInfoOffset</B> member of the <B>LineCallParams</B> member </LI>
+</UL>
+
+<P>The <A HREF="101mini_2vw2.htm"><I>MiniportQueryInformation</I></A> function can return one of the following:</P>
+
+<P class=indent1>NDIS_STATUS_SUCCESS<BR>
+NDIS_STATUS_PENDING<BR>
+NDIS_STATUS_TAPI_ADDRESSBLOCKED<BR>
+NDIS_STATUS_TAPI_BEARERMODEUNAVAIL<BR>
+NDIS_STATUS_TAPI_CALLUNAVAIL<BR>
+NDIS_STATUS_TAPI_DIALBILLING<BR>
+NDIS_STATUS_TAPI_DIALQUIET<BR>
+NDIS_STATUS_TAPI_DIALDIALTONE<BR>
+NDIS_STATUS_TAPI_DIALPROMPT<BR>
+NDIS_STATUS_TAPI_INUSE<BR>
+NDIS_STATUS_TAPI_INVALBEARERMODE<BR>
+NDIS_STATUS_TAPI_INVALMEDIAMODE<BR>
+NDIS_STATUS_TAPI_INVALLINESTATE<BR>
+NDIS_STATUS_TAPI_INVALRATE<BR>
+NDIS_STATUS_TAPI_INVALLINEHANDLE<BR>
+NDIS_STATUS_TAPI_INVALADDRESS<BR>
+NDIS_STATUS_TAPI_INVALADDRESSID<BR>
+NDIS_STATUS_TAPI_INVALCALLPARAMS<BR>
+NDIS_STATUS_TAPI_RESOURCEUNAVAIL<BR>
+NDIS_STATUS_TAPI_RATEUNAVAIL<BR>
+NDIS_STATUS_TAPI_USERUSERINFOTOOBIG<BR>
+NDIS_STATUS_FAILURE</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: OID_TAPI_MAKE_CALL"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

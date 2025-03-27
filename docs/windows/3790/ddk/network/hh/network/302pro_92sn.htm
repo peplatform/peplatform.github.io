@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Implementing a ProtocolReceive Handler in a Protocol Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Implementing a ProtocolReceive Handler in a Protocol Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_implementing_a_protocolreceive_handler_in_a_protocol_driver_ng"></A>Implementing a <I>ProtocolReceive</I> Handler in a Protocol Driver</H3>
+
+<P>If the underlying connectionless miniport driver calls a filter-specific <B>NdisM</B><I>Xxx</I><B>IndicateReceive</B> function, NDIS always calls the <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> function of each bound protocol driver.</P>
+
+<P>If one or more of such a protocol driver's clients are a target of the packet, and the lookahead buffer size is less than the total packet size, <I>ProtocolReceive</I> must do the following:
+
+<OL>
+	<LI>Copy the lookahead data into an internal buffer mapped by a protocol-allocated packet descriptor.</LI>
+
+	<LI>Chain buffer descriptors to a protocol-allocated packet descriptor. The driver should map a sufficient number of protocol-allocated buffers to contain the rest of the network packet data.</LI>
+
+	<LI>Call <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A> with the packet descriptor, so the underlying driver copies the rest of the received data into the protocol driver's buffers.</LI>
+</OL>
+
+<P>When <B>NdisTransferData</B> returns STATUS_SUCCESS or NDIS calls the <A HREF="104tdlow_8u7m.htm"><I>ProtocolTransferDataComplete</I></A> function, the protocol driver can chain the lookahead buffer to the packet descriptor containing this transferred data and indicate it up to clients. </P>
+
+<P><B>NdisTransferData</B> can only be called once for each receive indication and it must be called within the context of the call to <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A>. The protocol driver must set up its packet descriptor with chained buffers of a sufficient size to contain the full network packet. </P>
+
+<P>The size of the lookahead buffer passed to <I>ProtocolReceive</I> is greater than or equal to the lookahead size returned by an <A HREF="22genoid_1jzm.htm">OID_GEN_CURRENT_LOOKAHEAD</A> query plus the size of the MAC header. However, if the total size of the packet (including the MAC header size) is less than this value, the lookahead buffer size is the size of the packet. All data in the lookahead buffer is read-only to <I>ProtocolReceive</I>. </P>
+
+<P>If the lookahead buffer size is less than or equal to the size of the total packet indicated by a filter-specific <B>NdisM</B><I>Xxx</I><B>IndicateReceive</B> function, <I>ProtocolReceive</I> should call <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A> to copy the lookahead data into an internal buffer.</P>
+
+<P>If the call to <I>ProtocolReceive</I> occurred because the underlying miniport driver set the status for one or more packets in a packet array to NDIS_STATUS_RESOURCES before calling <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, the size of the lookahead buffer will always be equal to the size of the full network packet minus the MAC header size. In these circumstances, the protocol driver should never call <B>NdisTransferData</B> because <I>ProtocolReceive</I> can copy the full indication into an internal buffer immediately.</P>
+
+<P>If the NDIS_MAC_OPTION_COPY_LOOKAHEAD_DATA bit is set in response to an <A HREF="22genoid_499u.htm">OID_GEN_MAC_OPTIONS</A> request, a protocol driver can use any means to copy lookahead data into an internal buffer, such as calling <A HREF="103ndisx_87le.htm"><B>NdisMoveMemory</B></A>. If this flag was <I>not</I> set, the protocol driver <I>must</I> call <A HREF="103ndisx_9hf6.htm"><B>NdisCopyLookaheadData</B></A> to copy the indicated data; otherwise, the results from a copy operation are indeterminate. </P>
+
+<P><I>ProtocolReceive</I> must execute as quickly as possible. The protocol driver must ensure that it has protocol-allocated packet resources available before it receives incoming indications. After the protocol driver examines the packet and determines that it will not copy the packet, <I>ProtocolReceive</I> should simply return NDIS_STATUS_NOT_ACCEPTED.</P>
+
+<P><I>ProtocolReceive</I> must not process the received data as soon as it is copied since that would adversely impact system performance, as well as possibly causing dropped receives in the underlying miniport driver. Instead, the protocol driver processes the received data later in its <A HREF="104tdlow_5i7m.htm"><I>ProtocolReceiveComplete</I></A> function. NDIS calls <I>ProtocolReceiveComplete</I> after the underlying miniport driver calls <B>NdisM</B><I>Xxx</I><B>IndicateReceiveComplete</B>. Typically, this occurs when the underlying miniport driver has received and indicated a miniport-determined number of packets. This can also occur before the underlying miniport exits its receive handler. The protocol driver must queue the received data in <I>ProtocolReceive</I> so that it is available to <I>ProtocolReceiveComplete</I> for postprocessing.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Implementing%20a%20ProtocolReceive%20Handler%20in%20a%20Protocol%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

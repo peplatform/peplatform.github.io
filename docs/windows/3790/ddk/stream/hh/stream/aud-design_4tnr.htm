@@ -1,0 +1,24 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>KMixer Behavior</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="KMixer Behavior">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_kmixer_behavior_ksg"></A>KMixer Behavior</H3>
+
+<P>An audio adapter's sink pin is typically connected to the source pin from the KMixer system filter during playback of a PCM stream. As wave streams are added to or removed from the audio mix, KMixer might need to call the miniport stream's <B>SetFormat</B> method (for example, see <A HREF="audmp-routines_56er.htm"><B>IMiniportWavePciStream::SetFormat</B></A>) to adjust the sink pin's sample frequency.</P>
+
+<P>In order to preserve the quality of the wave-data streams that enter its sink pins, KMixer attempts to adjust the sample frequency at its source pin to match the highest sample frequency of the streams entering its sink pins. Accordingly, as new streams are added or removed from the mix entering its sink pins, KMixer might need to increase or decrease the sample frequency at its source pin in order to accommodate the new mix. KMixer attempts to change the sample frequency at the connection between its source pin and an adapter's sink pin by calling the adapter's <B>SetFormat</B> method to request the change. If KMixer's call to <B>SetFormat</B> requests a sample rate that is higher than the adapter can support, the adapter fails the call. In this case, KMixer responds by calling <B>SetFormat</B> with successively lower sample frequencies until the <B>SetFormat</B> call succeeds. KMixer then down-samples the higher-frequency streams at its sink pins as necessary to accommodate the lower sample frequency at its source pin.</P>
+
+<P>When SysAudio first creates the connection between KMixer's source pin and an adapter's sink pin, the initial sample frequency at the connection might not match the highest sample frequency at KMixer's sink pins. In this case, KMixer attempts to adjust the connection's sample frequency by calling <B>SetFormat</B>, as described previously.</P>
+
+<P>In the current KMixer implementation, KMixer's handling of the bits-per-sample and number-of-channels settings at its source pin differs from its handling of the sample frequency. Once SysAudio creates a connection between the KMixer source pin and an adapter sink pin, KMixer never modifies the connection's initial bits-per-sample or number-of-channels settings. Ideally, these settings should match the maximum settings in the data streams entering KMixer's sink pins in order to preserve the quality of the audio data. Therefore, the adapter's proprietary data-intersection handler should choose the format with the highest bits-per-sample and number-of-channels values that lies within the intersection of the data ranges for the two pins. Note that a proprietary handler that is written to work this way will not need to be rewritten if in the future KMixer's behavior changes to dynamically adjust the connection's bits-per-sample and number-of-channels settings to accommodate dynamic changes in the KMixer inputs.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: KMixer%20Behavior"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

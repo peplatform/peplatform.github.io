@@ -1,0 +1,31 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Stream Pointers and IRP Cancellation</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_stream_pointers_and_irp_cancellation_ksg"></A>Stream Pointers and IRP Cancellation</H4>
+
+<P>If a minidriver is holding a locked stream pointer referencing a particular frame, the frame and the IRP associated with that frame cannot be canceled. Consequently, minidrivers should avoid holding a locked stream pointer for an extended period of time.</P>
+
+<P>By holding an unlocked stream pointer, a minidriver can retain a data pointer but still allow the frame to be canceled. To do this, the minidriver supplies <I>CancelCallback</I> when it calls <A HREF="avfunc_8t6b.htm"><B>KsStreamPointerClone</B></A>. </P>
+
+<P>The minidriver has a number of cancellation options: 
+
+<UL>
+	<LI>If the minidriver needs brief access to stream data at a single access point, request a locked stream pointer by calling <A HREF="avfunc_7cj7.htm"><B>KsPinGetLeadingEdgeStreamPointer</B></A> with a state argument of <B>KSSTREAM_POINTER_STATE_LOCKED</B> and unlock the stream pointer immediately after processing is complete (with <A HREF="avfunc_9pgz.htm"><B>KsStreamPointerUnlock</B></A> or <A HREF="avfunc_8qsz.htm"><B>KsStreamPointerAdvanceOffsetsAndUnlock</B></A>). This is simple for the client and does not block cancellation for a significant amount of time assuming that the thread does not block between acquiring the pointer and unlocking it.</LI>
+
+	<LI>If the minidriver needs access to stream data for an indefinite amount of time, but is able to relinquish its claim in the context of a cancellation callback, call <A HREF="avfunc_8t6b.htm"><B>KsStreamPointerClone</B></A>) to clone a locked stream pointer (usually the leading edge), unlock it, and respond to <I>CancelCallback</I>. Because the callback occurs with the queue's spinlock taken, the minidriver's callback routine has little it can do with the stream pointer except delete it. Fortunately, this is almost always exactly what the minidriver wants to do, after making sure the associated data will not be accessed. This approach to cancellation can be more difficult for the client, but it often provides the best balance between efficient access and quick response to cancellation. </LI>
+
+	<LI>If the minidriver needs periodic access to a frame and can tolerate the disappearance of the frame between accesses, maintain an unlocked clone and lock it at access-time. If the frame is canceled, the next attempt to lock the stream pointer fails, and the minidriver can delete the stream pointer. As with the first option, responsiveness to cancellation is a function of how long the stream pointer is locked. </LI>
+
+	<LI>If the minidriver needs access to stream data for an indefinite period and is unable to relinquish its claim in response to a callback, you can maintain a locked clone stream pointer for any length of time to prevent cancellation. However, responsiveness to cancellation may be poor depending on how long the stream pointer remains locked. <A HREF="avsover_5pyf.htm">Stream pointer timeouts</A> can be useful in such cases. </LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Stream%20Pointers%20and%20IRP%20Cancellation"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

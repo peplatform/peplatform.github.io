@@ -1,0 +1,248 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Special Case Mappings</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Special Case Mappings">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Interactive&nbsp;Input&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_special_case_mappings_di"></A>Special Case Mappings</H3>
+
+<P>Because of the complexity and variety of input devices available today, no single set of mappings can be used for all types of devices. DirectInput supports two special cases that are described in this section.</P>
+
+<H4>Special Case Mapping for Z-Axes</H4>
+
+<P>In the rare cases where a Z-Axis described in HID is the desired WinMM mapping, there are two available overrides. If the device is a six-degree-of-freedom device, setting a type and subtype override (described in the references for <B>DIJOYTYPEINFO</B>) to DI8DEVTYPE_1STPERSON and DI8DEVTYPE1STPERSON_SIXDOF respectively, invokes the following alternative mapping:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=52%>WinMM Axis</TH>
+<TH align=left width=48%>DirectInput Assignment</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>X</TD>
+<TD width=48%>GUID_XAxis</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>Y</TD>
+<TD width=48%>GUID_YAxis</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>Z</TD>
+<TD width=48%>GUID_ZAxis</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>R</TD>
+<TD width=48%>GUID_RzAxis</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>U</TD>
+<TD width=48%>GUID_RyAxis</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>V</TD>
+<TD width=48%>GUID_RxAxis </TD>
+</TR>
+</TABLE><BR>
+
+<P>If the device is not a six-degree-of-freedom device, but still requires a Z-axis to be portrayed through DirectInput, the type override should be set to include JOYTYPE_INFOZISZ. This type override causes DirectInput to revert to the DirectX 7.0 mapping.</P>
+
+<P>The default mapping for devices reporting through HID has not changed except that GUID_Slider axes are no longer substituted for GUID_ZAxis matches by the SetDataFormat method. Because HID axes are by nature more fully described than WinMM axes, the defaults should work in most cases. In rare cases, a slider axis (often used as a throttle) has been described as HID_USAGE_PAGE_GENERIC, HID_USAGE_Z because the axis would be used in the same way as a WinMM Z-axis. To make sure such devices can be used consistently the device override flag JOYTYPE_INFOZISSLIDER can be used.</P>
+
+<H4>Special-case Mappings for Car Controllers</H4>
+
+<P>Another set of special-case mappings are those needed for car controllers that declare more than two axes. Unfortunately, there is little consistency within the industry in this area. There presently exist three common ways to represent separate accelerator and brake pedals. DirectInput attempts to detect which method a car controller is using with logic similar to that shown in the following pseudo-code:</P>
+
+<PRE>    if( has_r and has_Z )
+        use mappings:
+        X =&gt; GUID_XAxis
+        Z =&gt; GUID_YAxis
+        R =&gt; GUID_RzAxis
+    else if( has_r )
+        use mappings:
+        X =&gt; GUID_XAxis
+        Y =&gt; GUID_YAxis
+        R =&gt; GUID_RzAxis
+    else if( has_z )
+        use mappings:
+        X =&gt; GUID_XAxis
+        Y =&gt; GUID_RzAxis
+        Z =&gt; GUID_YAxis
+    else
+        use default mappings.
+
+   // If the device declares any other axes, they are mapped to sliders.
+</PRE>
+
+<P>The preceding logic results in all three known types of pedal mappings being reported to applications in the same way. If the default mappings fail, you can set override flags to select which type of mapping should be used. The override flags JOYTYPE_INFOYYPEDALS, JOYTYPE_INFOZYPEDALS, JOYTYPE_INFOYRPEDALS and JOYTYPE_INFOZRPEDALS are described elsewhere in this documentation.</P>
+
+<P>As with WinMM, car controllers require special-case mapping when being used through the HID data-path. Mappings are made in the same way in this case as in the WinMM case, but with extra variations due to the possibility of the correct simulation page usages being reported in the device firmware.  </P>
+
+<P>Devices that report generic axes receive the same mappings and can use the same override mechanisms in both the HID and WinMM data paths. However, these overrides affect only the generic axes; they do not change the mapping table that is used for all axes on the device.</P>
+
+<H4>Axis Overrides under Windows 95/98/Me</H4>
+
+<P>The following interfaces are affected by axis overrides:</P>
+
+<P class=indent1>WinMM JoyGetPos()</P>
+
+<P class=indent1>WinMM JoyGetPosEx()</P>
+
+<P class=indent1><B>IDirectInput2</B></P>
+
+<P class=indent1><B>IDirectInput7</B></P>
+
+<P class=indent1><B>IDirectInput8</B></P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To perform an axis override</B>
+
+<OL>
+	<LI>Plug in the device whose axis is to be overridden. Run <I>joy.cpl</I> or any other DirectInput application to initialize the registry keys for this device. Unplug the device.</LI>
+
+	<LI>Open the registry and find HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\MediaProperties\PrivateProperties\Joystick\OEM</LI>
+
+	<LI>Locate the key for the device whose axis is to be overridden. The key should be located under this key, specified by its VID&amp;PID combination. </LI>
+
+	<LI>Create the following subkeys:
+<UL>
+	<LI>Axes</LI>
+
+	<LI>Under the "Axes" key, specify one key for each axis that you want to override (Axis key). The key is specified by a one-digit number from zero to 7  that describes GUID and axis information:</LI>
+</UL>
+</LI>
+</OL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=41%>Key Name</TH>
+<TH align=left width=23%>DirectX GUID</TH>
+<TH align=left width=36%>WinMM Axis</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>0</TD>
+<TD width=23%>GUID_XAxis</TD>
+<TD width=36%>X</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>1</TD>
+<TD width=23%>GUID_YAxis</TD>
+<TD width=36%>Y</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>2</TD>
+<TD width=23%>GUID_ZAxis</TD>
+<TD width=36%>Z</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>3</TD>
+<TD width=23%>GUID_RxAxis</TD>
+<TD width=36%>-</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>4</TD>
+<TD width=23%>GUID_RyAxis</TD>
+<TD width=36%>-</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>5</TD>
+<TD width=23%>GUID_RzAxis</TD>
+<TD width=36%>R</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>6</TD>
+<TD width=23%>GUID_Slider</TD>
+<TD width=36%>U</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>7</TD>
+<TD width=23%>GUID_Slider</TD>
+<TD width=36%>V</TD>
+</TR>
+</TABLE><BR>
+
+<UL>
+	<LI>Under each Axis key specify the Axis that you want to override. Create a binary value named <B>Attributes</B> and set it to: 00 00 00 00 HUP 00 HU 00. HUP is a two-digit hexadecimal number specifying the HID usage page of the device object (axis) that you want to override. HU is a two-digit hexadecimal number specifying the HID usage of the device object. Use DIQuick to determine these values, or see the HID specification.</LI>
+</UL>
+
+<OL start=5>
+	<LI>Plug the device back in and use any program to check whether the overrides work.</LI>
+</OL>
+
+<H4>Meaning of the registry keys</H4>
+
+<P>First of all you need to differentiate between the axis mapping of the DirectX interfaces and the WinMM interfaces. </P>
+
+<P>The DirectX interfaces interpret the Axiskeys to match GUIDs that are used to identify objects. The object GUIDs are used to read data from the device and specified in <B>IDirectInputDevice8::SetDataFormat()</B>. When data for an object is read by a program and this object is overridden, then DirectInput returns the data from the overriding object.</P>
+
+<P>As you can see, there is no differentiation between slider 0 and slider 1 in the DirectInput interfaces. This means that, when overriding axis 6 or 7, you always override the first available slider. If slider 0 is not yet defined as an axis and you map an axis to 7, slider 0 is overridden.</P>
+
+<P>In contrast, the WinMM interfaces do differentiate between the U and V axes, so if axis 7 is overridden, the V axis receives the data from the overriding object; if axis 6 is overridden, the data is converted to be sent by the U axis.</P>
+
+<H4>Rules to keep in mind</H4>
+
+<P>To guarantee the equal behavior of the interfaces, restrictive rules must be followed. These rules are provided by the behavior of WinMM interfaces.</P>
+
+<P>Mappings that do not conform to these rules may result in failure of the WinMM interface to report any data for this device.</P>
+
+<P>These rules do not apply to differences in slider mappings; such differences are acceptable.</P>
+
+<P>Any mapping that does not fall within the following rules is unsupported.
+
+<UL>
+	<LI>No Holes
+<P>The axis mapping must be continuous after applying the overrides. Only one axis can exist in an unmapped state, that is, "2"=GUID_ZAxis=Z.  You cannot skip axis entries. For example, X, Y, Z, R, U, V is a valid sequence, but X, Z, R, U, V is not because there is a "hole" between X and Z.
+</LI>
+
+	<LI>All Axes exist
+<P>All axes that are used to perform override operations (specified by the Attributes value) must exist on the device.
+</LI>
+
+	<LI>Do not move axes "upwards" without mapping to them
+<P>You cannot map an axis A to an axis B without mapping axis C to axis A if axis A would have a lower Key Name in the table above.
+
+<P>Moving an axis upward without mapping to it results in a hole.
+</LI>
+</UL>
+
+<H4>If the mapping is not reflected by the interfaces</H4>
+
+<UL>
+	<LI>Always unplug the device before you change the mapping. Plug the device back in after you edit the mapping in order to reinitialize DirectInput.</LI>
+
+	<LI>DirectInput could deny special overrides. Check the key: HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\MediaProperties\PrivateProperties\DirectInput\VID&amp;PID , where VID&amp;PID is the VID-PID-combination for the device. If there is a value Flags2 set, then DirectInput internally maps axes to axes and you cannot override these mappings. For example, you may not be able to move the mapping of a slider away from the Z-axis in the DInput7/2 and WinMM interfaces.</LI>
+
+	<LI>If the user installs and calibrates a joystick, the resulting calibration information is stored in the registry.  If a driver is now installed that sets the axis overrides that differ from those previously stored in the registry, DirectInput applies the overrides stored in the Registry. Because the calibration information in the registry does not reflect the axis mapping changes, the data might be reported incorrectly or might not be reported at all on the overridden axes.
+<P>There are two ways to prevent this: 
+
+<UL>
+	<LI>The user can recalibrate the device.</LI>
+
+	<LI>The driver vendor's installation can delete the calibration information in the registry.</LI>
+</UL>
+</LI>
+</UL>
+
+<P>If the device does not use <I>joyhid.vxd</I> as its driver, the wUsage and wUsagePage values are only used to describe what usage and usage page the object should be reported as, rather than being any form of override. The device uses <I>joyhid.vxd</I> only if the registry key HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\MediaProperties\PrivateProperties\Joystick\OEM\VID&amp;PID\OEMCallout equals <I>joyhid.vxd</I>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Special%20Case%20Mappings"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

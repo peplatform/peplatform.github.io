@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DpWmiQueryDataBlock</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DpWmiQueryDataBlock">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_dpwmiquerydatablock_kr"></A><I>DpWmiQueryDataBlock</I></H1>
+
+<P>The <I>DpWmiQueryDataBlock</I> routine returns either a single instance or all instances of a data block. This routine is required.</P>
+
+<PRE class=syntax><B>NTSTATUS
+</B>  <I>DpWmiQueryDataBlock</I><B>(</B>
+    <B>IN PDEVICE_OBJECT </B> <I>DeviceObject</I><B>,</B>
+    <B>IN PIRP </B> <I>Irp</I><B>,</B>
+    <B>IN ULONG </B> <I>GuidIndex</I><B>,</B>
+    <B>IN ULONG</B>  <I>InstanceIndex</I><B>,</B>
+    <B>IN ULONG</B>  <I>InstanceCount</I><B>,</B>
+    <B>IN OUT PULONG</B>  <I>InstanceLengthArray</I><B>,</B>
+    <B>IN ULONG</B>  <I>BufferAvail</I><B>,</B>
+    <B>OUT PUCHAR </B> <I>Buffer</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the driver's device object.</DD>
+
+<DT><I>Irp</I></DT>
+
+<DD>Pointer to the IRP.</DD>
+
+<DT><I>GuidIndex</I></DT>
+
+<DD>Specifies the data block by supplying a zero-based index into the list of GUIDs that the driver provided in the <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure it passed to <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>.  </DD>
+
+<DT><I>InstanceIndex</I></DT>
+
+<DD>If <I>DpWmiQueryDataBlock</I> is called in response to an <A HREF="k901_1bua.htm">IRP_MN_QUERY_SINGLE_INSTANCE</A> request, <I>InstanceIndex </I>specifies a zero-based index that indicates the instance of the specified data block to be queried. If <I>DpWmiQueryDataBlock</I> is called in response to an <A HREF="k901_1nhu.htm">IRP_MN_QUERY_ALL_DATA</A> request, <I>InstanceIndex </I>is zero.</DD>
+
+<DT><I>InstanceCount</I></DT>
+
+<DD>If <I>DpWmiQueryDataBlock</I> is called in response to an <A HREF="k901_1bua.htm">IRP_MN_QUERY_SINGLE_INSTANCE</A> request, <I>InstanceCount </I>is 1. If <I>DpWmiQueryDataBlock</I> is called in response to an <A HREF="k901_1nhu.htm">IRP_MN_QUERY_ALL_DATA</A> request, <I>InstanceCount </I>is the number of instances to be returned.</DD>
+
+<DT><I>InstanceLengthArray</I></DT>
+
+<DD>Pointer to a caller-supplied, <I>InstanceCount</I>-sized array of ULONG elements. The driver fills in each array element to indicate the length of each instance that was returned.  If <I>BufferAvail</I> is zero, <I>InstanceLengthArray</I> is NULL.</DD>
+
+<DT><I>BufferAvail</I></DT>
+
+<DD>Specifies the maximum number of bytes that are available to receive data in the buffer at <I>Buffer</I>. If this value is zero, the caller is requesting the routine to return the size needed to contain the query results.</DD>
+
+<DT><I>Buffer</I></DT>
+
+<DD>Pointer to the buffer to receive instance data. If the buffer is large enough to receive all of the data, the driver writes the instance data to the buffer with each instance aligned on an 8-byte boundary. If the buffer is too small to receive all of the data, the driver calls <A HREF="k902_0wtu.htm"><B>WmiCompleteRequest</B></A> with <I>BufferUsed</I> set to the size required. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>DpWmiQueryDataBlock</I> returns STATUS_SUCCESS or an error status such as the following:</P>
+
+<P class=indent1>STATUS_BUFFER_TOO_SMALL </P>
+
+<P class=indent1>STATUS_WMI_GUID_NOT_FOUND</P>
+
+<P class=indent1>STATUS_WMI_INSTANCE_NOT_FOUND</P>
+
+<P>If the driver cannot complete the request immediately, it can return STATUS_PENDING.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wmilib.h</I>. Include <I>wmilib.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>WMI calls a driver's <I>DpWmiQueryDataBlock</I> routine after the driver calls <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A> in response to an <A HREF="k901_1bua.htm">IRP_MN_QUERY_SINGLE_INSTANCE</A> or <A HREF="k901_1nhu.htm">IRP_MN_QUERY_ALL_DATA</A> request. The driver must place the address of its <I>DpWmiQueryDataBlock</I> routine in the <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure that it passes to <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>.</P>
+
+<P>The driver is responsible for validating all input arguments. Specifically, the driver must do the following:
+
+<UL>
+	<LI>Verify that the <I>GuidIndex</I> value is between zero and GuidCount-1, based on the <B>GuidCount</B> member of the <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure.</LI>
+
+	<LI>Verify that the driver has not flagged the specified data block for removal. If the driver recently specified the WMIREG_FLAG_REMOVE_GUID flag in a WMIGUIDREGINFO structure that is contained in a WMILIB_CONTEXT structure, it is possible for a query to arrive before the removal occurs.</LI>
+
+	<LI>Verify that the <I>InstanceIndex</I> and <I>InstanceCount</I> values, together, specify a number of data block instances that is within the range supported by the driver for the data block. If <I>InstanceIndex</I> is nonzero, <I>InstanceCount</I> must be 1. If <I>InstanceIndex</I> is 0, <I>InstanceCount</I> must not be greater than the number of instances supported. </LI>
+
+	<LI>Verify that the buffer described by <I>Buffer</I> and <I>BufferAvail</I> is large enough to hold all requested instances of the data block. Each instance must begin on an 8-byte boundary, and additional padding might exist between data items within each instance.</LI>
+</UL>
+
+<P>After writing instance data to the buffer, the driver calls <A HREF="k902_0wtu.htm"><B>WmiCompleteRequest</B></A> to complete the request. If the buffer described by <I>Buffer</I> and <I>BufferAvail</I> is zero, or is too small to receive all the requested data, the call to <B>WmiCompleteRequest</B> must specify STATUS_BUFFER_TOO_SMALL for the <I>Status</I> parameter and the required buffer size for the <I>BufferUsed</I> parameter.</P>
+
+<P>This routine can be pageable.</P>
+
+<P>For more information about implementing this routine, see <A HREF="wmi_9l47.htm">Calling <B>WmiSystemControl</B> to Handle WMI IRPs</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k901_1nhu.htm">IRP_MN_QUERY_ALL_DATA</A>, <A HREF="k901_1bua.htm">IRP_MN_QUERY_SINGLE_INSTANCE</A>, <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A>, <A HREF="k902_0wtu.htm"><B>WmiCompleteRequest</B></A>, <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DpWmiQueryDataBlock"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

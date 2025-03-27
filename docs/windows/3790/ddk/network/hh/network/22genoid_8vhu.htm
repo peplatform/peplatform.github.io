@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>OID_GEN_NETWORK_LAYER_ADDRESSES</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="OID_GEN_NETWORK_LAYER_ADDRESSES">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_oid_gen_network_layer_addresses_nr"></A>OID_GEN_NETWORK_LAYER_ADDRESSES</H1>
+
+<P>The OID_GEN_NETWORK_LAYER_ADDRESSES OID notifies underlying miniport driver and other layered drivers about the list of network-layer addresses that are associated with bound instances. A bound instance is the binding between the calling transport and a driver set up by a call to <B>NdisOpenAdapter</B>. Transports use TRANSPORT_ADDRESS and TA_ADDRESS structures to notify underlying miniport drivers and other layered drivers about the list of network-layer addresses. Miniport drivers and other layered drivers use compatible NETWORK_ADDRESS_LIST and NETWORK_ADDRESS structures, defined as follows, to set the list of network-layer addresses on a bound interface.</P>
+
+<PRE class=syntax>typedef struct _NETWORK_ADDRESS_LIST {
+  LONG  AddressCount; 
+  USHORT  AddressType; 
+  NETWORK_ADDRESS  Address[1]; 
+} NETWORK_ADDRESS_LIST, *PNETWORK_ADDRESS_LIST;</PRE>
+
+<P>The members of this structure contain the following information: 
+
+<DL>
+<DT><B>AddressCount</B></DT>
+
+<DD>Specifies the number of network-layer addresses listed in the array in the <B>Address</B> member. </DD>
+
+<DT><B>AddressType</B></DT>
+
+<DD>Specifies the protocol type that sends this OID. This member is only valid if the <B>AddressCount</B> member is set to zero. The <B>AddressCount</B> member is set to zero to notify a miniport driver or other layered driver to clear the list of network-layer addresses on a bound interface. The protocol can be one of the following values:
+
+<DL>
+<DT>NDIS_PROTOCOL_ID_DEFAULT</DT>
+
+<DD>Default protocol</DD>
+
+<DT>NDIS_PROTOCOL_ID_TCP_IP</DT>
+
+<DD>TCP/IP protocol</DD>
+
+<DT>NDIS_PROTOCOL_ID_IPX</DT>
+
+<DD>Netware IPX protocol</DD>
+
+<DT>NDIS_PROTOCOL_ID_NBF</DT>
+
+<DD>NetBIOS protocol </DD>
+</DL>
+</DD>
+
+<DT><B>Address</B></DT>
+
+<DD>Array of network-layer addresses of type NETWORK_ADDRESS. The <B>AddressCount</B> member specifies the number of elements in this array. </DD>
+</DL>
+
+<PRE class=syntax>typedef struct _NETWORK_ADDRESS {
+  USHORT  AddressLength; 
+  USHORT  AddressType; 
+  UCHAR   Address[1]; 
+} NETWORK_ADDRESS, *PNETWORK_ADDRESS;</PRE>
+
+<P>The members of this structure contain the following information: 
+
+<DL>
+<DT><B>AddressLength</B></DT>
+
+<DD>Specifies the size, in bytes, of this network-layer address. The <B>Address</B> member contains the array of bytes that specify this address. </DD>
+
+<DT><B>AddressType</B></DT>
+
+<DD>Specifies the protocol type that sends this OID and this network-layer address. This member is only valid if the <B>AddressCount</B> member in the NETWORK_ADDRESS_LIST structure is set to a nonzero value. The <B>AddressCount</B> member in NETWORK_ADDRESS_LIST is set to a nonzero value to notify a miniport driver or other layered driver to change the list of network-layer addresses on a bound interface. Protocol types are defined in the preceding list. </DD>
+
+<DT><B>Address</B></DT>
+
+<DD>Array of bytes that specify this network-layer address. The <B>AddressLength</B> member specifies the number of bytes in this array. 
+</DD>
+</DL>
+
+<P>The transport can call the <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A> function and can pass an <A HREF="105nstru_3f8y.htm">NDIS_REQUEST</A> structure that is filled with the OID_GEN_NETWORK_LAYER_ADDRESSES code. This call notifies a bound instance of a change in the addresses that are associated with that instance. In this call, the transport also passes the bound instance in the <I>NdisBindingHandle</I> parameter. The bound instance is the binding set up between the transport and the underlying miniport driver or other layered driver. For this call, the transport should fill the <B>InformationBuffer</B> member of NDIS_REQUEST with a pointer to a TRANSPORT_ADDRESS structure. TRANSPORT_ADDRESS corresponds to a NETWORK_ADDRESS_LIST structure and should contain the list of network-layer addresses. </P>
+
+<P>Suppose a transport passes addresses through an intermediate driver down to an underlying miniport driver. If the intermediate driver also requires the addresses, it should take note of them before passing them on to the underlying miniport driver. An underlying miniport driver, especially a legacy driver, can return a status value of NDIS_STATUS_NOT_SUPPORTED or NDIS_STATUS_SUCCESS. The underlying miniport driver propagates the status of the operation back up towards the transport. If the intermediate driver must continue receiving address notifications, and if it is necessary, the intermediate driver should change the status to NDIS_STATUS_SUCCESS.Otherwise, the transport might interpret NDIS_STATUS_NOT_SUPPORTED as an indication that the underlying miniport driver does not require that the transport issue additional address updates. If NDIS_STATUS_SUCCESS is returned, transports are obligated to continue notifying underlying drivers of any change in associated addresses, including addition and deletion of addresses. </P>
+
+<P>A protocol can set the <B>AddressCount</B> member of TRANSPORT_ADDRESS to zero to notify a miniport driver or other layered driver to clear the list of network-layer addresses on a bound interface. If <B>AddressCount</B> is set to zero,the <B>AddressType</B> member in NETWORK_ADDRESS_LIST is valid and the <B>AddressType</B> members in NETWORK_ADDRESS structures are not valid. On the other hand, a protocol can set <B>AddressCount</B> to a nonzero value to notify a miniport driver or other layered driver to change the list of network-layer addresses on a bound interface. In this case, the <B>AddressType</B> member in NETWORK_ADDRESS_LIST is not valid and the <B>AddressType</B> members in NETWORK_ADDRESS structures are valid. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: OID_GEN_NETWORK_LAYER_ADDRESSES"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Sending a Single Packet on a PIO Device</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Sending a Single Packet on a PIO Device">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_sending_a_single_packet_on_a_pio_device_ng"></A>Sending a Single Packet on a PIO Device</H3>
+
+<P>A miniport driver that controls a NIC that sends data using programmed I/O (PIO) performs the following steps in its send function:
+
+<OL>
+	<LI>Calls <A HREF="103ndisx_4ooi.htm"><B>NdisQueryPacket</B></A> to get the length of the packet. The miniport driver then checks whether there are transmit resources available to send the packet. If resources are not available, the miniport driver returns NDIS_STATUS_RESOURCES or queues the packet internally and returns from its send handler. If a packet is queued in the miniport driver, the miniport driver must return NDIS_STATUS_PENDING for that packet. If the miniport driver supports out-of-band (OOB) data, it uses NDIS macros to read any relevant data from the OOB block. If send resources are available, the NIC driver continues.</LI>
+
+	<LI>Calls <A HREF="103ndisx_4ooi.htm"><B>NdisQueryPacket</B></A> to get a pointer to the first buffer descriptor in the packet.</LI>
+
+	<LI>Calls <A HREF="103ndisx_7t9u.htm"><B>NdisQueryBufferSafe</B></A> or <A HREF="103ndisx_0l82.htm"><B>NdisQueryBuffer</B></A> to obtain the virtual address of the buffer containing the data to be sent and the number of bytes in that buffer.</LI>
+
+	<LI>Calls <B>NdisRawWritePort</B><I>Xxx</I> to write the length of the buffer to the port. Miniports that manage PIO NICs are guaranteed that the correct data is transferred to the NIC; therefore, such miniports do not call <B>NdisFlushBuffer</B>.</LI>
+
+	<LI>Calls <B>NdisRawWritePortBuffer</B><I>Xxx</I> to write the buffer whose address was returned from <B>NdisQueryBuffer(Safe)</B>. </LI>
+
+	<LI>Calls <A HREF="103ndisx_2j5e.htm"><B>NdisGetNextBuffer</B></A> to get the next buffer in the packet.</LI>
+
+	<LI>Repeats steps 3 through 6 until it has successfully sent all the buffers in the packet.</LI>
+
+	<LI>When <I>MiniportSend</I> is done with a packet, it returns the status as the status of <I>MiniportSend</I>. If the status is not NDIS_STATUS_PENDING, the miniport driver relinquishes the packet descriptor and the resources it specifies back to the caller. The <I>MiniportSendPackets</I> function of a serialized miniport driver returns the status of the send in the <B>Send</B> member of the OOB block for the packet descriptor. If the miniport driver returned a pending status for any packet, it must call <B>NdisMSendComplete</B> when it is done with the packet resources and is ready to relinquish it to the caller. The NDIS library ignores the OOB block in all packet descriptors it submits to the <I>Miniport(Co)SendPackets</I> functions of deserialized and connection-oriented miniports. NDIS assumes that such miniports will complete each packet descriptor input to their <I>MiniportSendPackets</I> or <I>MiniportCoSendPackets</I> functions asynchronously with <B>NdisM(Co)SendComplete</B>. Consequently, the <I>Miniport(Co)SendPackets</I> function usually ignores the <B>Status</B> member of the NDIS_PACKET_OOB_DATA block, but it can set this member to the same status that it will pass to <B>NdisM(Co)SendComplete</B>.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Sending%20a%20Single%20Packet%20on%20a%20PIO%20Device"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

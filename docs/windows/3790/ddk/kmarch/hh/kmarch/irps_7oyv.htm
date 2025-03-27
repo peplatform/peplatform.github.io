@@ -1,0 +1,42 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Implementing a Cancel Routine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Implementing a Cancel Routine">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_implementing_a_cancel_routine_kg"></A>Implementing a <I>Cancel</I> Routine</H2>
+
+<P>The I/O Manager calls a driver-supplied <A HREF="drvrrtns_8y0i.htm"><I>Cancel</I></A><I> </I>routine with an input IRP to be canceled and a <I>DeviceObject</I> pointer that represents the target device for the I/O request.</P>
+
+<P>The IRP could be one that the driver’s <I>DispatchReadWrite</I> routine has queued just as the current Win32 application is being closed by the user. The IRP also could be one that a higher-level driver explicitly canceled, depending on the nature of the underlying device.</P>
+
+<P>When the <I>Cancel </I>routine is called, the input IRP might already be the <B>CurrentIrp</B> in the target device object or might already be in the device queue associated with the target device object if the driver has a <I>StartIo </I>routine. If the driver has no <I>StartIo </I>routine, the IRP might be in a driver-managed internal queue of IRPs when its <I>Cancel </I>routine is called. In any case, the I/O Manager resets the <B>Cancel</B><I> </I>member in the incoming IRP to NULL before it calls the <I>Cancel </I>routine for that IRP.</P>
+
+<P>The <I>Cancel </I>routine for a master IRP that has associated IRPs is responsible for calling <A HREF="k104_1j8y.htm"><B>IoCancelIrp</B></A> to cancel those associated IRPs. </P>
+
+<P>All <I>Cancel </I>routines must follow these guidelines:
+
+<UL>
+	<LI>Call <A HREF="k104_5po2.htm"><B>IoReleaseCancelSpinLock</B></A> to release the system's cancel spin lock.</LI>
+
+	<LI>Set the I/O status block's <B>Status</B> member to STATUS_CANCELLED, and set it's <B>Information</B> member to zero.</LI>
+
+	<LI>Complete the specified IRP by calling <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>.</LI>
+
+	<LI>Because a <I>Cancel </I>routine is <I>always</I> called with the system cancel spin lock held, this routine <I>must not</I> call <A HREF="k104_9fw2.htm"><B>IoAcquireCancelSpinLock</B></A> unless it calls <A HREF="k104_5po2.htm"><B>IoReleaseCancelSpinLock</B></A> first.</LI>
+
+	<LI>A <I>Cancel </I>routine <I>cannot</I> be holding the system cancel spin lock when it returns control. That is, every <I>Cancel </I>routine must call <B>IoReleaseCancelSpinLock</B> at least once before it returns control.</LI>
+
+	<LI>If it calls <B>IoAcquireCancelSpinLock</B>, a <I>Cancel </I>routine must make the reciprocal call to <B>IoReleaseCancelSpinLock</B> as quickly as possible.</LI>
+
+	<LI><I>Never</I> call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with an IRP while holding a spin lock. Attempting to complete an IRP while holding a spin lock can cause deadlocks.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Implementing%20a%20Cancel%20Routine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

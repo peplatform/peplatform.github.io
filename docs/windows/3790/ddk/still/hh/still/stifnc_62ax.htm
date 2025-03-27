@@ -1,0 +1,168 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IOCTL_WRITE_REGISTERS</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IOCTL_WRITE_REGISTERS">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_urb_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk__urb_control_vendor_or_class_request_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ioctl_write_registers_si"></A>IOCTL_WRITE_REGISTERS</H1>
+
+<P>Writes to USB device registers, using the control pipe.</P>
+
+<H4>DeviceIoControl Parameters</H4>
+
+<DL>
+<DT><I>hDevice</I></DT>
+
+<DD>Device handle, obtained by calling <B>CreateFile</B>.</DD>
+
+<DT><I>dwIoControlCode</I></DT>
+
+<DD>IOCTL_WRITE_REGISTERS</DD>
+
+<DT><I>lpInBuffer</I></DT>
+
+<DD>Pointer to an <A HREF="stifnc_2e5l.htm">IO_BLOCK</A> structure.</DD>
+
+<DT><I>nInBufferSize</I></DT>
+
+<DD>Size of the input buffer.</DD>
+
+<DT><I>lpOutBuffer</I></DT>
+
+<DD>NULL.</DD>
+
+<DT><I>nOutBufferSize</I></DT>
+
+<DD>Zero.</DD>
+
+<DT><I>lpBytesReturned</I></DT>
+
+<DD>Pointer to a location to receive the number of bytes written.</DD>
+
+<DT><I>lpOverlapped</I></DT>
+
+<DD>Optional pointer to an OVERLAPPED structure (described in the Platform SDK documentation).
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>usbscan.h</I>. Include <I>usbscan.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>When the <B>DeviceloControl</B> function is called with the IOCTL_WRITE_REGISTERS I/O control code, the caller must specify the address of an <A HREF="stifnc_2e5l.htm">IO_BLOCK</A> structure as the function's <I>lpInBuffer</I> parameter.</P>
+
+<P>Using the IO_BLOCK contents, the kernel-mode driver creates a <A HREF="JavaScript:hhobj_1.Click()">URB</A> that contains a <A HREF="JavaScript:hhobj_2.Click()">_URB_CONTROL_VENDOR_OR_CLASS_REQUEST</A> structure.</P>
+
+<P>The following table indicates the values assigned to _URB_CONTROL_VENDOR_OR_CLASS_REQUEST structure members.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=42%>Structure Member</TH>
+<TH align=left width=58%>Value Assigned</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%><B>TransferFlags</B></TD>
+<TD width=58%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%><B>TransferBufferLength</B></TD>
+<TD width=58%><I>pIoBlock</I>-&gt;<B>uLength</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%><B>TransferBuffer</B></TD>
+<TD width=58%><I>pIoBlock</I>-&gt;<B>pbyData</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%><B>TransferBufferMDL</B></TD>
+<TD width=58%>NULL</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%><B>RequestTypeReservedBits</B></TD>
+<TD width=58%>0x40</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%><B>Request</B></TD>
+<TD width=58%>(<I>pIoBlock</I>-&gt;<B>uLength</B> &gt; 1) ? 0x04 : 0x0C</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%><B>Value</B></TD>
+<TD width=58%>(SHORT)<I>pIoBlock</I>-&gt;<B>uOffset</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%><B>Index</B></TD>
+<TD width=58%><I>pIoBlock</I>-&gt;<B>uIndex</B></TD>
+</TR>
+</TABLE><BR>
+
+<P>For more information, see <A HREF="wia_drv_basic_6pex.htm">Accessing Kernel-Mode Drivers for Still Image Devices</A>.</P>
+
+<H4>Code Example</H4>
+
+<PRE>DWORD             cbRet;
+BOOL              bRet;
+IO_BLOCK          IoBlock;
+OVERLAPPED        overlapped;
+
+IoBlock.uOffset = (BYTE)byOffset;
+IoBlock.uLength = (BYTE)byNbOfReg;
+IoBlock.pbyData = pbyData;
+
+memset(&amp;overlapped, 0, sizeof(OVERLAPPED));
+overlapped.hEvent = 
+    CreateEvent(NULL,    // pointer to security attributes
+                         // WIN95 ignores this parameter
+                FALSE,   // automatic reset
+                FALSE,   // initialize to not signaled
+                NULL);   // pointer to the event-object name
+
+bRet = DeviceIoControl( DeviceHandle,
+                        (DWORD) IOCTL_WRITE_REGISTERS,
+                        &amp;IoBlock,
+                        sizeof(IO_BLOCK),
+                        NULL,
+                        0,
+                        &amp;cbRet,
+                        &amp;overlapped);
+
+if( bRet == TRUE )
+{
+    WaitForSingleObject(overlapped.hEvent, INFINITE);
+    // we do not the test, the result is zero
+}
+
+CloseHandle(overlapped.hEvent);</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IOCTL_WRITE_REGISTERS"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

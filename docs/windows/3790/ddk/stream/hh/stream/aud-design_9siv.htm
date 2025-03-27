@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Background of Non-PCM Support</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Background of Non-PCM Support">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_background_of_non_pcm_support_ksg"></A>Background of Non-PCM Support</H3>
+
+<P>Several issues prevented earlier versions of Windows from supporting non-PCM formats through the <B>waveOut</B> and DirectSound APIs. These issues and how they have been resolved are discussed below.</P>
+
+<H3>waveOut API</H3>
+
+<P>The software layer that separates <B>waveOut</B> applications from VxD wave drivers is fairly thin. Drivers and applications that support a custom wave format can stream data in that format regardless of whether the operating system understands the format.</P>
+
+<P>However, in Windows&nbsp;98 and Windows&nbsp;2000, the WDM audio framework forces all the audio data that is processed by the <B>waveOut</B> API (and DirectShow's <B>waveOut</B> renderer) to pass through the <A HREF="aud-design_1kiv.htm#ddk_kmixer_system_driver_ksg">KMixer system driver</A> (<I>kmixer.sys</I>), which is the kernel audio mixer. A <B>waveOutOpen</B> call succeeds only if KMixer supports the format, regardless of whether the driver supports the format.</P>
+
+<P>KMixer handles WAVE_FORMAT_PCM on all WDM operating systems. Windows&nbsp;98&nbsp;SE, and Windows&nbsp;2000 and later, extend KMixer to support not only WAVE_FORMAT_IEEE_FLOAT but also <A HREF="aud-prop_7wz7.htm">WAVEFORMATEXTENSIBLE</A> variants of PCM and IEEE-float formats. Because KMixer supports no non-PCM formats, an attempt to pass non-PCM data through KMixer fails.</P>
+
+<P>Windows&nbsp;Me, and Windows&nbsp;XP and later, support non-PCM formats by allowing non-PCM audio data to simply bypass KMixer. Specifically, <B>waveOut</B> non-PCM data flows directly to PortCls (or USBAudio) instead of first passing through KMixer. Any mixing of non-PCM data must be done in hardware, but applications that use non-PCM data in a format such as AC3 typically do not require mixing and drivers typically do not support hardware mixing in that format.</P>
+
+<H3>DirectSound API</H3>
+
+<P>On legacy <B>waveOut</B> drivers and VxD drivers, DirectSound supports <A HREF="aud-prop_5s4z.htm">WAVEFORMATEX</A> (but not WAVEFORMATEXTENSIBLE) PCM formats for both primary and secondary buffers, with 8 or 16 bits per sample, one or two channels, and a sampling rate between 100 Hz and 100 kHz. VxD drivers can further limit the formats allowed for primary buffers when the cooperative level is set to DSSCL_WRITEPRIMARY (see the description of the <B>IDirectSoundBuffer::SetFormat</B> method in the DirectX SDK). These limitations have not changed in Windows&nbsp;Me or Windows&nbsp;XP.</P>
+
+<P>WDM drivers can support PCM formats in both WAVEFORMATEX and WAVEFORMATEXTENSIBLE form. For Windows&nbsp;98&nbsp;SE, Windows&nbsp;Me, and Windows&nbsp;2000 and later, drivers can also support the WAVE_FORMAT_IEEE_FLOAT format for both primary and secondary DSBCAPS_LOCSOFTWARE buffers (mixed by KMixer) in both WAVEFORMATEX and WAVEFORMATEXTENSIBLE form.</P>
+
+<P>Calling <B>SetFormat</B> to specify the data format of a primary buffer has only an indirect effect on the final mixing format chosen by the sound card. The primary buffer object is used to obtain the <B>IDirectSound3DListener</B> interface and to set the device's global volume and pan, but does not represent the single output stream from the sound card. Instead, KMixer mixes the primary-buffer data in order to allow several DSSCL_WRITEPRIMARY DirectSound clients to run simultaneously.</P>
+
+<P>On Windows&nbsp;98 and Windows&nbsp;2000, DirectSound supports only PCM data. (The same is true of DirectShow, which uses DirectSound's renderer.) A call to <B>CreateSoundBuffer</B> with a non-PCM format always fails, even if the driver supports the format. Failure occurs for two reasons. First, whenever DirectSound creates a KS pin, it automatically specifies KSDATAFORMAT_SUBTYPE_PCM instead of deriving the subtype from the <B>wFormatTag</B> member of the WAVEFORMATEX structure that is used to create the <B>IDirectSoundBuffer</B> object. Second, DirectSound requires every data path to have volume and SRC (sample-rate conversion) nodes (<A HREF="aud-prop_9eb7.htm">KSNODETYPE_VOLUME</A> and <A HREF="aud-prop_3jxv.htm">KSNODETYPE_SRC</A>), regardless of whether the client requests pan, volume, or frequency controls on the DirectSound buffer. This requirement is met if either the data passes through KMixer or the device performs hardware mixing. For non-PCM formats, however, KMixer is not present in the data path and the drivers themselves typically fail when asked to perform hardware mixing.</P>
+
+<P>Windows&nbsp;Me, and Windows&nbsp;XP and later, remove the limitations that prevented DirectSound applications from using non-PCM formats. DirectSound&nbsp;8 (and later versions) uses the correct format subtype and no longer automatically requires volume and SRC nodes in every data path.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Background%20of%20Non-PCM%20Support"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

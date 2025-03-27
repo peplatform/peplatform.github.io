@@ -1,0 +1,30 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Driver-Managed Textures</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Driver-Managed Textures">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_driver_managed_textures_gg"></A>Driver-Managed Textures</H2>
+
+<P>The driver can manage textures that have been marked as manageable. These DirectDrawSurface objects are marked as manageable with the DDSCAPS2_TEXTUREMANAGE flag in the <B>dwCaps2</B> member of the structure referred to by <B>lpSurfMore-&gt;ddCapsEx</B>. (<B>lpSurfMore</B> and <B>ddCapsEx</B> are members of the <A HREF="ddstrcts_1vl4.htm">DD_SURFACE_LOCAL</A> and <A HREF="ddstrcts_3esn.htm">DD_SURFACE_MORE</A> structures, respectively.)</P>
+
+<P>The driver supports  driver-managed textures by setting the <B>dwCaps2</B> member of the <A HREF="ddstrcts_5xgn.htm">DDCORECAPS</A> structure to the DDCAPS2_CANMANAGETEXTURE bit. The driver specifies this DDCORECAPS structure in the <B>ddCaps</B> member of a <A HREF="ddstrcts_17s7.htm">DD_HALINFO</A> structure. DD_HALINFO is returned by <A HREF="ddfncs_4yav.htm"><I>DrvGetDirectDrawInfo</I></A> in response to the initialization of the DirectDraw component of the driver.</P>
+
+<P>The driver can then create the necessary surfaces in video or nonlocal memory in a "lazy" fashion. That is, the driver leaves the textures in backing surfaces until it requires them, which is just before rasterizing a primitive that makes use of the texture.</P>
+
+<P>Surfaces should be evicted primarily by their priority assignment. The driver responds to the <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_setpriority_gg">D3DDP2OP_SETPRIORITY</A> operation code in the <A HREF="d3dfncs_5usn.htm"><I>D3dDrawPrimitives2</I></A> command stream. This operation code sets the priority for a given surface. As a secondary measure, the driver should use a least-recently-used (LRU) scheme to evict surfaces. The driver uses this scheme whenever the priority of two or more textures is identical in a particular scenario. Logically, any surface that is in use should not be evicted at all.</P>
+
+<P>If a driver supports managed surfaces, then the driver may receive a special <A HREF="ddfncs_1c4n.htm"><I>DdDestroySurface</I></A> call for a managed surface in the case where video memory is lost, such as when a mode switch occurs. In this case the DRAWISURF_INVALID flag is set and the driver simply evicts the video memory copy of this managed surface and keeps other structures intact. Otherwise, the driver performs a regular destroy surface call.</P>
+
+<P>The driver should handle <A HREF="ddfncs_7lpj.htm"><I>DdBlt</I></A> and <A HREF="ddfncs_11gn.htm"><I>DdLock</I></A> calls appropriately when managing textures. This is because any change to the backing surface image must be propagated into the video memory copy of the surface before the texture is used again. The driver should determine if it is better to update just a portion of the surface or all of it. For example, if the driver's <I>DdLock</I> function is called to modify only a portion of a backing (system memory) image of the video memory copy of a surface, then when the driver's <I>DdBlt</I> function is called the driver can optimize the update by just blitting the necessary subsurface from system memory into video memory. </P>
+
+<P>The driver is allowed to perform texture management in order to perform optimization transformations on the textures or to decide for itself where and when to transfer textures in memory.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Driver-Managed%20Textures"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

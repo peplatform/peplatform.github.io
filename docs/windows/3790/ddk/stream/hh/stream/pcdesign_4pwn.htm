@@ -1,0 +1,83 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>System-Wide Unique Device IDs</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="System-Wide Unique Device IDs">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_object_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_identification_strings_dg">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_query_id_dr">
+</OBJECT>
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_query_capabilities_dr">
+</OBJECT>
+<OBJECT ID="hhobj_5" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_capabilities_dr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_system_wide_unique_device_ids_ksg"></A>System-Wide Unique Device IDs</H4>
+
+<P>A driver for a typical audio adapter should easily be able to support several instances of the same audio adapter card in a system. Nearly all the data structures that a driver maintains are stored in the device-extension buffer (see the description of the <A HREF="JavaScript:hhobj_1.Click()">DEVICE_OBJECT</A> structure's <B>DeviceExtension</B> field). If several instances of a driver share any global data, however, those instances should synchronize their access to this data.</P>
+
+<P>One additional requirement is that each subdevice on a particular instance of an adapter card should have a <A HREF="JavaScript:hhobj_2.Click()">device-ID string</A> that uniquely identifies the subdevice across all instances of the same adapter card in the system. </P>
+
+<P>The most straightforward way to accomplish this is to expose each subdevice on the adapter card as a logically distinct device to the PnP Manager. This is presented as option (1) in <A HREF="aud-design_9xk7.htm">Multifunction Audio Devices</A>.</P>
+
+<P>A second approach is to use the system-supplied multifunction bus driver to manage the subdevices on the adapter card. The MF bus driver assigns to each subdevice a device ID that is guaranteed to be unique across the system, even if the system contains several instances of the same adapter card. The MF bus driver accommodates designs in which the subdevices share a common set of configuration registers but each subdevice has its own set of PCI base-address registers. The subdevices should have no hidden dependencies on each other and should be able to operate concurrently without interfering with each other or with other devices in the system. This is option (2) in <A HREF="aud-design_9xk7.htm">Multifunction Audio Devices</A>.</P>
+
+<P>A third approach is to use a proprietary bus driver to manage the subdevices on an adapter card. This is frequently necessary if the subdevices have mutual dependencies that must be managed centrally. Such dependencies can occur in a couple of ways:
+
+<UL>
+	<LI>The subdevices might share some on-card resource. For example, if the subdevices share a digital signal processor (DSP), the bus driver might need to download the proprietary operating system that runs on the DSP before starting up the first subdevice.</LI>
+
+	<LI>A design flaw might cause a dependency among subdevices. For example, a design flaw might require the subdevices to be powered up or down in a particular sequence.</LI>
+</UL>
+
+<P>When either type of dependency exists, a proprietary bus driver is nearly always a better solution than presenting the subdevices directly to the PnP Manager and attempting to hide the dependencies under the covers.</P>
+
+<P>If you provide your own bus driver for an adapter card, you should ensure that the device IDs that your bus driver assigns are unique across the system. </P>
+
+<P>A bus driver provides a device ID for one of its children in response to an <A HREF="JavaScript:hhobj_3.Click()">IRP_MN_QUERY_ID</A> query from the PnP Manager. The ID can be specified in one of two ways, which the bus driver indicates in its response to an <A HREF="JavaScript:hhobj_4.Click()">IRP_MN_QUERY_CAPABILITIES</A> query by setting the <A HREF="JavaScript:hhobj_5.Click()">DEVICE_CAPABILITIES</A> structure's <B>UniqueID</B> field to TRUE or FALSE:
+
+<UL>
+	<LI><B>UniqueID</B>=TRUE
+<P>This means that the name of the child is guaranteed to be unique throughout the system. The device ID string contains a device ID plus an instance ID, which is a serial number that uniquely identifies the hardware instance.
+</LI>
+
+	<LI><B>UniqueID</B>=FALSE
+<P>This means that the name of the child is unique only with respect to the parent. Most devices use this means of identification. In this case, the PnP Manager extends the device-ID string that it receives to make it unique through the system. The extended string is a function of the parent device's unique ID.
+</LI>
+</UL>
+
+<P>All audio bus drivers should set <B>UniqueID</B>=FALSE for their children. This causes the PnP Manager to extend the child's device ID string by adding information about the device's parent to make the ID unique on the machine.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: System-Wide%20Unique%20Device%20IDs"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

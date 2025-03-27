@@ -1,0 +1,60 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Audio Property Handlers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Audio Property Handlers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_audio_property_handlers_ksg"></A>Audio Property Handlers</H3>
+
+<P>A miniport driver provides information about the properties that it supports in the form of an array of <A HREF="audpc-struct_1okz.htm">PCPROPERTY_ITEM</A> structures. Each structure contains the following information about a property:
+
+<UL>
+	<LI>The property-set GUID and property ID (or index).</LI>
+
+	<LI>A function pointer to the handler routine for the property.</LI>
+
+	<LI>A set of flags that specify the property operations that the handler supports.</LI>
+</UL>
+
+<P>The property-item array is contained in the automation table within the <A HREF="audpc-struct_0otv.htm">PCFILTER_DESCRIPTOR</A> structure that the filter factory outputs to the port driver through its <A HREF="audmp-routines_5k1f.htm"><B>IMiniport::GetDescription</B></A> method. For more information, see <A HREF="aud-design_4u93.htm">Filter Factories</A>.</P>
+
+<P>A miniport driver can specify a unique property-handler routine for each property. In practice, if a driver handles several similar properties, these can often be consolidated into a single handler routine for convenience. Whether to provide a unique handler for each property or to consolidate several properties into a single handler is an implementation decision to be made by the driver writer and should be transparent to clients that submit property requests.</P>
+
+<P>A client can send a <I>get</I>- or <I>set</I>-property request by calling the Win32 function <B>DeviceIoControl</B> with the <I>dwIoControlCode</I> call parameter set to IOCTL_KS_PROPERTY. The operating system converts this call to an IRP, which it dispatches to the class driver. For more information, see <A HREF="ks-overview_1uhz.htm">KS Properties</A>.</P>
+
+<P>When a client sends a property request to a miniport driver's handler for a filter or pin property, the KS system driver delivers the request to the port driver that the miniport driver is bound to. Before forwarding the request to the miniport driver's property handler, the port driver converts the information from the original property request into the format specified by the <A HREF="audpc-struct_93g3.htm">PCPROPERTY_REQUEST</A> structure. This is the structure that the port driver passes as a call parameter to the property-handler routine.</P>
+
+<P>The <B>MajorTarget</B> member of PCPROPERTY_REQUEST points to the primary miniport interface for the audio device. For a WavePci device, for example, this a pointer to the miniport object's <A HREF="audmp-routines_6ier.htm"><B>IMiniportWavePci</B></A> interface.</P>
+
+<P>In the case of a filter property request, the <B>MinorTarget</B> member of PCPROPERTY_REQUEST is NULL. In the case of a pin property request, <B>MinorTarget</B> points to the stream interface for the pin. For a WavePci device, for example, this is a pointer to the stream object's <A HREF="audmp-routines_6otv.htm"><B>IMiniportWavePciStream</B></A> interface.</P>
+
+<P>The <B>Instance</B> and <B>Value</B> members of PCPROPERTY_REQUEST point to the buffers that contain the property's descriptor (instance data) and value (operation data), respectively. The <B>InstanceSize</B> and <B>ValueSize</B> members specify the sizes of these two buffers.</P>
+
+<P>The port driver simply copies the value pointer and value size from the original property request into the <B>Value</B> and <B>ValueSize</B> members. It modifies the instance pointer and instance size, however, before copying them into the <B>Instance</B> and <B>InstanceSize</B> members.</P>
+
+<P>The instance pointer from the original property request points to a buffer that begins with either a <A HREF="ks-struct_6jlf.htm">KSPROPERTY</A> or <A HREF="aud-prop_5n3n.htm">KSNODEPROPERTY</A> structure, but might contain additional information. The KSPROPERTY_TYPE_TOPOLOGY bit in the property request's operation flags indicates which of these two structures is used:
+
+<UL>
+	<LI>If this flag bit is set, the target is a node and the instance data begins with a KSNODEPROPERTY structure.</LI>
+
+	<LI>Otherwise, the instance data begins with a KSPROPERTY structure.</LI>
+</UL>
+
+<P>The port driver adjusts the instance pointer to point to the additional information that follows the KSPROPERTY or KSNODEPROPERTY structure before loading it into the <B>Instance</B> member. It also decrements the instance size by the size of KSPROPERTY or KSNODEPROPERTY before loading it into the <B>InstanceSize</B> member. If the instance data contains no additional information, the port driver sets <B>Instance</B> and <B>InstanceSize</B> to NULL and zero, respectively.</P>
+
+<P>For example, if the client specifies a <A HREF="aud-prop_59rn.htm">KSNODEPROPERTY_AUDIO_CHANNEL</A> structure as the instance data, the port driver passes the handler a PCPROPERTY_REQUEST structure whose <B>Instance</B> member points to the KSNODEPROPERTY_AUDIO_CHANNEL structure's <B>Channel</B> member, and whose <B>InstanceSize</B> member contains the value</P>
+
+<P class=indent1><B>sizeof</B>(KSNODEPROPERTY_AUDIO_CHANNEL) – <B>sizeof</B>(KSNODEPROPERTY)</P>
+
+<P>The port driver copies the information from the KSPROPERTY or KSNODEPROPERTY structure into the PCPROPERTY_REQUEST structure's <B>Node</B>, <B>PropertyItem</B>, and <B>Verb</B> members. In the case of KSPROPERTY, which contains no node information, the port driver sets <B>Node</B> to the null node-ID value, ULONG(-1).</P>
+
+<P>Before submitting a <I>get</I>-property request, the client should allocate the buffer into which the miniport driver's property handler is to write the property value (operation data). For some properties, the size of the property value is device-dependent and the client must query the property handler for the required buffer size. In these cases, the client submits an initial property request with a zero-length output buffer. The handler responds by returning the required buffer size along with the status code STATUS_BUFFER_OVERFLOW. (The handler writes the required size into the <B>ValueSize</B> member of the PCPROPERTY_REQUEST structure.) The client then retrieves the property value by allocating a property-value buffer of the specified size and sending this buffer in a second <I>get</I>-property request.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Audio%20Property%20Handlers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

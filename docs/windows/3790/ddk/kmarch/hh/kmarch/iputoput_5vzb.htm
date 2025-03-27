@@ -1,0 +1,89 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Setting Up a Transfer Operation</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_setting_up_a_transfer_operation_kg"></A>Setting Up a Transfer Operation</H4>
+
+<P>When <A HREF="kdma_92r6.htm"><B>AllocateAdapterChannel</B></A> transfers control to a driver's <A HREF="drvrrtns_7vea.htm"><I>AdapterControl</I></A> routine, it has allocated a set of map registers. However, the driver must map system physical memory for the current IRP's transfer request to the bus-master adapter's logical address range, as follows:
+
+<OL>
+	<LI>Call <A HREF="k106_5nhu.htm"><B>MmGetMdlVirtualAddress</B></A> with the MDL at <B>Irp-&gt;MdlAddress</B> to get an index for the system physical address where the transfer should start.
+<P>The return value is a required parameter (<I>CurrentVa</I>) to <A HREF="kdma_1hv6.htm"><B>MapTransfer</B></A>.
+</LI>
+
+	<LI>Call <B>MapTransfer</B> to map the system physical address ranges for the IRP's buffer to the bus-master adapter's logical address range. </LI>
+</OL>
+
+<P>The driver can then set up the adapter for the transfer operation. The following figure shows the steps involved in setting up the transfer.</P>
+
+<P><B><IMG SRC="images/3dmabus.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Setting Up a Logical Range for DMA</B></P>
+
+<P>As the previous figure shows, a driver's <I>AdapterControl</I> routine sets up a bus-master DMA operation as follows:
+
+<OL>
+	<LI>The <I>AdapterControl</I> routine gets the address at which to start the transfer. For the initial transfer required to satisfy an IRP, the <I>AdapterControl</I> routine calls <A HREF="k106_5nhu.htm"><B>MmGetMdlVirtualAddress</B></A>, passing a pointer to the MDL at <B>Irp-&gt;MdlAddress</B>, which describes the buffer for this DMA transfer. 
+<P><B>MmGetMdlVirtualAddress</B> returns a virtual address that the driver can use as an index for the system physical address where the transfer should start. 
+
+<P>If the IRP requires more than one transfer operation, the driver calculates an updated starting address, as described later in this section.
+</LI>
+
+	<LI>The <I>AdapterControl</I> routine saves the address returned by <B>MmGetMdlVirtualAddress</B> or calculated in Step 1. This address is a required parameter (<I>CurrentVa</I>) to <A HREF="kdma_1hv6.htm"><B>MapTransfer</B></A>.</LI>
+
+	<LI>The <I>AdapterControl</I> routine calls <B>MapTransfer</B>, which returns a logical address at which the driver can program the bus-master adapter to begin the transfer operation. In the call to <B>MapTransfer</B>, the driver supplies the following parameters:
+<UL>
+	<LI>The adapter object pointer returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A> </LI>
+
+	<LI>A pointer to the MDL at <B>Irp-&gt;MdlAddress</B> for the current IRP</LI>
+
+	<LI>The <I>MapRegisterBase</I> handle passed to the driver's <I>AdapterControl</I> routine by <B>AllocateAdapterChannel</B> (see <A HREF="iputoput_3xrb.htm">Allocating the Bus-Master Adapter Object</A>)</LI>
+
+	<LI>The value returned by <B>MmGetMdlVirtualAddress</B> if this is the first call to<B> MapTransfer</B> for the current IRP
+<P>Otherwise, the driver supplies an updated <I>CurrentVa</I> value, indicating the next physical-to-logical mapping to be done. (How to calculate an updated <I>CurrentVa</I> is described later in this section.) <B> </B>
+</LI>
+
+	<LI>A pointer to a variable (<I>Length</I>), which indicates the number of bytes for this transfer
+<P>If the driver has enough map registers to transfer all the requested data in a single DMA operation and has no device-specific constraints on its DMA operations, the <I>Length</I> can be set to the value of <B>Length</B> in the driver's I/O stack location of the IRP. At most, the input length in bytes can be (PAGE_SIZE * the <I>NumberOfMapRegisters</I> returned by <B>IoGetDmaAdapter</B>). Otherwise, the driver must split up the request, as explained in <A HREF="iputoput_70h3.htm">Splitting Transfer Requests</A>, and must update the value of <I>Length</I> in subsequent calls to <B>MapTransfer</B> for the current IRP. 
+</LI>
+
+	<LI>A Boolean value (<I>WriteToDevice</I>), indicating the direction of the transfer operation (TRUE to transfer data from memory to the device)</LI>
+</UL>
+</LI>
+
+	<LI>The <I>AdapterControl</I> routine sets up the device for the DMA operation. </LI>
+
+	<LI>The <I>AdapterControl</I> routine returns <B>DeallocateObjectKeepRegisters</B>.</LI>
+</OL>
+
+<P>If the driver must call <B>MapTransfer</B> more than once to satisfy the current IRP, it supplies the same adapter object pointer, <I>Mdl</I> pointer, <I>MapRegisterBase</I> handle, and transfer direction in every call to <B>MapTransfer</B>. However, the driver must supply updated <I>CurrentVa</I> and <I>Length</I> values in its second and subsequent calls to <B>MapTransfer</B>. Use the following formulas to calculate these values:
+
+<UL>
+	<LI><I>CurrentVa</I> = <I>CurrentVa</I> + (<I>Length</I> requested in preceding call to <B>MapTransfer</B>)</LI>
+
+	<LI><I>Length</I> = Minimum (remaining<B> Length</B> to be transferred, (PAGE_SIZE * <I>NumberOfMapRegisters</I> returned by <B>IoGetDmaAdapter</B>))</LI>
+</UL>
+
+<P>The context information each driver should maintain about its DMA transfers depends on the needs of its particular device. Typical context might include the current virtual address in the MDL (<I>CurrentVa</I>), the number of bytes transferred so far, the number of bytes remaining to transfer, and possibly a pointer to the current IRP.</P>
+
+<P>For drivers of devices with scatter/gather capabilities, the <I>Length</I> parameter to <B>MapTransfer</B> is both an input and output parameter. On return from <B>MapTransfer</B>, it indicates how many bytes of data the system has mapped. That is, the return value of <I>Length</I>, in combination with the returned logical address, indicates the range of logical addresses the bus-master adapter can use for this piece of the transfer in this DMA operation.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Since Length is overwritten by MapTransfer, follow this implementation guideline: </P>
+
+<P class=note><I>Never pass a pointer to the</I> <B>Length</B> <I>in the driver's I/O stack location of an IRP</I> <I>as the Length parameter to</I> <B>MapTransfer</B> <I>if your device supports scatter/gather</I>.</P>
+
+<P class=note>Doing this could destroy the value in the current IRP, making it impossible to determine whether the driver has transferred all the requested data.</P>
+
+<P>At the end of each DMA operation, the driver must call<B> <A HREF="kdma_9cxe.htm">FlushAdapterBuffers</A></B> with a valid adapter object pointer and the <I>MapRegisterBase</I> handle to be sure that all the data has been transferred, and to release the physical-to-logical mappings for the current DMA operation. If the driver must set up additional DMA operations to satisfy the current IRP, it must call <B>FlushAdapterBuffers</B> after each transfer operation is complete.</P>
+
+<P>When all the requested transfer is complete or the driver must return an error status for the IRP, the driver should call <A HREF="kdma_5rqq.htm"><B>FreeMapRegisters</B></A> immediately after its last call to <B>FlushAdapterBuffers</B> in order to get the best possible throughput for the bus-master adapter. In its call to <B>FreeMapRegisters</B>, the driver must pass the adapter object pointer that it passed in the preceding call to <B>AllocateAdapterChannel</B>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Setting%20Up%20a%20Transfer%20Operation"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

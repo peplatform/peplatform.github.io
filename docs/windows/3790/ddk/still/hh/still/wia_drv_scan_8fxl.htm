@@ -1,0 +1,284 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ESC_TWAIN_CAPABILITY Escape Code</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_esc_twain_capability_escape_code_si"></A>ESC_TWAIN_CAPABILITY Escape Code</H4>
+
+<P>To carry out a capability operation on a private TWAIN capability, a TWAIN application notifies the TWAIN compatibility layer, which then calls the WIA driver's <A HREF="stifnc_2kh5.htm"><B>IStiUSD::Escape</B></A> method, passing the ESC_TWAIN_CAPABILITY escape code. The pseudocode in the following example demonstrates how the <B>Escape</B> method should be implemented and how it should respond to this escape code.</P>
+
+<PRE>STDMETHODIMP CWIADevice::Escape(STI_RAW_CONTROL_CODE EscapeFunction,
+  LPVOID               lpInData,
+  DWORD                cbInDataSize,
+  LPVOID               pOutData,
+  DWORD                dwOutDataSize,
+  LPDWORD              pdwActualData)
+{
+  //
+  // Only process EscapeFunction codes that are known to your driver.
+  // Any application can send escape calls to your driver using the
+  // IWiaItemExtras interface Escape() method call.  The driver must
+  // be prepared to validate all incoming calls to Escape().
+  //
+
+  //
+  // Because this driver does not support any escape functions it will
+  // reject all incoming EscapeFunction codes.
+  //
+  // If your driver supports an EscapeFunction, then add your function
+  // code to the switch statement, and set hr = S_OK. This will allow 
+  // the function to continue to the incoming/outgoing buffer
+  // validation.
+
+  HRESULT hr = E_NOTIMPL;
+  switch(EscapeFunction) {
+  case ESC_TWAIN_CAPABILITY:  // processing the TWAIN capability Escapecode
+    hr = S_OK;
+    break;
+  default:
+    break;
+  }
+
+  //
+  // If an EscapeFunction code is supported, then first validate the
+  // incoming and outgoing buffers.
+  //
+
+  if(S_OK == hr) {
+
+    //
+    // validate the incoming data buffer
+    //
+
+    if(IsBadReadPtr(lpInData,cbInDataSize)) {
+       hr = E_UNEXPECTED;
+    }
+
+    //
+    // if the incoming buffer is valid, proceed to validate the
+    // outgoing buffer
+    //
+
+    if(S_OK == hr) {
+        if(IsBadWritePtr(pOutData,dwOutDataSize)) {
+           hr = E_UNEXPECTED;
+       } else {
+
+           //
+           // validate the outgoing size pointer
+           //
+
+           if(IsBadWritePtr(pdwActualData,sizeof(DWORD))) {
+               hr = E_UNEXPECTED;
+           }
+       }
+    }
+
+    //
+    // Now that buffer validation is complete, proceed to process the
+    // proper EscapeFunction code.
+    //
+
+    if(S_OK == hr) {
+
+       //
+       // Only process a validated EscapeFunction code, and buffers.
+       //
+
+       if(EscapeFunction == ESC_TWAIN_CAPABILITY) {
+
+           //
+           // Process a TWAIN capability message.
+           //
+
+           // Collect the lpInData and pOutData headers.
+           //
+           // 1. Create two TWAIN_CAPABILITY pointers in which
+           //    to store the addresses in lpInData and pOutData.
+           // 2. Set these local pointers to the addresses in
+           //    lpInData and pOutData.
+           // 3. Use these local pointers to access the
+           //    members of the TWAIN_CAPABILITY structures.
+
+           TWAIN_CAPABILITY *pInHeader  = NULL;
+           TWAIN_CAPABILITY *pOutHeader = NULL;
+
+           pInHeader  = (TWAIN_CAPABILITY*)lpInData;
+           pOutHeader = (TWAIN_CAPABILITY*)pOutData;
+
+           if(pInHeader &amp;&amp; pOutHeader) {
+         // Check the headers to determine the operation to perform.
+
+               switch(pInHeader-&gt;lCapID) {
+               case ICAP_MY_PRIVATE_CAP1:
+                  {
+                      // Check lMSG, to determine which TWAIN
+                      // message/operation is being requested.
+                      switch(pInHeader-&gt;lMSG) {
+                       case MSG_GETCURRENT: // Return the current value.
+                       case MSG_GETDEFAULT: // Return the default value.
+                       case MSG_GET:        // Return the valid values.
+                           {
+                               // Check lDataSize to determine
+                               // which operation to perform.
+                               if(pInHeader-&gt;lDataSize == 0) {
+                         // If lDataSize is zero:
+                         // a. Set pOutHeader-&gt;lDataSize to the size
+                         //    in bytes needed to store the entire
+                         //    TWAIN capability data.
+                         // b. Set *pchActualData to the size of
+                         //    a TWAIN_CAPABILITY header.
+                         // c. Set the TWAIN return codes,
+                         //    pOutHeader-&gt;lRC and pOutHeader-&gt;lCC.
+                         // d. Set the HRESULT to S_OK, and return.
+
+                                 pOutHeader-&gt;lDataSize = sizeof(TW_ENUMERATION) +
+                                (sizeof(TW_UINT32) * 3);
+                                *pdwActualData  = sizeof(TWAIN_CAPABILITY);
+                                 pOutHeader-&gt;lRC = TWRC_SUCCESS;
+                                 pOutHeader-&gt;lCC = TWCC_SUCCESS;
+                                 hr = S_OK;
+                             } else if(pInHeader-&gt;lDataSize &gt; 0) {
+                     // If lDataSize is positive:
+                     //   a. Fill the pOutHeader-&gt;Data member with
+                     //      the TWAIN capability data.
+                     //      (This is the container and data only).
+                     //   b. Set pOutHeader-&gt;lConType to the type of
+                     //      TWAIN container used.
+                     //   c. Set pOutHeader-&gt;lDataSize to
+                     //      (size of the TWAIN container + size of
+                     //      the TWAIN container data).
+                     //   d. Set *pchActualData to
+                     //      (size of the TWAIN container + size of
+                     //      the TWAIN container data +
+                     //      size of the TWAIN_CAPABILITY header).
+                     //   e. Set the TWAIN return codes,
+                     //      pOutHeader-&gt;lRC and pOutHeader-&gt;lCC.
+                     //   f. Set the HRESULT to S_OK, and return.
+                                 pEnumeration = (TW_ENUMERATION*)pOutHeader-&gt;Data;
+                                 if(pEnumeration) {
+                                     pEnumeration-&gt;ItemType     = TWTY_UINT32;
+                                     pEnumeration-&gt;NumItems     = 3;
+                                     pEnumeration-&gt;CurrentIndex = 0;
+                                     pEnumeration-&gt;DefaultIndex = 1;
+
+                                     TW_UINT32 *pData = (TW_UINT32*)pEnumeration-&gt;ItemList;
+                                     if(pData) {
+
+                                         pData[0] = 123;
+                                         pData[1] = 456;
+                                         pData[2] = 789;
+                                         pOutHeader-&gt;lConType  = TWON_ENUMERATION;
+                                         pOutHeader-&gt;lDataSize = sizeof(TW_ENUMERATION) +
+                                                       (sizeof(TW_UINT32) * 3);
+                                         *pdwActualData = sizeof(TWAIN_CAPABILITY) +
+                                                     sizeof(TW_ENUMERATION)   +
+                                                     (sizeof(TW_UINT32) * 3);
+
+                                         pOutHeader-&gt;lRC = TWRC_SUCCESS;
+                                         pOutHeader-&gt;lCC = TWCC_SUCCESS;
+
+                                         hr = S_OK;
+                                     } else {
+
+                              //
+                              // could not get the item list pointer
+                              //
+
+                                         hr = E_INVALIDARG;
+                                     }
+                                 } // if (Enumeration)
+                             } // if (pInHeader-&gt;lDataSize &gt; 0)
+                             break;
+                         } // case MSG_GET
+
+                     case MSG_SET:  // Set the incoming value.
+                         {
+                         // Check the TWAIN container type, and use
+                         // the contained values.
+                         //
+                         // 1. Create a pointer to a TWAIN container
+                         //    of the desired type.
+                         // 2. Set the pointer of the previous step
+                         //    to the address in pInHeader-&gt;Data.
+                         // 3. Access the values in the TWAIN
+                         //    container.
+                         // 4. Carry out any private operations
+                         //    with those values.
+                         // 5. Set *pchActualData to the size of a
+                         //    TWAIN_CAPABILITY header.
+                         // 6. Set the TWAIN return codes,
+                         //    pOutHeader-&gt;lRC and pOutHeader-&gt;lCC.
+                         // 7. Set the HRESULT to S_OK, and return.
+
+                             switch(pInHeader-&gt;lConType) {
+                             case TWON_ONEVALUE:
+                                 {
+                                     pOneValue = (TW_ONEVALUE*)pInHeader-&gt;Data;
+                                     if(pOneValue) {
+                                         if(pOneValue-&gt;ItemType == TWTY_UINT32) {
+                                             if(WriteMyPrivateTWAINValue((TW_UINT32)pOneValue-&gt;Item)) {
+                                                 *pdwActualData = sizeof(TWAIN_CAPABILITY);
+                                                 pOutHeader-&gt;lRC = TWRC_SUCCESS;
+                                                 pOutHeader-&gt;lCC = TWCC_SUCCESS;
+                                             } else {
+                                                 pOutHeader-&gt;lRC = TWRC_FAILURE;
+                                                 pOutHeader-&gt;lCC = TWCC_BADVALUE;
+                                             }
+                                             hr = S_OK;
+                                         }
+                                     } // if(pOneValue)
+                                     break;
+                                 } // case TWON_ONEVALUE:
+
+                             default:
+                                 break;
+                             } // End switch(pInHeader-&gt;lConType)
+                             break;
+                         } // case MSG_SET
+                     case MSG_RESET:   // reset TWAIN capability
+                         {
+                             break;
+                         }
+                     default:
+                         {
+                             // Messages other than MSG_GETCURRENT,
+                             // MSG_GETDEFAULT, MSG_GET, MSG_SET
+                             break;
+                         }
+                     } // switch(pInHeader-&gt;lMSG)
+                 } // case ICAP_MY_PRIVATE1
+             case ICAP_MY_PRIVATE2:
+                 {
+                     break;
+                 }
+               default:
+                 {
+                  // Unknown capability - set TWAIN failure codes.
+                     pOutHeader-&gt;lRC = TWRC_FAILURE;
+                     pOutHeader-&gt;lCC = TWCC_BADCAP;
+                     break;
+                 }
+               } // End switch(pInHeader-&gt;lCapID)
+           } // End if (pInHeader &amp;&amp; pOutHeader)
+       }
+    }
+  }
+
+  //
+  // if your driver will not support this entry point then
+  // it must return E_NOTIMPL (error, not implemented).
+  //
+
+  return hr;
+}
+</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ESC_TWAIN_CAPABILITY%20Escape%20Code"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

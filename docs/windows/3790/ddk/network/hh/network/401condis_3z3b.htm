@@ -1,0 +1,68 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Sending Packets on a VC</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Sending Packets on a VC">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_sending_packets_on_a_vc_ng"></A>Sending Packets on a VC</H3>
+
+<P>To send packets over the network, a connection-oriented client or call manager calls <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>. A connection-oriented client associated with an MCM driver also calls <B>NdisCoSendPackets</B>. An MCM driver, however, never calls <B>NdisCoSendPackets</B>; instead, since the interface between the call manager and MCM driver is internal to the MCM driver, the MCM driver passes packets directly to the NIC without notifying NDIS.</P>
+
+<P>The following figure shows a client or call manager sending packets through a miniport driver.</P>
+
+<P><IMG SRC="images/cm_12.gif" ALT="" BORDER=0></P>
+
+<P><B>Sending Packets from a Client or Call Manager Through a Miniport Driver</B></P>
+
+<P>The next figure shows a client sending packets through an MCM driver.</P>
+
+<P><IMG SRC="images/fig1_12.gif" ALT="" BORDER=0></P>
+
+<P><B>Sending Packets from a Client Through an MCM Driver</B></P>
+
+<P>Before calling <B>NdisCoSendPackets</B>, the client or call manager should set up an array of packet pointers in the same order that the packets should be sent over the wire. The client or a call manager then calls <B>NdisCoSendPackets</B>, passing (among other things) a pointer to the array of packet pointers and an <I>NdisVcHandle</I> that identifies the VC on which the packets should be sent.</P>
+
+<P>As soon as the client or call manager calls <B>NdisCoSendPackets</B>, it relinquishes ownership of the following:
+
+<UL>
+	<LI>All packet descriptors accessible at <I>PacketArray</I> </LI>
+
+	<LI>All buffers mapped by the buffer descriptors chained to those packet descriptors </LI>
+
+	<LI>All out-of-band (OOB) data blocks associated with the packet descriptors, including any medium-specific buffers specified in the OOB blocks </LI>
+</UL>
+
+<P>A call to <B>NdisCoSendPackets</B> causes NDIS to call the miniport driver's <A HREF="101mini_0ycy.htm"><I>MiniportCoSendPackets</I></A> function. <I>MiniportCoSendPackets</I> should transmit each packet in the array sequentially, preserving the order of packets in the array. <I>MiniportCoSendPackets</I> can call <A HREF="103ndisx_4ooi.htm"><B>NdisQueryPacket</B></A> to extract information, such as the number of buffer descriptors chained to the packet and the total size in bytes of the requested transfer. </P>
+
+<P><I>MiniportCoSendPackets </I>can call <B>NdisGetFirstBufferFromPacket(Safe)</B>, <B>NdisQueryBuffer(Safe)</B>, or <A HREF="103ndisx_1rea.htm">NdisQueryBufferOffset</A> to extract information about individual buffers containing the data to be transmitted. <I>MiniportCoSendPackets</I> can retrieve protocol-supplied OOB information associated with each packet by using the appropriate NDIS_GET_PACKET_XXX macros. The <I>MiniportCoSendPackets</I> function usually ignores the <B>Status</B> member of the NDIS_PACKET_OOB_DATA block, but it can set this member to the same status that it subsequently passes to <B>NdisMCoSendComplete</B>.</P>
+
+<P>Rather than relying on NDIS to queue and resubmit send packets whenever <I>MiniportCoSendPackets</I> has insufficient resources to transmit the given packets, a connection-oriented miniport manages its own internal packet queuing. The miniport must hold incoming send packets in its internal queue until they can be transmitted over the network. This queue preserves the protocol-determined ordering of packet descriptors incoming to the miniport's <I>MiniportCoSendPackets</I> function.</P>
+
+<P>A connection-oriented miniport driver must complete each incoming send packet with <A HREF="103ndisx_5t2q.htm"><B>NdisMCoSendComplete</B></A>. It <I>cannot</I> call <A HREF="103ndisx_58c2.htm"><B>NdisMSendResourcesAvailable</B></A>. A connection-oriented miniport driver should <I>never</I> pass STATUS_INSUFFICIENT_RESOURCES to <B>NdisMCoSendComplete</B> with a protocol-allocated packet descriptor that was originally submitted to its <I>MiniportCoSendPackets</I> function.</P>
+
+<P>The call to <B>NdisMCoSendComplete</B> causes NDIS to call the <A HREF="104tdlow_2t4i.htm"><I>ProtocolCoSendComplete</I></A> function of the client that initiated the send operation. <I>ProtocolCoSendComplete</I> performs any postprocessing necessary for a completed transmit operation, such as notifying the client that originally requested the protocol to send data over the network on the VC. </P>
+
+<P>Completion of a send operation usually implies that the underlying NIC driver actually has transmitted the given packet over the network. However, the driver of an "intelligent" NIC can consider a send complete as soon as it downloads the net packet to its NIC. </P>
+
+<P>After <I>ProtocolCoSendComplete</I> is called, the driver regains ownership of the following protocol-allocated resources:
+
+<UL>
+	<LI>The packet descriptor </LI>
+
+	<LI>All buffer descriptors chained to the packet descriptor that map buffers containing the net packet data and any protocol-allocated buffers mapped by these descriptors</LI>
+
+	<LI>Any OOB block associated with the packet descriptor</LI>
+
+	<LI>Any protocol-allocated buffer specified in the OOB block</LI>
+</UL>
+
+<P>Although NDIS always submits protocol-supplied packet arrays to the underlying miniport driver in the protocol-determined order passed in calls to <B>NdisCoSendPackets</B>, the underlying driver can complete the given packets in random order. That is, every bound protocol can rely on NDIS to submit the packets the protocol passes to <B>NdisCoSendPackets</B> in FIFO order to the underlying driver, but no protocol can rely on that underlying driver to call <B>NdisMCoSendComplete</B> with those packets in the same order.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Sending%20Packets%20on%20a%20VC"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

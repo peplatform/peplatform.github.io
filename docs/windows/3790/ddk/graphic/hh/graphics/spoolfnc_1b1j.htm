@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AddPortUI</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="AddPortUI">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_addportui_gg"></A>AddPortUI</H1>
+
+<P>A port monitor UI DLL's <B>AddPortUI</B> function adds a printer port, then obtains port configuration information from the user and sends it to the port monitor server DLL.</P>
+
+<PRE class=syntax><B>BOOL
+  AddPortUI(
+    PCWSTR  </B><I>pszServer</I><B>,
+    HWND  </B><I>hWnd</I><B>,
+    PCWSTR  </B><I>pszPortNameIn</I><B>,
+    PWSTR  *</B><I>ppszPortNameOut</I><B>
+    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>pszServer</I></DT>
+
+<DD>Caller-supplied pointer to a string representing a server name, or NULL if the printer is local.</DD>
+
+<DT><I>hWnd</I></DT>
+
+<DD>Caller-supplied handle of the window that should be used as the parent for dialog boxes. If NULL, no dialog boxes should be displayed.</DD>
+
+<DT><I>pszPortNameIn</I></DT>
+
+<DD>Caller-supplied pointer to a string representing the name of the monitor. Can be NULL.</DD>
+
+<DT><I>ppszPortNameOut</I></DT>
+
+<DD>Caller-supplied pointer to a location to receive a port name string. Can be NULL, in which case a name is not returned.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>If the operation succeeds, the function should return TRUE. Otherwise <B>SetLastError</B> should be called to specify an error code, and the function should return FALSE. If the operation is canceled by the user or is unsupported, the function should call <B>SetLastError</B>(ERROR_CANCELLED), then return FALSE.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>winsplp.h</I>. Include <I>winsplp.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><A HREF="provider_897r.htm#ddk_port_monitor_ui_dll_gg">Port monitor UI DLLs</A> are required to define an <B>AddPortUI</B> function and include the function's address in a <A HREF="spoolfnc_4bvr.htm">MONITORUI</A> structure.</P>
+
+<P>The spooler calls <B>AddPortUI</B> from within its <B>AddPort</B> function. The first three arguments received by <B>AddPortUI</B> are the arguments received by <B>AddPort</B>. (The <B>AddPort</B> function is described in the Platform SDK documentation.)</P>
+
+<P>The function should perform the following operations:
+
+<OL>
+	<LI>Call <B>OpenPrinter</B>, specifying a printer name with the following format:
+<P class=indent1><B>\\</B><I>ServerName</I><B>\,XcvMonitor</B> <I>MonitorName</I></P>
+
+<P>where <I>ServerName</I> and <I>MonitorName</I> are the server and monitor names received as <B>AddPortUI</B> function arguments.
+
+<P>The call to <B>OpenPrinter</B> requires a PRINTER_DEFAULTS structure, which is described in the Platform SDK documentation. The structure's <B>DesiredAccess</B> member must be set to SERVER_ACCESS_ADMINISTER. Its <B>pDatatype</B> and <B>pDevMode</B> members can be NULL.
+
+<P>This call causes the print monitor server DLL's <A HREF="spoolfnc_3lpj.htm"><B>XcvOpenPort</B></A> function to be called.
+</LI>
+
+	<LI>Obtain a port name from the user by displaying a dialog box.</LI>
+
+	<LI>Call <A HREF="spoolfnc_2gtj.htm"><B>XcvData</B></A>, specifying the following input arguments:
+<UL>
+	<LI>The handle received from <B>OpenPrinter</B></LI>
+
+	<LI>The port name received from the user</LI>
+
+	<LI>A customized data name string, such as "PortExists"</LI>
+</UL>
+
+<P>This call causes the server DLL's <A HREF="spoolfnc_5n6v.htm"><B>XcvDataPort</B></A> function to be called. The <B>XcvDataPort</B> function should return a value that indicates whether the specified port name has already been used. If it has, the UI DLL should request another name from the user and call <B>XcvData</B> again.
+</LI>
+
+	<LI>After a valid new port name has been received, call <A HREF="spoolfnc_2gtj.htm"><B>XcvData</B></A> again, this time specifying the following input arguments:
+<UL>
+	<LI>The handle received from <B>OpenPrinter</B></LI>
+
+	<LI>The validated port name received from the user</LI>
+
+	<LI>A data name string of "AddPort"</LI>
+</UL>
+
+<P>This call causes the server DLL's <A HREF="spoolfnc_5n6v.htm"><B>XcvDataPort</B></A> function to be called again.
+</LI>
+
+	<LI>Obtain port configuration parameters from the user by displaying a dialog box.</LI>
+
+	<LI>Call <A HREF="spoolfnc_2gtj.htm"><B>XcvData</B></A> one or more times, specifying customized data name strings, to send each configuration parameter to the server DLL. Each <B>XcvData</B> call causes the server's <B>XcvDataPort</B> function to be called.</LI>
+
+	<LI>Call <B>ClosePrinter</B>, specifying the handle received from <B>OpenPrinter</B>. This causes the server DLL's <A HREF="spoolfnc_31rb.htm"><B>XcvClosePort</B></A> function to be called.</LI>
+</OL>
+
+<H4>See Also</H4>
+
+<P><A HREF="spoolfnc_4bvr.htm">MONITORUI</A>, <A HREF="spoolfnc_3lpj.htm"><B>XcvOpenPort</B></A>, <A HREF="spoolfnc_31rb.htm"><B>XcvClosePort</B></A>, <A HREF="spoolfnc_2gtj.htm"><B>XcvData</B></A>, <A HREF="spoolfnc_5n6v.htm"><B>XcvDataPort</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: AddPortUI"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,157 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>RealizeObject</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="RealizeObject">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_glyphs_realizeobject"></A>RealizeObject</H1>
+
+<P>The <B>RealizeObject</B> function creates or deletes a physical object. The function creates a physical object by filling a structure provided by GDI with device-specific data that corresponds to the attributes of a given logical pen, brush, bitmap, or font. It deletes the physical object by removing any memory or resources it allocated when creating the object. </P>
+
+<PRE class=syntax><B>WORD
+  RealizeObject(
+    LPPDEVICE </B><I>lpDestDev</I><B>,</B>
+<B>    WORD </B><I>wStyle</I><B>,</B>
+<B>    LPVOID </B><I>lpInObj</I><B>,</B>
+<B>    LPVOID </B><I>lpOutObj</I><B>,</B>
+<B>    LPTEXTXFORM </B><I>lpTextXForm</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>lpDestDev</I></DT>
+
+<DD>Points to a PDEVICE or PBITMAP structure specifying the device or bitmap to create the physical object for.</DD>
+
+<DT><I>wStyle</I></DT>
+
+<DD>Specifies the type of object to be realized. This parameter can be one of the following values.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=30%>Value</TH>
+<TH align=left width=70%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>OBJ_PEN </TD>
+<TD width=70%>Realizes a physical pen. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>OBJ_BRUSH</TD>
+<TD width=70%>Realizes a physical brush. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>OBJ_FONT</TD>
+<TD width=70%>Realizes a device font. If the device has no device fonts or cannot realize the requested font, the <B>RealizeObject</B> function returns zero. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>OBJ_PBITMAP</TD>
+<TD width=70%>Realizes a device bitmap. GDI passes this value only if the RC_DEVBITS value is set in the <I>dpRaster</I> member of the driver's GDIINFO structure. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>If the <I>wStyle</I> parameter is negative, the function deletes the specified object. 
+</DD>
+
+<DT><I>lpInObj</I></DT>
+
+<DD>Points to an LPEN, LBRUSH, LFONT, or PBITMAP structure specified by the <I>wStyle</I> parameter. The structure describes the logical attributes of the object to be realized. 
+
+<P>If <I>wStyle</I> is negative, the <I>lpInObj</I> parameter points to the PPEN, PBRUSH, FONTINFO, or PBITMAP structure, specifying the physical object to be deleted.
+</DD>
+
+<DT><I>lpOutObj</I></DT>
+
+<DD>Points to a buffer to receive the realized object, or points to the physical object to delete. Its meaning depends on the value of the <I>wStyle</I> parameter. 
+
+<P>If <I>wStyle</I> is positive, the <I>lpOutObj</I> parameter points to a buffer. The function fills the buffer with device-specific data that defines a physical object corresponding to the logical object pointed to by the <I>lpInBuf</I> parameter. If <I>lpOutObj</I> is NULL, the function returns the size, in bytes, of the physical object. 
+
+
+<P>If <I>wStyle</I> is negative, <I>lpOutBuf</I> points to the physical object to delete. Although GDI frees the memory pointed to by <I>lpOutBuf</I> when the function returns, the <B>RealizeObject</B> function must free any other memory or resources associated with the physical object. 
+</DD>
+
+<DT><I>lpTextXForm</I></DT>
+
+<DD>Points to a TEXTXFORM structure or specifies a POINT structure as specified by the <I>wStyle</I> parameter. 
+
+<P>If <I>wStyle</I> is OBJ_BRUSH, the <I>lpTextXForm</I> parameter is a POINT structure containing the x and y coordinates (relative to an 8-bit boundary) on which to align the start of the brush's pattern. 
+
+
+<P>If <I>wStyle</I> is OBJ_FONT, <I>lpTextXForm</I> points to a TEXTXFORM structure containing information about the appearance of a realized font. Both the realized font and the contents of the TEXTXFORM structure are later passed to the <B>ExtTextOut</B> function, allowing more capable devices to make changes to the standard font. 
+
+</DD>
+</DL>
+
+<H4>Return Values</H4>
+
+<P>If unsuccessful, the <B>RealizeObject</B> function returns zero. If successful and if <I>lpOutObj</I> is NULL, it returns the size in bytes of the physical object. If successful and if <I>lpOutObj</I> is not NULL, it returns one of the following values.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=63%>Condition</TH>
+<TH align=left width=37%>Return value</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=63%>For solid brushes for a monochrome DC</TD>
+<TD width=37%>8001h </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=63%>For solid brushes for a color DC</TD>
+<TD width=37%>8002h </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=63%>For all other brush styles and objects</TD>
+<TD width=37%>8000h </TD>
+</TR>
+</TABLE><BR>
+
+<H4>Comments</H4>
+
+<P>When GDI is just requesting the size of the font, use <B>EngineRealizeFont</B> which returns the size of the font.</P>
+
+<P>The return value after realization of the font is 0x8000. In any event, <A HREF="glyphs_4lis.htm"><B>EngineRealizeFontExt</B></A> should never be called with an ATM font. Therefore, call <B>GetModuleHandle </B>("ATM") to determine if ATM is running before making the Engine call.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=28%>Value</TH>
+<TH align=left width=72%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=28%>GetCharWidth:</TD>
+<TD width=72%>If the font is a glyph indexed font, the PF_GLYPH_INDEX flag will be set in the <I>FontInfo-&gt;dfType.</I></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=28%>ExtTextOut:</TD>
+<TD width=72%>To ensure complete compatibility, check that both <I>wOptions</I> is set to ETO_GLYPH_INDEX and <I>FontInfo-&gt;dfType</I> is set for glyph indexes fonts in the PF_GLYPH_INDEX flag.</TD>
+</TR>
+</TABLE><BR>
+
+<P>Since Glyph ID 32 (the space character) may now be an actual character, call <B>GetFontData</B> for return value data for a glyph. If it does not, then do not download an empty glyph.</P>
+
+<P>If you choose to support downloading TrueType fonts as Bitmaps, be aware that ATM causes problems with glyph index fonts. Therefore, it is recommended that Windows® 95 and Windows® 98 print drivers always call the new <B>EngineGetGlyphBmpExt</B> function for TrueType fonts.  The parameters for <B>EngineGetGlyphBmpExt</B> are the same as for <A HREF="glyphs_7x2o.htm"><B>EngineGetGlyphBmp</B></A>.</P>
+
+<P>The 32-bit resource compiler must be used with a flag (-40) to make it a Windows 95 only driver.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: RealizeObject"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

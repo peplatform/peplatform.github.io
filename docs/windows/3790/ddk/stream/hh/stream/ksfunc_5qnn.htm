@@ -1,0 +1,70 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>KsMoveIrpsOnCancelableQueue</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="KsMoveIrpsOnCancelableQueue">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_ksmoveirpsoncancelablequeue_ks"></A>KsMoveIrpsOnCancelableQueue</H3>
+
+<P>The <B>KsMoveIrpsOnCancelableQueue</B> function moves the specified IRPs from the <I>SourceList</I> to the <I>DestinationList</I>. An IRP is moved if the <B>ListCallback</B> function indicates that it should be moved, whether or not it is currently acquired. It then continues through the list until the callback indicates that the search should be terminated, or the end of the list is reached. This function minimizes the use of the Cancel Spinlock by using the provided spinlocks to synchronize access when possible. The function does not allow the cancel routine to be modified while moving IRPs. The function can be called at DISPATCH_LEVEL or lower. </P>
+
+<PRE class=syntax><B>KSDDKAPI NTSTATUS NTAPI
+  KsMoveIrpsOnCancelableQueue(
+</B>    <B>IN OUT PLIST_ENTRY</B>  <I>SourceList</I><B>,</B>
+    <B>IN PKSPIN_LOCK  </B><I>SourceLock</I><B>,</B>
+    <B>IN OUT PLIST_ENTRY </B> <I>DestinationList</I><B>,</B>
+    <B>IN PKSPIN_LOCK</B>  <I>DestinationLock</I>  <B>OPTIONAL,</B>
+    <B>IN KSLIST_ENTRY_LOCATION</B>  <I>ListLocation</I><B>,</B>
+    <B>IN PFNKSIRPLISTCALLBACK</B>  <I>ListCallback</I><B>,</B>
+    <B>IN PVOID</B>  <I>Context</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>SourceList</I></DT>
+
+<DD>Specifies the head of the queue from which to remove the IRPs.</DD>
+
+<DT><I>SourceLock</I> </DT>
+
+<DD>Pointer to driver's spin lock for source queue access.</DD>
+
+<DT><I>DestinationList</I> </DT>
+
+<DD>Specifies the head of the queue on which to add the IRPs.</DD>
+
+<DT><I>DestinationLock</I> </DT>
+
+<DD>Optionally contains a pointer to driver's spin lock for destination queue access. If this is not provided, the <I>SourceLock</I> is assumed to control both queues. If provided, this lock is always acquired after the <I>SourceLock</I>. If the destination list has a separate spinlock, the Cancel Spinlock is first acquired in order to move IRPs and allow the KSQUEUE_SPINLOCK_IRP_STORAGE() spinlock to be updated.</DD>
+
+<DT><I>ListLocation</I> </DT>
+
+<DD>Indicates whether the IRPs should be enumerated from the head or the tail of the source queue. Any IRPs that are moved are placed on the destination queue's opposite end so that ordering is maintained.</DD>
+
+<DT><I>ListCallback </I></DT>
+
+<DD>Callback used to indicate whether or not a specific IRP should be moved from <I>SourceList</I> to <I>DestinationList</I>, or if enumeration should be terminated. If the function returns STATUS_SUCCESS, the IRP is moved. If the function returns STATUS_NO_MATCH, the IRP is not moved. Any other return warning or error value will terminate enumeration and be returned by the function. The STATUS_NO_MATCH value will not be returned as an error by the function. This function is called at DISPATCH_LEVEL. It is always called at least once at the end with a NULL IRP value in order to complete list processing.</DD>
+
+<DT><I>Context </I></DT>
+
+<DD>Context passed to <I>ListCallback</I>.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>Returns STATUS_SUCCESS if the list was completely enumerated, else returns any warning or error returned by ListCallback that interrupted enumeration.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ks.h</I>. Include <I>ks.h</I>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: KsMoveIrpsOnCancelableQueue"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

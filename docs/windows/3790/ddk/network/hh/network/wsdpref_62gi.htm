@@ -1,0 +1,114 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WSPRegisterMemory</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WSPRegisterMemory">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wspregistermemory_nr"></A>WSPRegisterMemory</H1>
+
+<P><B>WSPRegisterMemory</B> registers a buffer that a socket can use as either the local source or the local target of a data transfer operation. A socket can use this buffer as the source in <B>WSPRdmaWrite</B> and <B>WSPSend</B> calls and the receiving buffer in <B>WSPRdmaRead</B> and <B>WSPRecv</B> calls. </P>
+
+<PRE class=syntax><B>HANDLE</B>
+<B>  WSPRegisterMemory(</B>
+<B>    IN SOCKET</B>  <I>s</I><B>,</B>
+<B>    IN PVOID</B>  <I>lpBuffer</I><B>,</B>
+<I>    </I><B>IN</B> <B>DWORD</B>  <I>dwBufferLength</I><B>,</B>
+<I>    </I><B>IN DWORD</B>  <I>dwFlags</I><B>,</B>
+<I>    </I><B>OUT</B> <B>LPINT</B>  <I>lpErrno</I>
+<I>    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>s</I></DT>
+
+<DD>Descriptor that identifies a connected socket.</DD>
+
+<DT><I>lpBuffer</I></DT>
+
+<DD>Pointer to the memory buffer to register. </DD>
+
+<DT><I>dwBufferLength</I></DT>
+
+<DD>Size, in bytes, of the memory buffer at <I>lpBuffer</I>.</DD>
+
+<DT><I>dwFlags</I></DT>
+
+<DD>Set of flags that specify supplementary information about the memory buffer and registration options. </DD>
+
+<DT><I>lpErrno</I></DT>
+
+<DD>Pointer to a variable that receives the error code.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>Returns a valid handle to the memory buffer if successful; otherwise, returns NULL for the handle and, at <I>lpErrno</I>, one of the following error codes: 
+
+<DL>
+<DT>WSANOBUFS</DT>
+
+<DD>No memory resources available. </DD>
+
+<DT>WSAEFAULT</DT>
+
+<DD><I>lpBuffer </I>is not contained completely within a valid part of the user-address space.</DD>
+
+<DT>WSAEINVAL</DT>
+
+<DD>Invalid flags specified. </DD>
+
+<DT>WSAENOTCONN</DT>
+
+<DD>Socket is not connected (connection-oriented sockets only).
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>Ws2san.h</I>. Include <I>Ws2san.h</I>. Requires Windows Sockets version&nbsp;2.2.</P>
+
+<H4>Comments</H4>
+
+<P>The Windows Sockets switch calls the <B>WSPRegisterMemory</B> function to register a memory buffer for use by a specific socket. The returned handle to the memory buffer is valid only in the context of the socket for which it was registered. </P>
+
+<P>The switch can call the <B>WSPRegisterMemory</B> function more than once to register the same buffer for use with any number of sockets. A SAN service provider is not required to return a different handle to a memory buffer when the switch registers that memory buffer for use by another socket. However, the SAN service provider should maintain an internal reference count of the number of registered instances of that memory buffer. Calls to the SAN service provider's <A HREF="wsdpref_4b1u.htm"><B>WSPDeregisterMemory</B></A> function decrement this internal reference count. Only during the final call to <B>WSPDeregisterMemory</B> (when the SAN service provider’s internal reference count for that buffer reaches zero) should the SAN service provider release all the resources that it used to register the buffer.</P>
+
+<P>The switch specifies how the registered memory is to be accessed in <I>dwFlags</I> by specifying one of the following flags:
+
+<DL>
+<DT>MEM_READ</DT>
+
+<DD>Read access</DD>
+
+<DT>MEM_WRITE</DT>
+
+<DD>Write access</DD>
+
+<DT>MEM_READWRITE</DT>
+
+<DD>Both read and write access
+</DD>
+</DL>
+
+<P>The SAN service provider must obtain memory that can be accessed as specified in <I>dwFlags</I>.</P>
+
+<P>The switch requires that the registered memory have read access if the switch subsequently calls the SAN service provider’s <A HREF="wsdpref_7c6q.htm"><B>WSPRdmaWrite</B></A> and <A HREF="wsdpref_6rqq.htm"><B>WSPSend</B></A> functions. The switch requires that the registered memory buffer have write access if the switch subsequently calls the SAN service provider’s <A HREF="wsdpref_7soi.htm"><B>WSPRdmaRead</B></A> and <A HREF="wsdpref_5hte.htm"><B>WSPRecv</B></A> functions. </P>
+
+<P>Even though the switch registers memory buffers that it uses in all data transfer operations, the switch only explicitly uses handles to those memory buffers in RDMA data transfer operations. That is, the switch specifies such handles when calling a SAN service provider's <B>WSPRdmaWrite</B> and <B>WSPRdmaRead</B> functions for RDMA transfers. However, the switch does not specify such handles when calling a SAN service provider's <B>WSPSend</B> and <B>WSPRecv</B> functions for message-oriented transfers. A SAN service provider must maintain its own mapping of memory buffers to handles for message-oriented transfers. </P>
+
+<P>A SAN service provider must prevent unauthorized access to memory that the switch registered for local access. Only the process that called <B>WSPRegisterMemory</B> to register memory should be allowed to access such memory. A SAN service provider must ensure that it does not inadvertently make such memory accessible to other processes running on the same computer or on other computers on the SAN. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="wsdpref_4b1u.htm"><B>WSPDeregisterMemory</B></A>, <A HREF="wsdpref_1v5e.htm"><B>WSPMemoryRegistrationCacheCallback</B></A>, <A HREF="wsdpref_7soi.htm"><B>WSPRdmaRead</B></A>, <A HREF="wsdpref_7c6q.htm"><B>WSPRdmaWrite</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WSPRegisterMemory"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

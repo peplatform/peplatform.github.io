@@ -1,0 +1,130 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Miscellaneous Questions and Answers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Miscellaneous Questions and Answers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_miscellaneous_questions_and_answers_si"></A>Miscellaneous Questions and Answers</H2>
+
+<P><B>Q: While executing code in the HwInterrupt() function of my miniport, if I do something that causes another h/w interrupt, will the O/S call my HwInterrupt() function again?</B></P>
+
+<P>A: VPICD will actually mask off the interrupt at the PIC before it calls the installed interrupt handler (SCSIPORT.PDR, in this case). This means that your HwInterrupt() procedure will not be reentered if it causes an interrupt to occur. To be safe, make the assumption that HwInterrupt() <I>will</I> be called again after you return from HwInterrupt(). This would occur after SCSIPORT.PDR has physically unmasked the interrupt at the PIC because your device is still asserting an interrupt to the PIC and the PIC was EOI'd by VPICD before the original HwInterrupt() call.</P>
+
+<P>It should also be noted that SCSIPORT.PDR executes an STI before calling HwInterrupt(), so other interrupts will continue to be serviced while HwInterrupt() is executing.</P>
+
+<P><B>Q: How can I send a user-defined parameter string to the miniport?</B></P>
+
+<P>A:  This question is answered in Knowledge Base article<I>: "</I>Q140728   AdapterSettings Entry for SCSI Miniport under Windows 95."</P>
+
+<P>As an example, the AddReg section for the NCRC810 (found in \windows\inf\scsi.inf) looks like this:</P>
+
+<P class=indent1>[NCRC810.reg]</P>
+
+<P class=indent1>HKR,,PortDriver,,ncrc810.mpd</P>
+
+<P>If you wished to add an AdapterSettings string, you would simply do this:</P>
+
+<P class=indent1>[NCRC810.reg]</P>
+
+<P class=indent1>HKR,,PortDriver,,ncrc810.mpd</P>
+
+<P class=indent1>HKR,,AdapterSettings,,"This is the Adapter Settings string passed to HwFindAdapter"</P>
+
+<P>This string would be added to the software branch of the registry for this device. To add the AdapterSettings string to the device's key in the hardware branch of the registry, specify a Hardware Section in your INF. This allows end users to modify the string via the 'Settings' property page for the device. </P>
+
+<P>To add a Hardware Section, you simply add an ".HW" extension to the install section name used for your device. For example, the NCRC810's install  section looks like this:</P>
+
+<P class=indent1>[NCRC810]</P>
+
+<P class=indent1>CopyFiles=@ncrc810.mpd</P>
+
+<P class=indent1>AddReg=IOS,NCRC810.reg</P>
+
+<P class=indent1>UpdateInis=DoubleBuffer</P>
+
+<P>You create a separate hardware section in your INF file by adding an .HW extension to the name of your install section. You can then specify a AddReg section that adds the AdapterSettings subkey:</P>
+
+<P class=indent1>[NCRC810.HW]</P>
+
+<P class=indent1>AddReg=NCRC810.HW.reg</P>
+
+<P class=indent1>[NCRC810.reg]</P>
+
+<P class=indent1>HKR,,AdapterSettings,,"This is the Adapter Settings string passed to HwFindAdapter"</P>
+
+<P><B>Q: My SCSI miniport supports Auto Request Sense. What SCSI status should be returned to SCSIPORT: the status of the original command that failed (check condition) or the status of the request sense that just happened (good status)? Currently, they are returning good status. Seems to work fine on Windows NT and Windows 95 for the most part. However, when using ASPI on Windows 95 we are seeing a good status returned to the application, but they think they should see a check condition.</B></P>
+
+<P>A: Once the request  sense has successfully completed, you should return an SrbStatus of  SRB_STATUS_ERROR and SRB_STATUS_AUTOSENSE_VALID, and a ScsiStatus of  SCSISTAT_CHECK_CONDITION.</P>
+
+<P><B>Q: Can I assign a floppy disk drive letter to a SCSI Miniport driver?</B></P>
+
+<P>A:  Under Windows 95, a miniport driver, by itself, is not capable of assigning to drive A or B<B>. </B>A miniport drive can be assigned as "removable", but not as a "floppy disk".</P>
+
+<P>The actual drive letter assignment is performed by the "Disk TSD" (DISKTSD.VXD) in the middle layer of the IOS hierarchy. Each time it receives the AEP_CONFIG_DCB message, it inspects the DCB. If it is a hard disk or floppy disk (which includes floptical), it inserts itself into the IOS calldown chain and assigns a drive letter using the IOS ISP_ASSOCIATE_DCB service.</P>
+
+<P>This service inspects real-mode drivers; the real-mode drive letter assignment affects the assignment of drive letters in protected mode. DISKTSD also handles the situation where a single floppy disk drive appears as both drive A and drive B.</P>
+
+<P>If the floppy disk device is an IDE LS120 (or any floptical type) driver used with Windows 95 version B (OSR2) or higher, note that DISKTSD checks the DCB field DCB_device_flags2 to detect this by inspecting the following bit: DCB_DEV2_IDE_FLOPTICAL_BIT. This bitmask flag is not defined in the original Windows 95 DDK; its value is 0x00000040. If it is set, it indicates the device is a floptical device. DISKTSD then issues an IOR_COMPUTE_GEOM to the device, in order to obtain the correct disk geometry information.</P>
+
+<P>Miniport drivers communicate through the SCSI port driver (SCSIPORT.PDR). Unfortunately, the miniport interface does <B>not</B> provide the miniport with information such as DCB_DEV2_IDE_FLOPTICAL_BIT and other such internals.</P>
+
+<P>If you need to reassign drive letters and you want to keep using your miniport driver (instead of writing your own port driver), you could try writing a custom TSD (type-specific driver) that is installed into the layered hierarchy of IOS (like DISKTSD.VXD, but placed "below" DISKTSD, closer to port drivers).</P>
+
+<P>The custom TSD could be used to change drive letter assignments. Perform similarly to DISKTSD (respond to AEP_CONFIG_DCB messages). 
+
+<UL>
+	<LI>In general, use the ISP_GET_DCB service to locate devices. Supply the desired drive letter as input. Returns a pointer to the corresponding DCB.</LI>
+
+	<LI>If inspecting a floppy disk drive A, check its DCB to see if it is used as both Drive A and Drive B (check DCB_dmd_do_a_b_toggling). If it is set, clear it. This will allow you to use drive B.</LI>
+
+	<LI>Use the ISP_DISASSOC_DCB to "disassociate" the drive letter (for example drive B).</LI>
+
+	<LI>Locate the drive letter currently assigned to your drive (using ISP_GET_DCB).</LI>
+
+	<LI>Use the ISP_ASSOCIATE_DCB to assign your drive to drive B.</LI>
+
+	<LI>Use the ISP_DISASSOC_DCB to deassign the former drive letter of your drive (for example, drive D).</LI>
+</UL>
+
+<P>A sample driver is located at \DDK\Block\SAMPLES\VSD\HELPVSD\ in the Windows 95 DDK. A TSD is a VSD that has the special function in the IOS layered hierarchy of assigning drive letters (among other things). The sample's vsd_config_device() entry point is where DCB(s) need to be inspected and  modified as required. The compiled TSD belongs in the  \system\iosubsys\ directory (along with other IOS layer drivers).</P>
+
+<P>The DDK contains documentation describing how to set up the compile environment. The easiest and quickest technique is to use the batch file DDKENV.BAT to establish your environment (DDKENV 32 BLOCK). Then change to the source code directory and run "nmake".</P>
+
+<P><B>Q: How does Windows 95’s ScsiPortGetPhysicalAddress work?</B></P>
+
+<P>A: This SCSIPORT service is used to enable the miniport driver to obtain a physical address, given a data buffer’s linear address.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Under Windows 95 (NOT Windows NT), the process is as follows</B>
+
+<OL>
+	<LI>If (Srb != NULL) &amp;&amp; (VirtualAddress lies within the Srb's DataBuffer) scan the corresponding IOP's IOR_sgd_lin_phys field to obtain the desired SG element and physical offset within that element. The returned length is the number of bytes from the offset within the SG element, to the end of the SG element.
+<P>(else)
+</LI>
+
+	<LI>If (VirtualAddress lies within the IOP Memory Pool)<BR>
+The physical address is obtained by finding the offset within the memory pool and adding IDA_ios_mem_phys to the offset value. The returned Length is ALWAYS 4096.
+<P>(else)
+</LI>
+
+	<LI>_CopyPageTable(VirtualAddress/4096, 1, Pte, 0).<BR>
+PhysAddr = (Pte &amp; 0xFFFFF000) + (VirtualAddress &amp; 0xFFF).<BR>
+Pte is the Page Table Entry as described in the Pentium Processor Users Manual, Volume 3.<BR>
+The returned Length is ALWAYS 4096.</LI>
+</OL>
+
+<P>Based on the above information, one cannot always rely on the returned Length containing the correct length; it may be longer than the actual buffers.</P>
+
+<P>In general, the returned length makes sense (within the physical SGD associated with VirtualAddress) if the SRB pointer supplied is good, and if the VirtualAddress is within range of the SRB's DataBuffer, taking into account DataTransferLength. Otherwise, the returned length field will contain a fixed 4096 byte value, which probably should not be used when performing total length calculations.</P>
+
+<P><B>Q:  How do I interpret the “problem number” that is listed in the Device Manager when a device is not working properly?</B></P>
+
+<P>A:  The problem number displayed is actually a configmg problem number, and can be found in CONFIGMG.H in the Windows 95 DDK (the CM_PROB_xxx error codes). Note that the Device Manager displays this number in decimal, while CONFIGMG.H #defines are listed in hexadecimal.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Miscellaneous%20Questions%20and%20Answers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

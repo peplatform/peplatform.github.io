@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Deadlock Detection</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Driver Verifier options, Deadlock Detection">
+<META NAME="MS-HKWD" CONTENT="Deadlock Detection">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Driver&nbsp;Development&nbsp;Tools:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_deadlock_detection_tools"></A>Deadlock Detection</H3>
+
+<P>Deadlock Detection monitors the driver's use of resources which need to be locked — spin locks, mutexes, and fast mutexes. This Driver Verifier option will detect code logic that has the potential to cause a deadlock at some future point.</P>
+
+<P>The Deadlock Detection option of Driver Verifier, along with the <B>!deadlock</B> kernel debugger extension, is an effective tool for making sure your code avoids poor use of these resources.</P>
+
+<P><I>This Driver Verifier option is only available in Windows XP and later.</I></P>
+
+<H4>Causes of Deadlocks</H4>
+
+<P>A <I>deadlock</I> is caused when two or more threads come into conflict over some resource, in such a way that no execution is possible.</P>
+
+<P>The most common form of deadlock occurs when two or more threads wait for a resource that is owned by the other thread. This is illustrated as follows:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=44%>Thread 1</TH>
+<TH align=left width=56%>Thread 2</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=44%>Takes Lock A</TD>
+<TD width=56%>Takes Lock B</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=44%>Requests Lock B</TD>
+<TD width=56%>Requests Lock A</TD>
+</TR>
+</TABLE><BR>
+
+<P>If both sequences happen at the same time, Thread 1 will never get Lock B because it is owned by Thread 2, and Thread 2 will never get Lock A because it is owned by Thread 1. At best this causes the threads involved to halt, and at worst causes the system to stop responding.</P>
+
+<P>Deadlocks are not limited to two threads and two resources. Three-way deadlocks between three threads and three locks are common — and even five-part or six-part deadlocks occur occasionally. These deadlocks require a certain degree of "bad luck" since they rely on a number of things happening simultaneously. However, the farther apart the lock acquisitions are, the more likely these become.</P>
+
+<P>Single-thread deadlocks can occur when a thread attempts to take a lock that it already owns.</P>
+
+<P>The common denominator among all deadlocks is that <I>lock hierarchy is not respected</I>. Whenever it is necessary to have more than one lock acquired at a time, each lock should have a clear precedence. If A is taken before B at one point and B before C at another, the hierarchy is A-B-C. This means that A must never be acquired after B or C, and B must not be acquired after A.</P>
+
+<P>Lock hierarchy should be followed <I>even when there is no possibility of a deadlock</I>, since in the process of maintaining the code it will be easy for a deadlock to be accidentally introduced.</P>
+
+<H4>Resources That Can Cause Deadlocks</H4>
+
+<P>The most unambiguous deadlocks are the result of <I>owned</I> resources. These include spin locks, mutexes, fast mutexes, and ERESOURCEs.</P>
+
+<P>Resources that are signaled rather than acquired (such as events and LPC ports) tend to cause much more ambiguous deadlocks. It is of course possible, and all too common, for code to misuse these resources in such a way that two threads will end up waiting on each other indefinitely. However, since these resources are not actually owned by any one thread, it is not possible to identify the delinquent thread with any degree of certainty.</P>
+
+<P>The Deadlock Detection option of Driver Verifier looks for potential deadlocks involving spin locks, mutexes, and fast mutexes. It does not monitor the use of ERESOURCEs, nor does it monitor the use of nonowned resources.</P>
+
+<H4>Effects of Deadlock Detection</H4>
+
+<P>Driver Verifier's Deadlock Detection routines find lock hierarchy violations that are not necessarily simultaneous. Most of the time, these violations identify code paths that will deadlock when given the chance.</P>
+
+<P>To find potential deadlocks, Driver Verifier builds a graph of resource acquisition order and checks for loops. If you were to create a node for each resource, and draw an arrow any time one lock is acquired before another, then path loops would represent lock hierarchy violations.</P>
+
+<P>Driver Verifier will issue a bug check when one of these violations is discovered. This will happen <I>before</I> any actual deadlocks occur.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Even if the conflicting code paths can never happen simultaneously, they should still be rewritten if they involve lock hierarchy violations. Such code is a "deadlock waiting to happen" that could cause real deadlocks if the code is rewritten slightly.</P>
+
+<P>When Deadlock Detection finds a violation, it will issue bug check 0xC4. The first parameter of this bug check will indicate the exact violation. Possible violations include:
+
+<UL>
+	<LI>Two or more threads involved in a lock hierarchy violation</LI>
+
+	<LI>A resource that is released out of sequence</LI>
+
+	<LI>A thread that tries to acquire the same resource twice (a self-deadlock)</LI>
+
+	<LI>A resource that is released without having been acquired first</LI>
+
+	<LI>A resource that is released by a different thread than the one that acquired it</LI>
+
+	<LI>A resource that is initialized more than once, or not initialized at all</LI>
+
+	<LI>A thread that is deleted while still owning resources</LI>
+</UL>
+
+<P>See <A HREF="bccodes_7r1j.htm#ddk_bug_check_0xc4_verifier_dd_bug">Bug Check 0xC4</A> (DRIVER_VERIFIER_DETECTED_VIOLATION) for a list of the bug check parameters.</P>
+
+<H4>Monitoring Deadlock Detection</H4>
+
+<P>Once Deadlock Detection finds a violation, the <B>!deadlock</B> kernel debugger extension can be used to investigate exactly what has occurred. It can display the lock hierarchy topology as well as the call stacks for each thread at the time the locks were originally acquired.</P>
+
+<P>For best results, the driver in question should be running on a checked build of Windows, since that allows the kernel to obtain more complete run-time stack traces.</P>
+
+<P>There is a detailed example of the <B>!deadlock</B> extension, as well as general information about debugger extensions, in the documentation in the Debugging Tools for Windows package. See <A HREF="dbgblurb_25bn.htm">Debugging Tools for NT-Based Operating Systems</A> for details.</P>
+
+<H4>Activating This Option</H4>
+
+<P>The Deadlock Detection option can be activated by using the Driver Verifier Manager graphical interface or the <I>verifier.exe</I> command line. This activation will take effect after the next boot. See <A HREF="dv_5q43.htm">Selecting Driver Verifier Options</A> for details.</P>
+
+<H4>Graphics Drivers</H4>
+
+<P>The Deadlock Detection option is not used for graphics drivers, since display drivers and kernel-mode printer drivers cannot directly own resources. If selected, it has no effect.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Deadlock%20Detection"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

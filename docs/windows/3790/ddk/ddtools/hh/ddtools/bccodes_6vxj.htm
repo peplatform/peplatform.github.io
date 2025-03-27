@@ -1,0 +1,134 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Bug Check 0xA:  IRQL_NOT_LESS_OR_EQUAL</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="bug check 0xA">
+<META NAME="MS-HKWD" CONTENT="IRQL_NOT_LESS_OR_EQUAL">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Driver&nbsp;Development&nbsp;Tools:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_bug_check_0xa_bug"></A>Bug Check 0xA: IRQL_NOT_LESS_OR_EQUAL</H1>
+
+<P>The IRQL_NOT_LESS_OR_EQUAL bug check has a value of 0x0000000A. This indicates that Windows or a kernel-mode driver accessed paged memory at DISPATCH_LEVEL or above.</P>
+
+<H4>Parameters</H4>
+
+<P>The following parameters are displayed on the blue screen.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=32%>Parameter</TH>
+<TH align=left width=68%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>1</TD>
+<TD width=68%>Memory referenced</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>2</TD>
+<TD width=68%>IRQL at time of reference</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>3</TD>
+<TD width=68%><B>0:</B> Read
+<P><B>1:</B> Write</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>4</TD>
+<TD width=68%>Address which referenced memory </TD>
+</TR>
+</TABLE><BR>
+
+<H4>Cause</H4>
+
+<P>This bug check is issued if paged memory (or invalid memory) is accessed when the IRQL is too high.</P>
+
+<P>The error that generates this bug check usually occurs after the installation of a faulty device driver, system service, or BIOS.</P>
+
+<P>If you encounter bug check 0xA while upgrading to a later version of Microsoft® Windows®, this error might be caused by a device driver, a system service, a virus scanner, or a backup tool that is incompatible with the new version.</P>
+
+<H4>Resolving the Problem</H4>
+
+<P>If a kernel debugger is available, obtain a stack trace.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To resolve an error caused by a faulty device driver, system service, or BIOS</B>
+
+<OL>
+	<LI>Restart your computer.</LI>
+
+	<LI>Press F8 at the character-based menu that displays the operating system choices. </LI>
+
+	<LI>Select the <B>Last Known Good Configuration</B> option from the Windows <B>Advanced Options</B> menu. This option is most effective when only one driver or service is added at a time.</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To resolve an error caused by an incompatible device driver, system service, virus scanner, or backup tool</B>
+
+<OL>
+	<LI>Check the System Log in <B>Event Viewer</B> for error messages that might identify the device or driver that caused the error.</LI>
+
+	<LI>Try disabling memory caching of the BIOS.</LI>
+
+	<LI>Run the hardware diagnostics supplied by the system manufacturer, especially the memory scanner. For details on these procedures, see the owner’s manual for your computer.</LI>
+
+	<LI>Make sure the latest Service Pack is installed.</LI>
+
+	<LI>If your system has small computer system interface (SCSI) adapters, contact the adapter manufacturer to obtain updated Windows drivers. Try disabling sync negotiation in the SCSI BIOS, checking the cabling and the SCSI IDs of each device, and confirming proper termination.</LI>
+
+	<LI>For integrated device electronics (IDE) devices, define the onboard IDE port as Primary only. Also, check each IDE device for the proper master/slave/stand-alone setting. Try removing all IDE devices except for hard disks.</LI>
+</OL>
+
+<P>If the message appears during an installation of Windows, make sure that the computer and all installed peripherals are listed on the Microsoft Windows Hardware Compatibility List (HCL).</P>
+
+<P>Here is a debugging example:</P>
+
+<PRE>kd&gt;<B> .bugcheck       </B><I>[Lists bugcheck data.]</I>
+Bugcheck code 0000000a
+Arguments 00000000 0000001c 00000000 00000000
+
+kd&gt; <B>kb       </B><I>[Lists the stack trace.]</I>
+ChildEBP RetAddr  Args to Child
+8013ed5c 801263ba 00000000 00000000 e12ab000 NT!_DbgBreakPoint
+8013eecc 801389ee 0000000a 00000000 0000001c NT!_KeBugCheckEx+0x194
+8013eecc 00000000 0000000a 00000000 0000001c NT!_KiTrap0E+0x256
+8013ed5c 801263ba 00000000 00000000 e12ab000
+8013ef64 00000246 fe551aa1 ff690268 00000002 NT!_KeBugCheckEx+0x194
+
+kd&gt; <B>kv       </B><I>[Lists the trap frames.]</I>
+ChildEBP RetAddr  Args to Child
+8013ed5c 801263ba 00000000 00000000 e12ab000 NT!_DbgBreakPoint (FPO: [0,0,0])
+8013eecc 801389ee 0000000a 00000000 0000001c NT!_KeBugCheckEx+0x194
+8013eecc 00000000 0000000a 00000000 0000001c NT!_KiTrap0E+0x256 (FPO: [0,0] TrapFrame @ 8013eee8)
+8013ed5c 801263ba 00000000 00000000 e12ab000
+8013ef64 00000246 fe551aa1 ff690268 00000002 NT!_KeBugCheckEx+0x194
+
+kd&gt; <B>.trap 8013eee8       </B><I>[Gets the registers for the trap frame at the time of the fault.]</I>
+eax=dec80201 ebx=ffdff420 ecx=8013c71c edx=000003f8 esi=00000000 edi=87038e10
+eip=00000000 esp=8013ef5c ebp=8013ef64 iopl=0         nv up ei pl nz na pe nc
+cs=0008  ss=0010  ds=0023  es=0023  fs=0030  gs=0000             efl=00010202
+ErrCode = 00000000
+00000000 ???????????????<B>       </B><I>[The current instruction pointer is NULL.]</I>
+
+kd&gt; <B>kb       </B><I>[Gives the stack trace before the fault.]</I>
+ChildEBP RetAddr  Args to Child
+8013ef68 fe551aa1 ff690268 00000002 fe5620d2 NT!_DbgBreakPoint
+8013ef74 fe5620d2 fe5620da ff690268 80404690
+NDIS!_EthFilterIndicateReceiveComplete+0x31
+8013ef64 00000246 fe551aa1 ff690268 00000002 elnkii!_ElnkiiRcvInterruptDpc+0x1d0
+</PRE>
+
+<H4>Comments</H4>
+
+<P>Before upgrading to a new version of Windows, remove all third-party device drivers and system services, and disable any virus scanners. Contact the software manufacturers to obtain updates of these third-party tools.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Bug%20Check%200xA:%20%20IRQL_NOT_LESS_OR_EQUAL"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

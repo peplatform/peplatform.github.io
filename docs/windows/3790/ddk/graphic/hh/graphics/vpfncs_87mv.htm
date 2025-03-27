@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>VideoPortGetDeviceBase</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="VideoPortGetDeviceBase">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_videoportgetdevicebase_gg"></A>VideoPortGetDeviceBase</H1>
+
+<P>The <B>VideoPortGetDeviceBase</B> function maps a range of bus-relative device memory or I/O addresses into the system (kernel) address space. </P>
+
+<PRE class=syntax><B>PVOID
+  VideoPortGetDeviceBase(
+    IN PVOID</B>  <I>HwDeviceExtension</I><B>,
+    IN PHYSICAL_ADDRESS</B>  <I>IoAddress</I><B>,
+    IN ULONG</B>  <I>NumberOfUchars</I><B>,
+    IN UCHAR</B>  <I>InIoSpace</I><B>
+    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>HwDeviceExtension</I></DT>
+
+<DD>Pointer to the miniport driver's device extension.</DD>
+
+<DT><I>IoAddress</I></DT>
+
+<DD>Specifies the base physical address of the range to be mapped. This bus-relative value is obtained by calling <A HREF="vpfncs_9353.htm"><B>VideoPortGetDeviceData</B></A>, <A HREF="vpfncs_8a07.htm"><B>VideoPortGetRegistryParameters</B></A>, or <A HREF="vpfncs_22lj.htm"><B>VideoPortGetAccessRanges</B></A>. Otherwise, this value<I> </I>is a driver-supplied default base address for the device memory or I/O ports.
+
+<P>The range described by <I>IoAddress</I> and <I>NumberOfUchars</I> must have been successfully claimed in the registry with a preceding call to <A HREF="vpfncs_0x7r.htm"><B>VideoPortVerifyAccessRanges</B></A> or <B>VideoPortGetAccessRanges</B>.
+</DD>
+
+<DT><I>NumberOfUchars</I></DT>
+
+<DD>Specifies the number of bytes, starting at the given <I>IoAddress</I>, to be mapped.</DD>
+
+<DT><I>InIoSpace</I></DT>
+
+<DD>Indicates the location of the <I>IoAddress</I> range. This parameter can be one of the following values, or certain bitwise combinations of these values:  
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Value</TH>
+<TH align=left width=52%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>VIDEO_MEMORY_SPACE_DENSE</TD>
+<TD width=52%>Obsolete.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>VIDEO_MEMORY_SPACE_IO</TD>
+<TD width=52%>The indicated address ranges are in system I/O space rather than in memory space. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>VIDEO_MEMORY_SPACE_MEMORY</TD>
+<TD width=52%>The indicated address ranges are in memory space rather than in system I/O space. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>VIDEO_MEMORY_SPACE_P6CACHE</TD>
+<TD width=52%>The processor aggregates a sequence of write operations and sends them to a given cache line. The processor then flushes the cache. This flag is meaningful only when VIDEO_MEMORY_SPACE_IO is <I>not</I> set.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>VideoPortGetDeviceBase</B> returns a mapped logical base address that can be used with the <B>VideoPortRead</B><I>Xxx</I>, <B>VideoPortWrite</B><I>Xxx</I>, and all <B>VideoPort..Memory</B> functions except <A HREF="vpfncs_4otj.htm"><B>VideoPortMapMemory</B></A> and <A HREF="vpfncs_85d3.htm"><B>VideoPortUnmapMemory</B></A>. If the given bus-relative range cannot be mapped, it returns NULL.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>video.h</I>. Include <I>video.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>After <B>VideoPortGetDeviceBase</B> has performed the mapping, the miniport driver can communicate with its adapter by calling the <B>VideoPortRead/Write</B><I>Xxx</I> functions, using the mapped logical addresses. A miniport driver also must use mapped logical addresses to call <A HREF="vpfncs_7k13.htm"><B>VideoPortCompareMemory</B></A>, <A HREF="vpfncs_49wn.htm"><B>VideoPortMoveMemory</B></A>, <A HREF="vpfncs_0exz.htm"><B>VideoPortZeroDeviceMemory</B></A>, and <A HREF="vpfncs_810n.htm"><B>VideoPortZeroMemory</B></A>. <B>VideoPortGetDeviceBase</B> must be called from the miniport driver's <A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A>, <A HREF="vmpfncs_2m93.htm"><I>HwVidQueryDeviceCallback</I></A>, or <A HREF="vmpfncs_4ucn.htm"><I>HwVidQueryNamedValueCallback</I></A> function.</P>
+
+<P>Both the mapped base address returned by <B>VideoPortGetDeviceBase</B> and length of the mapped access range should be stored for later use in the <I>HwDeviceExtension</I> before <I>HwVidFindAdapter</I> returns control.</P>
+
+<P>Access to the mapped address space must follow these rules:
+
+<UL>
+	<LI>If the input value for <I>InIoSpace</I> is VIDEO_MEMORY_SPACE_IO, indicating that the address <I>is</I> in I/O space, the returned mapped logical address should be used with the <B>VideoPortRead/WritePort</B><I>Xxx</I> and <B>VideoPortRead/WritePortBuffer</B><I>Xxx</I> functions where <I>Xxx</I> is one of <B>Uchar</B>, <B>Ushort</B>, or <B>Ulong</B>.</LI>
+
+	<LI>If the input value for <I>InIoSpace</I> is VIDEO_MEMORY_SPACE_MEMORY, indicating the address is not in I/O space but in memory space, the returned mapped logical address should be used with the <B>VideoPortRead/WriteRegister</B><I>Xxx</I> and <B>VideoPortRead/WriteRegisterBuffer</B><I>Xxx</I> functions, where <I>Xxx</I> is one of <B>Uchar</B>, <B>Ushort</B>, or <B>Ulong</B>.</LI>
+
+	<LI>The driver must not access addresses outside the range delimited by the given <I>NumberOfUchars</I>.</LI>
+</UL>
+
+<P>If a miniport driver does not support an adapter for which it has mapped a logical range, it must call <B>VideoPortFreeDeviceBase</B> to unmap the previously mapped range from the system address space, and then release its claims on the range in the registry using <B>VideoPortGetAccessRanges</B> or <B>VideoPortVerifyAccessRanges</B>, before it returns control to the <A HREF="vmpfncs_06g7.htm"><B>DriverEntry</B></A> function.</P>
+
+<P>Callers of <B>VideoPortGetDeviceBase</B> must be running at IRQL = PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A>, <A HREF="vmpfncs_2m93.htm"><I>HwVidQueryDeviceCallback</I></A>, <A HREF="vmpfncs_4ucn.htm"><I>HwVidQueryNamedValueCallback</I></A>, <A HREF="vpfncs_7k13.htm"><B>VideoPortCompareMemory</B></A>, <A HREF="vpfncs_9413.htm"><B>VideoPortFreeDeviceBase</B></A>, <A HREF="vpfncs_22lj.htm"><B>VideoPortGetAccessRanges</B></A>, <A HREF="vpfncs_9353.htm"><B>VideoPortGetDeviceData</B></A>, <A HREF="vpfncs_8a07.htm"><B>VideoPortGetRegistryParameters</B></A>, <A HREF="vpfncs_49wn.htm"><B>VideoPortMoveMemory</B></A>, <B>VideoPortRead</B><I>Xxx</I>, <A HREF="vpfncs_0x7r.htm"><B>VideoPortVerifyAccessRanges</B></A>, <B>VideoPortWrite</B><I>Xxx</I>, <A HREF="vpfncs_0exz.htm"><B>VideoPortZeroDeviceMemory</B></A>, <A HREF="vpfncs_810n.htm"><B>VideoPortZeroMemory</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: VideoPortGetDeviceBase"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

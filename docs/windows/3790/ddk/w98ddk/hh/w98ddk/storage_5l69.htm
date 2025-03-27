@@ -1,0 +1,29 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Swap File Handling</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_4091"></A>Swap File Handling</H3>
+
+<P>FSDs that handle media on which the swap file for Chicago resides, need to do certain special stuff to take care of it. The swap file is different from normal files and needs special handling for the system to keep working. The special considerations needed for the swap file are listed in the following: 
+
+<OL>
+	<LI>All data structures that are used for the swap file need to be locked down. All code paths that can be hit during swap-file I/O should also be locked down. In other words, no paging can occur while an FSD is processing reads or writes to the swap file. </LI>
+
+	<LI>It is advisable to not cache the swap-file data though this is not a must. This is because the swap-file data would just crowd out other more relevant data in the cache. The important thing to keep in mind is that no memory allocations can be made while doing swap-file I/O nor can any paging happen. This puts a pretty big restriction on any cache, in that, it cannot be dynamic and also has to be locked down. For these reasons, it makes much more sense to write the swap-file data directly to the disk without going through a cache. The IFS manager provides a special flag called R0_SWAPPER_CALL on FS_OpenFile and FS_ReadWrite to inform FSDs that this is swap-file I/O. In addition there are also special flags passed in to prevent read-aheads, write-behinds on the swap file. These are all described in Section 8.5 under the respective functions. </LI>
+
+	<LI>The memory manager does swap-file I/O only at 4K boundaries and in multiples of 4K. Since swap-file transfers are guaranteed to be aligned, FSDs can optimize the swap-file code path without having to take care of any partial transfers, etc. In addition, the transfer addresses that the swap file passes down are all locked, so the FSDs can optimize further by not trying to lock the user pages in case of the swap file. </LI>
+
+	<LI>The FSD should be reentrant with respect to I/O on the swap file. For example, the FSD may take semaphores around code that allocates clusters to prevent any other writers from coming in. However, reads and writes to the swap file need to be permitted at all times. This is also safe because such writes to the swap file will not grow the file. Besides, only the memory manager can access the swap file, no one else in the system is allowed to access it. </LI>
+
+	<LI>There is one catch to (4) above. The memory manager can issue a call to grow or shrink the swap file. Obviously, the restrictions on memory allocation and paging do not apply in this case. The memory manager <I>guarantees</I> that size changes of the swap file will occur at a time when it is safe to do so and this operation can block. The other thing that the FSD needs to be aware of in this case is that, while the swap file is being grown or shrunk, there <I>can be another write to the swap file</I>. However, this I/O is <I>guaranteed</I> to be in the region within the old size of the swap file and not in the region that is being changed. Given this condition, it is fine to be reentered. </LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Swap%20File%20Handling"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

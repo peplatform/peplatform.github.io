@@ -1,0 +1,301 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Physical Address Extension (PAE)</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Physical Address Extension (PAE)">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Appendix:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_supp_physical_address_extension_pae_"></A>Physical Address Extension (PAE)</H1>
+
+<H1>PAE Memory Support</H1>
+
+<P>Microsoft will continue to support Physical Address Extension (PAE) memory in Microsoft® Windows®&nbsp;Server 2003, Enterprise Edition and Datacenter Edition. 
+
+<UL>
+	<LI>Windows Server 2003, Enterprise Edition, PAE memory support will extend to 32 gigabytes (GB) of physical RAM.</LI>
+
+	<LI>Windows Server 2003, Datacenter Edition, PAE memory support will extend to 64 GB of physical RAM.</LI>
+</UL>
+
+<P>To ensure the highest possible performance and quality for customers purchasing or upgrading systems capable of supporting more than 4 GB of RAM, special Large (PAE) Memory Support hardware compatibility list (HCL) categories have been established, which will provide a listing of the systems, devices, and drivers that have passed testing of this particular capability. Only devices that are listed on the Large Memory Support HCL will be supported by Microsoft when more than 4 GB of RAM is installed in the system. </P>
+
+<H1>HCL Testing</H1>
+
+<P>Vendors who want to have their systems and devices tested, listed, and supported must send their equipment to the Windows Hardware Quality Lab (WHQL), following these basic guidelines: 
+
+<UL>
+	<LI>Systems capable of supporting more than 4 GB of RAM must be submitted to WHQL at the maximum configuration the system supports for both processors and memory. </LI>
+
+	<LI>Component adapters that are 32 bit must have already been submitted.</LI>
+</UL>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;No further submissions to WHQL will be accepted for Large Memory testing and listing of 32-bit adapters. 64-bit component adapters and device drivers may be submitted now and in the future for Large Memory testing and listing.</P>
+
+<H1>Operating System Support</H1>
+
+<P>The PAE mode kernel will not be enabled by default for systems that can support more than 4 GB of RAM. The Windows&nbsp;Server&nbsp;2003 Enterprise Edition and Datacenter Edition will boot by default in normal mode (support for only 4 GB of RAM). </P>
+
+<P>To boot the system and utilize PAE memory, it will be necessary add the “/PAE” switch to the corresponding entry in the BOOT.INI file. If a problem should arise, Safe Mode may be used, and that will cause the system to boot using normal kernels (support for only 4 GB of RAM) even if the /PAE switch is part of the BOOT.INI file. The PAE mode kernel requires an Intel Architecture processor, Pentium Pro or later, more than 4 GB of RAM, and either Windows&nbsp;2000 Advanced Server or Windows&nbsp;2000 Datacenter Server.  </P>
+
+<H1>Adapter and Driver Issues: LME and DAC Capable</H1>
+
+<P>All physical memory is treated as general-purpose memory, so no new APIs are needed to access I/O above the 4&nbsp;GB physical memory address. Also, direct I/O can be done for greater than 4&nbsp;GB physical addresses (this requires Dual Address Cycle (DAC) capable or 64-bit PCI devices). Devices and drivers that can perform direct I/O beyond 4 GB are considered Large Memory Enabled (LME). </P>
+
+<P>Because Windows&nbsp;Server 2003 does not have a kernel PAE or LME API or interface, the PAE-X86 kernel ensures that many items are identical to the standard kernel, including:
+
+<UL>
+	<LI>Kernel memory space organization is unchanged.</LI>
+
+	<LI>PCI BAR remains the same.</LI>
+
+	<LI>Registry flags work the same.</LI>
+
+	<LI>Nonpaged pool size remains the same.</LI>
+
+	<LI>3GT feature will be supported for up to 16 GB RAM.</LI>
+
+	<LI>IMAGE_FILE_LARGE_ADDRESS_AWARE will continue to work. </LI>
+
+	<LI>“Well-known” kernel addresses remain in the same locations.</LI>
+</UL>
+
+<P>However, careful device driver development is still required. Hardware devices should be DAC or 64-bit capable with LME drivers; otherwise, the device will function as “legacy” 32 bit and will be double buffered, with lower relative performance. </P>
+
+<P>Although double-buffering can have a relatively small impact (single percentage points) on 8&nbsp;GB systems, this is enough to impact I/O intensive tasks such as database activity. This is also dependent on a number of factors beyond Microsoft’s control, such as hardware design and device driver optimizations such as interrupt moderation and efficient use of the PCI bus. As the amount of physical memory increases, so does the negative performance impact in comparison to DAC/64-bit devices and LME drivers.</P>
+
+<H3>What to Avoid in Drivers</H3>
+
+<OL>
+	<LI>Do not use PVOID64. Using PVOID64 anywhere will return incorrect information because this call does not return valid information on the Intel Architecture platform. Instead, use PHYSICAL_ADDRESS.</LI>
+
+	<LI>Do not call <B>MmGetPhysicalAddress</B> on a locked buffer, discard the high 32 bits, and then program the adapter to DMA into the resultant address. This will certainly result in corrupted memory, lost I/O, and system failure. If this call is made, ensure that all address information returned is used and that the driver correctly operates with that 64-bit address. </LI>
+
+	<LI>Do not use PVOID when manipulating physical addresses. Because PVOID is only 32 bits, address truncation will take place and memory corruption will result.</LI>
+
+	<LI>Do not use ULONG when manipulating physical addresses because this has exactly the same precautions and behavior as PVOID: system failure.</LI>
+
+	<LI>Do not indicate support for scatter/gather in the DEVICE_DESCRIPTION when not true to avoid the buffering provided by HAL (the “mapping registers”).</LI>
+
+	<LI>If the driver cannot support 64-bit addresses, do not call <B>IoMapTransfer</B> without having an <B>AdapterControl</B> function (again, to avoid mapping registers), and do not supply zero as the value for <I>MapRegisterBase</I>. This will fail.</LI>
+</OL>
+
+<P>Other functions and calls might cause failures. This list will be expanded as more information becomes available and will be in later revisions of the Microsoft® Windows® Driver Development Kit (DDK), which is available at http://www.microsoft.com/ddk/ and distributed through MSDN®.</P>
+
+<H3>Guidelines for NDIS Miniports and SCSI Miniports</H3>
+
+<H4>Guidelines for NDIS Miniports on PAE Systems</H4>
+
+<P>The mechanism for 64-bit address-capable network cards to operate above the 4 GB mark should use scatter/gather DMA;
+
+<UL>
+	<LI>Miniports need to call <B>NdisMInitializeScatterGatherDma</B> with <I>Dma64BitAddresses</I> = TRUE. </LI>
+
+	<LI>Miniports need to be deserialized.</LI>
+
+	<LI>Refer to entry for <B>NdisMInitializeScatterGatherDma</B> in the DDK documentation.</LI>
+</UL>
+
+<H4>General Guidelines</H4>
+
+<UL>
+	<LI>Shared memory allocated using <B>NdisMAllocateSharedMemory</B> is guaranteed not to cross a 4 GB boundary.</LI>
+
+	<LI>NDIS_PER_PACKET_INFO_FROM_PACKET(ScatterGatherListPacketInfo) will never return NULL for miniports that support ScatterGatherDma. </LI>
+
+	<LI>No SCATTER_GATHER_ELEMENT will cross a 4 GB boundary. If a virtual memory buffer does cross a 4 GB boundary, it will be broken into two ScatterGatherElements.</LI>
+</UL>
+
+<H4>Guidelines for 64 bit Address-Capable SCSI Miniports <BR>
+(Including All Related Adapters for SCSI 2 or later)</H4>
+
+<UL>
+	<LI>Miniports need to support scatter/gather DMA. They must not call any of the slave-mode DMA routines: <B>ScsiPortFlushDma</B> or <B>ScsiPortIoMapTransfer</B>. </LI>
+
+	<LI>Miniports should check the value of <B>Dma64BitAddresses</B> in PORT_CONFIGURATION_INFORMATION to determine whether 64-bit PAs are supported. If 64-bit physical addresses (PAs) are supported, the miniport should change its extension sizes to account for the larger PAs (if necessary) and set the <B>Dma64BitAddresses</B> field to SCSI_DMA64_MINIPORT_SUPPORTED before calling <B>ScsiPortGetUncachedExtension</B>.</LI>
+
+	<LI>Miniports must not attempt to access data buffers using virtual addresses unless they have set the <B>MapBuffers</B> bit in the PORT_CONFIGURATION_INFORMATION structure. The exceptions to this rule are INQUIRY and REQUEST_SENSE operations that will always have a valid virtual address.</LI>
+
+	<LI>Use SCSI_PHYSICAL_ADDRESS to access all physical addresses.</LI>
+
+	<LI>Uncached extensions and SRB extensions will not cross the 4 GB boundary.</LI>
+
+	<LI>No scatter/gather element will cross the 4 GB boundary.</LI>
+</UL>
+
+<H4>Guidelines for Legacy SCSI Miniports</H4>
+
+<UL>
+	<LI>Miniports need to support scatter/gather DMA. They must not call any of the slave-mode DMA routines: <B>ScsiPortFlushDma</B> or <B>ScsiPortIoMapTransfer</B>.</LI>
+
+	<LI>Miniports must not attempt to access data buffers using virtual addresses unless they have set the <B>MapBuffers</B> bit in the PORT_CONFIGURATION_INFORMATION structure. The exceptions to this rule are INQUIRY and REQUEST_SENSE operations that will always have a valid virtual address.</LI>
+
+	<LI>Miniports should not set the <B>MapBuffers</B> bit unless absolutely necessary, because providing valid virtual addresses to a 32-bit driver on a LME system is costly.</LI>
+</UL>
+
+<H3>Creating and Testing LME Drivers</H3>
+
+<OL>
+	<LI>Always use the most recent version of the HCT provided on the <a href="http://go.microsoft.com/fwlink/?linkid=8705&clcid=0x409" target="_blank">Windows Hardware Quality Labs</A> Web site. </LI>
+
+	<LI>Test using all available tools from Microsoft such as DevCtl in the HCT and the Driver Verifier functionality. </LI>
+
+	<LI>Test both on systems with greater than 4&nbsp;GB of physical memory and on systems with less than 4&nbsp;GB of system memory. </LI>
+
+	<LI>Test legacy drivers to ensure there is no corruption due to incorrect use of calls such as <B>MmGetPhysicalAddress</B>.</LI>
+
+	<LI>Test specifically for PAE systems. This requires a minimum installed RAM of 8 GB.</LI>
+
+	<LI>Use the NOLOWMEM switch in the BOOT.INI file:
+<UL>
+	<LI>Guarantees a 64-bit PA above 4 GB.</LI>
+
+	<LI>Hides pages below 4 GB.</LI>
+
+	<LI>Fills pages below 4 GB with unique patterns.</LI>
+
+	<LI>Task Manager will display roughly total RAM minus ~4 GB.</LI>
+</UL>
+</LI>
+
+	<LI>Use DevCtl – supplied with the HCT:
+<UL>
+	<LI>Exercises drivers through IOCTLs.</LI>
+
+	<LI>Tests exception handling and failure modes, and unexpected entry points into the driver.</LI>
+
+	<LI>Queries with buffers too small to contain returns.</LI>
+
+	<LI>Checks IOCTL/FSCTL for:
+<P>Missing, small or garbage buffers.<BR>
+Data changing asynchronously.<BR>
+Bad pointers.<BR>
+Buffer mapping changing asynchronously.
+</LI>
+
+	<LI>Issues requests both synchronously and asynchronously to the device.</LI>
+
+	<LI>Tests IRP cancels, delays and nulls</LI>
+
+	<LI>Checks leak, pooltag and lookaside information.</LI>
+</UL>
+</LI>
+
+	<LI>Use Driver Verifier – part of the product
+<UL>
+	<LI>All pool allocations are segregated to check for corruption.</LI>
+
+	<LI>Extreme memory pressure — whenever IRQL or spin lock is acquired, try to page out the driver; catches fatal errors.</LI>
+
+	<LI>All spin lock, IRQL, and pool requests and releases are extensively error checked: double releases of spin locks, usage of uninitialized variables, other forms of pool corruption, and so on.</LI>
+</UL>
+</LI>
+</OL>
+
+<H3>Troubleshooting DAC Support and LME Drivers</H3>
+
+<P>These steps can help vendors and customers determine if there are any issues relating to the system board, buses, or adapters in supporting DAC and LME.
+
+<OL>
+	<LI>If the driver fails at initialization, check with the system OEM to determine whether all PCI buses present in the system support DAC.</LI>
+
+	<LI>If a network adapter driver performs a bug check immediately upon a network connection, determine whether all buses support DAC, again by checking with the OEM.</LI>
+
+	<LI>If the PCI buses on the system are all DAC capable, check whether the hardware device is compliant with PCI 2.1 or later.</LI>
+
+	<LI>If the bus supports DAC and the device is PCI 2.1 compliant, check the driver for assumptions being made about physical addresses.</LI>
+</OL>
+
+<P>The documentation we provide to our Windows Server 2003,  Enterprise Edition and Datacenter Edition, customers concerning PAE memory can be found in Help topic "Enterprise Memory Architecture."</P>
+
+<H4>Hardware Requirements for PAE </H4>
+
+<P>The system must meet the following minimum requirements:
+
+<UL>
+	<LI>x86 Pentium Pro processor or later </LI>
+
+	<LI>More than 4 GB of RAM </LI>
+
+	<LI>450 NX or compatible chipset and support, or later</LI>
+</UL>
+
+<H4>Determine Whether Network and Storage Adapters Support PAE</H4>
+
+<OL>
+	<LI>Consult the Windows&nbsp;Server 2003 <a href="http://go.microsoft.com/fwlink/?linkid=12713&clcid=0x409" target="_blank">Hardware Compatibility List</A> Web site and search for "Large Memory." </LI>
+
+	<LI>If your hardware is not supported, update hardware or select different hardware on which to enable PAE. If appropriate, contact the hardware vendor. </LI>
+
+	<LI>If you update your hardware, it is recommended that you back up your system before doing so. If necessary, consult user documentation for information on backing up your system. </LI>
+</OL>
+
+<H4>Enable PAE x86</H4>
+
+<P>To enable PAE x86:
+
+<OL>
+	<LI>Locate the Boot.ini file, which is typically in the root folder (for example, C:/) and remove its Read-Only and Hidden attributes. </LI>
+
+	<LI>Open the Boot.ini file with a text editor, and then add the /PAE parameter to the ARC path, as shown in bold format in the following example: 
+<P><B>multi(0)disk(0)rdisk(0)partition(2)\WINNT="Windows&nbsp;2000 Datacenter Server" /PAE /basevideo /sos</B>
+</LI>
+
+	<LI>On the File menu, click Save. </LI>
+
+	<LI>Restore the Read-Only attribute to the Boot.ini file. </LI>
+</OL>
+
+<H4>Troubleshooting Specific Programs</H4>
+
+<DL>
+<DT><B>Problem:</B> The computer will not start after PAE is enabled.</DT>
+
+<DD><B>Cause:</B> Your hardware may not support PAE.
+
+<P><B>Solution: </B>Start the system and run Safe Mode, which disables PAE. Then remove the /PAE parameter from the Boot.ini file. To run Safe Mode:
+
+
+<OL>
+	<LI>When you see the message "Please select the operating system to start," press F8.</LI>
+
+	<LI>Use the arrow keys to highlight the appropriate Safe Mode option, and then press ENTER. </LI>
+</OL>
+
+
+<P class=note><B>Note</B>&nbsp;&nbsp;NUM LOCK must be off before the arrow keys on the numeric keypad will function.
+
+</DD>
+
+<DT><B>Problem:</B> After PAE is enabled, the computer runs for a time and then displays a Stop error.</DT>
+
+<DD><B>Cause: </B>Your hardware may not support PAE.
+
+<P><B>Solution: </B>Determine whether your hardware supports PAE by consulting the Windows&nbsp;Server 2003 <a href="http://go.microsoft.com/fwlink/?linkid=12713&clcid=0x409" target="_blank">Hardware Compatibility List</A> Web site and search for “Large Memory.”
+
+
+<P>If your hardware does not support PAE, or if the problem persists and you continue to believe that PAE may be the cause, disable PAE by removing the /PAE parameter from the Boot.ini file. 
+
+</DD>
+</DL>
+
+<H4>WHQL, HCT, and HCL for Large Memory</H4>
+
+<P>The HCL has been modified to include the listing category —Large Memory— that will list all components that either support greater than 4 GB [DAC and LME adapters and drivers] or have been tested and known to function correctly in PAE systems. </P>
+
+<P>Systems capable of supporting more than 4 GB RAM support must be submitted to WHQL at the maximum configuration the system supports for both processors and memory, but there will be no separate Large Memory category for these computers because they must pass testing in a PAE-enabled configuration to be listed at all. </P>
+
+<P>Not every device and driver has been, or can be, tested and listed for the LME HCL. At this time, Microsoft does not plan to include any further 32-bit devices and adapters in the Large Memory HCL listings, because of the negative performance impact double buffering has on system performance. Microsoft is encouraging vendors to submit new 64-bit adapters and drivers for Windows&nbsp;Server 2003, Enterprise Edition and Datacenter Edition, systems supporting more than 4 GB of memory, which will be accepted by the WHQL for testing and listing in the LME HCL categories.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;There are no Large Memory HCL listings for many adapter types. Examples include Video, IEEE 1394, and USB and others, where, at this time, testing has exposed no problems operating in a PAE environment. In the case of Video, this is not an input device for systems with more than 4 GB of memory. In the case of IEEE 1394 and USB devices, these do not presently function as primary data path devices for this class of system. Other device classes such as Keyboards, Mice, Internal Modems, Audio, Smart Cards, Digital Cameras, IRDA Network, Scanner, Video Conference, Flash RAM, DVD-MPEG, Joystick and TV Tuners that do not presently have Large Memory HCL listings have also been found to present no problems at this time, although testing continues.</P>
+
+<P><B>LME</B> devices — Large Memory Enabled adapters — are the set of DAC/64-bit adapters and associated LME drivers for Storage and Network I/O. These are current devices that are DAC/64-bit capable for interfaces such as SCSI 2, SCSI 3, SCSI X, and Fibre Channel storage and for 100BaseT, Gigabit, ATM, FDDI, 100 Mb TR, and WSD-SAN for networking. These devices are typically part of the primary data path, which is defined as the data path over which the bulk of network I/O to clients and/or servers traverses for networking, the path over which the bulk of disk I/O traverses, or where the page files reside.</P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Physical%20Address%20Extension%20(PAE)"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

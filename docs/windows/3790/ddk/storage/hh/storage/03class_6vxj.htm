@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Storage Class Driver's SplitTransferRequest Routine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Storage Class Driver's SplitTransferRequest Routine">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_dispatchreadwrite_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iocalldriver_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_storage_class_drivers_splittransferrequest_routine_kg"></A>Storage Class Driver's <I>SplitTransferRequest</I> Routine</H2>
+
+<P>The STORAGE_ADAPTER_DESCRIPTOR data returned to the <I>GetDescriptor</I> routine indicates the transfer capabilities of a given HBA to the class driver. In particular, this data indicates the <B>MaximumTransferLength</B> in bytes and the <B>MaximumPhysicalPages</B>: that is, how many noncontiguous pages the HBA can manage in the physical memory backing a system buffer (i.e., the extent of its scatter/gather support). </P>
+
+<P>Most class drivers store a pointer to this configuration data in the device extension of each device object because storage class drivers are responsible for splitting all transfer requests that exceed the HBA's capability to transfer data. In other words, a class driver's <A HREF="JavaScript:hhobj_1.Click()"><I>DispatchReadWrite</I></A> routine must determine whether each IRP requests a transfer that is more than the HBA can handle in a single transfer operation. </P>
+
+<P>For example, such a <I>DispatchReadWrite</I> routine could have code similar to the following: </P>
+
+<PRE>PSTORAGE_ADAPTER_DESCRIPTOR adapterDescriptor = 
+    commonExtension-&gt;PartitionZeroExtension-&gt;AdapterDescriptor;
+ULONG transferPages;
+ULONG maximumTransferLength = 
+    adapterDescriptor-&gt;MaximumTransferLength;
+    :        : 
+// 
+// Calculate number of pages in this transfer 
+// 
+transferPages = ADDRESS_AND_SIZE_TO_SPAN_PAGES( 
+                    MmGetMdlVirtualAddress(Irp-&gt;MdlAddress), 
+                        currentIrpStack-&gt;Parameters.Read.Length);
+// 
+// Check whether requested length is greater than the maximum number 
+// of bytes that can be transferred in a single operation 
+// 
+if (currentIrpStack-&gt;Parameters.Read.Length &gt; maximumTransferLength ||
+        transferPages &gt; adapterDescriptor-&gt;MaximumPhysicalPages) { 
+    transferPages = adapterDescriptor-&gt;MaximumPhysicalPages - 1;
+    if (maximumTransferLength &gt; transferPages &lt;&lt; PAGE_SHIFT) { 
+        maximumTransferLength = transferPages &lt;&lt; PAGE_SHIFT; 
+    } 
+    IoMarkIrpPending(Irp); 
+    SplitTransferRequest(DeviceObject, 
+                            Irp, 
+                            maximumTransferLength); 
+    return STATUS_PENDING; 
+} 
+    :        : </PRE>
+
+<P>The class driver cannot tell how many physical breaks the buffer will have once it has been mapped, so it must assume that each page in the transfer is discontiguous and compare the number of pages against the number of physical breaks allowed.</P>
+
+<P>Note that such a driver's <I>DispatchReadWrite</I> routine calls <B>IoMarkIrpPending</B> and returns STATUS_PENDING immediately after a call to its <I>SplitTransferRequest</I> routine with the original IRP. </P>
+
+<P>To carry out the original transfer request, the driver's <I>SplitTransferRequest</I> routine creates one or more IRPs to handle sub-buffers that are sized to suit the HBA's capabilities. For each such IRP, the <I>SplitTransferRequest</I> routine:
+
+<UL>
+	<LI>Sets up an SRB, usually by calling an internal <I>BuildRequest</I> routine (see <A HREF="03class_6fmv.htm">Storage Class Driver's <I>BuildRequest</I> Routine</A>)</LI>
+
+	<LI>Copies the MDL address from the original IRP to the new IRP</LI>
+
+	<LI>Sets the <B>DataBuffer</B> in the SRB to an offset in bytes into the MDL for this piece of the transfer</LI>
+
+	<LI>Sets up its <I>IoCompletion</I> routine before sending the IRP on to the port driver with <A HREF="JavaScript:hhobj_2.Click()"><B>IoCallDriver</B></A></LI>
+</UL>
+
+<P>To track each piece of the transfer, <I>SplitTransferRequest</I> registers an <I>IoCompletion</I> routine for each driver-allocated IRP it sends to the next-lower driver. The <I>IoCompletion</I> routine maintains a count of completed partial transfer requests in the original IRP, using <B>InterlockedIncrement</B> and <B>InterlockedDecrement</B> to ensure that the count is accurate. </P>
+
+<P>Such an <I>IoCompletion</I> routine must free any IRPs and/or SRBs the driver has allocated and must complete the original IRP when all requested data has been transferred or when the class driver has exhausted retries of the IRP and must fail it due to device transfer errors. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Storage%20Class%20Driver's%20SplitTransferRequest%20Routine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling DMA-style AGP</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling DMA-style AGP">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_handling_dma_style_agp_gg"></A>Handling DMA-style AGP</H2>
+
+<P>An AGP-compatible display card can use AGP memory in one of two ways: using the execute model or the direct memory access (DMA) model. 
+
+<UL>
+	<LI>In the execute model, if there is a texture in nonlocal video memory, the card accesses AGP memory directly. That is, if a card is textured from AGP memory it reads texel data directly from a backing surface (system memory copy of a surface). </LI>
+
+	<LI>In the DMA model, the contents of the surfaces must be explicitly moved to local display memory on the card before a texturing operation can be performed.</LI>
+</UL>
+
+<P>It is important to note that the model refers to how a client of the display card sees the transfer. For example, a display card may automatically move texel data from a backing surface to a small local display memory cache when texturing. This may seem like the DMA model. However, because the client application has no information about this transfer taking place, the display card is, in fact, exposing an execute model. Only when the client application has to take explicit action to move the contents of a backing surface to local display memory is the display card considered to be exposing the DMA model. </P>
+
+<P>The previous sections that dealt with AGP memory described how a driver can enable and expose the execute model of AGP usage. This section describes the additional steps a driver must take to expose use of DMA model AGP to the application. Note that the driver writer must decide whether to expose the execute model or the DMA model when writing the driver. <I>The driver should expose one model or the other, but not both.</I> </P>
+
+<P>Before exposing the DMA model from a driver, it is important to consider the implications of the DMA model to the application writer. If a driver exposes execute model AGP support, DirectDraw assumes that surfaces in AGP (nonlocal display memory) and local display memory are functionally identical. Thus the display card can texture either from nonlocal or local display memory without any additional actions by the application. When setting a render state, an application can specify the handle to a texture surface directly, regardless of whether the surface is in nonlocal or local display memory. </P>
+
+<P>However, if a driver exposes the DMA model, surfaces in nonlocal display memory may have different capabilities from those in local display memory. Therefore, before attempting to texture from a nonlocal display memory surface, the application must check whether the hardware is capable of texture from nonlocal display memory. This is accomplished by examining the capabilities exposed by the driver. The same is true for blitting. </P>
+
+<P>An application explicitly requests AGP memory by specifying DDSCAPS_VIDEOMEMORY ORed with DDSCAPS_NONLOCALVIDMEM. If an application does not specify a memory type or only specifies DDSCAPS_VIDEOMEMORY, nonlocal display memory is not considered. Also, if the call does not specify local or nonlocal display memory, the surface is a texture, and the device sets the D3DDEVCAPS_TEXTURENONLOCALVIDEOMEMORY flag, then the surface can be allocated in AGP memory.</P>
+
+<P>This means that if a driver exposes the DMA model, surfaces are not allocated from AGP memory. This is in contrast to a driver that exposes execute model, in which AGP memory is allocated even if the application does not explicitly request it. Drivers that expose the execute model are therefore much simpler for applications to use. Furthermore, an execute model driver allows a legacy application to gain the benefits of AGP, whereas a DMA model driver only accelerates new applications written explicitly for AGP. This should be considered when deciding whether to expose the execute or DMA models. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20DMA-style%20AGP"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

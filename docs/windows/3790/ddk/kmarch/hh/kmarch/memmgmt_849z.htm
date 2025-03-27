@@ -1,0 +1,65 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Isolating Pageable Code</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Isolating Pageable Code">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_isolating_pageable_code_kg"></A>Isolating Pageable Code</H3>
+
+<P>A routine that uses a spin lock cannot be paged. However, in some cases you can isolate the operations that require a spin lock in a separate routine that will not be included in the pageable section.</P>
+
+<P>For example, consider the following fragment:</P>
+
+<PRE>//  PAGED_CODE(); 
+ 
+KeInitializeEvent( &amp;event, NotificationEvent, FALSE ); 
+irp = IoBuildDeviceIoControlRequest( IRP_MJ_DEVICE_CONTROL, 
+                                     DeviceObject, 
+                                     (PVOID) NULL, 
+                                     0, 
+                                     (PVOID) NULL, 
+                                     0, 
+                                     FALSE, 
+                                     &amp;event, 
+                                     &amp;ioStatus ); 
+if (irp) { 
+   irpSp = IoGetNextIrpStackLocation( irp ); 
+   irpSp-&gt;MajorFunction = IRP_MJ_FILE_SYSTEM_CONTROL; 
+   irpSp-&gt;MinorFunction = IRP_MN_LOAD_FILE_SYSTEM; 
+   status = IoCallDriver( DeviceObject, irp ); 
+   if (status == STATUS_PENDING) { 
+   (VOID) KeWaitForSingleObject( &amp;event, 
+                                 Executive, 
+                                 KernelMode, 
+                                 FALSE, 
+                                 (PLARGE_INTEGER) NULL ); 
+   } 
+} 
+
+SPINLOCKUSE ! 
+KeAcquireSpinLock( &amp;IopDatabaseLock, &amp;irql ); 
+// Code inside spin lock …
+
+DeviceObject-&gt;ReferenceCount--; 
+ 
+if (!DeviceObject-&gt;ReferenceCount &amp;&amp; !DeviceObject-&gt;AttachedDevice) { 
+   //Unload the driver
+   .
+   .
+   . 
+} else { 
+   KeReleaseSpinLock( &amp;IopDatabaseLock, irql ); 
+} </PRE>
+
+<P>The preceding routine could be made pageable (saving about 160 bytes) by moving the few lines of code that reference a spin lock into a separate routine.</P>
+
+<P>In addition, remember that driver code must not be marked as pageable if it calls any <B>KeXxx</B> support routines, such as <A HREF="k105_44du.htm"><B>KeReleaseMutex</B></A> or <A HREF="k105_1cmq.htm"><B>KeReleaseSemaphore</B></A>, in which the <I>Wait</I> parameter is set to TRUE. Such a call returns with IRQL at DISPATCH_LEVEL and the dispatcher database locked.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Isolating%20Pageable%20Code"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

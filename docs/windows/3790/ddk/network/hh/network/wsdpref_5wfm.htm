@@ -1,0 +1,130 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WSPBind</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WSPBind">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wspbind_nr"></A>WSPBind</H1>
+
+<P><B>WSPBind</B> associates the local IP address, or name, of a network interface with a socket. This network interface is serviced by the SAN service provider. </P>
+
+<PRE class=syntax><B>int 
+  WSPBind(
+    IN SOCKET  </B><I>s</I><B>,</B>
+<B>    IN const struct sockaddr FAR  </B><I>*name</I><B>,</B>
+<B>    IN int </B><I> namelen</I><B>,</B>
+<B>    OUT LPINT </B><I> lpErrno</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>s</I></DT>
+
+<DD>Descriptor that identifies an unbound socket.</DD>
+
+<DT><I>name</I></DT>
+
+<DD>Pointer to a sockaddr structure that contains the address to assign to the socket. The sockaddr structure is defined as:
+
+<PRE>sockaddr {
+    short     sa_family;
+    char      sa_data[14];
+    };</PRE>
+
+
+
+<P>Except for the <B>sa_family</B><I> </I>member, the contents of sockaddr are expressed in network byte order. The SAN service provider does not strictly interpret the <I>name</I> parameter as a pointer to a sockaddr structure. The <I>name</I> parameter is cast this way for Windows Sockets compatibility. The SAN service provider interprets the actual structure as a sockaddr_in structure, which is used with the TCP/IP protocol. The sockaddr_in structure is defined as: 
+
+
+<PRE>struct sockaddr_in {
+    short   sin_family;
+    u_short sin_port;
+    struct  in_addr sin_addr;
+    char    sin_zero[8];
+    };</PRE>
+
+</DD>
+
+<DT><I>namelen</I></DT>
+
+<DD>Size, in bytes, of the buffer at <I>name</I>.</DD>
+
+<DT><I>lpErrno</I></DT>
+
+<DD>Pointer to a variable that receives the error code.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>Returns zero if successful; otherwise, returns SOCKET_ERROR and, at <I>lpErrno</I>, one of the following error codes: 
+
+<DL>
+<DT>WSAENETDOWN</DT>
+
+<DD>Network subsystem failed.</DD>
+
+<DT>WSAEADDRNOTAVAIL</DT>
+
+<DD>Specified address is not a valid address for the computer.</DD>
+
+<DT>WSAEFAULT</DT>
+
+<DD>The <I>name</I> or <I>namelen </I>parameter is not a valid part of the user address space, the<I> namelen</I> parameter is too small, the <I>name</I> parameter contains an incorrect address format for the associated address family, or the first two bytes of the memory block specified by <I>name</I> do not match the address family associated with the socket descriptor <I>s</I>.</DD>
+
+<DT>WSAEINVAL</DT>
+
+<DD>Socket is already bound to an address.</DD>
+
+<DT>WSAENOBUFS</DT>
+
+<DD>Not enough buffers available, too many connections.</DD>
+
+<DT>WSAENOTSOCK</DT>
+
+<DD>Descriptor is not a socket.
+</DD>
+</DL>
+
+<P>Note that a SAN service provider does not support the following error codes for <B>WSPBind</B>: 
+
+<DL>
+<DT>WSAEINPROGRESS</DT>
+
+<DD>The Windows Sockets switch never issues cancel blocking calls to a SAN service provider. </DD>
+
+<DT>WSAEADDRINUSE</DT>
+
+<DD>The Windows Sockets switch, in conjunction with the TCP/IP provider, handles address reuse.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>Ws2spi.h</I>. Include <I>Ws2spi.h</I>. Requires Windows Sockets version&nbsp;2.0.</P>
+
+<H4>Comments</H4>
+
+<P>The Windows Sockets switch calls a SAN service provider's <B>WSPBind</B> function to assign a name to an unnamed socket, thereby establishing a local association for the socket. The switch previously called the <B>WSPSocket</B> function to create the unnamed socket. The switch calls the <B>WSPBind</B> function before calling the <B>WSPConnect</B> or <B>WSPListen</B> functions.</P>
+
+<P>The SAN service provider must interpret the information to which <I>name</I> points as a sockaddr_in structure, which is used with the TCP/IP protocol. The <B>sin_family</B> member of sockaddr_in must contain the AF_INET address family that was used to create the socket. Otherwise, the SAN service provider returns the WSAEFAULT error code.</P>
+
+<P>In most cases, the switch passes a name that is associated with one of the network interface cards (NICs) serviced by the SAN service provider. This name is fully qualified; that is, the <B>sin_port</B> and <B>sin_addr</B> members of its sockaddr_in structure are both set to nonzero values. The switch obtains the IP address of one of the SAN service provider's NICs from the TCP/IP provider. </P>
+
+<P>If the switch requires a socket to listen for connection requests on all NICs serviced by the SAN service provider, the switch passes the wildcard IP address. The wildcard IP address has the <B>sin_addr</B> member of its sockaddr_in structure set to zero. If the wildcard IP address is specified using the Internet standard ".'' (dotted) notation, it is 0.0.0.0. </P>
+
+<P>The switch can call <B>WSPBind</B> to bind more than one socket to the same local name; that is, to the same port. The switch can use sockets that are bound to the same port to initiate multiple connections from that port. Each of these connections are independent from the other. Note that if more than one socket is listening on the same port, only one should receive connection requests. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="wsdpref_7enm.htm"><B>WSPConnect</B></A>, <A HREF="wsdpref_4a5u.htm"><B>WSPListen</B></A>, <A HREF="wsdpref_6ir6.htm"><B>WSPSocket</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WSPBind"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

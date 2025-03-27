@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DpWmiFunctionControl</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DpWmiFunctionControl">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_dpwmifunctioncontrol_kr"></A><I>DpWmiFunctionControl</I></H1>
+
+<P>The <I>DpWmiFunctionControl</I> routine enables or disables notification of events, and enables or disables data collection for data blocks that the driver registered as expensive to collect. This routine is optional.</P>
+
+<PRE class=syntax><B>NTSTATUS
+</B>  <B><I>DpWmiFunctionControl</I>(</B>
+    <B>IN PDEVICE_OBJECT</B>  <I>DeviceObject</I><B>,</B>
+    <B>IN PIRP</B>  <I>Irp</I><B>,</B>
+    <B>IN ULONG</B>  <I>GuidIndex</I><B>,</B>
+    <B>IN WMIENABLEDISABLECONTROL </B> <I>Function</I><B>,</B>
+    <B>IN BOOLEAN</B>  <I>Enable</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the driver's device object.</DD>
+
+<DT><I>Irp</I></DT>
+
+<DD>Pointer to the IRP.</DD>
+
+<DT><I>GuidIndex</I></DT>
+
+<DD>Specifies the data block by supplying a zero-based index into the list of GUIDs that the driver provided in the <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure it passed to <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>. </DD>
+
+<DT><I>Function</I></DT>
+
+<DD>Specifies what to enable or disable. <B>WmiEventControl</B> indicates an event, and <B>WmiDataBlockControl</B> indicates data collection for a block that was registered as expensive to collect (that is, a block for which the driver set WMIREG_FLAG_EXPENSIVE in <B>Flags</B> of the WMIGUIDREGINFO structure used to register the block).</DD>
+
+<DT><I>Enable</I></DT>
+
+<DD>Specifies TRUE to enable the event or data collection, or FALSE to disable it.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>DpWmiFunctionControl</I> returns STATUS_SUCCESS or an appropriate error status such as:</P>
+
+<P class=indent1>STATUS_WMI_GUID_NOT_FOUND</P>
+
+<P class=indent1>STATUS_INVALID_DEVICE_REQUEST</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wmilib.h</I>. Include <I>wmilib.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>WMI calls a driver's <I>DpWmiFunctionControl</I> routine after the driver calls <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A> in response to one of the following requests:</P>
+
+<P class=indent1><A HREF="k901_97le.htm">IRP_MN_ENABLE_COLLECTION</A></P>
+
+<P class=indent1><A HREF="k901_0xf6.htm">IRP_MN_DISABLE_COLLECTION</A></P>
+
+<P class=indent1><A HREF="k901_10du.htm">IRP_MN_ENABLE_EVENTS</A></P>
+
+<P class=indent1><A HREF="k901_0drm.htm">IRP_MN_DISABLE_EVENTS</A></P>
+
+<P>If a driver implements a <I>DpWmiFunctionControl</I> routine, the driver must place the routine's address in the <B>WmiFunctionControl</B> member of the <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure that it passes to <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>. If a driver does not implement a <I>DpWmiFunctionControl</I> routine, it must set <B>WmiFunctionControl</B> to NULL. In the latter case, WMI returns STATUS_SUCCESS to the caller.</P>
+
+<P>The driver is responsible for validating all input arguments. Specifically, the driver must do the following:
+
+<UL>
+	<LI>Verify that the <I>GuidIndex</I> value is between zero and GuidCount-1, based on the <B>GuidCount</B> member of the <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure.</LI>
+
+	<LI>Verify that the driver has not flagged the specified data block for removal. If the driver recently specified the WMIREG_FLAG_REMOVE_GUID flag in a WMIGUIDREGINFO structure that is contained in a WMILIB_CONTEXT structure, it is possible for an additional request to arrive before the removal occurs.</LI>
+</UL>
+
+<P>It is unnecessary for the driver to check whether events or data collection are already enabled for a block, because WMI sends a single enable request when the first data consumer enables the block, and it sends a single disable request when the last data consumer disables the block. WMI will not call <I>DpWmiFunctionControl</I> to enable a block without an intervening call to disable it. </P>
+
+<P>After enabling or disabling the event or data collection for the block, the driver calls <A HREF="k902_0wtu.htm"><B>WmiCompleteRequest</B></A> to complete the request.</P>
+
+<P>This routine can be pageable.</P>
+
+<P>For more information about implementing this routine, see <A HREF="wmi_9l47.htm">Calling <B>WmiSystemControl</B> to Handle WMI IRPs</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k901_97le.htm">IRP_MN_ENABLE_COLLECTION</A>, <A HREF="k901_0xf6.htm">IRP_MN_DISABLE_COLLECTION</A>, <A HREF="k901_10du.htm">IRP_MN_ENABLE_EVENTS</A>, <A HREF="k901_0drm.htm">IRP_MN_DISABLE_EVENTS</A>, <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A>, <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DpWmiFunctionControl"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

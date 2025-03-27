@@ -1,0 +1,60 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DriverInit</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DriverInit">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_driverinit_gg"></A><I>DriverInit</I></H1>
+
+<P>The <I>DriverInit</I> function initializes the 32-bit driver. </P>
+
+<PRE class=syntax><B>DWORD
+  _stdcall DriverInit(
+</B>    <B>DWORD</B>  <I>dwDriverData</I>
+<I>    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>dwDriverData</I> </DT>
+
+<DD>Points to a shared memory region between 16- and 32-bit address space. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>DriverInit</I> always returns 1.</P>
+
+<H4>Comments</H4>
+
+<P>The <I>DriverInit</I> function is an entry point called by DirectDraw to initialize the 32-bit driver. The entry point is called after your <I>Control</I> function receives <B>QUERYESCAPESUPPORT</B> with <B>DDGET32BITDRIVERNAME</B> escapes and returns the name of the entry point (<I>szEntryPoint</I>). (In this case, the name is <I>DriverInit</I>.) <I>DriverInit</I> is called only once during driver initialization; it is not called on mode changes. </P>
+
+<P>The <I>dwDriverData</I> parameter points to a region of shared data between the 16- and 32-bit address space. It is aliased through <B>MapSLFix</B> (a standard Windows driver routine), which converts it to a 32-bit pointer, <I>pDriverData</I>. <B>MapSLFix</B> creates a 32-bit pointer for a 16-bit selector, so you can use what it returns from the 16-bit side. A 16:16 pointer is used to point to the needed 32-bit objects, so a 64 KB block of memory is shared between 16- and 32-bit sides. Because only 64 KB of linear address space is accessible with a 16:16 pointer, any objects larger than 64 KB require two 16:16 pointers tiled together (most objects should be smaller than 64 KB). The pointer is used to set the <I>fReset</I> flag to TRUE because the display parameters are being reset. The <I>buildDDHALInfo32</I> function is called from <I>DriverInit</I> to fill out all of the 32-bit function names and driver information. </P>
+
+<P>The following is a sample implementation of <I>DriverInit</I>:</P>
+
+<PRE>/*
+ * DriverInit
+ *
+ * This is the entry point called by DirectDraw 
+ * to initialize the 32-bit driver.
+ */
+DWORD _stdcall DriverInit( DWORD dwDriverData )
+{
+    extern LPVOID _stdcall MapSLFix( DWORD );      // 16:16-&gt;0:32
+    pDriverData = MapSLFix( dwDriverData );
+    buildDDHALInfo32();
+    pDriverData-&gt;fReset = TRUE;
+    return 1;
+
+} /* DriverInit */</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DriverInit"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,2178 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Win32 Multilingual IME Overview for IME Development</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Win32 Multilingual IME Overview for IME Development">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Appendix:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_supp_win32_multilingual_ime_overview_for_ime_development"></A>Win32 Multilingual IME Overview for IME Development</H1>
+
+<P>This documentation introduces the basics on how to develop an IME for Windows® 95, Windows® 98, and Windows® NT/2000. It is also a supplement to the Win32® Multilingual IME API reference for IME development</P>
+
+<P>The following main topics are discussed:</P>
+
+<P class=indent1>Overview</P>
+
+<P class=indent1>IME User Interface</P>
+
+<P class=indent1>IME Input Context</P>
+
+<P class=indent1>Generating Messages</P>
+
+<P class=indent1>ImeSetCompositionString</P>
+
+<P class=indent1>Soft Keyboard</P>
+
+<P class=indent1>Reconversion</P>
+
+<P class=indent1>IME Menu Functions</P>
+
+<P class=indent1>IME Help File</P>
+
+<P class=indent1>Windows NT/2000 Issues</P>
+
+<P class=indent1>IME File Format and Data Structures</P>
+
+<H1>Overview</H1>
+
+<P>Beginning with Windows 95 and Windows NT® 4.0, Input Method Editors (IMEs) are provided as a dynamic-link library (DLL), in contrast to the IMEs for the Windows 3.1 East Asian Edition. Each IME runs as one of the multilingual keyboard layouts. In comparison to the Windows 3.1 IME, the new Win32 Multilingual Input Method Manager (IMM) and Input Method Editor (IME) architecture provide the following advantages:
+
+<UL>
+	<LI>Run as a component of the multilingual environment</LI>
+
+	<LI>Offer multiple Input Contexts for each application task</LI>
+
+	<LI>Keep one active IME per each application thread</LI>
+
+	<LI>Give information to the application through message looping (no message order broken)</LI>
+
+	<LI>Offer strong support for both IME-aware and IME-unaware applications</LI>
+</UL>
+
+<P>To fully utilize these advantages, an application needs to support the new Win32 IMM/IME application interface.</P>
+
+<P>In order to maintain maximum compatibility with existing Windows 95 and Windows NT 4.0 IMEs, Windows 98 and Windows 2000 have not changed significantly in design. However, new features have been added in order to provide better system integration and to support more intelligent IMEs.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;IME developers must use the immdev.h in DDK, which is a superset of the imm.h in the SDK or other development tools.</P>
+
+<H2>Windows 98 and Windows 2000 IMM/IME</H2>
+
+<P>The Windows 98 and Windows 2000 IMM/IME architecture retains the Windows 95 and Windows NT 4.0 design. However, some changes have been made in order to support intelligent IME development and integration of the IME with Windows. These changes include:
+
+<UL>
+	<LI>New IME functions that allow applications to communicate with the IMM/IME. These include:
+<P class=indent1><B>ImmAssociateContextEx</B></P>
+
+<P class=indent1><B>ImmDisableIME</B></P>
+
+<P class=indent1><B>ImmGetImeMenuItems</B></P>
+</LI>
+
+	<LI>New functions that allow the IME to communicate with IMM and applications. These include: 
+<P class=indent1><B>ImmRequestMessage</B></P>
+
+<P class=indent1><B>ImeGetImeMenuItems</B></P>
+</LI>
+
+	<LI>Supporting reconversion
+<P>This is a new IME feature that allows you to reconvert a string that has already been inserted into the application’s document. This function will help intelligent IMEs to get more information about the converted result and improve conversion accuracy and performance. This feature requires that the application and the IME cooperate.
+</LI>
+
+	<LI>Adding IME menu items to the Context menu of the System Pen icon 
+<P>This new feature provides a way for an IME to insert its own menu items into the Context menu of the System Pen icon in the system bar and in applications.
+</LI>
+
+	<LI>New bits and flags for the IME
+<P>The following new bits support new conversion modes:
+
+<P class=indent1>IME_CMODE_FIXED</P>
+
+<P class=indent1>IME_SMODE_CONVERSATION</P>
+
+<P class=indent1>IME_PROP_COMPLETE_ON_UNSELECT</P>
+</LI>
+
+	<LI>Edit control enhancement for the IME
+<P>Through two new edit control messages, EM_SETIMESTATUS and EM_GETIMESTATUS, applications can manage IME status for edit controls.
+</LI>
+
+	<LI>Changing IME Pen Icon and Tooltips
+<P>Through three new messages, INDICM_SETIMEICON, INDICM_SETIMETOOLTIPS, and INDICM_REMOVEDEFAULTMENUITEMS, IME can change the system Pen Icon and Tooltips in the system task bar.
+</LI>
+
+	<LI>Two new IMR messages
+<P>IMR_QUERYCHARPOSITION and IMR_DOCUMENTFEED help the IME and application to communicate position and document information. 
+</LI>
+
+	<LI>64-bit compliant
+<P>Two new structures (TRANSMSG and TRANSMSGLIST) are added into IMM32. They are used by INPUTCONTEXT and ImeToAsciiEx to receive IME translated message. 
+</LI>
+
+	<LI>IME_PROP_ACCEPT_WIDE_VKEY
+<P>This new property is added into Windows 2000 so IME can handle the injected Unicode by SendInput API. ImeProcessKey and ImeToAsciiEx APIs are updated to  handle injected Unicode as well. The injected Unicode can be used by application and handwriting programs to put Unicode strings into input queue. 
+</LI>
+</UL>
+
+<H2>Win32 IME Structure</H2>
+
+<P>A new Win32 IME has to provide two components. One is the IME Conversion Interface and the other is the IME User Interface. The IME Conversion Interface is provided as a set of functions that are exported from the IME module. These functions are called by the IMM. The IME User Interface is provided in the form of windows. These windows receive messages and provide the user interface for the IME.</P>
+
+<H2>IME Aware Applications</H2>
+
+<P>One of the main advantages of the new Win32 IME architecture is that it provides better communication logic between the application and the IME. Following is an example of how an application could be involved with the IME:
+
+<UL>
+	<LI>IME Unaware Applications
+<P>These kinds of applications never intend to control the IME. However, as long as it accepts DBCS characters, a user can type any DBCS character to the application using IME.
+</LI>
+
+	<LI>ME Half-aware Applications
+<P>These kinds of applications typically control the various contexts of the IME, such as open and close, and composition form, but it does not display any user interface for the IME.
+</LI>
+
+	<LI>IME Full-aware Applications
+<P>These kinds of applications typically want to be fully responsible for displaying any information given by the IME.
+</LI>
+</UL>
+
+<P>In Windows 95 and Windows NT 4.0 or later, one IME unaware application will be supported with one Default IME window and one Default Input Context. </P>
+
+<P>An IME half-aware application will create its own IME window(s), also called an application IME window, using a predefined system IME class, and may or may not handle its own Input Context given to the application.</P>
+
+<P>An IME fully aware application will handle the Input Context by itself and will display any necessary information given by the Input Context not using the IME window.</P>
+
+<H1>IME User Interface</H1>
+
+<P>The IME User Interface includes the IME window, the UI window, and the components of the UI window.</P>
+
+<H2>Features</H2>
+
+<P>An IME class is a predefined global class that carries out any user interface portion of the IME. The normal characteristics of an IME class are the same as with other common controls. Its window instance can be created by <B>CreateWindowEx</B>. As with static controls, the IME class window does not respond to user input by itself, but receives various types of control messages to realize the entire user interface of the IME. An application can create its own IME window(s) by using this IME class or by obtaining the Default IME window through <B>ImmGetDefaultIMEWnd</B>. In comparison to Windows 3.1, an application that wants to control the IME with these window handles (an IME-aware application) can now achieve the following benefits:
+
+<UL>
+	<LI>The new IME includes candidates listing windows. Each application can have its own window instance of the UI so a user can stop in the middle of any operation to switch to another application. In the Windows 3.1 Japanese Edition, the user had to first exit an operation before switching to another application.</LI>
+
+	<LI>Since the IME User Interface window is informed about an application’s window handle, it can provide several default behaviors for the application. For example, this can include automatic repositioning of the IME window, automatic tracing of the window caret position, and mode indication for each application.</LI>
+</UL>
+
+<P>Even though the system provides only one IME class, there are two kinds of IME window. One is created by the system for the <B>DefWindowProc</B> function especially for an IME unaware program. The IME User Interface for the <B>DefWindowProc</B> function is shared by all IME unaware windows of a thread and is called the default IME window in this documentation. The other windows are created by IME aware applications and are called the application IME<I> </I>window.</P>
+
+<H2>Default and Application IME Window</H2>
+
+<P>The system creates a default IME window at thread initialization time, which is given to a thread automatically. This window then handles any IME user interface for an IME unaware application.</P>
+
+<P>When the IME or IMM generates WM_IME_xxx messages, an IME unaware application passes them to <B>DefWindowProc</B>. Then, <B>DefWindowProcB</B> sends necessary messages to the default IME window, which provides default behavior of the IME User Interface for an unaware application. An IME aware application also uses this window when it does not hook messages from the IME. An application can use its own application IME window when it is necessary.</P>
+
+<H2>IME Class</H2>
+
+<P>The Win32 systems provides an IME class in the system. This class is defined by the user just as the predefined Edit class is. The system IME class handles the entire UI of the IME and handles entire control messages from the IME and application, including IMM functions. An application can create its own IME User Interface by using this class. The system IME class, itself, is not replaced by any IME, but is kept as a predefined class. </P>
+
+<P>This class has a window procedure that actually handles the <B>WM_IME_SELECT</B> message. This message has the <I>hKL</I> of the newly selected IME. The system IME class retrieves the name of the class defined by each IME with this <I>hKL</I>. Using this name, the system IME class creates a UI window of the currently active IME.</P>
+
+<H2>UI Class from IME </H2>
+
+<P>In this design, every IME is expected to register its own UI class for the system. The UI class provided by each IME should be responsible for IME-specific functionality. The IME may register the classes that are used by the IME itself when the IME is attached to the process. This occurs when <B>DllEntry</B> is called with DLL_PROCESS_ATTACH. The IME then has to set the UI class name in the <I>lpszClassName</I> parameter, which is the second parameter of <B>ImeInquire</B>. </P>
+
+<P>The UI class should be registered with CS_IME specified in the style field so every application can use it through the IME class. The UI class name (including the null terminator) can consist of up to 16 characters and may be increased in future versions.</P>
+
+<P>The <I>cbWndExtra</I> of the UI class has to be 2 * sizeof(LONG). The purpose of this <I>WndExtra</I> is defined by the system (for example, IMMGWL_IMC and IMMGWL_PRIVATE).</P>
+
+<P>The IME can register any class and create any window while working in an application.</P>
+
+<P>The following sample shows how to register the IME User Interface Class:</P>
+
+<PRE>BOOL WINAPI DLLEntry (
+    HINSTANCE    hInstDLL,
+    DWORD        dwFunction,
+    LPVOID       lpNot)
+{
+switch(dwFunction)
+    {
+case DLL_PROCESS_ATTACH:
+hInst= hInstDLL;
+            wc.style          = CS_MYCLASSFLAG | CS_IME;
+            wc.lpfnWndProc    = MyUIServerWndProc;
+            wc.cbClsExtra     = 0;
+            wc.cbWndExtra     = 2 * sizeof(LONG);
+            wc.hInstance      = hInst;
+            wc.hCursor        = LoadCursor( NULL, IDC_ARROW );
+            wc.hIcon          = NULL;
+            wc.lpszMenuName   = (LPSTR)NULL;
+wc.lpszClassName  = (LPSTR)szUIClassName;
+wc.hbrBackground  = NULL;
+if( !RegisterClass( (LPWNDCLASS)&amp;wc ) )
+return FALSE;
+            wc.style          = CS_MYCLASSFLAG | CS_IME;
+            wc.lpfnWndProc    = MyCompStringWndProc;
+            wc.cbClsExtra     = 0;
+            wc.cbWndExtra     = cbMyWndExtra;
+            wc.hInstance      = hInst;
+            wc.hCursor        = LoadCursor( NULL, IDC_ARROW );
+            wc.hIcon          = NULL;
+            wc.lpszMenuName   = (LPSTR)NULL;
+wc.lpszClassName  = (LPSTR)szUICompStringClassName;
+wc.hbrBackground  = NULL;
+if( !RegisterClass( (LPWNDCLASS)&amp;wc ) )
+return FALSE;
+break;
+case DLL_PROCESS_DETACH:
+UnregisterClass(szUIClassName,hInst);
+UnregisterClass(szUICompStringClassName,hInst);
+break;
+    }
+return TRUE;
+}</PRE>
+
+<H2>UI Window</H2>
+
+<P>The IME windows of the IME class are created by the application or by the system. When the IME window is created, the UI window provided by the IME itself is created and owned by the IME window.</P>
+
+<P>Each UI window contains the current Input Context. This Input Context can be obtained by calling <B>GetWindowLong</B> with IMMGWL_IMC when the UI window receives a WM_IME_xxx message. The UI window can refer to this Input Context and handles the messages. The Input Context from <B>GetWindowLong</B> with IMMGWL_IMC is available at any time during the UI window procedure, except when handling a WM_CREATE message.</P>
+
+<P>The <I>cbWndExtra</I> of the UI windows cannot be enhanced by the IME. When the IME needs to use the extra byte of the window instance, the UI window uses <B>SetWindowLong</B> and <B>GetWindowLong</B> with IMMGWL_PRIVATE. This IMMGWL_PRIVATE provides a LONG value extra of the window instance. When the UI window needs more than one LONG value extra for private use, the UI window can place a handle for a memory block into the IMMGWL_PRIVATE area.The UI window procedure can use <B>DefWindowProc</B>, but the UI window cannot pass a WM_IME_xxx message to <B>DefWindowProc</B>. Even if the message is not handled by the UI window procedure, the UI window does not pass it to <B>DefWindowProc</B>.</P>
+
+<P>The following sample demonstrates how to allocate and use a block of private memory:</P>
+
+<PRE>LRESULT UIWndProc (HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+HIMC hIMC;
+HGLOBAL hMyExtra;
+ 
+switch(msg){
+case WM_CREATE:
+// Allocate the memory block for the window instance.
+hMyExtra = GlobalAlloc(GHND,size_of_MyExtra);
+if (!hMyExtra)
+MyError();
+// Set the memory handle into IMMGWL_PRIVATE
+SetWindowLong(hWnd, IMMGWL_PRIVATE, (LONG)hMyExtra);
+                :
+                :
+break;
+case WM_IME_xxxx:
+// Get IMC;
+hIMC = GetWindowLong(hWnd,IMMGWL_IMC);
+// Get the memory handle for the window instance.
+hMyExtra = GetWindowLong(hWnd, IMMGWL_PRIVATE);
+lpMyExtra = GlobalLock(hMyExtra);
+                :
+                :
+GlobalUnlock(hMyExtra);
+break;
+            :
+            :
+ 
+case WM_DESTROY:
+// Get the memory handle for the window instance.
+hMyExtra = GetWindowLong(hWnd, IMMGWL_PRIVATE);
+// Free the memory block for the window instance.
+GlobalFree(hMyExtra);
+break;
+ 
+default:
+return DefWindowProc(hWnd, msg, wParam, lParam);
+    }
+}</PRE>
+
+<P>The UI window must perform all tasks by referring to the Input Context that is currently selected. When a window of an application is activated, the UI window receives a message that contains the current Input Context. The UI window then uses that Input Context. Thus, the Input Context must contain all the information needed by the UI window to display the composition window, the status window, and so forth.</P>
+
+<P>The UI window refers to the Input Context, but does not need to update it. However, if the UI window wants to update the Input Context, it should call the IMM functions. Because the Input Context is managed by the IMM, the IMM along with the IME should be notified when the Input Context is changed.</P>
+
+<P>For example, the UI window occasionally needs to change the conversion mode of the Input Context when the user clicks the mouse. At this point, the UI window should call <B>ImmSetConversionMode</B>. The <B>ImmSetConversionMode</B> function creates a notification for <I>NotifyIME</I> and the UI window with WM_IME_NOTIFY. If the UI window wants to change the display of the conversion mode, the UI window should wait for a <B>WM_IME_NOTIFY</B> message. </P>
+
+<H2>Components of the UI Window</H2>
+
+<P>The UI window can register and show the composition window and the status window by referring to the current Input Context. The class style of the components of the UI window must include the CS_IME bit. A window instance of the UI window gets information about the composition string, font, and position from the current Input Context. </P>
+
+<P>When a window of the application is getting focused, the system gives the Input Context to this window and sets the current Input Context to the UI window. The system then sends a <B>WM_IME_SETCONTEXT</B> message with the handle of its Input Context to the application. The application then passes this message to the UI window. If current Input Context is replaced by another Input Context, the UI window should repaint the composition window. Any time the current Input Context is changed, the UI window displays a correct composition window. Thus, the status of the IME is assured.</P>
+
+<P>A UI window can create a child window or pop-up window to display its status, composition string, or candidate lists. However, these windows have to be owned by the UI window and created as disabled windows. Any windows that are created by the IME should not get the focus.</P>
+
+<H1>IME Input Context</H1>
+
+<P>Each window is associated with an IME Input Context. The IMM uses the Input Context to maintain IME status, data, and so forth, and communicate with the IME and with applications. </P>
+
+<H2>Default Input Context</H2>
+
+<P>By default, the system creates a default Input Context for each thread. All IME unaware windows of the thread share this context.</P>
+
+<H2>Application-Created Input Context</H2>
+
+<P>A window of an application can associate its window handle to an Input Context to maintain any status of the IME, including an intermediate composition string. Once an application associates an Input Context to a window handle, the system automatically selects the context whenever the window is activated. In this way, an application is free from complicated in and out focus processing.</P>
+
+<H2>Using the Input Context</H2>
+
+<P>When an application or system creates a new Input Context, the system prepares the new Input Context with the components of the IMC (IMCC). These include <I>hCompStr</I>, <I>hCandInfo</I>, <I>hGuideLine</I>, <I>hPrivate,</I> and <I>hMsgBuf</I>. Basically, the IME does not need to create the Input Context and the components of the Input Context. The IME can change the size of them and lock them to get the pointer for them.</P>
+
+<H3>Accessing the HIMC</H3>
+
+<P>When an IME accesses the Input Context, the IME has to call <B>ImmLockIMC</B> to get the pointer of the Input Context. <B>ImmLockIMC</B> increments the IMM lock count for IMC, while <B>ImmUnlockIMC</B> decrements the IMM lock count for IMC.</P>
+
+<H3>Accessing the HIMCC</H3>
+
+<P>When an IME accesses a component of the Input Context, the IME has to call <B>ImmLockIMCC</B> to get the pointer of the IMCC. <B>ImmLockIMCC</B> increments the IMM lock count for IMCC, while <B>ImmUnlockIMC</B> decrements the IMM lock count for IMCC. <B>ImmReSizeIMCC</B> can resize the IMCC to the size specified in the input parameter.</P>
+
+<P>On occasion, an IME needs to create a new component in the Input Context. The IME can call <B>ImmCreateIMCC</B> to do so. To destroy a newly created component in the Input Context, the IME can call <B>ImmDestroyIMCC</B>.</P>
+
+<P>The following example shows how to access the IMCC and change the size of a component:</P>
+
+<PRE>LPINPUTCONTEXT lpIMC;
+LPCOMOSITIONSTRING lpCompStr;
+HIMCC hMyCompStr;
+ 
+if (hIMC)    // It is not NULL context.
+{
+lpIMC = ImmLockIMC(hIMC);
+if (!lpIMC)
+    {
+MyError( “Can not lock hIMC”);
+return FALSE;
+    }
+ 
+// Use lpIMC-&gt;hCompStr.
+lpCompStr = (LPCOMPOSITIONSTRING)ImmLockIMCC(lpIMC-&gt;hCompStr);
+// Access lpCompStr.
+ImmUnlockIMCC(lpIMC-&gt;hCompStr);
+ 
+// ReSize lpIMC-&gt;hCompStr.
+if (!(hMyCompStr = ImmReSizeIMCC(lpIMC-&gt;hCompStr,dwNewSize))
+    {
+MyError(“Can not resize hCompStr”);
+ImmUnlockIMC(hIMC);
+return FALSE;
+    }
+lpIMC-&gt;hCompStr = hMyCompStr;
+ImmUnlockIMC(hIMC);
+}</PRE>
+
+<H1>Generating Messages</H1>
+
+<P>IMEs need to generate IME messages. When an IME initiates the conversion process, the IME has to generate a <B>WM_IME_STARTCOMPOSITION</B> message. If the IME changes the composition string, the IME has to generate a <B>WM_IME_COMPOSITION</B> message. </P>
+
+<P>There are two ways an IME can generate a message: one is by using the <I>lpdwTransKey</I> buffer provided by <B>ImeToAsciiEx</B>, and the other is by calling <B>ImmGenerateMessage</B>. </P>
+
+<H2>Using l<I>pTransMsgList </I>to Generate Messages</H2>
+
+<P>Events initiated by IMEs are realized as generating messages to the window associated with the Input Context. Basically, IMEs use the <I>lpTransMsgList</I> provided by the parameter of <B>ImeToAsciiEx</B> to generate the message. The IMEs put the messages into the <I>lpTransMsgList</I> buffer when <B>ImeToAsciiEx</B> is called. </P>
+
+<P>The buffer specified by <I>lpTransMsgList</I> in the <B>ImeToAsciiEx </B>function<B> </B>is provided by the system. This function can place messages in this buffer all at one time. The real number of messages that can be placed is given at the first double word of the buffer. However, if the <B>ImeToAsciiEx</B> function wants to generate more messages than the given number, <B>ImeToAsciiEx</B> can put all the messages into <I>hMsgBuf</I> in the Input Context and then return the number of messages. </P>
+
+<P>When the return value of <B>ImeToAsciiEx</B> is larger than the specified value in <I>lpTransMsgList</I>, the system does not pick up the messages from <I>lpTransMsgList</I>. Instead, the system looks up <I>hMsgBuf</I> in the Input Context, which is passed as a parameter of <B>ImeToAsciiEx</B>.</P>
+
+<P>Following is the code sample for <B>ImeToAsciiEx</B> implementation:</P>
+
+<P><B>UINT</B><BR>
+ &nbsp;&nbsp; <B>ImeToAsciiEx(</B><BR>
+ &nbsp;&nbsp; <I>uVirKey</I><B>,</B><BR>
+ &nbsp;&nbsp; <I>uScanCode</I><B>,</B><BR>
+ &nbsp;&nbsp; <I>lpbKeyState</I><B>,</B><BR>
+ <I>lpTransMsgList</I><B>,</B><BR>
+ &nbsp;&nbsp; <I>fuState</I><B>,</B><BR>
+ &nbsp;&nbsp; <I>hIMC</I><BR>
+ &nbsp; <B>)</B></P>
+
+<PRE>{
+    DWORD dwMyNumMsg = 0;
+ 
+. . .
+ 
+    // Set the messages that the IME wants to generate.
+    pTransMsgList-&gt;TransMsg[0].message =msg;
+    pTransMsgList-&gt;TransMsg[0].wParam = wParam;
+    pTransMsgList-&gt;TransMsg[0].lParam = lParam;
+ 
+    // Count the number of the messages that the IME wants to generate.
+    dwMyNumMsg++;
+
+. . .
+ 
+    return dwMyNumMsg;
+}</PRE>
+
+<H2>Using the Message Buffer to Generate Messages</H2>
+
+<P>Even if <B>ImeToAsciiEx</B> is not called, IMEs can still generate the message to the window associated with the Input Context by using the message buffer of the Input Context. This message buffer operates as a handle of a memory block and the IME puts the messages into this memory block. The IME then calls the <B>ImmGenerateMessage</B> function, which sends the messages stored in the message buffer to the proper window.</P>
+
+<P>Following is the code sample for <B>ImmGenerateMessage </B>implementation. </P>
+
+<PRE>MyGenerateMesage(HIMC hIMC, UINT msg, WPARAM wParam, LPARAMlParam)
+{
+    LPINPUTCONTEXT lpIMC;
+    HGLOBAL hTemp;
+        LPTRANSMSG lpTransMsg;
+DWORD dwMyNumMsg = 1;
+    
+    // Lock the Input Context.
+    lpIMC = ImmLockIMC(hIMC);
+    if (!lpIMC) ….. // Error!
+// re-allocate the memory block for the message buffer.
+hTemp = ImmReSizeIMCC(lpIMC-&gt;hMsgBuf, (lpIMC-&gt;dwNumMsgBuf + dwMyNumMsg) * sizeof(TRANSMSG));
+if (!hTemp) ….// Error!
+lpIMC-&gt;hMsgBuf = hTemp;
+// Lock the memory for the message buffer.
+lpTransMsg = ImmLockIMCC(lpIMC-&gt;hMsgBuf);
+if (!lpTransMsg) …. // Error!
+
+
+// Set the messages that the IME wants to generate.
+lpTransMsg[lpIMC-&gt;dwNumMsg].message = msg;
+lpTransMsg[lpIMC-&gt;dwNumMsg].wParam = wParam;
+lpTransMsg[lpIMC-&gt;dwNumMsg].lParam = lParam;
+
+// Set the number of the messages.
+lpIMC-&gt;dwNumMsgBuf += dwMyNumMsg;
+
+
+// Unlock the memory for the message buffer and the Input Context.
+ImmUnlockIMCC(lpIMC-&gt;hMsgBuf);
+ImmLockIMC(hIMC);
+ 
+// Call ImmGenerateMessage function.
+ImmGenerateMessage(hIMC);
+}</PRE>
+
+<H2>WM_IME_COMPOSITION Message</H2>
+
+<P>When an IME generates a <B>WM_IME_COMPOSITION</B> message, the IME specifies <I>lParam</I> as the GCS bits. The GCS bits then inform the available members of the <B>COMPOSITIONSTRING</B> structure. Even if the IME does not update and a member is available, the IME can set the GCS bits.</P>
+
+<P>When an IME generates a <B>WM_IME_COMPOSITION</B> message, the IME can also change the string attribute and clause information all at once. </P>
+
+<H1>ImeSetCompositionString</H1>
+
+<P>The <B>ImeSetCompositionString</B> function is used by applications to manipulate the IME composition string. By specifying different flags, an application can change composition string, attribute, clause, and so forth. </P>
+
+<P>The second parameter of this function, <I>dwIndex</I>, specifies how the composition string should be adjusted in an IME. It includes values such as SCS_SETSTR ,SCS_CHANGEATTR, SCS_CHANGECLAUSE, SCS_QUERYRECONVERTSTRING. Each value represents a specific feature. </P>
+
+<H2>ImeSetCompositionString Capability</H2>
+
+<P>When an IME does not have the capability of <B>ImeSetCompositionString</B>, it will not specify any SCS capability in the <B>IMEINFO</B> structure. When an IME can handle <B>ImeSetCompositionString</B>, it sets the SCS_COMPSTR bit. If an IME can generate the reading string from the composition string, it will set the SCS_CAP_MAKEREAD bit.</P>
+
+<P>If an IME has SCS_CAP_COMPSTR capability, <B>ImeSetCompositionString</B> will be called. In response to this call, the IME should use the new composition string generated by an application and then generate a <B>WM_IME_COMPOSITION</B> message.</P>
+
+<H3>SCS_SETSTR</H3>
+
+<P>If <I>dwIndex</I> of <B>ImeSetCompositionString</B> is SCS_SETSTR, the IME can clean up all the <B>COMPOSITIONSTR</B> structures of <I>hIMC</I>.</P>
+
+<P>If necessary, the IME can also update the candidate information and generate the candidate message <B>WM_IME_NOTIFY</B> with the submessage as IMN_OPENCANDIDATE, CHANGECANDIDATE, or IMN_CLOSECANDIDATE.</P>
+
+<P>An IME needs to respond to the application requirement based on different input parameters as follows:
+
+<UL>
+	<LI>If the <I>lpRead</I> parameter of <B>ImeSetCompositonString</B> is available:
+<P>The IME should create the composition string from the reading string contained in <I>lpRead</I>. The IME then creates the attribute and clause information for both the new composition string and reading string of <I>lpRead</I>. The IME generates a <B>WM_IME_COMPOSITION</B> message with either GCS_COMP or GCS_COMPREAD. On occasion, an IME may finalize the conversion automatically. The IME can then generate a <B>WM_IME_COMPOSITION</B> message with either GCS_RESULT or GCS_RESULTREAD instead of GCS_COMPxxx.
+</LI>
+
+	<LI>If the <I>lpComp</I> parameter of <B>ImeSetCompositonString</B> is available:
+<P>The IME should create the composition attribute and clause information from the composition string contained in <I>lpComp</I>. The IME then generates a <B>WM_IME_COMPOSITION</B> message with GCS_COMP. If the IME has the capability of SCS_CAP_MAKEREAD, the IME should also make the new reading string at the same time. The IME then generates a <B>WM_IME_COMPOSITION</B> message with either GCS_COMP orGCS_COMPREAD. On occasion, an IME may finalize the conversion automatically. The IME can then generate a <B>WM_IME_COMPOSITION</B> message with either GCS_RESULT or GCS_RESULTREAD instead of GCS_COMPxxx.
+</LI>
+
+	<LI>If both <I>lpRead</I> and <I>lpComp</I> are available:
+<P>The IME should create the composition string and the reading string accordingly. In this case, the IME does not need to follow <I>lpComp</I> and <I>lpRead</I> completely. If an IME cannot find the relation between <I>lpRead</I> and lpComp specified by the application, it should correct the composition string. The IME can then create the attribute and clause information for both the new composition string and reading string of <I>lpRead</I>. The IME then generates a <B>WM_IME_COMPOSITION </B>message with either GCS_COMP or GCS_COMPREAD. On occasion, the IME may finalize the conversion automatically. The IME can then generate a <B>WM_IME_COMPOSITION</B> message with either GCS_RESULT or GCS_RESULTREAD instead of GCS_COMPxxx.
+</LI>
+</UL>
+
+<H3>SCS_CHANGEATTR</H3>
+
+<P>SCS_CHANGEATTR effects only attribute information. The IME should not update the composition string, the clause information of the composition string, the reading of the composition string, or the clause information of the reading of the composition string.</P>
+
+<P>The IME first has to check whether the new attribute is acceptable or not. It then sets the new attribute in the <B>COMPOSITIONSTRING</B> structure of <I>hIMC</I>. Last, the IME generates a <B>WM_IME_COMPOSITION</B> message.</P>
+
+<P>If necessary, the IME can update the candidate information and generate the candidate messages <B>WM_IME_NOTIFY</B> with the submessage as IMN_OPENCANDIDATE, CHANGECANDIDATE, or IMN_CLOSECANDIDATE of WM_IME_NOTIFY. </P>
+
+<P>For this feature, an IME cannot finalize the composition string.</P>
+
+<P>An IME needs to respond to the application requirement based on different input parameters as follows:
+
+<UL>
+	<LI>If the <I>lpRead</I> parameter of <B>ImeSetCompositonString</B> is available:
+<P>The IME should follow the new attribute in <I>lpRead</I> and then create a new attribute of the composition string for the current composition string. In this case, the clause information does not change.
+
+<P>The IME generates a <B>WM_IME_COMPOSITION</B> message with either GCS_COMP or GCS_COMPREAD. If an IME cannot accept the new attribute contained in <I>lpRead</I>, it does not generate any messages and returns FALSE.
+</LI>
+
+	<LI>If the <I>lpComp</I> parameter of <B>ImeSetCompositonString</B> is available:
+<P>The IME follows the new attribute in <I>lpComp</I>. In this case, the clause information does not change.
+
+<P>If the capability of the IME has SCS_CAP_MAKEREAD and the reading string is available, the IME should create a new attribute of the reading of the composition string for the current reading of the composition string.
+</LI>
+
+	<LI>If both <I>lpRead</I> and <I>lpComp</I> are available:
+<P>If the IME can accept the new information, it sets the new information in the <B>COMPOSITION</B> structure of <I>hIMC</I> and generates a <B>WM_IME_COMPOSITION</B> message with either GCS_COMP or GCS_COMPREAD.
+</LI>
+</UL>
+
+<H3>SCS_CHANGECLAUSE</H3>
+
+<P>SCS_CHANGECLAUSE effects the string and attribute for both the composition string and the reading of the composition string.</P>
+
+<P>If necessary, an IME can update the candidate information and generate the candidate message <B>WM_IME_NOTIFY</B> with the submessages as IMN_OPENCANDIDATE, CHANGECANDIDATE, or IMN_CLOSECANDIDATE.</P>
+
+<P>An IME needs to respond to the application requirement based on different input parameters. Following are the instances in which an IME cannot finalize the composition string.
+
+<UL>
+	<LI>If the <I>lpRead</I> parameter of <B>ImeSetCompositonString</B> is available:
+<P>The IME follows the new reading clause information of <I>lpRead</I> and has to correct the attribute of the reading of the composition string. The IME can then update the composition string, the attribute, and the clause information of the composition string. The IME generates a <B>WM_IME_COMPOSITION</B> message with either GCS_COMP or GCS_COMPREAD.
+</LI>
+
+	<LI>If the <I>lpComp</I> parameter of <B>ImeSetCompositonString</B> is available:
+<P>The IME follows the new clause information and has to correct the composition string and the attribute of the composition string. Then, the IME can update the reading attribute and the clause information of the reading attribute. The IME generates a <B>WM_IME_COMPOSITION </B>message with either GCS_COMPSTR or GCS_COMPREAD.
+</LI>
+
+	<LI>If both <I>lpRead</I> and <I>lpComp</I> are available:
+<P>If the IME can accept the new information, it sets the new information in the <B>COMPOSITION</B> structure of <I>hIMC</I> and generates a <B>WM_IME_COMPOSITION</B> message with either GCS_COMP or GCS_COMPREAD.
+</LI>
+</UL>
+
+<H1>Soft Keyboard</H1>
+
+<P>Soft Keyboard is a special window displayed by the IME. Because some IMEs have special reading characters, an IME can provide a soft keyboard to display these special reading characters. In this way, the user does not have to remember the reading character for each key. For example, an IME can use bo po mo fo for its reading characters, while another IME can use radicals for its reading characters. </P>
+
+<P>An IME can change the reading characters of keys and notify the user of these key changes, depending on the conversion state. For example, during candidate selection time, an IME can show just the selection keys to the user.</P>
+
+<P>An IME can also create its own user interface for a soft keyboard or use the system predefined soft keyboard. If an IME wants to use the system predefined soft keyboard, it needs to specify UI_CAP_SOFTKBD in the <B>fdwUICaps</B> member of the <B>IMEINFO</B> structure when <B>ImeInquire</B> is called.</P>
+
+<P>An IME needs to call <B>ImmCreateSoftKeyboard</B> to create the soft keyboard window . It can also call <B>ImmShowSoftKeyboard</B> to show or hide the soft keyboard. Because the soft keyboard window is one component of the UI window, the owner should be the UI window as well. </P>
+
+<P>There are different types of soft keyboards. Each one is designed for a specific country/region or special purpose. An IME can change the reading characters on the soft keyboard by using one of two methods: IMC_SETSOFTKBDSUBTYPE or IMC_SETSOFTKBDDATA.</P>
+
+<H1>Reconversion</H1>
+
+<P>Reconversion is a new IME function for Windows 98 and Windows 2000. It provides the capability to reconvert a string that is already inserted in an application’s document. Specifically, whatever the string is, an IME is instructed to recognize the string, convert it to the reading or typing information, and then display the candidate list.</P>
+
+<P>New and advanced intelligent IMEs are capable of recognizing and interpreting a complete sentence. When an IME is supplied with better information about a string, such as full sentence and string segmentation, it can accomplish better conversion performance and accuracy. For example, by supplying an entire sentence as opposed to just the reconverted strings, the IME can reconvert the string without having to first convert to reading or typing information.</P>
+
+<P>Editing after the determination is harder than before today. This is because determination will discard most of the information undetermined string had, like reading, phrases, and part of speech. Reconversion will get these information back, making editing after the determination as easier as before the determination. Users will be able to choose different homonym words from candidates, change phrase break and let IME analyze again, and so forth.</P>
+
+<P>The <B>RECONVERTSTRING</B> structure can store the entire sentence and point to the string that will be reconverted by <I>dwStartOffset</I> and <I>dwLen</I>. If <I>dwStartOffset</I> is zero and <I>dwLen</I> is the length of the string, the entire string is reconverted by the IME. </P>
+
+<H2>Simple Reconversion</H2>
+
+<P>The simplest reconversion is when the target string and the composition string are the same as the entire string. In this case, <I>dwCompStrOffset</I> and <I>dwTargetStrOffset</I> are zero, and <I>dwStrLen</I>, <I>dwCompStrLen</I>, and <I>dwTargetStrLen</I> are the same value. An IME will provide the composition string of the entire string that is supplied in the structure, and will set the target clause by its conversion result. </P>
+
+<H2>Normal Reconversion</H2>
+
+<P>For an efficient conversion result, the application should provide the <B>RECONVERTSTRING</B> structure with the information string. In this case, the composition string is not the entire string, but is identical to the target string. An IME can convert the composition string by referencing the entire string and then setting the target clause by its conversion result.</P>
+
+<H2>Enhanced Reconversion</H2>
+
+<P>Applications can set a target string that is different from the composition string. The target string (or part of the target string) is then included in a target clause in high priority by the IME. The target string in the <B>RECONVERTSTRING</B> structure must be part of the composition string. When the application does not want to change the user’s focus during the reconversion, the target string should be specified. The IME can then reference it.</P>
+
+<H2>IME Cancel Reconversion</H2>
+
+<P>When a user cancels the composition string generated by the reconversion, the IME should determine the original reconverted string. Otherwise, the application will loose the string.</P>
+
+<H2>SCS_SETRECONVERTSTRING and SCS_QUERYRECONVERTSTRING Flags</H2>
+
+<P>Applications can ask an IME to reconvert the string by calling <B>ImmSetCompositionString</B>. They can use either the SCS_SETSTR flag or the SCS_SETRECONVERTSTRING flag to create a new composition string. However, by using SCS_SETRECONVERTSTRING, the application can pass <B>RECONVERTSTRING</B> to the IME for better conversion efficiency.</P>
+
+<P>Initially, the application should call <B>ImmSetCompositionString</B> with SCS_QUERYRECONVERTSTRING. The selected IME can then adjust the given <B>RECONVERTSTRING</B> structure for appropriate reconversion. The application then calls <B>ImmSetCompositionString</B> with SCS_SETRECONVERTSTRING to request that the IME generate a new composition string. If the application asks the IME to adjust the <B>RECONVERTSTRING</B> structure by calling SCS_QUERYRECONVERTSTRING, efficient reconversion can be accomplished. </P>
+
+<P>SCS_SETRECONVERTSTRING or SCS_QUERYRECONVERTSTRING can be used only for IMEs that have an SCS_CAP_SETRECONVERTSTRING property. This property can be retrieved by using the <B>ImmGetProperty</B> function.</P>
+
+<H2>IMR_RECONVERTSTRING and IMR_CONFIRMRECONVERTSTRING Messages</H2>
+
+<P>When an IME wants to reconvert, it can ask the application to provide the string to be reconverted. For example, when a user presses the <B>Reconversion</B> key or selects the <B>Reconversion</B> button in the IME status window, the IME sends a <B>WM_IME_REQUEST</B> message with IMR_RECONVERTSTRING to get the target string. Initially, the IME needs to send this with NULL <I>lParam</I> in order to get the required size of <B>RECONVERTSTRING</B>. The IME then prepares a buffer to receive the target string and sends the message again with the pointer of the buffer in <I>lParam</I>. </P>
+
+<P>After the application handles IMR_RECONVERTSTRING, the IME may or may not adjust the <B>RECONVERTSTRING</B> structure given by the application. Finally, the IME sends a <B>WM_IME_REQUEST</B> message with IMR_CONFIRMRECONVERTSTRING to confirm the <B>RECONVERTSTRING</B> structure. </P>
+
+<P>If the application returns TRUE for IMR_CONFIRMRECONVERTSTRING, the IME generates a new composition string based on the <B>RECONERTSTRING</B> structure in the IMR_CONFIRMRECONVERTSTRING message. If the application returns FALSE, the IME generates a new composition string based on the original <B>RECONVERTSTRING</B> structure given by the application in the IMR_RECONVERTSTRING message. An IME will not generate a composition string for reconversion before IMR_CONFIRMRECONVERTSTRING.</P>
+
+<P>The given string should not be changed by SCS_QUERYRECONVERTSTRING or IMR_CONFIRMRECONVERTSTRING. An IME can change only <B>CompStrOffset</B>, <B>CompStrLen</B>, <B>TargetStrOffset</B>, and <B>TargetStrLen</B> to re-confirm it.</P>
+
+<H1>IME Menu Functions</H1>
+
+<P>The purpose of this function set is to reduce the IME-related icon in the system task bar. It is a new feature for Windows 98 and Windows 2000. </P>
+
+<P>The Windows system program installs two icons in the task bar when the current <I>hKL</I> is an IME. One icon is the System ML icon that indicates the current keyboard layout in the system task bar. The other is the System Pen icon that shows the IME status of the focused window. </P>
+
+<P>Usually, an IME places an additional icon in the task bar. The context menu for this icon is completely dependent on the IME. Having IME icons in a task bar is a quick way for a user to access an IME’s special functions. However, there are three icons associated with the IME and these additional icons may be more than a user wants to deal with.</P>
+
+<P>If the system provides a way for an IME to insert IME menu items into the System Pen icon, the IME then does not need to add its extra icons to the task bar.</P>
+
+<P>The IMM calls the IME function <B>ImeGetImeMenuItems</B> to get the IME menu items.</P>
+
+<P>An application can use <B>ImmGetImeMenuItems</B> to get an IME’s special menu items, which it can add to its context menu. By calling <B>ImmNotify</B>, the selected items can be processed by the IME.</P>
+
+<H2>IME Menu Notification</H2>
+
+<P>When an application wants to handle an IME’s menu items, it can call <B>ImmNotifyIME</B>. When the menu items added by the IME are selected, <B>NotifyIME</B> is called under the focused thread. </P>
+
+<H1>IME Help File</H1>
+
+<P>The IME help file is a new function added into Windows 98 and Windows NT. The right click menu of the System Pen Icon has two menu items. One is the setting for the IME system and is used to change the setting of the selected IME of the focus thread. The other menu item is an online Help file that has never been enabled. Thus, this menu item is always grayed. The purpose of this menu item was to display an IME’s online Help. However, because the system does not provide the IME with a way to specify the name of the IME help file, the system task bar program is not able to display it.</P>
+
+<H2>IME_ESC_GETHELPFILENAME</H2>
+
+<P>The IME_ESC_GETHELPFILENAME escape allows an IME to specify its help file name. On return from the function, the (LPTSTR)lpData is the full path file name of an IME’s help file. </P>
+
+<P>If the help content is HTML help format, please make sure the help file extension is .chm so the Windows User knows which help engine to start.</P>
+
+<H1>Indicator Manager for IME</H1>
+
+<P>By using a set of messages defined in Windows 98 and Windows 2000, an IME can change the icon and ToolTip string for the System Pen icon on the system task bar.</P>
+
+<H2>Indicator Window</H2>
+
+<P>An IME can get the window handle of the indicator by using <B>FindWindow</B> with INDICATOR_CLASS. </P>
+
+<PRE>// Get the window handle of Indicator.
+hwndIndicator = FindWindow(INDICATOR_CLASS, NULL);
+if (!hwndIndicator)
+{
+// There is no indicator window. Tray does not have System Pen icon.
+return FALSE;
+}
+// Call PostMessage to change Pen icon.
+PostMessage(hwndIndicator, INIDCM_SETIMEICON, nIconIndex, hMyKL);</PRE>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Due to the internal design requirement in the task bar manager, the IME must use <B>PostMessage</B> for INDICM_xxx messages.</P>
+
+<H2>Messages</H2>
+
+<P>IMEs can send the following messages to the Indicator window to perform different tasks:</P>
+
+<P class=indent1><B>INDICM_SETIMEICON</B></P>
+
+<P class=indent1><B>INDICM_SETIMETOOLTIPS</B></P>
+
+<P class=indent1><B>INDICM_REMOVEDEFAULTMENUITEMS</B></P>
+
+<H1>Windows NT and Windows 2000 Issues</H1>
+
+<P>The following topics primarily describe the special issues related to Windows NT/2000. However, some of these issues may also apply to Windows 98. </P>
+
+<H2>IME and Localized Language Compatibility</H2>
+
+<P>Windows 2000 has full-featured IME support in any localized language version. That is, an IME can be installed and used with any Windows 2000 language. IME developers should test their IME on these environments. This new feature also requires IME developers to prepare their IME help content to include correct charset and font information so it shows up correctly on different language operating systems. </P>
+
+<P>Also, IME developers should develop Unicode IME for Windows 2000. Unicode IMEs will work with Unicode applications under any system locale. For non-Unicode IMEs, the user must change the system locale to support the same language that the IME supports in order to use them. </P>
+
+<H2>Unicode Interface</H2>
+
+<P>Along with the ANSI version of the IMM/IME interface originally supported by Windows 95, Windows NT and Windows 98 support Unicode interface for the IME. To communicate with the system by Unicode interface, an IME should set the IME_PROP_UNICODE bit of the <B>fdwProperty</B> member of the <B>IMEINFO</B> structure, which is the first parameter of the <B>ImeInquire</B> function. Although <B>ImeInquire</B> is called to initialize the IME for every thread of the application process, the IME is expected to return the same <B>IMEINFO</B> structure on a single system. Windows 98 supports all the Unicode functions, except for <B>ImmIsUIMessage</B>.</P>
+
+<H2>Security Concerns</H2>
+
+<P>There are two primary security concerns for Windows NT. One involves named objects and the other involves Winlogon.</P>
+
+<H3>Named Objects</H3>
+
+<P>An IME may want to create various named objects that should be accessed from multiple processes on the local system. Such objects may include file, mutex, or event. Since a process might belong to a different user who is interactively logging onto the system, the default security attribute (created by the system when an IME creates an object with the NULL parameter as the pointer to the security attribute) may not be appropriate for all processes on the local system. </P>
+
+<P>On Windows NT, the first client process of the IME may be the Winlogon process that lets a user log onto the system. Since the Winlogon process belongs to the system account during the log-on session and is alive until the system shuts down, named objects created by the IME with the default security attribute during the log-on session cannot be accessed through other processes belonging to a logged-on user.</P>
+
+<H3>Winlogon</H3>
+
+<P>Since a user in the log-on session has not been granted the access right to the system yet, information provided by an IME’s configuration dialog boxes can create security problems. Even though, the system administrator can configure the system so such an IME cannot be activated on the log-on session. A well-behaved IME should not allow users to open configure dialog boxes if the client process is a Winlogon process. An IME can check if the client process executing a log-on session is a Winlogon process by checking the IME_SYSTEMINFO_WINLOGON bit of the <I>dwSystemInfoFlags </I>parameter of <B>ImeInquire</B>.</P>
+
+<H1>IME File Format and Data Structures</H1>
+
+<P>The following topics discuss the IME file format and data structures used by the IME. </P>
+
+<H2>IME File Format</H2>
+
+<P>An IME needs to specify the following fields correctly in the version information resource. This includes the fixed file information part and the variable length information part. Please refer to the Microsoft Platform SDK for detailed information on version information resource. </P>
+
+<P>Following are the specific settings the IME file should include:
+
+<DL>
+<DT><I>dwFileOS</I></DT>
+
+<DD>The <I>dwFileOS</I> should be specified in the root block of the version information. The <I>dwFileOS</I> should be VOS__WINDOWS32 for Windows 95 and Windows NT IMEs.</DD>
+
+<DT><I>dwFileType</I></DT>
+
+<DD>The <I>dwFileType</I> should be specified in the root block of the version information. The value is VFT_DRV.</DD>
+
+<DT><I>dwFileSubtype</I></DT>
+
+<DD>The <I>dwFileSubtype</I> should be specified in the root block of the version information. The value is VFT2_DRV_INPUTMETHOD.</DD>
+
+<DT><I>FileDescription</I></DT>
+
+<DD>The <I>FileDescription</I> is specified in the language-specific block of the version information. This should include the IME name and the version. This string is for display purposes only. Currently, the string length is 32 TCHARS, but may be extended in a future version.</DD>
+
+<DT><I>ProductName</I></DT>
+
+<DD>The <I>ProductName</I> is specified in the language-specific block of the version information. </DD>
+
+<DT><I>Charset ID and Language ID</I></DT>
+
+<DD>The code page (character set ID) and language ID are specified in the variable information block of the version information resource. If there are many code pages (character set ID) and language IDs are specified in the block, the IME uses the first code page ID to display the text and uses the first language ID for the IME language. The charset ID and language ID must match the IME language instead of the resource language. The file name of IME is 8.3. 
+</DD>
+</DL>
+
+<H2>IME Registry Contents</H2>
+
+<P>The IME HKEY_CURRENT_USER registry contains an Input Method key. The following table describes the contents of this Input Method.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=25%>Key</TH>
+<TH align=left colspan=2 width=75%>Contents</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>Input Method</TD>
+<TD colspan=2 width=75%>There are four value names: Perpendicular Distance, Parallel Distance, Perpendicular Tolerance, and Parallel Tolerance. The near caret operation IME refers to these values. If these four value names are not present, a near operation IME can set a default value, depending on the IME</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>&nbsp;</TD>
+<TH align=left width=26%>Value Name</TH>
+<TH align=left width=49%>Value Data</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>&nbsp;</TD>
+<TD width=26%><B>Perpendicular Distance</B></TD>
+<TD width=49%>Distance is perpendicular to the text escapement. This is the perpendicular distance (pixels) from the caret position to the composition window without the font height and width. The near caret operation IME will adjust the composition window position according to this value and Parallel Distance. It is in REG_DWORD format.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>&nbsp;</TD>
+<TD width=26%><B>Parallel Distance</B></TD>
+<TD width=49%>Distance (pixels) is parallel to the text escapement. This is the parallel distance from the caret position to the composition window. It is in REG_DWORD format.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>&nbsp;</TD>
+<TD width=26%><B>Perpendicular Tolerance</B></TD>
+<TD width=49%>Tolerance (pixels) is perpendicular to the text escapement. This is the perpendicular distance from the caret position to the composition window. The near caret operation IME will not refresh its composition window if the caret movement is within this tolerance. It is in REG_DWORD format.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>&nbsp;</TD>
+<TD width=26%><B>Parallel Tolerance</B></TD>
+<TD width=49%>Tolerance (pixels) is parallel to the text escapement. This is the parallel distance from the caret position to the composition window. It is in REG_DWORD format.</TD>
+</TR>
+</TABLE><BR>
+
+<P>An IME can place the per-user setting into:</P>
+
+<P class=indent1>Under HKEY_CURRENT_USER\Software\&lt;Company Name&gt;\Windows\CurrentVersion\&lt;IME Name&gt;.</P>
+
+<P>An IME can place the per computer setting into:</P>
+
+<P class=indent1>Under HKEY_LOCAL_MAACHINE\Software\&lt;Company Name&gt;\Windows\CurrentVersion\&lt;IME Name&gt;.</P>
+
+<H2>IMM and IME Data Structures</H2>
+
+<P>The following structures are used for IMM and IME communication. IMEs can access these structures directly, but applications cannot. </P>
+
+<H3>INPUTCONTEXT</H3>
+
+<P>The <B>INPUTCONTEXT</B> structure is an internal data structure that stores Input Context data.</P>
+
+<PRE class=syntax>typedef struct tagINPUTCONTEXT {
+HWND  hWnd;
+BOOL  fOpen;
+POINT  ptStatusWndPos;
+POINT  ptSoftKbdPos;
+DWORD  fdwConversion;
+DWORD  fdwSentence;
+union {
+            LOGFONTA    A;
+            LOGFONTW    W;
+} lfFont;
+COMPOSITIONFORM  cfCompForm;
+CANDIDATEFORM  cfCandForm[4];
+HIMCC  hCompStr;
+HIMCC  hCandInfo;
+HIMCC  hGuideLine
+HIMCC  hPrivate; 
+DWORD  dwNumMsgBuf;
+HIMCC  hMsgBuf;
+DWORD  fdwInit
+DWORD  dwReserve[3];
+} INPUTCONTEXT;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>hWnd</B></DT>
+
+<DD>Window handle that uses this Input Context. If this Input Context has shared windows, this must be the handle of the window that is activated. It can be reset with <B>ImmSetActiveContext</B>.</DD>
+
+<DT><B>fopen</B></DT>
+
+<DD>Present status of opened or closed IME.</DD>
+
+<DT><B>ptStatusWndPos</B></DT>
+
+<DD>Position of the status window.</DD>
+
+<DT><B>ptSoftKbdPos</B></DT>
+
+<DD>Position of the soft keyboard.</DD>
+
+<DT><B>fdwConversion</B></DT>
+
+<DD>Conversion mode that will be used by the IME composition engine.</DD>
+
+<DT><B>fdwSentence</B></DT>
+
+<DD>Sentence mode that will be used by the IME composition engine.</DD>
+
+<DT><B>lfFont</B></DT>
+
+<DD><B>LogFont</B> structure to be used by the IME User Interface when it draws the composition string.</DD>
+
+<DT><B>cfCompForm</B></DT>
+
+<DD><B>COMPOSITIONFORM</B> structure that will be used by the IME User Interface when it creates the composition window.</DD>
+
+<DT><B>cfCandForm[4]</B></DT>
+
+<DD><B>CANDIDATEFORM</B> structures that will be used by the IME User Interface when it creates the candidate windows. This IMC supports four candidate forms.</DD>
+
+<DT><B>hCompStr</B></DT>
+
+<DD>Memory handle that points to the <B>COMPOSITIONSTR</B> structure. This handle is available when there is a composition string.</DD>
+
+<DT><B>hCandInfo</B></DT>
+
+<DD>Memory handle of the candidate. This memory block has the <B>CANDIDATEINFO</B> structure and some <B>CANDIDATELIST</B> structures. This handle is available when there are candidate strings.</DD>
+
+<DT><B>hGuideLine</B></DT>
+
+<DD>Memory handle of <B>GuideLine</B>. This memory block has the <B>GUIDELINE</B> structure. This handle is available when there is guideline information.</DD>
+
+<DT><B>hPrivate</B></DT>
+
+<DD>Memory handle that will be used by the IME for its private data area.</DD>
+
+<DT><B>dwNumMsgBuf</B></DT>
+
+<DD>Number of messages that are stored in the <B>hMsgBuf</B>.</DD>
+
+<DT><B>hMsgBuf</B></DT>
+
+<DD>Memory block that stores the messages in <B>TRANSMSG</B> format. The size of the buffer should be able to store the <B>dwNumMsgBuf </B>amount of <B>TRANSMSG</B>s. This buffer was previously defined in Windows 95/98 and Windows NT 4.0 IME document as the format as [Message1] [wParam1] [lParam1] {[Message2] [wParam2] [lParam2]{...{...{...}}}}, andall values are double word for Win32 platforms.</DD>
+
+<DT><B>fdwinit</B></DT>
+
+<DD>Initialize flag. When an IME initializes the member of the <B>INPUTCONTEXT</B> structure, the IME has to see the bit of this member. The following bits are provided.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Bit</TH>
+<TH align=left width=52%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>INIT_STATUSWNDPOS</TD>
+<TD width=52%>Initialize <B>ptStatusWndPos</B>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>INIT_CONVERSION</TD>
+<TD width=52%>Initialize <B>fdwConversion</B>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>INIT_SENTENCE</TD>
+<TD width=52%>Initialize <B>fdwSentence</B>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>INIT_LOGFONT</TD>
+<TD width=52%>Initialize <B>lfFont</B>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>INIT_COMPFORM</TD>
+<TD width=52%>Initialize<B>cfCompForm</B>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>INIT_SOFTKBDPOS</TD>
+<TD width=52%>Initialize <B>ptSoftKbdPos</B>.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>dwReserve[3]</B></DT>
+
+<DD>Reserved for future use.
+
+
+
+<P class=note><B>Note</B>&nbsp;&nbsp;During a call to <B>ImeToAsciiEx</B>, an IME can generate the messages into the <B>lpdwTransKey</B> buffer. However, if an IME wants to generate the messages to the application, it can store the messages in <B>hMsgBuf</B> and call <B>ImmGenerateMessage</B>. The <B>ImmGenerateMessage</B> function then sends the messages in <B>hMsgBuf</B> to the application.
+
+</DD>
+</DL>
+
+<H3>COMPOSITIONSTR</H3>
+
+<P>The <B>COMPOSITIONSTR</B> structure contains the composition information. During conversion, an IME places conversion information into this structure.</P>
+
+<PRE class=syntax>typedef struct tagCOMPOSITIONSTR {
+DWORD  dwSize;
+DWORD  dwCompReadAttrLen;
+DWORD  dwCompReadAttrOffset;
+DWORD  dwCompReadClsLen;
+DWORD  dwCompReadClsOffset;
+DWORD  dwCompReadStrLen;
+DWORD  dwCompReadStrOffset;
+DWORD  dwCompAttrLen;
+DWORD  dwCompAttrOffset;
+DWORD  dwCompClsLen;
+DWORD  dwCompClsOffset;
+DWORD  dwCompStrLen;
+DWORD  dwCompStrOffset;
+DWORD  dwCursorPos;
+DWORD  dwDeltaStart;
+DWORD  dwResultReadClsLen;
+DWORD  dwResultReadClsOffset;
+DWORD  dwResultReadStrLen;
+DWORD  dwResultReadStrOffset;
+DWORD  dwResultClsLen;
+DWORD  dwResultClsOffset;
+DWORD  dwResultStrLen;
+DWORD  dwResultStrOffset;
+DWORD  dwPrivateSize;
+DWORD  dwPrivateOffset; 
+} COMPOSITIONSTR;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>dwSize</B></DT>
+
+<DD>Memory block size of this structure. </DD>
+
+<DT><B>dwCompReadAttrLen</B></DT>
+
+<DD>Length of the attribute information of the reading string of the composition string.</DD>
+
+<DT><B>dwCompReadAttrOffset</B></DT>
+
+<DD>Offset from the start position of this structure. Attribute information is stored here.</DD>
+
+<DT><B>dwCompReadClsLen</B></DT>
+
+<DD>Length of the clause information of the reading string of the composition string.</DD>
+
+<DT><B>dwCompReadClsOffset</B></DT>
+
+<DD>Offset from the start position of this structure. Clause information is stored here.</DD>
+
+<DT><B>dwCompReadStrLen</B></DT>
+
+<DD>Length of the reading string of the composition string.</DD>
+
+<DT><B>dwCompReadStrOffset</B></DT>
+
+<DD>Offset from the start position of this structure. Reading string of the composition string is stored here.</DD>
+
+<DT><B>dwCompAttrLen</B></DT>
+
+<DD>Length of the attribute information of the composition string.</DD>
+
+<DT><B>dwCompAttrOffset</B></DT>
+
+<DD>Offset from the start position of this structure. Attribute information is stored here.</DD>
+
+<DT><B>dwCompClsLen</B></DT>
+
+<DD>Length of the clause information of the composition string.</DD>
+
+<DT><B>dwCompClsOffset</B></DT>
+
+<DD>Offset from the start position of this structure. Clause information is stored here.</DD>
+
+<DT><B>dwCompStrLen</B></DT>
+
+<DD>Length of the composition string.</DD>
+
+<DT><B>dwCompStrOffset</B></DT>
+
+<DD>Offset from the start position of this structure. The composition string is stored here.</DD>
+
+<DT><B>dwCursorPos</B></DT>
+
+<DD>Cursor position in the composition string.</DD>
+
+<DT><B>dwDeltaStart</B></DT>
+
+<DD>Start position of change in the composition string. If the composition string has changed from the previous state, the first position of such a change is stored here. </DD>
+
+<DT><B>dwResultReadClsLen</B></DT>
+
+<DD>Length of the clause information of the reading string of the result string.</DD>
+
+<DT><B>dwResultReadClsOffset</B></DT>
+
+<DD>Offset from the start position of this structure. Clause information is stored here.</DD>
+
+<DT><B>dwResultRieadStrLen</B></DT>
+
+<DD>Length of the reading string of the result string.</DD>
+
+<DT><B>dwResultReadStrOffset</B></DT>
+
+<DD>Offset from the start position of this structure. Reading string of the result string is stored at this point.</DD>
+
+<DT><B>dwResultClsLen</B></DT>
+
+<DD>Length of the clause information of the result string.</DD>
+
+<DT><B>dwResultClsOffset</B></DT>
+
+<DD>Offset from the start position of this structure. Clause information is stored here.</DD>
+
+<DT><B>dwResultStrLen</B></DT>
+
+<DD>Length of the result string.</DD>
+
+<DT><B>dwResultStrOffset</B></DT>
+
+<DD>Offset from the start position of this structure. Result string is stored here.</DD>
+
+<DT><B>dwPrivateSize</B></DT>
+
+<DD>Private area in this memory block.</DD>
+
+<DT><B>dwPrivateOffset</B></DT>
+
+<DD>Offset from the start position of this structure. Private area is stored here.
+
+
+
+<P class=note><B>Note</B>&nbsp;&nbsp;For Unicode: All <B>dw*StrLen</B> members contain the size in Unicode characters of the string in the corresponding buffer. Other <B>dw*Len and dw*Offset</B> members contain the size in bytes of the corresponding buffer.
+
+</DD>
+</DL>
+
+<P>The format of the attribute information is a single-byte array and specifies the attribute of string. The following values are provided. Those not listed are reserved.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=52%>Value</TH>
+<TH align=left width=48%>Content</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>ATTR_INPUT</TD>
+<TD width=48%>Character currently being entered.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>ATTR_TERGET_CONVERTED</TD>
+<TD width=48%>Character currently being converted (already converted).</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>ATTR_CONVERTED</TD>
+<TD width=48%>Character given from the conversion.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>ATTR_TERGET_NOTCONVERTED</TD>
+<TD width=48%>Character currently being converted (yet to be converted).</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>ATTR_FIXEDCONVERTED</TD>
+<TD width=48%>Characters will not be converted anymore. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>ATTR_INPUT_ERROR</TD>
+<TD width=48%>Character is an error character and cannot be converted by the IME.</TD>
+</TR>
+</TABLE><BR>
+
+<P>Following is a description of the content for the values provided in the preceding table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=52%>Content</TH>
+<TH align=left width=48%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>Character currently being entered.</TD>
+<TD width=48%>Character that the user is entering. If this is Japanese, this character is a hiragana, katakana, or alphanumeric character that has yet to be converted by the IME.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>Character currently being converted (already converted).</TD>
+<TD width=48%>Character that has been selected for conversion by the user and converted by the IME.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>Character given from conversion.</TD>
+<TD width=48%>Character which the IME has converted.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>Character currently being converted (yet to be converted).</TD>
+<TD width=48%>Character that has been selected for conversion by the user and not yet converted by the IME. If this is Japanese, this character is a hiragana, katakana, or alphanumeric character that the user has entered.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>Character is an error character and cannot be converted by the IME.</TD>
+<TD width=48%>Character is an error character and the IME cannot convert this character. For example, some consonants cannot be combined.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Comments</H4>
+
+<P>The length of the attribute information is the same as the length of the string. Each byte corresponds to each byte of the string. Even if the string includes DBCS characters, the attribute information has the information bytes of both the lead byte and the second byte.</P>
+
+<P>For Windows NT Unicode, the length of the attribute information is the same as the length in Unicode character counts. Each attribute byte corresponds to each Unicode character of the string.</P>
+
+<P>The format of the clause information is a double-word array and specifies the numbers that indicate the position of the clause. The position of the clause is the position of the composition string, with the clause starting from this position. At the least, the length of information is two double words. This means the length of the clause information is 8 bytes. The first double word has to be zero and is the start position of the first clause. The last double word has to be the length of this string. For example, if the string has three clauses, the clause information has four double words. The first double word is zero. The second double word specifies the start position of the second clause. The third double word specifies the start position of the third clause. The last double word is the length of this string.</P>
+
+<P>For Windows NT Unicode, the position of each clause and the length of the string is counted in Unicode characters.</P>
+
+<P>The <B>dwCursorPos</B> member specifies the cursor position and indicates where the cursor is located within the composition string, in terms of the count of that character. The counting starts at zero. If the cursor is to be positioned immediately after the composition string, this value should be equal to the length of the composition string. In the event there is no cursor, a value of -1 is specified here. If a composition string does not exist, this member is invalid.</P>
+
+<P>For Windows NT Unicode, the cursor position is counted in Unicode characters.</P>
+
+<H3>CANDIDATEINFO</H3>
+
+<P>The <B>CANDIDATEINFO</B> structure is a header of the entire candidate information. This structure can contain 32 candidate lists at most, and these candidate lists have to be in the same memory block.</P>
+
+<PRE class=syntax>typedef struct tagCANDIDATEINFO {
+DWORD  dwSize;
+DWORD  dwCount;
+DWORD  dwOffset[32];
+DWORD  dwPrivateSize;
+DWORD  dwPrivateOffset;
+} CANDIDATEINFO;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>dwSize</B></DT>
+
+<DD>Memory block size of this structure. </DD>
+
+<DT><B>dwCount</B></DT>
+
+<DD>Number of the candidate lists that are included in this memory block.</DD>
+
+<DT><B>dwOffset[32]</B></DT>
+
+<DD>Contents are the offset from the start position of this structure. Each offset specifies the start position of each candidate list.</DD>
+
+<DT><B>dwPrivateSize</B></DT>
+
+<DD>Private area in this memory block.</DD>
+
+<DT><B>dwPrivateOffset</B></DT>
+
+<DD>Offset from the start position of this structure. The private area is stored here.
+</DD>
+</DL>
+
+<H3>GUIDELINE</H3>
+
+<P>The <B>GUIDELINE</B> structure contains the guideline information that the IME sends out.</P>
+
+<PRE class=syntax>typedef struct tagGUIDELINE {
+DWORD  dwSize;
+DWORD  dwLevel;  // the error level.
+// GL_LEVEL_NOGUIDELINE, 
+// GL_LEVEL_FATAL, 
+// GL_LEVEL_ERROR, 
+// GL_LEVEL_WARNNING,
+// GL_LEVEL_INFORMATION
+    DWORD dwIndex;  // GL_ID_NODICTIONARY and so on.
+    DWORD dwStrLen;  // Error Strings, if this is 0, there is no error string.
+DWORD  dwStrOffset;
+DWORD  dwPrivateSize;
+DWORD  dwPrivateOffset;
+} GUIDELINE;</PRE>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;For Unicode, the <B>dwStrLen</B> member specifies the size in Unicode characters of the error string. Other size parameters such as <B>dwSize</B> <B>dwStrOffset</B>, <B>dwPrivateSize</B> contain values counted in bytes.</P>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>dwLevel</B></DT>
+
+<DD>The <B>dwLevel</B> specifies error level. The following values are provided.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=49%>Value</TH>
+<TH align=left width=51%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_LEVEL_NOGUIDELINE</TD>
+<TD width=51%>No guideline present. If the old guideline is shown, the UI should hide the old guideline.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_LEVEL_FATAL</TD>
+<TD width=51%>Fatal error has occurred. Some data may be lost.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_LEVEL _ERROR</TD>
+<TD width=51%>Error has occurred. Handling may not be continued.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_LEVEL _WARNING</TD>
+<TD width=51%>IME warning to user. Something unexpected has occurred, but the IME can continue handling.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_LEVEL _INFORMATION</TD>
+<TD width=51%>Information for the user.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>dwIndex</B></DT>
+
+<DD>The following values are provided.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=49%>Value</TH>
+<TH align=left width=51%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_ID_UNKNOWN</TD>
+<TD width=51%>Unknown error. The application should refer to the error string.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_ID_NOMODULE</TD>
+<TD width=51%>IME cannot find the module that the IME needs.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_ID_NODICTIONARY</TD>
+<TD width=51%>IME cannot find the dictionary or the dictionary looks strange.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_ID_CANNOTSAVE</TD>
+<TD width=51%>Dictionary or the statistical data cannot be saved.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_ID_NOCONVERT</TD>
+<TD width=51%>IME cannot convert anymore.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_ID_TYPINGERROR</TD>
+<TD width=51%>Typing error. The IME cannot handle this typing.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_ID_TOOMANYSTROKE</TD>
+<TD width=51%>Two many keystrokes for one character or one clause.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_ID_READINGCONFLICT</TD>
+<TD width=51%>Reading conflict has occurred. For example, some vowels cannot be combined. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_ID_INPUTREADING</TD>
+<TD width=51%>IME prompts the user now it is in inputting reading character state.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_ID_INPUTRADICAL</TD>
+<TD width=51%>IME prompts the user now it is in inputting radical character state.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_ID_INPUTCODE</TD>
+<TD width=51%>IME prompts the user to input the character code state.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_ID_CHOOSECANIDATE</TD>
+<TD width=51%>IME prompts the user to select the candidate string state.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_ID_REVERSECONVERSION</TD>
+<TD width=51%>IME prompts the user to provide the information of the reverse conversion. The information of reverse conversion can be obtained through ImmGetGuideLine(<I>hIMC</I>, GGL_PRIVATE. <I>lpBuf</I>, <I>dwBufLen</I>).The information contained in <I>lpBuf</I> is in CANDIDATELIST format.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_ID_PRIVATE_FIRST</TD>
+<TD width=51%>ID located between GL_ID_PRIVATE_FIRST and GL_ID_PRIVATE_LAST is reserved for the IME. The IME can freely use these IDs for its own <B>GUIDELINE</B>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>GL_ID_PRIVATE_LAST</TD>
+<TD width=51%>ID located between GL_ID_PRIVATE_FIRST and GL_ID_PRIVATE_LAST is reserved for the IME. The IME can freely use these IDs for its own <B>GUIDELINE</B>.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>dwPrivateSize</B></DT>
+
+<DD>Private area in this memory block.</DD>
+
+<DT><B>dwPrivateOffset</B></DT>
+
+<DD>Offset from the start position of this structure. The private area is stored here.
+</DD>
+</DL>
+
+<H2>IME Management Structures</H2>
+
+<P>The following topics describe the structures used to manage IMEs.</P>
+
+<H3>IMEINFO</H3>
+
+<P>The <B>IMEINFO</B> structure is used internally by IMM and IME interfaces.</P>
+
+<PRE class=syntax>typedef struct tagIMEInfo {
+    DWORD  dwPrivateDataSize;  // The byte count of private data in an IME context.
+    DWORD  fdwProperty;  // The IME property bits. See description below.
+    DWORD  fdwConversionCaps;  // The IME conversion mode capability bits.
+    DWORD  fdwSentenceCaps;  // The IME sentence mode capability.
+    DWORD  fdwUICaps;  // The IME UI capability.
+    DWORD  fdwSCSCaps;  // The ImeSetCompositionString capability.
+    DWORD  fdwSelectCaps;  // The IME inherit IMC capability.
+} IIMEINFO;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>dwPrivateDataSize</B></DT>
+
+<DD>Byte count of the structure.</DD>
+
+<DT><B>fdwProperty</B></DT>
+
+<DD>HIWORD of <B>fdwProperty</B> contains the following bits, which are used by the application.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Bit</TH>
+<TH align=left width=52%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>IME_PROP_AT_CARET</TD>
+<TD width=52%>Bit On indicates that the IME conversion window is at caret position. Bit Off indicates a near caret position operation IME.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>IME_PROP_SPECIAL_UI</TD>
+<TD width=52%>Bit On indicates that the IME has a special UI. The IME should set this bit only when it has an nonstandard UI that an application cannot display. Typically, an IME will not set this flag.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>IME_PROP_CANDLIST_START_FROM_1</TD>
+<TD width=52%>Bit ON indicates that the UI of the candidate list string starts from zero or 1. An application can draw the candidate list string by adding the 1, 2, 3, and so on in front of the candidate string.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>IME_PROP_UNICODE</TD>
+<TD width=52%>If set, the IME is viewed as Unicode IME. System and IME will communicate through Unicode IME interface. If clear, IME will use ANSI interface to communicate with system.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>IME_PROP_COMPLETE_ON_<BR>
+UNSELECT</TD>
+<TD width=52%>New property bit defined for Windows 98 and Windows 2000. If set, the IME will complete the composition string when the IME is deactivated. If clear, the IME will cancel the composition string when the IME is deactivated (such as from a keyboard layout change).</TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>The LOWORD of <B>fdwProperty</B> contains the following bits, which are used by the system.
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Bit</TH>
+<TH align=left width=52%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>IME_PROP_END_UNLOAD</TD>
+<TD width=52%>Bit On indicates that the IME will unload when there is no one using it.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>IME_PROP_KBD_CHAR_FIRST</TD>
+<TD width=52%>Before the IME translates the DBCS character, the system first translates the characters by keyboard. This character is passed to the IME as an information aid. No aid information is provided when this bit is off.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>IME_PROP_NEED_ALTKEY</TD>
+<TD width=52%>IME needs the ALT key passed to <B>ImeProcessKey</B>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>IME_PROP_IGNORE_UPKEYS</TD>
+<TD width=52%>IME does not need the UP key passed to <B>ImeProcessKey</B>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>IME_PROP_ACCEPT_WIDE_VKEY</TD>
+<TD width=52%><B>Windows 2000</B>: If set, the IME processes the injected Unicode that came from the <B>SendInput</B> function by using VK_PACKET. If clear, IME might not process the injected Unicode and the injected Unicode might be sent to application directly.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>fdwConversionCaps</B></DT>
+
+<DD>Same definition as the conversion mode. If the relative bit is off, the IME does not have the capability to handle the conversion mode no matter whether the corresponding bit of the conversion mode is on or off.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=49%>Conversion mode</TH>
+<TH align=left width=51%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_CMODE_KATAKANA</TD>
+<TD width=51%>Bit On indicates that the IME supports KATAKANA mode. Otherwise, it does not.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_CMODE_NATIVE</TD>
+<TD width=51%>Bit On indicates that the IME supports NATIVE mode. Otherwise, it does not.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_CMODE_FULLSHAPE</TD>
+<TD width=51%>Bit On indicates that the IME supports full shape mode. Otherwise, it does not.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_CMODE_ROMAN</TD>
+<TD width=51%>Bit On indicates that the IME supports ROMAN input mode. Otherwise, it does not.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_CMODE_CHARCODE</TD>
+<TD width=51%>Bit On indicates that the IME supports CODE input mode. Otherwise, it does not.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_CMODE_HANJACONVERT</TD>
+<TD width=51%>Bit On indicates that the IME supports HANJA convert mode. Otherwise, it does not.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_CMODE_SOFTKBD</TD>
+<TD width=51%>Bit On indicates that the IME supports soft keyboard mode. Otherwise, it does not.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_CMODE_NOCONVERSION</TD>
+<TD width=51%>Bit On indicates that the IME supports No-conversion mode. Otherwise, it does not.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_CMODE_EUDC</TD>
+<TD width=51%>Bit On indicates that the IME the IME supports EUDC mode. Otherwise, it does not.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_CMODE_SYMBOL</TD>
+<TD width=51%>Bit On indicates that the IME supports SYMBOL mode. Otherwise, it does not.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_CMODE_CHARCODE</TD>
+<TD width=51%>Set to 1 if the IME supports character code input mode, but zero if it does not.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_CMODE_FIXED</TD>
+<TD width=51%>Set to 1 if the IME supports fixed conversion mode, but zero if not. This mode allows preconversion by the IME, but not full conversion. An example of this is Fixed Conversion Mode with DBCS HIRAGANA ROMAN. Under this mode, the IME can convert key input characters to DBCS HIRAGANA by Roman Conversion. However, it prevents conversion from DBCS HIRAGANA to Kanji characters. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>fdwSentenceCaps</B></DT>
+
+<DD>Same constant definition as the sentence mode. If the relative bit is off, the IME does not have the capability to handle the sentence mode no matter if the corresponding bit of sentence mode is on or off.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=49%>Conversion mode</TH>
+<TH align=left width=51%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_SMODE_PLAURALCLAUSE</TD>
+<TD width=51%>Bit On indicates that the IME supports plural clause sentence mode.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_SMODE_SINGLECONVERT</TD>
+<TD width=51%>Bit On indicates that the IME supports single character sentence mode.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_SMODE_AUTOMETIC</TD>
+<TD width=51%>Bit On indicates that the IME supports automatic sentence mode.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_SMODE_PHRASEPREDICT</TD>
+<TD width=51%>Bit On indicates that the IME supports phrase predict sentence mode.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>IME_SMODE_CONVERSATION</TD>
+<TD width=51%>IME uses conversation mode. This is useful for chat applications. Chat applications can change the sentence mode of the IME to conversation style. This is a new mode for Windows 98 and Windows 2000.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>fdwUICaps</B></DT>
+
+<DD>The <B>fdwUICaps</B> bits specify the UI ability of the IME. The following bits are provided.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Bit</TH>
+<TH align=left width=66%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>UI_CAP_2700</TD>
+<TD width=66%>UI supported when <B>LogFont</B> escape is zero or 2700.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>UI_CAP_ROT90</TD>
+<TD width=66%>UI supported when <B>LogFont</B> escape is zero, 900, 1800, or 2700.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>UI_CAP_ROTANY</TD>
+<TD width=66%>UI supported with any escape.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>UI_CAP_SOFKBD</TD>
+<TD width=66%>IME uses soft keyboard provided by the system.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>fdwSCSCaps</B></DT>
+
+<DD>The <B>fdwSCSCaps</B> bits specify the <B>SetCompositionString</B> capability that the IME has. The following bits are provided.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=36%>Bit</TH>
+<TH align=left width=64%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>SCS_CAP_COMPSTR</TD>
+<TD width=64%>IME can generate the composition string by SCS_SETSTR.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>SCS_CAP_MAKEREAD</TD>
+<TD width=64%>When calling <B>ImmSetCompositionString</B> with SCS_SETSTR, the IME can create the reading of the composition string without <I>lpRead</I>. Under the IME that has this capability, the application does not need to set <I>lpRead</I> for SCS_SETSTR.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>fdwSelectCaps</B></DT>
+
+<DD>The <B>fdwSelectCaps</B> capability is for the application. When a user changes the IME, the application can determine if the conversion mode will be inherited or not by checking this capability. If the newly selected IME does not have this capability, the application will not receive the new mode and will have to retrieve the mode again. The following bits are provided.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Bit</TH>
+<TH align=left width=52%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>SELECT_CAP_CONVMODE</TD>
+<TD width=52%>IME has the capability of inheritance of conversion mode at <B>ImeSelect</B>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>SELECT_CAP_SENTENCE</TD>
+<TD width=52%>IME has the capability of inheritance of sentence mode at <B>ImeSelect</B>.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+</DL>
+
+<H2>Structures Used for IME Communication</H2>
+
+<P>The following topics describe the structures used for communication with IMEs.</P>
+
+<H3>CANDIDATELIST</H3>
+
+<P>The <B>CANDIDATELIST</B> structure contains information about a candidate list.</P>
+
+<PRE class=syntax>typedef struct tagCANDIDATELIST {
+    DWORD  dwSize;  // the size of this data structure.
+    DWORD  dwStyle;  // the style of candidate strings.
+    DWORD  dwCount;  // the number of the candidate strings.
+    DWORD  dwSelection;  // index of a candidate string now selected.
+    DWORD  dwPageStart;  // index of the first candidate string show in the candidate window. It maybe varies with page up or page down key.
+    DWORD  dwPageSize;  // the preference number of the candidate strings shows in one page.
+    DWORD  dwOffset[];  // the start positions of the first candidate strings. Start positions of other (2nd, 3rd, ..) candidate strings are appened after this field. IME can do this by reallocating the hCandInfo memory handle. So IME can access dwOffset[2] (3rd candidate string) or dwOffset[5] (6st candidate string).
+// TCHAR  chCandidateStr[];  // the array of the candidate strings.
+} CANDIDATELIST;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>dwsize</B></DT>
+
+<DD>Size, in bytes, of the structure, the offset array, and all candidate strings.</DD>
+
+<DT><B>dwStyle</B></DT>
+
+<DD>Candidate style values. It<B> </B>can be one or more of the following values.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=37%>Value</TH>
+<TH align=left width=63%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>IME_CAND_UNKNOWN</TD>
+<TD width=63%>Candidates are in a style other than listed here.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>IME_CAND_READ</TD>
+<TD width=63%>Candidates have the same reading.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>IME_CAND_CODE</TD>
+<TD width=63%>Candidates are in one code range.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>IME_CAND_MEANING</TD>
+<TD width=63%>Candidates have the same meaning.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>IME_CAND_RADICAL</TD>
+<TD width=63%>Candidates are composed of same radical character.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>IME_CAND_STROKES</TD>
+<TD width=63%>Candidates are composed of same number of strokes.</TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>For the IME_CAND_CODE style, the candidate list has a special structure depending on the value of the <B>dwCount </B>member. If <B>dwCount</B> is 1, the <B>dwOffset </B>member contains a single DBCS character rather than an offset, and no candidate string is provided. If the <B>dwCount </B>member is greater than 1, the <B>dwOffset </B>member contains valid offsets, and the candidate strings are text representations of individual DBCS character values in hexadecimal notation.
+</DD>
+
+<DT><B>dwCount</B></DT>
+
+<DD>Number of candidate strings.</DD>
+
+<DT><B>dwSelection </B></DT>
+
+<DD>Index of the selected candidate string.</DD>
+
+<DT><B>dwPageStart</B></DT>
+
+<DD>Index of the first candidate string in the candidate window. This varies as the user presses the Page Up and Page Down keys.</DD>
+
+<DT><B>dwPageSize</B></DT>
+
+<DD>Number of candidate strings to be shown in one page in the candidate window. The user can move to the next page by pressing IME-defined keys, such as the Page Up or Page Down key. If this number is zero, an application can define a proper value by itself.</DD>
+
+<DT><B>dwOffset</B></DT>
+
+<DD>Offset to the start of the first candidate string, relative to the start of this structure. The offsets for subsequent strings immediately follow this member, forming an array of 32-bit offsets.
+</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>The <B>CANDIDATELIST</B> structure is used for the return of <B>ImmGetCandidateList</B> . The candidate strings immediately follow the last offset in the <B>dwOffset</B> array. </P>
+
+<H3>COMPOSITIONFORM</H3>
+
+<P>The <B>COMPOSITIONFORM</B> structure is used for <B>IMC_SETCOMPOSITIONWINDOW</B> and <B>IMC_SETCANDIDATEPOS </B>messages.</P>
+
+<PRE class=syntax>typedef tagCOMPOSITIONFORM {
+DWORD  dwStyle;
+POINT  ptCurrentPos;
+RECT  rcArea;
+}COMPOSITIONFORM;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>dwStyle</B></DT>
+
+<DD>Position style. The following values are provided.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=36%>Value</TH>
+<TH align=left width=64%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>CFS_DEFAULT</TD>
+<TD width=64%>Move the composition window to the default position. The IME window can display the composition window outside the client area, such as in a floating window.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>CFS_FORCE_POSITION</TD>
+<TD width=64%>Display the upper-left corner of the composition window at exactly the position given by <B>ptCurrentPos</B>. The coordinates are relative to the upper-left corner of the window containing the composition window and are <I>not</I> subject to adjustment by the IME.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>CFS_POINT</TD>
+<TD width=64%>Display the upper-left corner of the composition window at the position given by <B>ptCurrentPos</B>. The coordinates are relative to the upper-left corner of the window containing the composition window and are subject to adjustment by the IME.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>CFS_RECT</TD>
+<TD width=64%>Display the composition window at the position given by <B>rcArea</B>. The coordinates are relative to the upper-left of the window containing the composition window.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>ptCurrentPos</B></DT>
+
+<DD>Coordinates of the upper-left corner of the composition window.</DD>
+
+<DT><B>rcArea</B></DT>
+
+<DD>Coordinates of the upper-left and lower-right corners of the composition window.
+</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>When the style of the <B>COMPOSITIONFORM</B> structure is CFS_POINT or CFS_FORCE_POINT, the IME will draw the composition string from the position specified by <B>ptCurrentPos</B> of the <B>COMPOSITIONFORM</B> structure that is given by the application. If the style has CFS_RECT, the composition string will be inside the rectangle specified by <B>rcArea</B>. If not, <B>rcArea</B> will be the client rectangle of the application window.</P>
+
+<P>When the application specifies the composition font, the composition window is rotated as the escapement of the composition font. The direction of the composition string follows the escapement of the font in a composition window. The IME then draws the composition string. Following is an example of this process using various values for the escapement of the composition font:
+
+<UL>
+	<LI>Escapement of the composition font is zero
+<P>Typically, the escapement of the composition font is zero. When this is the case, <B>ptCurrentPos</B> of the composition form structure points to the left and top of the string. All IMEs support this type.
+</LI>
+
+	<LI>Escapement of the composition font is 2700
+<P>This is in the case of a vertical writing. When the application provides the vertical writing, the application can set the 2700 escapement in the composition font set by <B>ImmCompositoinFont</B>. The composition string will then be drawn downward. IMEs that have UI_CAP_2700, UI_CAP_ROT90, or UI_CAP_ROTANY capability will support this type of composition window.
+</LI>
+
+	<LI>Escapement of the composition font is 900 or 1800
+<P>IMEs that have UI_CAP_ROT90 or UI_CAP_ROTANY capability will support this type of composition window.
+</LI>
+
+	<LI>Escapement of the composition font is any value
+<P>IMEs that have UI_CAP_ROTANY capability will support this type of composition window.
+</LI>
+</UL>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;UI_CAP_ROT90 and UI_CAPS_ANY are the option for the enhancement of the IME. UI_CAP_2700 is recommended.</P>
+
+<H3>CANDIDATEFORM</H3>
+
+<P>The <B>CANDIDATEFORM</B> structure is used for IMC_GETCANDIDATEPOS and IMC_SETCANDIDATEPOS messages.</P>
+
+<PRE class=syntax>typedef tagCANDIDATEFORM {
+DWORD  dwIndex;
+DWORD  dwStyle;
+POINT  ptCurrentPos;
+REC  rcArea;
+} CANDIDATEFORM;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>dwIndex</B></DT>
+
+<DD>Specifies the ID of the candidate list. Zero is the first candidate list, 1 is the second one, and so on up to 3.</DD>
+
+<DT><B>dwStyle</B></DT>
+
+<DD>Specifies CFS_CANDIDATEPOS or CFS_EXCLUDE. For a near-caret IME, the <B>dwStyle</B> also can be CFS_DEFAULT. A near-caret IME will adjust the candidate position according to other UI components, if the <B>dwStyle</B> is CFS_DEFAULT.</DD>
+
+<DT><B>ptCurrentPos</B></DT>
+
+<DD>Depends on <B>dwStyle</B>. When <B>dwStyle</B> is CFS_CANDIDATEPOS, <B>ptCurrentPos</B> specifies the recommended position where the candidate list window should be displayed. When <B>dwStyle</B> is CFS_EXCLUDE, <B>ptCurrentPos</B> specifies the current position of the point of interest (typically the caret position).</DD>
+
+<DT><B>rcArea</B></DT>
+
+<DD>Specifies a rectangle where no display is allowed for candidate windows in the case of CFS_EXCLUDE.
+</DD>
+</DL>
+
+<H3>STYLEBUF</H3>
+
+<P>The <B>STYLEBUF</B> structure contains the identifier and name of a style.</P>
+
+<PRE class=syntax>typedef struct tagSTYLEBUF {
+DWORD  dwStyle;
+TCHAR  szDescription[32]
+} STYLEBUF;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>dwStyle</B></DT>
+
+<DD>Style of register word.</DD>
+
+<DT><B>szDescription</B></DT>
+
+<DD>Description string of this style. 
+
+
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The style of the register string includes IME_REGWORD_STYLE_EUDC. The string is in EUDC range:
+
+
+<P class=note>IME_REGWORD_STYLE_USER_FIRST and IME_REGWORD_STYLE_USER_LAST.
+
+
+<P class=note>The constants range from IME_REGWORD_STYLE_USER_FIRST to IME_REGWORD_STYLE_USER_LAST and are for private IME ISV styles. The IME ISV can freely define its own style.
+
+</DD>
+</DL>
+
+<H3>SOFTKBDDATA</H3>
+
+<P>The <B>SOFTKBDDATA </B>defines the DBCS codes for each virtual key.</P>
+
+<PRE class=syntax>typedef struct tagSOFTKBDDATA {
+UINT  uCount;
+WORD  wCode[][256]
+} SOFTKBDDATA;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>uCount</B></DT>
+
+<DD>Number of the 256-word virtual key mapping to the internal code array.</DD>
+
+<DT><B>wCode[][256]</B></DT>
+
+<DD>256-word virtual key mapping to the internal code array. There may be more than one 256-word arrays.
+
+
+
+<P class=note><B>Note</B>&nbsp;&nbsp;It is possible for one type of soft keyboard to use two 256-word arrays. One is for the nonshift state and the other is for the shift state. The soft keyboard can use two internal codes for displaying one virtual key.
+
+</DD>
+</DL>
+
+<H3>RECONVERTSTRING</H3>
+
+<P>The <B>RECONVERTSTRING</B> structure defines the strings for IME reconversion. It is the first item in a memory block that contains the strings for reconversion.</P>
+
+<PRE class=syntax>typedef struct _tagRECONVERTSTRING {
+DWOPD  dwSize;
+DWORD  dwVersion;
+DWORD  dwStrLen;
+DWORD  dwStrOffset;
+DWORD  dwCompStrLen;
+DWORD  dwCompStrOffset;
+DWORD  dwTargetStrLen;
+DWORD  dwTargetStrOffset;
+} RECONVERTSTRING;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>dwSize</B></DT>
+
+<DD>Memory block size of this structure.</DD>
+
+<DT><B>dwVersion</B></DT>
+
+<DD>Reserved by the system. This must be zero.</DD>
+
+<DT><B>dwStrlen</B></DT>
+
+<DD>Length of the string that contains the composition string.</DD>
+
+<DT><B>dwStrOffset</B></DT>
+
+<DD>Offset from the start position of this structure. The string containing the reconverted words is stored at this point.</DD>
+
+<DT><B>dwCompStrLen</B></DT>
+
+<DD>Length of the string that will be the composition string.</DD>
+
+<DT><B>dwCompStrOffset</B></DT>
+
+<DD>Offset of the string that will be the composition string. </DD>
+
+<DT><B>dwTargetStrLen</B></DT>
+
+<DD>Length of the string that is related to the target clause in the composition string.</DD>
+
+<DT><B>dwTargetStrOffset</B></DT>
+
+<DD>Offset of the string that is related to the target clause in the composition string.
+
+
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The <B>RECONVERTSTRING</B> structure is a new structure for Windows 98 and Windows 2000. The <B>dwCompStrOffset</B> and <B>dwTargetOffset</B> members are the relative position of <B>dwStrOffset</B>. For Windows NT Unicode, <B>dwStrLen</B>, <B>dwCompStrLen</B>, and <B>dwTargetStrLen</B> are the TCHAR count, and <B>dwStrOffset</B>, <B>dwCompStrOffset</B>, and <B>dwTargetStrOffset</B> are the byte offset.
+
+</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>If an application starts the reconversion process by calling <B>ImmSetCompositionString</B> with SCS_SETRECONVERTSTRING and SCS_QUERYRECONVERTSTRING, the application is then responsible for allocating the necessary memory for this structure as well as the composition string buffer. The IME should not use the memory later. If the IME starts the process, it should allocate the necessary memory for the structure and the composition string buffer.</P>
+
+<H3>IMEMENUITEMINFO</H3>
+
+<P>The <B>IMEMENUITEMINFO</B> structure contains information about IME menu items.</P>
+
+<PRE class=syntax>typedef _tagIMEMENUITEMINFO {
+UINT  cbSize;
+UINT  fType;
+UINT  fState;
+UINT  wID;
+HBITMAP  hbmpChecked;
+HBITMAP  hbmpUnchecked;
+DWORD  dwItemData;
+TCHAR  szString[48];
+HBITMAP  hbmpItem;
+} IMEMENUITEMINFO;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>cbSize</B></DT>
+
+<DD>Size of the structure in bytes</DD>
+
+<DT><B>fType</B></DT>
+
+<DD>Menu item type. This member can be one or more of the following values.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=35%>Value</TH>
+<TH align=left width=65%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=35%>IMFT_RADIOCHECK</TD>
+<TD width=65%>Displays checked menu items using a radio-button mark instead of a check mark if the <B>hbmpChecked</B> member is NULL.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=35%>IMFT_SEPARATOR</TD>
+<TD width=65%>Specifies that the menu item is a separator. A menu item separator appears as a horizontal dividing line. The <B>hbmpItem</B> and <B>szString</B> members are ignored.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=35%>IMFT_SUBMENU</TD>
+<TD width=65%>Specifies that the menu item is a submenu.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>fState</B></DT>
+
+<DD>Menu item state. This member can be one or more of the following values.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=35%>Value</TH>
+<TH align=left width=65%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=35%>IMFS_CHECKED</TD>
+<TD width=65%>Checks the menu item. For more information about checked menu items. See the <B>hbmpChecked</B> member.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=35%>IMFS_DEFAULT</TD>
+<TD width=65%>Specifies that the menu item is the default. A menu can contain only one default menu item, which is displayed in bold.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=35%>IMFS_DISABLED</TD>
+<TD width=65%>Disables the menu item so it cannot be selected, but does not gray it out.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=35%>IMFS_ENABLED</TD>
+<TD width=65%>Enables the menu item so it can be selected. This is the default state.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=35%>IMFS_GRAYED</TD>
+<TD width=65%>Disables the menu item and grays it out so it cannot be selected.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=35%>IMFS_HILITE</TD>
+<TD width=65%>Highlights the menu item.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=35%>IMFS_UNCHECKED</TD>
+<TD width=65%>Unchecks the menu item. For more information about unchecked menu items, see the <B>hbmpUnchecked</B> member.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=35%>IMFS_UNHILITE</TD>
+<TD width=65%>Removes the highlight from the menu item. This is the default state.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>wID</B></DT>
+
+<DD>Application-defined 16-bit value that identifies the menu item.</DD>
+
+<DT><B>hbmpChecked</B></DT>
+
+<DD>Handle to the bitmap to display next to the item if it is checked. If this member is NULL, a default bitmap is used. If the IMFT_RADIOCHECK type value is specified, the default bitmap is a bullet. Otherwise, it is a check mark.</DD>
+
+<DT><B>hbmpUnchecked</B></DT>
+
+<DD>Handle to the bitmap to display next to the item if it is not checked. If this member is NULL, no bitmap is used.</DD>
+
+<DT><B>dwItemData</B></DT>
+
+<DD>Application-defined value associated with the menu item.</DD>
+
+<DT><B>szString</B></DT>
+
+<DD>Content of the menu item. This member is a null-terminated string.</DD>
+
+<DT><B>hbmpItem</B></DT>
+
+<DD>Bitmap handle to display.
+
+
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The <B>IMEMENUITEMINFO</B> structure is a new structure for Windows 98 and Windows 2000. The Unicode version of this structure has the <B>szString</B> member as the WCHAR.
+
+</DD>
+</DL>
+
+<H3>TRANSMSG</H3>
+
+<P>The <B>TRANSMSG</B> structure contains transferred message, used by <B>ImeToAsciiEx </B>to receive IME generated message.</P>
+
+<PRE class=syntax>typedef _tagTRANSMSG {
+UINT  message;
+WPARAM  wParam;
+LPARAM  lParam;
+} TRANSMSG;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>message</B></DT>
+
+<DD>Specify message identify</DD>
+
+<DT><B>wParam</B></DT>
+
+<DD>Specify additional information about the message. The exact meaning depends on the value of the <B>message</B> member. </DD>
+
+<DT><B>lParam</B></DT>
+
+<DD>Specify additional information about the message. The exact meaning depends on the value of the <B>message</B> member.
+
+
+
+<P class=note><B>Note</B>&nbsp;&nbsp;This structure is added for future 64-bit Windows NT platform. This structure will be used together with <B>TRANSMSGLIST</B> by <B>ImeToAsciiEx </B>to replace the formerly used <B><I>LPDWORD</I> <I>lpdwTransBuf</I></B><I>. </I>Using this structure will still keep the data in memory with the same offset and keep backward compatible.
+
+</DD>
+</DL>
+
+<H3>TRANSMSGLIST</H3>
+
+<P>The <B>TRANSMSGLIST</B> structure contains transferred message list returned from <B>ImeToAsciiEx</B>.</P>
+
+<PRE class=syntax>typedef _tagTRANSMSGLIST {
+UINT  uMsgCount;
+TRANSMSG  TransMsg[1];
+} TRANSMSGLIST;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>uMsgCount</B></DT>
+
+<DD>Specify the message number in TransMsg array.</DD>
+
+<DT><B>TransMsg</B></DT>
+
+<DD>Includes TRANSMSG data array. 
+
+
+
+<P class=note><B>Note</B>&nbsp;&nbsp;This structure is added for future 64-bit Windows NT platform. This structure will be used by <B>ImeToAsciiEx </B>to replace the formerly used <B><I>LPDWORD</I> <I>lpdwTransBuf</I></B><I>. </I>Using this structure will still keep the data in memory with the same offset and keep backward compatible.
+
+
+</DD>
+</DL>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Win32%20Multilingual%20IME%20Overview%20for%20IME%20Development"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

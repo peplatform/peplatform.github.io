@@ -1,0 +1,165 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>VKD_Define_Hot_Key</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_2238"></A>VKD_Define_Hot_Key</H3>
+
+<PRE>include vkd.inc
+
+mov     al, ScanCode
+mov     ah, type
+mov     ebx, ShiftState
+mov     cl, flag
+mov     esi, OFFSET32 HotKeyProc
+mov     edx, OFFSET32 refdata
+mov     edi, max_delay
+VxDCall VKD_Define_Hot_Key
+jc      errorhandler
+</PRE>
+
+<P>Defines a hot-key-notification callback function. Hot keys are detected by ANDing the shift state mask with the global shift state, then comparing the resulting state with the shift state compare value. If this matches and the key code matches, the callback function is called with the specified reference data in EDX. Uses EAX, ESI, and Flags. Clears the carry flag upon success, sets it upon failure. 
+
+<UL>
+	<LI>Returns the definition handle in EAX if successful. </LI>
+</UL>
+
+<DL>
+<DT><I>ScanCode</I> </DT>
+
+<DD>Scan code of the main key. </DD>
+
+<DT><I>type</I> </DT>
+
+<DD>Type of scan code. Can be one of these values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=9%>Value </TH>
+<TH align=left width=91%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=9%>0 </TD>
+<TD width=91%>Normal code </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=9%>1 </TD>
+<TD width=91%>Extended code (ExtendedKey_B) </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=9%>0FFh </TD>
+<TD width=91%>Either normal or extended (AllowExtended_B) </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><I>ShiftState</I> </DT>
+
+<DD>Shift state. The high word is a mask that is ANDed with the global shift state when checking for this hot key. The low word is the masked-shift-state-compare value. </DD>
+
+<DT><I>flag</I> </DT>
+
+<DD>Operation flag. Can be one of these values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=18%>Value </TH>
+<TH align=left width=82%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>CallOnAll </TD>
+<TD width=82%>Calls on press, release, and repeats of hot keys. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>CallOnComplete </TD>
+<TD width=82%>Calls callback when the hot key state is ended (all shift modifier keys are released), or when a different hot key is entered. For example, assume that both ALT+1 and ALT+2 are hot keys. If the user holds the ALT key down, then presses and releases the 1 key and presses the 2 key, the callback for ALT+1 is called even though the ALT key has not been released. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>CallOnPress </TD>
+<TD width=82%>Calls callback when key press is detected. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>CallOnRelease </TD>
+<TD width=82%>Calls callback when key release is detected. Keyboard may still be in hot-key hold state. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>CallOnRepeat </TD>
+<TD width=82%>Calls callback when repeated press is detected. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>CallOnUpDwn </TD>
+<TD width=82%>Calls on both press and release of hot keys. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>Local_Key </TD>
+<TD width=82%>Specifies that the key can be locally enabled or disabled. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>Monitor_Key </TD>
+<TD width=82%>Automatically reflects the hot key. This value can be used only with the CallOnPress, CallOnRelease, and PriorityNotify values. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>PriorityNotify </TD>
+<TD width=82%>Specifies that the callback can only be called when interrupts are enabled and the critical section is not owned. This value can be combined with any other value in this list. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><I>HotKeyProc</I> </DT>
+
+<DD>Address of the callback function. For more information about the callback function, see the following comments. </DD>
+
+<DT><I>refdata</I> </DT>
+
+<DD>Address of the reference data to pass to the callback function. </DD>
+
+<DT><I>max_delay</I> </DT>
+
+<DD>Maximum notification delay in milliseconds if the <I>flag</I> specifies the PriorityNotify value. If this parameter is zero, the callback function is always notified. 
+</DD>
+</DL>
+
+<P>The callback function is called when a hot key is detected, and detection meets mask requirements. The callback function receives the following input parameters: </P>
+
+<PRE>AL    ; scan code of key
+AH    ; 0 if key just pressed (Hot_Key_Pressed)
+      ; 1 if key just released (Hot_Key_Released)
+      ; 2 if key is an auto-repeat press (Hot_Key_Repeated)
+      ; 3 hot key state ended (Hot_Key_Completed)
+
+EBX   ; hot key handle
+ECX   ; global shift state
+EDX   ; points to the reference data
+EDI   ; elapsed time for delayed notification in milliseconds
+</PRE>
+
+<P>The EDI register normally contains zero, but if the PriorityNotify value is specified this value could be larger. </P>
+
+<P>The high bit of AH is set if the hot key is a priority hot key, and the virtual machine which had the keyboard focus at the time the hot key was recognized was suspended or not executable. In this case, the priority event was scheduled for the system virtual machine rather than the keyboard owner. The Hot_Key_SysVM_Notify value can be used to check this bit. </P>
+
+<P>The callback function can modify EAX, EBX, ECX, EDX, ESI, EDI, and Flags </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: VKD_Define_Hot_Key"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

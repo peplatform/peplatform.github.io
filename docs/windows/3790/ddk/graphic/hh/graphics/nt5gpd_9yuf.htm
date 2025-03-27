@@ -1,0 +1,183 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Conditional Statements</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Conditional Statements">
+<META NAME="MS-HKWD" CONTENT="*Default">
+<META NAME="MS-HKWD" CONTENT="*Case">
+<META NAME="MS-HKWD" CONTENT="*Switch">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_conditional_statements_gg"></A>Conditional Statements</H1>
+
+<P>The GPD language provides C-like conditional statements that allow you to describe dependencies that some printer attributes can have on a printer's configuration. For example, the margins and cursor origin for a page might depend on the page's orientation. The <B>*Switch</B> and <B>*Case</B> statements allow you to express such dependencies. The format of these statements is as follows:</P>
+
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=100%><A NAME="ddk__default_gg"></A><A NAME="ddk__case_gg"></A><A NAME="ddk__switch_gg"></A>&nbsp;&nbsp;&nbsp;&nbsp;<B>*Switch</B> <I>FeatureName</I><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;<B>{</B><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B>*Case</B> <I>Option1_Name</I><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B>{</B><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B>}</B><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B>*Case</B> <I>Option2_Name</I><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B>{</B><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B>}<BR>
+</B>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<I>etc.</I><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B>*Case</B> <I>OptionN_Name</I><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B>{</B><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B>}</B><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B>*Default</B><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B>{</B><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B>}</B><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;<B>}</B></TD>
+</TR>
+</TABLE><BR>
+
+<P><I>FeatureName</I> must be the name of a feature that is specified within the GPD file with a <B>*Feature</B> entry. The option names used must be options that are associated with the specified feature.</P>
+
+<P>To express the case in which page margins and cursor origin are dependent on the page's orientation, the following entries could be used:</P>
+
+<PRE>*Feature: Orientation
+{
+    *DefaultOption: Portrait
+    *Option: Portrait
+    {
+        *Name: "Portrait"
+        *rcIconID: =RC_ICON_PORTRAIT
+    }
+    *Option: LANDSCAPE_CC90
+    {
+        *Name: "Landscape"
+        *rcIconID: =RC_ICON_LANDSCAPE
+    }
+}
+*Feature: PaperSize
+{
+    *DefaultOption: Letter
+    *Option: Letter
+    {
+        *Name: "Letter 8.5 x 11 inch"
+        *switch: Orientation
+        {
+            *case: Portrait
+            {
+                *PrintableArea: PAIR(4800, 6324)
+                *PrintableOrigin: PAIR(150, 150)
+                *CursorOrigin: PAIR(150,100)
+            }
+            *case: LANDSCAPE_CC90
+            {
+                *PrintableArea: PAIR(4860, 6360)
+                *PrintableOrigin: PAIR(120, 120)
+                *CursorOrigin: PAIR(100,6480)
+            }
+        }
+    }
+}</PRE>
+
+<P>In this example, options for the printer's <B>PaperSize</B> feature are dependent on the selected option for the printer's <B>Orientation</B> feature.</P>
+
+<P>If you do not list all of a feature's options as <B>*Case</B> statement arguments, you can include a <B>*Default</B> statement, just as in the C language. If you do not include all options and you do not include a <B>*Default</B> statement, you must evaluate relevant attributes (in the example, <B>*PrintableArea</B>, *<B>PrintableOrigin</B>, and <B>*CursorOrigin</B>) elsewhere in the GPD file, preceding the *<B>Switch</B> statement.</P>
+
+
+
+<H4><A NAME="ddk_specifying_multiple_dependencies_gg"></A>Specifying Multiple Dependencies</H4>
+
+<P>You can include <B>*Switch</B> statements inside <B>*Case</B> and <B>*Default</B> statements. This allows you to specify multiple dependencies, as follows:</P>
+
+<PRE>*Feature: feature1 {*Option: optionA {...} *Option: optionB {...}}
+*Feature: feature2 {*Option: optionC {...} *Option: optionD {...}}
+*Feature: feature3 
+    {*Option: optionE 
+        {*Switch: feature1 
+            {*Case: optionA
+                 {*Switch: feature2
+                     {*Case: optionD
+                         {AttributeX: ValueX}
+                      *Default
+                         {AttributeX: ValueY}
+                     }
+                 }
+             *Default
+                  {AttributeX: ValueZ}
+             }
+         }
+    *Option: optionF {...} 
+    }</PRE>
+
+<P>In this example AttributeX, belonging to optionE of feature3, is dependent on both feature1 and feature2.</P>
+
+<P>If the user has selected optionA for feature1, optionD for feature2, and optionE for feature3, then attributeX is set to ValueX.</P>
+
+<P>If the user has selected optionA for feature1, optionC for feature2, and optionE for feature3, then attributeX is set to ValueY.</P>
+
+<P>If the user has selected optionB for feature1 and optionE for feature3, then attributeX is set to ValueZ. The setting for Feature2 is irrelevant.</P>
+
+<P>The following rules apply when specifying multiple dependencies:
+
+<UL>
+	<LI>Multiple dependencies must be specified within the scope of a single <B>*Switch</B> entry. Using the example, for instance, you cannot use a <B>*Switch</B> entry to indicate that feature3 is dependent on feature1 and then, in a subsequent, nonnested <B>*Switch</B> statement, indicate that feature3 is dependent on feature2.</LI>
+
+	<LI>You cannot specify the same feature more than once within each nested *<B>Switch</B> entry.</LI>
+</UL>
+
+
+
+<H4><A NAME="ddk_where_to_place_a_switch_statement_gg"></A>Where to Place a *Switch Statement</H4>
+
+<P>You can place a <B>*Switch</B> statement in the following locations within a GPD file:
+
+<UL>
+	<LI>Inside an <A HREF="nt5gpd_78yv.htm#ddk__option_gg"><B>*Option</B></A> statement</LI>
+
+	<LI>Inside a <A HREF="nt5gpd_6d5z.htm#ddk__feature_gg"><B>*Feature</B></A> statement</LI>
+
+	<LI>Inside a <B>*Case</B> statement</LI>
+
+	<LI>Inside a <B>*Default</B> statement</LI>
+
+	<LI>At the file's top level (that is, not inside a set of braces)</LI>
+</UL>
+
+
+
+<H4><A NAME="ddk_what_to_place_inside_switch_case_and_default_statements_gg"></A>What to Place Inside *Switch, *Case, and *Default Statements</H4>
+
+<P>Within a <B>*Switch</B> entry, you can only place <B>*Case</B> entry and a <B>*Default</B> entry.</P>
+
+<P>GPD file entries that can be placed inside <B>*Case</B> or <B>*Default</B> entries are referred to as <I>relocatable </I>entries. The following types of GPD entries are relocatable:
+
+<UL>
+	<LI>Most <A HREF="nt5gpd_0qlj.htm">printer attributes</A>, except for <A HREF="nt5gpd_64vb.htm">root-level-only attributes</A>. (<A HREF="nt5gpd_9ixz.htm">General attributes</A> must be preceded by EXTERN_GLOBAL unless the *<B>Switch</B> entry is at root level – not within braces.)</LI>
+
+	<LI>Nested *<B>Switch</B> entries, which allow you to <A HREF="#ddk_specifying_multiple_dependencies_gg">specify multiple dependencies</A>.</LI>
+
+	<LI><A HREF="nt5gpd_7civ.htm#ddk__command_gg">*<B>Command</B></A> entries.</LI>
+
+	<LI><A HREF="nt5gpd_6c2v.htm#ddk__ttfsenabled__gg">*<B>TTFSEnabled?</B></A>, which enables font substitution.</LI>
+</UL>
+
+<P>The following types of GPD entries are not relocatable:
+
+<UL>
+	<LI>Root-level-only attributes.</LI>
+
+	<LI><A HREF="nt5gpd_6c2v.htm#ddk__ttfs_gg">*<B>TTFS</B></A> entries for specifying substituted font.</LI>
+
+	<LI><A HREF="nt5gpd_5nzb.htm#ddk__constraints_gg">*<B>Constraints</B></A>, <A HREF="nt5gpd_5nzb.htm#ddk__invalidcombination_gg">*<B>InvalidCombination</B></A>, <A HREF="nt5gpd_125j.htm#ddk__invalidinstallablecombination_gg">*<B>InvalidInstallableCombination</B></A>, <A HREF="nt5gpd_8jaf.htm#ddk__notinstalledconstraints_gg">*<B>NotInstalledConstraints</B></A> entries that define invalid combinations of options, as described in <A HREF="nt5gpd_0eg7.htm">Option Constraints</A>.</LI>
+
+	<LI><A HREF="nt5gpd_6d5z.htm#ddk__feature_gg">*<B>Feature</B></A> and <A HREF="nt5gpd_78yv.htm#ddk__option_gg">*<B>Option</B></A> entries (although <A HREF="nt5gpd_78yv.htm">feature attributes</A> and <A HREF="nt5gpd_3bjb.htm">option attributes</A> <I>are</I> relocatable).</LI>
+</UL>
+
+<P>One method for determining if entries have been placed correctly inside *<B>Case</B> statements is to remove all the *<B>Switch</B> and *<B>Case</B> statements. If the entries inside the *<B>Case</B> statements are correct, they are still correct after the *<B>Switch</B> and *<B>Case</B> statements are removed.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Conditional%20Statements"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

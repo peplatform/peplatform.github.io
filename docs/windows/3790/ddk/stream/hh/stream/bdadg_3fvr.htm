@@ -1,0 +1,195 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Starting a BDA Minidriver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Starting a BDA Minidriver">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_start_device_dr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_starting_a_bda_minidriver_ksg"></A>Starting a BDA Minidriver</H1>
+
+<P>When a BDA device starts operating, the Plug and Play (PnP) Manager dispatches <A HREF="JavaScript:hhobj_1.Click()">IRP_MN_START_DEVICE</A>. The AVStream class in turn calls the start routine of the BDA minidriver associated with the BDA device. This start routine retrieves information about the device from the registry, sets information on the device, and then calls the <A HREF="bdaref_8qpf.htm"><B>BdaCreateFilterFactory</B></A> support function to: 
+
+<UL>
+	<LI>Create the filter factory for the device from the initial filter descriptor (<A HREF="avstruct_541f.htm">KSFILTER_DESCRIPTOR</A>) for the device. The initial filter descriptor references dispatch and automation tables for the filter and input pins. See <A HREF="bdadg_1elj.htm">Creating Dispatch Tables</A> and <A HREF="bdadg_92xz.htm">Defining Automation Tables</A> for more information.</LI>
+
+	<LI>Associate the filter factory with a <A HREF="bdaref_6mgj.htm">BDA_FILTER_TEMPLATE</A> structure. This structure references the template filter descriptor for the device and the list of possible pairs of input and output pins. This descriptor and list in turn reference: 
+<UL>
+	<LI>Static template structures that a network provider can use to determine the topology of a BDA filter.</LI>
+
+	<LI>Nodes and pins for a BDA filter along with possible ways to connect the filter.</LI>
+
+	<LI>Routines that a network provider can use to create and close a filter instance.</LI>
+
+	<LI>Static template structures that a network provider can use to manipulate a BDA filter.</LI>
+</UL>
+</LI>
+
+	<LI>Register the static template structures that are specified by BDA_FILTER_TEMPLATE with the BDA support library so that the library can provide default handling for a BDA minidriver's properties and methods. </LI>
+</UL>
+
+<P>The following code snippet shows an example of an initial filter descriptor for the device that <B>BdaCreateFilterFactory</B> sets as the filter factory:</P>
+
+<PRE>const KSFILTER_DESCRIPTOR    InitialTunerFilterDescriptor;
+//
+//  Filter Factory Descriptor for the tuner filter
+//
+//  This structure brings together all of the structures that define
+//  the tuner filter instance as it appears when it is first created.
+//  Note that not all template pin and node types are exposed as
+//  pin and node factories when the filter instance is created.
+//
+DEFINE_KSFILTER_DESCRIPTOR(InitialTunerFilterDescriptor)
+{
+    &amp;FilterDispatch,             // Table of dispatch routines
+    &amp;FilterAutomation,           // Table of properties and methods
+    KSFILTER_DESCRIPTOR_VERSION, // Version
+    0,                           // Flags
+    &amp;KSNAME_Filter,              // Reference Guid
+    DEFINE_KSFILTER_PIN_DESCRIPTORS(InitialPinDescriptors),
+                                   // PinDescriptorsCount
+                                   // PinDescriptorSize
+                                   // PinDescriptors
+    DEFINE_KSFILTER_CATEGORY(KSCATEGORY_BDA_RECEIVER_COMPONENT),
+                            // CategoriesCount
+                            // Categories
+    DEFINE_KSFILTER_NODE_DESCRIPTORS_NULL(NodeDescriptors),
+                                    // NodeDescriptorsCount
+                                    // NodeDescriptorSize
+                                    // NodeDescriptors
+    DEFINE_KSFILTER_DEFAULT_CONNECTIONS, // ConnectionsCount
+                                         // Connections
+    NULL                // ComponentId
+};</PRE>
+
+<P>The following code snippet shows an example of an array of initial pin descriptors that are exposed by an initialized filter. The network provider initializes a filter using such an array before the network provider configures that filter. However, when configuring an initialized filter, the network provider selects pins that are referenced in the pointer to the filter descriptor member of the BDA_FILTER_TEMPLATE structure. See <A HREF="bdadg_2m93.htm">Configuring a BDA Filter</A> for more information. </P>
+
+<PRE>//
+//  Initial Pin Descriptors
+//
+//  This data structure defines the pins that will appear on the 
+//  filter when it is first created.
+//
+const
+KSPIN_DESCRIPTOR_EX
+InitialPinDescriptors[] =
+{
+    //  Antenna Pin
+    //
+    {
+        &amp;AntennaPinDispatch,
+        &amp;AntennaAutomation,   // AntennaPinAutomation
+        {
+            0,  // Interfaces
+            NULL,
+            0,  // Mediums
+            NULL,
+            SIZEOF_ARRAY(AntennaPinRanges),
+            AntennaPinRanges,
+            KSPIN_DATAFLOW_IN,
+            KSPIN_COMMUNICATION_BOTH,
+            NULL,   // Name
+            NULL,   // Category
+            0
+        },
+        KSPIN_FLAG_DO_NOT_USE_STANDARD_TRANSPORT | 
+        KSPIN_FLAG_FRAMES_NOT_REQUIRED_FOR_PROCESSING | 
+        KSPIN_FLAG_FIXED_FORMAT,
+        1,      // InstancesPossible
+        0,      // InstancesNecessary
+        NULL,   // Allocator Framing
+        NULL    // PinIntersectHandler
+    }
+};</PRE>
+
+<P>Note that an initialized filter must have one or more input pins exposed so that the Microsoft® DirectShow® <B>IFilterMapper2</B> or <B>IFilterMapper</B> interface can locate that filter. See the Microsoft Windows Platform SDK documentation for information about these DirectShow interfaces.</P>
+
+<P>The following code snippet shows examples of a BDA_FILTER_TEMPLATE structure and related structures and arrays:</P>
+
+<PRE>const KSFILTER_DESCRIPTOR  TemplateTunerFilterDescriptor;
+const BDA_PIN_PAIRING  *TemplateTunerPinPairings;
+//
+//  BDA Template Topology Descriptor for the filter factory.
+//
+//  This structure defines the pin and node types that the network 
+//  provider can create on the filter and how they are arranged. 
+//
+const
+BDA_FILTER_TEMPLATE
+TunerBdaFilterTemplate =
+{
+    &amp;TemplateTunerFilterDescriptor,
+    SIZEOF_ARRAY(TemplateTunerPinPairings),
+    TemplateTunerPinPairings
+};
+//
+//  Filter Factory Descriptor for the tuner filter template topology
+//
+//  This structure brings together all of the structures that define
+//  the topologies that the tuner filter can assume as a result of
+//  pin factory and topology creation methods.
+//
+DEFINE_KSFILTER_DESCRIPTOR(TemplateTunerFilterDescriptor)
+{
+    &amp;FilterDispatch,             // Table of dispatch routines
+    &amp;FilterAutomation,           // Table of properties and methods
+    KSFILTER_DESCRIPTOR_VERSION, // Version
+    0,                           // Flags
+    &amp;KSNAME_Filter,              // Reference Guid
+    DEFINE_KSFILTER_PIN_DESCRIPTORS(TemplatePinDescriptors),
+                                   // PinDescriptorsCount
+                                   // PinDescriptorSize
+                                   // PinDescriptors
+    DEFINE_KSFILTER_CATEGORY(KSCATEGORY_BDA_RECEIVER_COMPONENT),
+                            // CategoriesCount
+                            // Categories
+    DEFINE_KSFILTER_NODE_DESCRIPTORS(NodeDescriptors),  
+                                    // NodeDescriptorsCount
+                                    // NodeDescriptorSize
+                                    // NodeDescriptors
+    DEFINE_KSFILTER_CONNECTIONS(TemplateTunerConnections),
+                               // ConnectionsCount
+                               // Connections
+    NULL                // ComponentId
+};
+//
+//  Lists how pairs of input and output pins are configured. 
+//
+//  Values given to the BDA_PIN_PAIRING structures in the list inform 
+//  the network provider which nodes get duplicated when more than one 
+//  output pin type is connected to a single input pin type or when
+//  more that one input pin type is connected to a single output pin 
+//  type. Also, informs of the joints array.
+//
+const
+BDA_PIN_PAIRING TemplateTunerPinPairings[] =
+{
+    //  Antenna to Transport Topology Joints
+    //
+    {
+        0,  // ulInputPin
+        1,  // ulOutputPin
+        1,  // ulcMaxInputsPerOutput
+        1,  // ulcMinInputsPerOutput
+        1,  // ulcMaxOutputsPerInput
+        1,  // ulcMinOutputsPerInput
+        SIZEOF_ARRAY(AntennaTransportJoints),   // ulcTopologyJoints
+        AntennaTransportJoints                  // pTopologyJoints
+    }
+};</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Starting%20a%20BDA%20Minidriver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

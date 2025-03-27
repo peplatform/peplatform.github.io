@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Data Flow Using Isochronous Pipes</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Data Flow Using Isochronous Pipes">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_data_flow_using_isochronous_pipes_ksg"></A>Data Flow Using Isochronous Pipes</H2>
+
+<P>Data buffers are allocated and submitted to the minidriver before a stream state change from Pause to Run. The number of buffers allocated is determined by the minidriver when a <A HREF="strclass-srbs_92ur.htm">SRB_GET_STREAM_PROPERTY</A> is sent with a property ID of <A HREF="ks-prop_6roz.htm">KSPROPERTY_CONNECTION_ALLOCATORFRAMING</A>. USBCAMD requests three frames for video pins and one frame for still pins.</P>
+
+<P>These buffers are queued in the read queue for the stream extension every time USBCAMD receives a <A HREF="strclass-srbs_469f.htm">SRB_READ_DATA</A> request. The stream class driver uses <A HREF="strclass-srbs_6377.htm">SRB_SET_STREAM_STATE</A> to request changing the stream state from Pause to Run. USBCAMD begins streaming on the isochronous channel by requesting two isochronous transfers of 32 packets. Each packet has a maximum size corresponding to the maximum size in the selected alternate setting.</P>
+
+<P>Streaming on the isochronous channel is independent of Microsoft® DirectShow® streaming. Double-buffer isochronous transfer requests are continuously submitted to USBCAMD and will not stop until one of the following two conditions occur:
+
+<OL>
+	<LI>A stop DirectShow stream state is issued (KSSTATE_STOP)</LI>
+
+	<LI>The camera minidriver requests USBCAMD to stop isochronous streaming using the <A HREF="usbcmdpr_2zsj.htm">USBCAMD_SetIsoPipeState</A> routine.</LI>
+</OL>
+
+<P>A dispatch level timer with 250 microseconds resolution is always active and ready to respond to an error condition while isochronous streaming is on.</P>
+
+<P>USBCAMD_TIMEOUT_STREAM_WAIT will be set when a hardware error causes a time-out on a data SRB. USBCAMD_STOP_STREAM will be set whenever there is a need to stop isochronous streaming.</P>
+
+<P>The interaction between USBCAMD and the camera minidriver takes place in two steps while streaming is in progress:
+
+<OL>
+	<LI>The first steps is at IRQL = DISPATCH_LEVEL. At this level, USBCAMD calls the camera driver's <A HREF="usbcmdpr_5mlv.htm">CamProcessUSBPacketEx</A> routine for every packet that USBCAMD receives back from the USB bus driver (USBD). The camera minidriver must set the appropriate error flags in the case of error conditions. The minidriver must also set a new frame flag if the beginning of a new frame is detected using the <I>FrameComplete</I> argument to <B>CamProcessUSBPacketEx</B>.</LI>
+
+	<LI>The second step occurs when a frame is completed. At this point USBCAMD calls the camera driver's <A HREF="usbcmdpr_45v7.htm">CamProcessRawVideoFrameEx</A> routine, from the context of a worker thread, to process a frame if there is a need to perform a color space conversion or decompression. USBCAMD will return a completed raw frame to the stream class driver and is processed by the camera minidriver at passive level. If there is insufficient frame data or an error occurred during decompression due to bad data, etc. then the <I>BytesReturned</I> argument to <B>CamProcessRawVideoFrameEx</B> must be set to 0.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Data%20Flow%20Using%20Isochronous%20Pipes"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

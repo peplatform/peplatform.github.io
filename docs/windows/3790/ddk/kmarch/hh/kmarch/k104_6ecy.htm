@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IoQueueWorkItem</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IoQueueWorkItem">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ioqueueworkitem_kr"></A>IoQueueWorkItem</H1>
+
+<P>The <B>IoQueueWorkItem</B> routine inserts a work item into a work queue. A system worker thread will subsequently remove the item from the queue and call the specified callback routine.</P>
+
+<PRE class=syntax><B>VOID
+</B>  <B>IoQueueWorkItem(</B>
+<B>    IN PIO_WORKITEM </B> <I>IoWorkItem</I><B>,</B>
+<B>    IN PIO_WORKITEM_ROUTINE</B>  <I>Routine</I><B>,</B>
+<B>    IN WORK_QUEUE_TYPE</B>  <I>QueueType</I><B>,</B>
+<B>    IN PVOID </B> <I>Context</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>IoWorkItem</I></DT>
+
+<DD>Pointer to the IO_WORKITEM structure that was obtained by a previous call to <A HREF="k104_2w4y.htm"><B>IoAllocateWorkItem</B></A>.</DD>
+
+<DT><I>Routine</I></DT>
+
+<DD>Pointer to the routine that will be called to process the work item. This routine will be called in the context of a system thread. This routine is declared as follows:
+
+<PRE>VOID
+(*PIO_WORKITEM_ROUTINE) (
+    IN PDEVICE_OBJECT DeviceObject,
+    IN PVOID Context
+    );</PRE>
+</DD>
+
+<DT><I>QueueType</I></DT>
+
+<DD>Specifies the type of work queue that the work item should be inserted. <I>QueueType</I> can be either of the following:
+
+<DL>
+<DT><B>DelayedWorkQueue</B></DT>
+
+<DD>Insert the work item into the queue from which a system thread with a variable priority attribute will process the work item.</DD>
+
+<DT><B>CriticalWorkQueue</B></DT>
+
+<DD>Insert the work item into the queue from which a system thread with a real-time priority attribute will process the work item.</DD>
+
+<DT><B>HyperCriticalWorkQueue</B></DT>
+
+<DD>Reserved for system use.</DD>
+</DL>
+
+
+<P>Drivers should use the <B>DelayedWorkQueue</B> value.
+</DD>
+
+<DT><I>Context</I></DT>
+
+<DD>Pointer to a caller-supplied context area to be passed to the callback routine.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>None</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comment</H4>
+
+<P>The callback routine executes within a system thread context at IRQL&nbsp;= PASSIVE_LEVEL. The callback  routine must call <A HREF="k104_6ek2.htm"><B>IoFreeWorkItem</B></A> to free the storage that the system allocated for the work item.</P>
+
+<P><A HREF="synchro_9y1z.htm">System worker threads</A> are a limited resource. Drivers must not permanently reserve a work item for the driver’s use. Work items are designed for operations that complete quickly. Drivers should free any work items that they allocate as soon as possible.</P>
+
+<P>A driver must not wait for its callback routine to complete an operation if it is already holding one synchronization object and might attempt to acquire another. For example, a driver should release any currently held semaphores, mutexes, resource variables, and so forth <I>before</I> it calls <B>IoQueueWorkItem</B>. Releasing synchronization resources before queuing a synchronous worker-thread operation prevents deadlocks.</P>
+
+<P>The value of <I>QueueType</I> determines the run-time priority at which the callback routine is run, as follows:
+
+<UL>
+	<LI>If the callback runs in the system thread with a real-time priority attribute, the callback routine cannot be preempted except by threads with higher real-time priorities.</LI>
+
+	<LI>If the callback runs in the system thread with a variable priority attribute, the callback can be preempted by threads with higher variable and real-time priorities, and the callback is scheduled to run round-robin with other threads of the same priority for a quantum each.</LI>
+</UL>
+
+<P>Threads at either priority remain interruptible.</P>
+
+<P>Callers of <B>IoQueueWorkItem</B> must be running at IRQL&nbsp;&lt;= DISPATCH_LEVEL.</P>
+
+<P><B>IoQueueWorkItem</B> should be used instead of <A HREF="k102_57hu.htm"><B>ExQueueWorkItem</B></A> because <B>IoQueueWorkItem</B> ensures that the device object associated with the specified work item cannot be removed before the callback routine has finished processing the work item.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k104_2w4y.htm">IoAllocateWorkItem</A>, <A HREF="k104_6ek2.htm">IoFreeWorkItem</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IoQueueWorkItem"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

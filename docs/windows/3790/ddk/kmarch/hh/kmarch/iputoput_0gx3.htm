@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using Direct I/O with DMA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using Direct I/O with DMA">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_using_direct_i_o_with_dma_kg"></A>Using Direct I/O with DMA</H3>
+
+
+
+<P><A NAME="ddk_figure_3..5_kg"></A>The following figure illustrates how the I/O Manager sets up an IRP_MJ_READ request for a DMA transfer operation that uses direct I/O.</P>
+
+<P><B><IMG SRC="images/3mdldrct.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Direct I/O on User Buffers for Devices that Use DMA</B></P>
+
+<P>The previous figure illustrates how drivers can use the IRP's<B> MdlAddress</B> to transfer data for a read request. The driver in the figure uses packet-based system or bus-master DMA, and has ORed the device object's <B>Flags</B> with DO_DIRECT_IO. 
+
+<OL>
+	<LI>Some range of user-space virtual addresses represents the current thread's buffer, and that buffer's contents might actually be stored on some number of physically discontiguous pages (dark shading in the previous figure). The I/O Manager creates an MDL to describe this buffer. An MDL is an opaque data structure, defined by the Memory Manager, that maps a particular virtual address range to one or more page-based physical address ranges.</LI>
+
+	<LI>The I/O Manager services the current thread's read request, for which the thread passes a range of user-space virtual addresses that represent a buffer.</LI>
+
+	<LI>The I/O Manager or FSD checks the user-supplied buffer for accessibility and calls <A HREF="k106_8ble.htm"><B>MmProbeAndLockPages</B></A> with the previously created MDL. <B>MmProbeAndLockPages</B> also fills in the corresponding physical address range in the MDL. 
+<P>As the previous figure shows, an MDL for a virtual range can have several corresponding page-based physical address entries, and the virtual range for a buffer might begin and end at some byte offset from the start of the first and last pages described by an MDL. 
+</LI>
+
+	<LI>The I/O Manager provides a pointer to the MDL (<B>MdlAddress</B>) in an IRP that requests a transfer operation. Until the I/O Manager or file system calls <A HREF="k106_0l6a.htm"><B>MmUnlockPages</B></A> after the driver completes the IRP, the physical pages described in the MDL remain locked down and assigned to the buffer. However, the virtual addresses in such an MDL can become invisible (and invalid), even before the IRP is sent to the device driver or to any intermediate driver that might be layered above the device driver. </LI>
+
+	<LI>If the driver uses packet-based system or bus-master DMA, its <A HREF="drvrrtns_7vea.htm"><I>AdapterControl</I></A> routine calls <A HREF="k106_5nhu.htm"><B>MmGetMdlVirtualAddress</B></A> with the IRP's <B>MdlAddress</B> pointer to get the base virtual address for the MDL's page-based entries. </LI>
+
+	<LI>The <I>AdapterControl</I> routine then calls <A HREF="kdma_1hv6.htm"><B>MapTransfer</B></A> with the base address returned by <B>MmGetMdlVirtualAddress</B>, to read data from the device directly into physical memory. (For more information, see <A HREF="iputoput_2wtj.htm">Adapter Objects and DMA</A>.)</LI>
+</OL>
+
+<P>Drivers should always check buffer lengths. Note that the I/O Manager does not create an MDL for a zero-length buffer.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20Direct%20I%2FO%20with%20DMA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

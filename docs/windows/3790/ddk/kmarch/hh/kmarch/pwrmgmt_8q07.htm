@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using Power Manager Routines for Idle Detection</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using Power Manager Routines for Idle Detection">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_using_power_manager_routines_for_idle_detection_kg"></A>Using Power Manager Routines for Idle Detection</H3>
+
+<P>The Power Manager provides support for idle detection through the <A HREF="portn_14he.htm"><B>PoRegisterDeviceForIdleDetection</B></A> and <A HREF="portn_1oqa.htm"><B>PoSetDeviceBusy</B></A> routines.</P>
+
+<P>To enable idle detection for its device, a device power policy owner calls <B>PoRegisterDeviceForIdleDetection</B>, specifying the following:
+
+<UL>
+	<LI>The idle time-out value to apply when the system optimizes for performance</LI>
+
+	<LI>The idle time-out value to apply when the system optimizes for conservation </LI>
+
+	<LI>The device power state to which the device should transition when idle.</LI>
+</UL>
+
+<P><B>PoRegisterDeviceForIdleDetection</B> returns a pointer to an idle counter, which the driver uses later to disable idle detection. Callers of <B>PoRegisterDeviceForIdleDetection</B> must be running at IRQL&nbsp;&lt; DISPATCH_LEVEL.</P>
+
+<P>A driver can register its device for idle detection any time after the device has been started and is ready to handle device power IRPs. For example, a driver might enable idle detection as part of its<I> IoCompletion</I> routine for a PnP start-device IRP. </P>
+
+<P>The time-out values for any given device should be proportional to the device's power-up latency and based on observed device behavior. For devices of certain types, a driver can specify conservation and performance time-out values of -1 to use the standard power policy time-outs for the device class. See the device-specific documentation for details. </P>
+
+<P>When the device is in use, the driver must call <A HREF="portn_1oqa.htm"><B>PoSetDeviceBusy</B></A>, passing the pointer returned by <B>PoRegisterDeviceForIdleDetection</B>. <B>PoSetDeviceBusy</B> resets the idle counter, thus restarting the idle countdown for the device. The driver should call <B>PoSetDeviceBusy</B> on every I/O operation. </P>
+
+<P>To determine whether the device is idle, the Power Manager compares the value of the idle counter with the driver-specified idle time-out value for the current system power policy (either conservation or performance). See the <I>Platform SDK</I> for functions pertaining to the system power policy.</P>
+
+<P>When the device satisfies the time-out value, the Power Manager sends a device set-power IRP, specifying the device power state that the driver passed in its call to <B>PoRegisterDeviceForIdleDetection</B>. The Power Manager does not send a query IRP before sending the set-power IRP. The drivers in the stack handle the set-power IRP as they would handle any other; they must complete it in a timely manner and they cannot fail it. (See <A HREF="pwrmgmt_4giv.htm">Handling Device Power-Down IRPs</A>.)  </P>
+
+<P>When the driver no longer requires idle detection or is not prepared to handle device power-down IRPs, it should call <B>PoRegisterDeviceForIdleDetection</B> again, passing zero for both time-out values. Setting the time-outs to zero disables idle detection for both conservation (battery) and performance (AC) power policies. The driver can quickly reenable idle detection; it simply calls <B>PoRegisterDeviceForIdleDetection</B> with nonzero time-out values. Once the driver has registered the device, it can enable and disable idle detection by changing the time-out values, even if the device has been powered down and reawakened. </P>
+
+<P><B></B></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20Power%20Manager%20Routines%20for%20Idle%20Detection"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

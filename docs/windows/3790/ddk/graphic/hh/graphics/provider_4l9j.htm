@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Converting Print Monitors for Use with Clustered Print Servers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Converting Print Monitors for Use with Clustered Print Servers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_converting_print_monitors_for_use_with_clustered_print_servers_gg"></A>Converting Print Monitors for Use with Clustered Print Servers</H2>
+
+<P>Clustering of print servers is a new feature of Windows®&nbsp;2000. Any printer port monitor that is intended to run on Windows&nbsp;2000 (or later) clusters must be modified so it can be called from multiple spooler instances (the node's spooler and a cluster spooler). The following steps must be taken:
+
+<UL>
+	<LI>The monitor's <A HREF="spoolfnc_0lgn.htm"><B>InitializePrintMonitor</B></A> function must be replaced with an <A HREF="spoolfnc_4m5j.htm"><B>InitializePrintMonitor2</B></A> function. The latter function returns a monitor instance handle.</LI>
+
+	<LI>Globally stored variables must be moved to locally allocated memory, and this memory must be associated with the monitor handle returned by <B>InitializePrintMonitor2</B>.</LI>
+
+	<LI>Calls to the Win32 registry API must be replaced with calls to the spooler's registry functions, addresses of which are passed to the monitor in a <A HREF="spoolfnc_0yef.htm">MONITORREG</A> structure. (See <A HREF="provider_8mxz.htm">Storing Port Configuration Information</A>.)</LI>
+
+	<LI>Port monitors must be divided into a <A HREF="provider_897r.htm#ddk_port_monitor_ui_dll_gg">port monitor UI DLL</A> and a <A HREF="provider_897r.htm#ddk_port_monitor_server_dll_gg">port monitor server DLL</A>. The UI DLL must communicate with the server DLL by calling the spooler's <A HREF="spoolfnc_2gtj.htm"><B>XcvData</B></A> function.</LI>
+
+	<LI>A <A HREF="spoolfnc_0y7b.htm"><B>Shutdown</B></A> function must be added.</LI>
+</UL>
+
+<P>Print monitors that are not converted can be used only in a nonclustered environment. They cannot be used with clustered servers.</P>
+
+<P>Once a printer port monitor running on a clustered node of a machine running Windows®&nbsp;2000 or later has made a connection (either across the network or locally), the port monitor should return from calls made by the spooler within a reasonable amount of time. (The default value of the spooler resource timeout is 180 seconds. See <A HREF="provider_6wfb.htm">Setting Port Timeout Values</A> for more information.) </P>
+
+<P>When a failover from one cluster node to another occurs, the spooler must wait for all current printing jobs to complete or fail. If a pending print job is held up in a port monitor for longer than the spooler resource timeout, the spooler may come back online in an incomplete state, with printers temporarily missing. This may affect users who have connections to those missing printers.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Converting%20Print%20Monitors%20for%20Use%20with%20Clustered%20Print%20Servers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

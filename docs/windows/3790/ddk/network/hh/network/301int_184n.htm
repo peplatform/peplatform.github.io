@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Registering an Intermediate Driver as a Miniport</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Registering an Intermediate Driver as a Miniport">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_registering_an_intermediate_driver_as_a_miniport_ng"></A>Registering an Intermediate Driver as a Miniport</H3>
+
+<P>An intermediate driver calls <A HREF="103ndisx_0sj7.htm"><B>NdisIMRegisterLayeredMiniport</B></A> to export its <I>MiniportXxx</I> functions. The <I>DriverHandle</I> that is returned by <B>NdisIMRegisterLayeredMiniport</B> must be retained by the intermediate driver and input to NDIS when the driver calls <A HREF="103ndisx_0jn6.htm"><B>NdisIMInitializeDeviceInstanceEx</B></A>. The<I> NdisWrapperHandle,</I> returned by a previous call to <A HREF="103ndisx_244y.htm"><B>NdisMInitializeWrapper</B></A>, must be passed to <B>NdisIMRegisterLayeredMiniport</B>. </P>
+
+<P>The intermediate driver must:
+
+<OL>
+	<LI>Zero-initialize a structure of type NDIS_MINIPORT_CHARACTERISTICS with <A HREF="103ndisx_1ype.htm"><B>NdisZeroMemory</B></A>. </LI>
+
+	<LI>Store the addresses of the mandatory <I>MiniportXxx</I> functions, as well as any optional <I>MiniportXxx </I>functions the driver exports. Any other <I>MiniportXxx</I> entry points must be set to NULL. </LI>
+</OL>
+
+<P>An intermediate driver that supports NDIS 5.1 features should register as a version 5.1 miniport. An intermediate driver that does not support NDIS 5.1 features should register either as a version 4.0 miniport or a version 5.0 miniport. For more information about specifying miniport driver version numbers, see <A HREF="203entry_33dz.htm">Specifying the NDIS Version Number</A>.</P>
+
+<P>You must set the following entries in <I>MiniportCharacteristics</I> to a valid <I>MiniportXxx</I> function address unless the function is optional and is not exported. If the driver does not export the function, set the address to NULL.
+
+<DL>
+<DT><B>HaltHandler</B></DT>
+
+<DD><A HREF="101mini_6stu.htm"><I>MiniportHalt</I></A> is a required function. NDIS calls <I>MiniportHalt</I> if the virtual miniport device that the intermediate driver exposed is disabled or stopped, or if the intermediate driver called <A HREF="103ndisx_1q7m.htm"><B>NdisIMDeInitializeDeviceInstance</B></A> to initiate its removal.</DD>
+
+<DT><B>InitializeHandler</B></DT>
+
+<DD>NDIS calls <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A> as a result of the intermediate driver calling <B>NdisIMInitializeDeviceInstanceEx</B> to initialize its miniport operations for the virtual miniport being initialized. </DD>
+
+<DT><B>QueryInformationHandler</B></DT>
+
+<DD><A HREF="101mini_2vw2.htm"><I>MiniportQueryInformation</I></A> receives OID_<I>XXX</I> requests originating from or passed through by an overlying driver that has called <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A> with a request type of <B>NdisRequestQueryInformation</B>. The intermediate driver might handle a request or pass it on to the underlying miniport driver.</DD>
+
+<DT><B>ResetHandler</B></DT>
+
+<DD>NDIS can call an intermediate driver’s <A HREF="101mini_5hiq.htm"><I>MiniportReset</I></A> function at the direction of a higher-level protocol driver that has called <A HREF="103ndisx_9ib6.htm"><B>NdisReset</B></A>.</DD>
+
+<DT><B>SetInformationHandler</B></DT>
+
+<DD><A HREF="101mini_7ng2.htm"><I>MiniportSetInformation</I></A> processes OID_<I>XXX</I> requests made by or passed through an overlying driver that has called <B>NdisRequest</B> with a request type of <B>NdisRequestSetInformation</B>. The intermediate driver might handle a request or pass it on to the underlying miniport driver.</DD>
+
+<DT><B>SendPacketsHandler</B></DT>
+
+<DD><A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A> receives an array of one or more pointers to packet descriptors that specify packets for transmission over the network. Every intermediate driver should supply a <I>MiniportSendPackets</I> function. For more information, see <A HREF="301int_6gyv.htm">Transmitting Packets Through an Intermediate Driver</A>. </DD>
+
+<DT><B>TransferDataHandler</B></DT>
+
+<DD>NDIS calls <A HREF="101mini_9a42.htm"><I>MiniportTransferData</I></A> to transfer the remaining part of a received packet that was not previously indicated up in the lookahead buffer passed by the intermediate driver to <B>NdisM</B><I>Xxx</I><B>IndicateReceive</B>. The intermediate driver might have processed the packet after having received it through the <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> function or <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A> function. <I>MiniportTransferData</I> is required if the intermediate driver indicates received packets to its overlying driver by calling any medium-specific <B>NdisM</B><I>Xxx</I><B>IndicateReceive</B> function except for <A HREF="103ndisx_9jaq.htm"><B>NdisMWanIndicateReceive</B></A>. If the intermediate driver always indicates packets to the overlying driver by calling <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, it need not provide a <I>MiniportTransferData</I> function. For more information about using the <I>MiniportTransferData </I>function, see <A HREF="204trnsf_0wdj.htm">Indicating a Receive Packet with an NdisMXxxIndicateReceive function</A>. </DD>
+
+<DT><B>ReturnPacketHandler</B></DT>
+
+<DD><A HREF="101mini_81ki.htm"><I>MiniportReturnPacket</I></A> receives a returned packet descriptor that it previously indicated to a higher-level driver by calling <B>NdisMIndicateReceivePacket</B>. The call to <B>NdisMIndicateReceivePacket</B> relinquishes control of the resources indicated to the higher-level driver. After the higher-level driver consumes each indication, the intermediate driver allocated packet descriptor and the resources it describes are returned to the <I>MiniportReturnPacket</I> function. Do not register a <I>MiniportReturnPacket</I> handler if the intermediate driver <I>always</I> calls a medium-specific <B>NdisM</B><I>Xxx</I><B>IndicateReceive</B> function to indicate packets, or if the driver <I>always</I> sets the status in the OOB data block associated with each packet descriptor to NDIS_STATUS_RESOURCES before it calls <B>NdisMIndicateReceivePacket</B>. </DD>
+
+<DT><B>CheckForHangHandler</B></DT>
+
+<DD>NDIS calls <A HREF="101mini_2zua.htm"><I>MiniportCheckForHang</I></A> at an NDIS-determined or, alternatively, at an intermediate-driver-determined interval. Generally, an NDIS intermediate driver does not provide a <I>MiniportCheckForHang</I> function because such a driver has no way to determine if an underlying NIC is hung. An intermediate driver probably would provide this handler if it was layered over a non-NDIS driver whose state is inaccessible to NDIS.
+</DD>
+</DL>
+
+<P>Certain miniport driver handler functions are never supplied by an intermediate driver. Reasons for this include: such drivers do not manage interrupting devices, such drivers do not allocate buffers at raised IRQL; or, in the case of the <B>ReconfigureHandler</B>, because NDIS currently does not call a <A HREF="101mini_5c6q.htm"><I>MiniportReconfigure</I></A> function. The following miniport driver handler functions are never supplied by an intermediate driver.
+
+<UL>
+	<LI><B>DisableInterruptHandler</B></LI>
+
+	<LI><B>EnableInterruptHandler</B></LI>
+
+	<LI><B>HandleInterruptHandler</B></LI>
+
+	<LI><B>ISRHandler</B></LI>
+
+	<LI><B>AllocateCompleteHandler</B></LI>
+
+	<LI><B>ReconfigureHandler</B></LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Registering%20an%20Intermediate%20Driver%20as%20a%20Miniport"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

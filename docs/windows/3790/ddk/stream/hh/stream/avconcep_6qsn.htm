@@ -1,0 +1,51 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Filter Control Mutex in AVStream</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_filter_control_mutex_in_avstream_ksg"></A>Filter Control Mutex in AVStream</H4>
+
+<P>The second mutex used in AVStream is the filter control mutex. Each AVStream filter instance has an associated filter control mutex. This mutex is used to synchronize access to the object hierarchy from the filter downward to individual pins. Creation and destruction of filters and pins are synchronized with this mutex. The filter control mutex is also used to synchronize state transitions. The main concern of the minidriver in dealing with the filter control mutex is in traversing the object hierarchy using the <B>Ks<I>Xxx</I>GetFirstChild<I>Xxx</I></B> and <B>Ks<I>Xxx</I>GetNextSibling<I>Xxx</I></B> functions. The object hierarchy is<I> </I>guaranteed to be stable <I>only</I> from a specific filter instance downward if the filter control mutex is held.</P>
+
+<P>AVStream also obtains the filter control mutex when handling properties that require the hierarchy to remain stable, such as when performing descriptor modification.</P>
+
+<P>Note that a single control mutex is used for the object hierarchy from the filter level downward.  This means that a pin object uses its parent’s control mutex (the filter control mutex) when a minidriver calls this function with a pin object. </P>
+
+<P>AVStream holds the filter control mutex on behalf of the minidriver during the following operations:
+
+<UL>
+	<LI>Filter Create dispatch</LI>
+
+	<LI>Filter Close dispatch</LI>
+
+	<LI>Pin Create dispatch</LI>
+
+	<LI>Pin Close dispatch</LI>
+
+	<LI>Pin Connect dispatch</LI>
+
+	<LI>Pin Disconnect dispatch</LI>
+
+	<LI>Pin Reset dispatch</LI>
+
+	<LI>Pin SetDataFormat dispatch</LI>
+
+	<LI>Pin SetDeviceState dispatch</LI>
+</UL>
+
+<P>It is important to note that, like the device mutex, the filter control mutex cannot be obtained recursively. If, for example, AVStream makes a callback to a minidriver for a Create dispatch in the context of thread A and the minidriver later attempts to obtain the mutex in that same thread (A), thread A deadlocks with itself.</P>
+
+<P>As mentioned in <A HREF="#ddk_filter_control_mutex_in_avstream_ksg">Filter Control Mutex in AVStream</A>, a thread that has taken a processing mutex should not subsequently take the filter control mutex. In addition, AVStream often obtains process mutexes while already holding control mutexes.</P>
+
+<P>To manipulate the filter control mutex, use the following functions:</P>
+
+<P><A HREF="avfunc_0xwz.htm"><B>KsAcquireControl</B></A>, <A HREF="avfunc_4blf.htm"><B>KsFilterAcquireControl</B></A>, <A HREF="avfunc_32yb.htm"><B>KsPinAcquireControl</B></A>, <A HREF="avfunc_3foz.htm"><B>KsReleaseControl</B></A>, <A HREF="avfunc_6tdf.htm"><B>KsFilterReleaseControl</B></A>, <A HREF="avfunc_5kqb.htm"><B>KsPinReleaseControl</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Filter%20Control%20Mutex%20in%20AVStream"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

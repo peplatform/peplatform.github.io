@@ -1,0 +1,94 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProtocolClOpenAfComplete</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProtocolClOpenAfComplete">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocolclopenafcomplete_nr"></A>ProtocolClOpenAfComplete</H1>
+
+<P>The <I>ProtocolClOpenAfComplete</I> function is used by all connection-oriented NDIS clients. Such clients must have <I>ProtocolClOpenAfComplete</I> functions to complete the asynchronous operations that they initiate with <A HREF="103ndisx_6quq.htm"><B>NdisClOpenAddressFamily</B></A>.</P>
+
+<PRE class=syntax><B>VOID 
+</B>  <B>ProtocolClOpenAfComplete(
+</B>    <B>IN NDIS_STATUS</B>  <I>Status</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>ProtocolAfContext</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisAfHandle
+</I>    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Status</I></DT>
+
+<DD>Specifies the final status of the client’s call to <B>NdisClOpenAddressFamily</B>, which can be any of the following: 
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>The address family has been opened, so the client can initialize its state at <I>ProtocolAfContext</I> and use the returned <I>NdisAfHandle</I> in subsequent calls to NDIS functions, such as <A HREF="103ndisx_8xde.htm"><B>NdisCoRequest</B></A>, <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A>, and <A HREF="103ndisx_22nm.htm"><B>NdisClRegisterSap</B></A>.</DD>
+
+<DT>NDIS_STATUS_RESOURCES</DT>
+
+<DD>The requested operation failed because NDIS or the call manager could not allocate sufficient memory or initialize the state one of them uses to track the client's open of this address family </DD>
+
+<DT>NDIS_STATUS_FAILURE</DT>
+
+<DD>NDIS failed this call, possibly for one of the following reasons:</DD>
+</DL>
+
+
+<UL>
+	<LI>The given address family does not match any AF that was registered for the underlying miniport driver to which the caller is bound.</LI>
+
+	<LI>The caller supplied invalid or insufficient information at <I>ClCharacteristics</I> to <A HREF="103ndisx_6quq.htm"><B>NdisClOpenAddressFamily</B></A>. </LI>
+
+	<LI>The caller's adapter binding is closing.</LI>
+
+	<LI>The call manager that registered the given address family is closing its adapter binding.</LI>
+</UL>
+</DD>
+
+<DT><I>ProtocolAfContext</I></DT>
+
+<DD>Specifies the client-supplied handle to its per-AF context area for this address family. The client allocated this area and passed this handle to NDIS in its call to <B>NdisClOpenAddressFamily</B>. </DD>
+
+<DT><I>NdisAfHandle</I></DT>
+
+<DD>If <I>Status</I> is NDIS_STATUS_SUCCESS, specifies an NDIS-supplied valid handle to this address family, effectively representing an association established with NDIS between the client and a particular call manager bound to the same connection-oriented NIC driver. Otherwise, this parameter is NULL. The client must save a valid handle, usually in its <I>ProtocolAfContext</I> area, for subsequent calls to <B>NdisCl/Co</B><I>Xxx</I> functions. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A call to <I>ProtocolClOpenAfComplete</I> indicates that some or all of the following has occurred:
+
+<UL>
+	<LI>NDIS validated some of the parameters that the client's <A HREF="104tdlow_2goi.htm"><I>ProtocolCoAfRegisterNotify</I></A> function passed to <A HREF="103ndisx_6quq.htm"><B>NdisClOpenAddressFamily</B></A>. If all were valid, NDIS saved the client's <B>ProtocolCl</B><I>Xxx</I> entry points. Then, NDIS called the <A HREF="104tdlow_5ape.htm"><I>ProtocolCmOpenAf</I></A> function of the call manager that just registered the specified address family with NDIS.  </LI>
+
+	<LI>The call manager (or MCM driver if the miniport driver controls a NIC with integrated call-management functionality) has examined the specification that the client's <A HREF="104tdlow_2goi.htm"><I>ProtocolCoAfRegisterNotify</I></A> function passed to <B>NdisClOpenAddressFamily</B> at <I>AddressFamily</I> and returned whether it was valid for this call manager to NDIS. </LI>
+</UL>
+
+<P>If the client's attempt to open an address family fails, NDIS cleans up its saved state before calling <I>ProtocolClOpenAfComplete</I>, which can release the resources that the client allocated for its call to <B>NdisClOpenAddressFamily</B> or prepare them for reuse.</P>
+
+<P>Otherwise, <A HREF="#ddk_protocolclopenafcomplete_nr"><I>ProtocolClOpenAfComplete</I></A> should set up whatever client-determined state the client will need for subsequent operations on the newly opened AF. In particular, the client must save the input <I>NdisAfHandle</I>, usually in the client's <I>ProtocolAfContext</I> area. For example, <I>ProtocolClOpenAfComplete</I> also might call <A HREF="103ndisx_352q.htm"><B>NdisInitializeNPagedLookasideList</B></A> one or more times in preparation for dynamic allocations and releases of per-SAP, per-VC, and/or per-party context areas that the client will need subsequently. </P>
+
+<P>If it accepts incoming calls, the client might proceed to allocate a per-SAP state area and call <A HREF="103ndisx_22nm.htm"><B>NdisClRegisterSap</B></A>. If it makes outgoing calls, the client might proceed to allocate a per-VC state area and create a VC with <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A> in anticipation of an incoming request from one of its own clients to make an outgoing call to a remote node.</P>
+
+<P><I>ProtocolClOpenAfComplete</I> must be written so that it can run at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="103ndisx_4m42.htm"><B>NdisAllocateMemoryWithTag</B></A>, <A HREF="103ndisx_72wi.htm"><B>NdisAllocateFromNPagedLookasideList</B></A>, <A HREF="103ndisx_6quq.htm"><B>NdisClOpenAddressFamily</B></A>, <A HREF="103ndisx_22nm.htm"><B>NdisClRegisterSap</B></A>, <A HREF="103ndisx_1bw2.htm"><B>NdisCmOpenAddressFamilyComplete</B></A>, <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A>, <A HREF="103ndisx_6sc2.htm"><B>NdisFreeMemory</B></A>, <A HREF="103ndisx_0kc2.htm"><B>NdisFreeToNPagedLookasideList</B></A>, <A HREF="103ndisx_352q.htm"><B>NdisInitializeNPagedLookasideList</B></A>, <A HREF="103ndisx_97xu.htm"><B>NdisMCmOpenAddressFamilyComplete</B></A>, <A HREF="104tdlow_5ape.htm"><I>ProtocolCmOpenAf</I></A>, <A HREF="104tdlow_2goi.htm"><I>ProtocolCoAfRegisterNotify</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProtocolClOpenAfComplete"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

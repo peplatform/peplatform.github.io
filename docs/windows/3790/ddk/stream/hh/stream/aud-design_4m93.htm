@@ -1,0 +1,31 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Hardware Events</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Hardware Events">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_hardware_events_ksg"></A>Hardware Events</H3>
+
+<P>Some audio devices provide hardware volume-control knobs, mute switches, or other types of manual controls. Applications can respond to changes in these controls by adjusting the volume or otherwise changing the way that the audio stream is played. When the user adjusts a hardware control, the miniport driver uses the <A HREF="audmp-routines_8ek3.htm"><B>IPortEvents</B></A> interface to inform the port driver that a hardware event has occurred. The port driver, in turn, notifies the application of the event so that it can read the new control setting from the device.</P>
+
+<P>Your miniport driver can query the port driver for the <B>IPortEvents</B> interface at the time that it services the <B>Init</B> call (see <A HREF="audmp-routines_12ur.htm"><B>IMiniportWavePci::Init</B></A>, for example) from the port driver. On Windows&nbsp;98&nbsp;SE, Windows&nbsp;Me, and Windows&nbsp;2000 and later, that query succeeds. For a code example, see the <I>sb16</I> sample audio adapter in the DDK.</P>
+
+<P>When the port driver calls your driver's <A HREF="audmp-routines_5k1f.htm"><B>IMiniport::GetDescription</B></A> method, the method outputs a <A HREF="audpc-struct_0otv.htm">PCFILTER_DESCRIPTOR</A> structure that specifies, among other things, the events that your device supports. The list of events is found in the structure's <B>AutomationTable.Events</B> member. Each event in the list is specified by a <A HREF="audpc-struct_3j1v.htm">PCEVENT_ITEM</A> structure. Your driver should set the PCEVENT_ITEM structure's <B>Set</B> and <B>Id</B> members to <A HREF="aud-prop_3var.htm">KSEVENTSETID_AudioControlChange</A> and KSEVENT_CONTROL_CHANGE, and should load a pointer to your driver's <A HREF="audmp-routines_1d4j.htm"><I>EventHandler</I></A> routine into the <B>Handler</B> member. Your driver should also set the PCEVENT_ITEM_FLAG_BASICSUPPORT bit in the <B>Flags</B> member to indicate basic support for control-change events, and it should set the PCEVENT_ITEM_FLAG_ONESHOT and/or PCEVENT_ITEM_FLAG_ENABLE bits to indicate that it supports one-shot and/or recurring notification.</P>
+
+<P>When an application later calls the <B>mixerOpen</B> function (described in the Platform SDK documentation) to request notification of a particular event, the port driver then calls your driver's <I>EventHandler </I>routine with a pointer to a <A HREF="audpc-struct_2kkz.htm">PCEVENT_REQUEST</A> structure. This structure's <B>Verb</B> member is set to PCEVENT_VERB_ADD and its <B>EventItem</B> member specifies the event that is to be enabled. The PCEVENT_REQUEST structure also contains a pointer to a <A HREF="ks-struct_4fub.htm">KSEVENT_ENTRY</A> structure that your driver should treat as opaque system data. After enabling the event, your handler should call <A HREF="audmp-routines_3w37.htm"><B>IPortEvents::AddEventToEventList</B></A> with the same KSEVENT_ENTRY pointer. With this call, the handler acknowledges that the event is enabled.</P>
+
+<P>When the hardware event occurs and your driver's interrupt-service routine detects a mute or a volume change, your driver signals the event to the port driver by calling <A HREF="audmp-routines_5e7n.htm"><B>IPortEvents::GenerateEventList</B></A> with a set of parameters that describe the event. For example, the following call describes a control change in a lineout-volume node:</P>
+
+<PRE>    pPE-&gt;GenerateEventList(NULL, KSEVENT_CONTROL_CHANGE,
+                           FALSE, ULONG(-1), TRUE, LINEOUT_VOL);</PRE>
+
+<P>During this call, the port driver searches its event list for all events that match the call parameters and sends notification to the clients that are monitoring these events. In this example, <I>pPE</I> is a pointer to the <B>IPortEvents</B> object, and LINEOUT_VOL is the node ID that the miniport driver assigns to the lineout-volume node. Unspecified parameters (such as the event-set GUID and pin ID in the example above) are treated as wildcards and always match the corresponding parameters in the list.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Hardware%20Events"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

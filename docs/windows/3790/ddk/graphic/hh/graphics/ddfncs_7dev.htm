@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>GetFlipStatus32</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_getflipstatus32_gg"></A><I>GetFlipStatus32</I></H1>
+
+<P>The <I>GetFlipStatus32</I> callback function determines whether the most recently requested flip on a surface has occurred and whether it is okay to do a flip.</P>
+
+<PRE class=syntax><B>DWORD
+  (FAR PASCAL *LPDDHALSURFCB_GETFLIPSTATUS)(</B>
+<B>    LPDDHAL_GETFLIPSTATUSDATA</B>  <I>lpGetFlipStatus</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>lpGetFlipStatus</I></DT>
+
+<DD>Points to a <A HREF="ddstrcts_8zon.htm">DD_GETFLIPSTATUSDATA</A> structure that contains the information required to perform the flip status query.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>GetFlipStatus32</I> returns one of the following callback codes:</P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_handled_gg">DDHAL_DRIVER_HANDLED</A> </P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_nothandled_gg">DDHAL_DRIVER_NOTHANDLED</A> </P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ddrawi.h</I>. Include <I>ddrawi.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>To perform a flip, the previous flip must be completed and the blitter cannot be busy. If the display has been through one refresh cycle since the previous flip, DD_OK is returned. If it has not been through a refresh cycle, DDERR_WASSTILLDRAWING is returned to indicate that this surface is still busy "drawing" the flipped page. DDERR_WASSTILLDRAWING is also returned if the blitter is busy and the caller is asking whether it is okay to flip. </P>
+
+<P><I>GetFlipStatus32</I> first checks to see whether a flip is pending by calling the <A HREF="ddfncs_1ktj.htm"><I>updateFlipStatus</I></A> function. If no flip is pending, it checks the blt engine to make sure that a blt is not being processed on the surface to which it is being flipped. Because it is not known for certain which surface is being targeted, the flip cannot occur until the blt engine is done. If a flip is pending, <I>GetFlipStatus32</I> sets the <B>ddRVal</B> member of the DDHAL_GETFLIPSTATUSDATA structure to the return value of <I>updateFlipStatus</I>. The value 0 is passed to <I>updateFlipStatus</I> to find out if a flip is pending on any surface. If the <B>dwFlags</B> member of the DDHAL_GETFLIPSTATUSDATA structure is set to DDGFS_CANFLIP and the <B>ddRVal</B> member (of the same structure) is DD_OK, then check to see whether the blt engine is busy, by using the DRAW_ENGINE_BUSY macro. If it is, the <B>ddRVal</B> member is changed to DDERR_WASSTILLDRAWING. Once these return values are set, DDHAL_DRIVER_HANDLED is returned because the request has been dealt with successfully. If the blitter is not busy, it continues with DDGFS_CANFLIP and returns DDHAL_DRIVER_HANDLED. </P>
+
+<P>The DRAW_ENGINE_BUSY macro in the following sample implementation can be written to test whether your blitter is busy. This is implementation-specific. </P>
+
+<P>The equivalent NT-based callback is <A HREF="ddfncs_4pev.htm"><I>DdGetFlipStatus</I></A>.</P>
+
+<P>The following is the sample implementation of <I>GetFlipStatus32</I>: </P>
+
+<PRE>/*
+ * GetFlipStatus32
+ *
+ * If the display has gone through one refresh cycle since the flip
+ * occurred we return DD_OK. If it has not been through one refresh
+ * cycle we return DDERR_WASSTILLDRAWING to indicate that this surface
+ * is still busy "drawing" the flipped page. We also return
+ * DDERR_WASSTILLDRAWING if the blitter is busy and the caller wanted
+ * to know if a flip could be performed.
+ */
+DWORD __stdcall GetFlipStatus32(
+        LPDDHAL_GETFLIPSTATUSDATA lpGetFlipStatus )
+{
+    lpGetFlipStatus-&gt;ddRVal = updateFlipStatus( 0 );
+                              // Is a flip happening on any surface?
+
+    /*
+     * Check to see whether the blitter is busy, if someone wants to
+     * know if a flip can be performed
+     */
+    if( lpGetFlipStatus-&gt;dwFlags == DDGFS_CANFLIP )
+    {
+        if( (lpGetFlipStatus-&gt;ddRVal == DD_OK) &amp;&amp; DRAW_ENGINE_BUSY )
+        {
+            lpGetFlipStatus-&gt;ddRVal = DDERR_WASSTILLDRAWING;
+        }
+    }
+    return DDHAL_DRIVER_HANDLED;
+
+} /* GetFlipStatus32 */
+ </PRE>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddfncs_1ktj.htm"><I>updateFlipStatus</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: GetFlipStatus32"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

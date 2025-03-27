@@ -1,0 +1,55 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Implementation Example Using CreateDC</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_multimon_implementation_example_using_createdc"></A>Implementation Example Using CreateDC</H2>
+
+<P><B>CreateDC.</B> The graphics device interface (GDI) call understands "<B>\\.\DisplayX</B>" and works with the VDD to load the right driver for the device. The same syntax is used for Windows NT/Windows 2000. This is all that is needed for independent displays. The operating system may need to force multiple copies of the driver to load.</P>
+
+<P><B>DDML</B>. The GDI Display Driver Management Layer (DDML) is used for large desktop support. DDML makes multiple display drivers look like a single device to the Windows GDI. Each driver gets only its own drawing commands, which are (0,0) based. The driver does nothing different, even if each device has a different size, position, or color depth. The following occurs for large desktop support:
+
+<UL>
+	<LI>Device bitmaps are turned off.</LI>
+
+	<LI>Physical objects are shared (<B>DIB_Brush</B>, <B>DIB_Pen</B>). Be sure your driver checks the PRIVATEDATA bit in <B>DIB_Brush</B>. </LI>
+
+	<LI>The mouse pointer appears on only a single device <B>SetCursor</B>, which is called when the pointer switches to another device.</LI>
+</UL>
+
+<P><B>CreateDC to PatBlt</B>. For this support, the application calls <B>CreateDC</B>(0, "\\.\DisplayX",0,0). GDI gets the driver name from the registry, loads the display driver, forces a second instance by default, and calls <B>OEMEnable</B> with the device name. Driver calls <A HREF="multimon_4nce.htm"><B>VDD_OPEN</B></A> to convert the name to a handle (EBX); 1 is the handle for the VGA device. The driver calls <A HREF="multimon_7hrb.htm"><B>VDD_GET_DISPLAY_CONFIG</B></A> to get the display settings and device node handles, and then uses the device node to get the resource assignment.</P>
+
+<P class=note><B>Important</B>&nbsp;&nbsp;The driver must use these methods to get data. Do not read the registry directly, and do not query devices.</P>
+
+<P>When the driver enables the device, it fills in <I>pDevice</I>, but does not hook Int 2Fh. After <B>Enable</B> returns success, GDI returns the device context to the application. The application calls <B>PatBlt</B>  and <B>OEMBitBlt</B>. </P>
+
+<P>To complete this, the application calls <B>DeleteDC</B> , GDI calls <B>OEMDisable</B>, and the driver calls <A HREF="multimon_0s9x.htm"><B>VDD_CLOSE</B></A> on the handle. Then, GDI unloads the driver.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;To determine which driver to load, GDI gets the driver name from the software registry key for the device and then reads DRV2 (not DRV) in the registry. If DRV2 is not present, it is assumed the driver is not multimonitor aware. Device node does not start if DRV2 is missing.</P>
+
+<P>The following list summarizes implementation rules for multimonitor drivers:
+
+<UL>
+	<LI>The driver must access the blitter and framebuffer through relocatable memory-mapped I/O (MMIO) and a relocatable linear framebuffer.</LI>
+
+	<LI>Never map a MMIO or framebuffer selector in the miniVDD; always map it in the driver.</LI>
+
+	<LI>Use the handle of the current device (in EBX) when making the <A HREF="multimon_7hrb.htm"><B>VDD_GET_DISPLAY_CONFIG</B></A> main VDD call. This gets the correct resolution for the particular display, whether primary or secondary.</LI>
+
+	<LI>Since you can never access VGA resources while running as the secondary driver, the driver may need to be altered to support a software cursor-only flag. This would have to be implemented if hardware cursor support needs to access VGA resources.</LI>
+
+	<LI>Never issue an Int 2f from a secondary driver.</LI>
+
+	<LI>Never hook Int 2f from a secondary driver. This ensures that most of the Sswitch.asm code is never executed.</LI>
+
+	<LI>Never call the <B>GetProcAddress</B> function with the DISPLAY module name. With multiple drivers loaded, they are all named DISPLAY so you do not know which address will be returned.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Implementation%20Example%20Using%20CreateDC"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Additional Potential Problems for DVD Miniport Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Additional Potential Problems for DVD Miniport Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_additional_potential_problems_for_dvd_miniport_drivers_si"></A>Additional Potential Problems for DVD Miniport Drivers</H3>
+
+<H4>Details regarding Knowledge Base hotfix article Q197004, "Fatal Exception in CDVSD Starting Windows 98"</H4>
+
+<P>For Windows 98, the CDVSD.VXD IOS layer driver has been updated to accommodate DVD-ROM drives. The main CDVSD is at layer 13 (DRP_VSD_5), and a new “timer extender” layer is introduced at layer 14 (DRP_VSD_6) to extend the length of time DVD commands are allowed before a timeout occurs. If a system contains a DVD-ROM drive, there must be no custom VSDs “chained in” between CDVSD (DRP_VSD_5) and SCSIPORT (DRP_NT_MPD), because the IOS callback routine in CDVSD (label VSD_Callback) depends on the current call down chain pointer to get the address of CDVSD’s DRP. The current call down pointer will point to your custom VSD instead of CDVSD, ultimately resulting in a system crash. If you do not insert your custom VSD into the call down chain, but merely use the VSD to modify DCB structures for example, then this restriction does not apply. This problem has been corrected for Windows 98 Second Edition. </P>
+
+<P>Another restriction is that if you use a custom VSD to set the DCB’s DCB_DEV2_ATAPI_DEVICE flag (more information on this bit follows), your VSD must be located above SCSI1HLP.VXD in the IOS hierarchy (DRP_VSD_7 or lower), to prevent SCSI1HLP from being loaded and subsequently causing CDVSD’s VSD_Callback code to fail. SCSI1HLP normally is used in conjunction with ESDI_506 to convert SCSI commands to ATAPI and vice versa, but is not used for DVD-ROM devices. SCSI1HLP automatically loads itself if it sees DCB_DEV2_ATAPI_DEVICE set.</P>
+
+<P>SCSI1HLP can cause further problems with some devices. SCSI1HLP checks to see if MSCDEX is present; if it is present, CDVSD will not take over the CD-ROM drive because of the assumption that the MSCDEX driver will do a better job of dealing with a SCSI-1 CD-ROM drive than the p-mode IOS driver stack will. This leads to serious problems for PCI devices because they cannot share IRQs with real-mode devices.</P>
+
+<H4>Supporting Audio CDs</H4>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Here are the basic steps for supporting audio CDs in an ATAPI miniport driver:</B>
+
+<OL>
+	<LI>Return an ANSI value of 2 in the INQUIRY data.</LI>
+
+	<LI>Convert MODE SENSE and MODE SELECT CDBs from 6-byte to 12-byte CDBs. This involves:
+<OL type=a>
+	<LI>converting the 6-byte command value to a 12-byte command value (1Ah to 5Ah, and so on).</LI>
+
+	<LI>moving the allocation length value from byte 4 in the CDB to bytes 7-8.</LI>
+
+	<LI>zeroing out other CDB bytes above byte 5 (Windows 95 does not zero these out automatically).</LI>
+</OL>
+</LI>
+
+	<LI>Upon completing the command, the original CDB must be restored in the SRB. It is probably easiest to store the CDB in the miniport's SRB extension, and to restore it when the command completes.</LI>
+
+	<LI>Convert the parameter page format from ATAPI to SCSI (for MODE SENSE), and vice versa (MODE SELECT). This essentially means you must convert from an ATAPI format, which looks like this:
+<P>8-byte MODE PARAMETER HEADER
+
+<P>n-byte PARAMETER PAGE
+
+<P>..to or from a SCSI-2 format, which looks like this:
+
+<P>4-byte MODE PARAMETER HEADER
+
+<P>8-byte MODE BLOCK DESCRIPTOR
+
+<P>n-byte PARAMETER PAGE
+
+<P class=indent1>This means that the allocation length in the CDB will need to be increased or decreased by 4-bytes to account for the differences in the size of the parameter headers for SCSI-2 and ATAPI.</P>
+</LI>
+
+	<LI>Track the current block size for the CD-ROM drive, and return the correct logical block size in the block descriptor for MODE SENSE commands.
+<P>When CDVSD issues a MODE SENSE command, it is looking for a nonzero value in the block-length field of the block descriptor. When it finds a nonzero block length (which apparently indicates support for changeable block size), it will issue the same MODE SENSE command again, for current values rather than for changeable values. In this case it will expect the current block size for the device to be listed in the block length field (2048 or 2352 bytes). The ATAPI miniport must keep track of the current block size as given in the MODE SENSE commands (2048 is the default), and return this value in the block descriptor for MODE SENSE commands.
+</LI>
+
+	<LI>Insure that ScsiStatus is set to zero when a data underrun occurs. The NT 4 ATAPI miniport sample may not always do this correctly.</LI>
+</OL>
+
+<H4>Using the DCB_DEV2_ATAPI_DEVICE Bit</H4>
+
+<P>The port driver ESDI_506.PDR sets the DCB bit DCB_DEV2_ATAPI_DEVICE for the IDE ATAPI CD-ROM device that it controls. SCSI1HLP detects this bit during CONFIG_DCB time and chains itself into all IOPs directed at that device. When such a SCSI command is received by SCSI1HLP, it translates the command between SCSI  and ATAPI packet formats, so ESDI_506 sees only ATAPI commands. SCSI1HLP also translates ATAPI back to SCSI. When writing a SCSI miniport driver to replace the functionality of the ESDI_506 driver, this bit can be set by a custom VSD, subject to the restrictions discussed earlier in this section.</P>
+
+<H4>Implementing Atapi CD-Changer (Using DCB_DEV2_ATAPI_DEVICE)</H4>
+
+<P>The ATAPI changer driver shipped in OSR2 and Windows 98 is designed to work explicitly with ESDI_506.PDR. Specifically, it will look for the DCB_DEV2_ATAPI_DEVICE flag in the DCB created for the CD-ROM drive. This flag is never set if the IDE controller is using a SCSI miniport instead of </P>
+
+<P>ESDI_506.PDR. The ATAPI changer driver will also explicitly look for a SCSI miniport name of IDEATAPI.MPD if the DCB_DEV2_ATAPI_DEVICE flag is not set. If neither of these conditions are met, the ATAPI changer driver will not be loaded.</P>
+
+<P>Given this, you have a few options to support ATAPI changers:
+
+<UL>
+	<LI>You can write a small VSD that sets the DCB_DEV2_ATAPI_DEVICE for ATAPIdevices controlled by your SCSI miniport.</LI>
+
+	<LI>You can use the name "IDEATAPI.MPD" as your miniport name.</LI>
+
+	<LI>You can implement all the changer functionality in your SCSI miniport. This would involve returning INQUIRY data for each platter on the ATAPI changer (LUN0, LUN1, and so on). You would need to manage changing platters, and so on, in the miniport driver itself.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Additional%20Potential%20Problems%20for%20DVD%20Miniport%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

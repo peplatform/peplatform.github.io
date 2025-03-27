@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>OID_GEN_SUPPORTED_GUIDS</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="OID_GEN_SUPPORTED_GUIDS">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_oid_gen_supported_guids_nr"></A>OID_GEN_SUPPORTED_GUIDS</H1>
+
+<P>The OID_GEN_SUPPORTED_GUIDS OID requests the miniport driver to return an array of structures of the type NDIS_GUID. Each structure in the array specifies the mapping of a custom GUID (globally unique identifier) to either a custom OID or to an NDIS_STATUS that the miniport driver sends through <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A>.</P>
+
+<P>The NDIS_QUID structure is defined as follows:</P>
+
+<PRE class=syntax>typedef struct _NDIS_GUID {
+    GUID             Guid;
+    union {
+        NDIS_OID     Oid;
+        NDIS_STATUS  Status;
+    };
+    ULONG            Size;
+    ULONG            Flags;
+} NDIS_GUID, *PNDIS_GUID;</PRE>
+
+<P>The members of this structure contain the following information:
+
+<DL>
+<DT><B>Guid</B></DT>
+
+<DD>Specifies the custom GUID defined for the miniport driver.</DD>
+
+<DT><B>Oid</B></DT>
+
+<DD>Specifies the custom OID to which <B>Guid</B> maps.</DD>
+
+<DT><B>Status</B></DT>
+
+<DD>Specifies the NDIS_STATUS to which <B>Guid</B> maps.</DD>
+
+<DT><B>Size</B></DT>
+
+<DD>Specifies the size in bytes of each data item in the array returned by the miniport driver. If the fNDIS_GUID_ANSI_STRING or fNDIS_GUID_NDIS_STRING flag is set, <B>Size</B> is set to -1. Otherwise, <B>Size</B> specifies the size in bytes of the data item that the GUID represents. This member is specified only when the fNDIS_GUID_ARRAY flag is set.</DD>
+
+<DT><B>Flags</B></DT>
+
+<DD>The following flags can be combined by the OR operator to indicate whether the GUID maps to an OID or to an NDIS_STATUS string and to indicate the type of data that is supplied for the GUID:
+
+<DL>
+<DT>fNDIS_GUID_TO_OID</DT>
+
+<DD>Indicates that the NDIS_GUID structure maps a GUID to an OID.</DD>
+
+<DT>fNDIS_GUID_TO_STATUS</DT>
+
+<DD>Indicates that the NDIS_GUID structure maps a GUID to an NDIS_STATUS string.</DD>
+
+<DT>fNDIS_GUID_ANSI_STRING</DT>
+
+<DD>Indicates that a zero-terminated ANSI string is supplied for the GUID. </DD>
+
+<DT>fNDIS_GUID_UNICODE_STRING</DT>
+
+<DD>Indicates that a UNICODE string is supplied for the GUID.</DD>
+
+<DT>fNDIS_GUID_ARRAY</DT>
+
+<DD>Indicates that an array of data items is supplied for the GUID. The specified <B>Size</B> indicates the length of each data item in the array.</DD>
+
+<DT>fNDIS_GUID_ALLOW_READ</DT>
+
+<DD>When set, indicates that all users are allowed to use this GUID to obtain information. </DD>
+
+<DT>fNDIS_GUID_ALLOW_WRITE</DT>
+
+<DD>When set, indicates that all users are allowed to use this GUID to set information.
+</DD>
+</DL>
+</DD>
+</DL>
+
+<P><B>Note</B>&nbsp;&nbsp;By default, custom WMI GUIDs supplied by a miniport driver are only accessible to users with administrator privileges. A user with administrator privileges can always read or write to a custom GUID if the miniport driver supports the read or write operation for that GUID. Set the  fNDIS_GUID_ALLOW_READ and fNDIS_GUID_ALLOW_WRITE flags to allow all users to access a custom GUID. </P>
+
+<P>Note that all custom GUIDs registered by a miniport driver must set either fNDIS_GUID_TO_OID or fNDIS_GUID_TO_STATUS (never set both). All other  flags may be combined by using the OR operator as applicable.</P>
+
+<P>In the following example, an NDIS_GUID structure maps a GUID to OID_802_3_MULTICAST_LIST:</P>
+
+<PRE>NDIS_GUID    NdisGuid = {{0x44795701, 0xa61b, 0x11d0, 0x8d, 0xd4,
+                          0x00, 0xc0, 0x4f, 0xc3,
+                          0x35, 0x8c},
+                          OID_802_3_MULTICAST_LIST,
+                          6,
+                          fNDIS_GUID_TO_OID | fNDIS_GUID_ARRAY};</PRE>
+
+<P>A GUID is an identifier used by Windows Management Instrumentation (WMI) to obtain or set information. NDIS intercepts a GUID sent by WMI to an NDIS driver, it maps the GUID to an OID, and sends the OID to the driver. The driver returns the data items to NDIS, which then returns the data to WMI.</P>
+
+<P>NDIS also translates changes in NIC status into GUIDs that are recognized by WMI. When a miniport driver reports a change in NIC status using the <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A> function, NDIS translates the NDIS_STATUS indicated by the miniport driver into a GUID that NDIS sends to WMI.</P>
+
+<P>If a miniport driver supports customs GUIDs, it must support OID_GEN_SUPPORTED_GUIDS. This OID returns to NDIS the mapping of custom GUIDs to custom OIDs or NDIS_STATUS strings. After querying the miniport driver using OID_GEN_SUPPORTED_GUIDS, NDIS registers the miniport driver's custom GUIDs with WMI.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: OID_GEN_SUPPORTED_GUIDS"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,54 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Device Object Example for a SCSI HBA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Device Object Example for a SCSI HBA">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_device_object_example_for_a_scsi_hba_kg"></A>Device Object Example for a SCSI HBA</H2>
+
+<P>The following figure shows the device objects that are created for system with a PCI IEEE 1394 controller and a PCI SCSI adapter with a CD-ROM and partitionable disk device attached. Objects for devices attached to the IEEE 1394 controller are shown and described in <A HREF="01scsidr_3wvb.htm">Device Object Example for an IEEE 1394 Controller</A>.</P>
+
+<P><IMG SRC="images/kg201-2.gif" ALT="" BORDER=0></P>
+
+<P><B>Device Object Tree for CD-ROM and Disk Devices on a SCSI HBA</B></P>
+
+<P>Starting from the bottom of the figure, the following describes each device object and its associated driver:
+
+<OL>
+	<LI>The storage bus driver creates the FDO for the storage bus and attaches it to the storage bus PDO created by the PnP Manager (not shown in this figure). The structure of the device object tree below the storage bus FDO depends on the storage bus and how it is integrated into the system. Storage drivers above the port driver level do not interact with any of these lower objects. 
+<P>This figure shows the storage bus FDO created by the PCI bus driver for a system with a PCI bus. 
+</LI>
+
+	<LI>The PCI bus driver enumerates and creates a PDO for each storage adapter on its bus. The corresponding storage port driver creates an FDO and attaches it to the PDO for its adapter.
+<P>This figure shows two adapter PDOs: one for an IEEE 1394 controller (described in <A HREF="01scsidr_3wvb.htm">Device Object Example for an IEEE 1394 Controller</A>) and another for a SCSI HBA. The SCSI port driver and an associated miniport create an FDO and attach it to the SCSI adapter PDO. 
+</LI>
+
+	<LI>The storage port driver virtualizes target devices by creating a PDO for each target device attached to its adapter. This figure shows two such PDOs created by the SCSI port/miniport drivers: one for a hard drive and one for a CD-ROM.</LI>
+
+	<LI>One or more filter drivers can attach a filter device object (filter DO) to a target device PDO exported by a storage port driver. Such a filter driver can intercept and alter requests sent by the class driver to the target device, for example, to work around device-specific problems without requiring hardware-specific changes to the generic class or port drivers. 
+<P>This figure shows a filter DO attached by a CD audio filter driver to the CD-ROM's PDO.
+</LI>
+
+	<LI>A storage class driver creates an FDO and attaches it to next-lower device object, which is either a target device PDO exported by a storage port driver or a filter DO attached to the stack by an intervening filter driver. The class driver issues all subsequent requests to the storage device through the lower driver's device object.
+<P>This figure shows two such FDOs: one that represents a CD-ROM device, and one that represents Partition 0 of a hard drive. Partition 0 represents the entire raw disk, and always exists whether the drive is partitioned or not. 
+</LI>
+
+	<LI>A class driver can also act as a bus driver, returning a list of PDOs when the PnP Manager queries for its child devices (IRP_MN_QUERY_DEVICE_RELATIONS with <B>BusRelations</B>). For example, a driver of a partitioned media device such as a removable disk might return a list of PDOs representing its partitions. Higher-level drivers attach FDOs to these PDOs.
+<P>This figure shows three such PDOs, each representing a disk partition that can be addressed as a target device. 
+
+<P>In the case of a fixed disk, the partition manager attaches to the FDO that represents Partition 0 and handles PnP operations on behalf of all partitions. The activities of the partition manager are transparent to the disk class driver and any upper level filter drivers.
+</LI>
+
+	<LI>One or more filter drivers can be attached above a class driver. Unlike a lower level filter driver, an upper level filter driver intercepts IRPs sent to the class driver, and can alter them before forwarding them to next-lower device object. The filter driver can intercept any read-write requests and transform the data as necessary, as well as define additional I/O control codes (IOCTLs), for example, to enable a user application to supply passwords or other related information.
+<P>This figure shows a filter DO created by a disk-encryption filter driver and attached to the disk PDO for partition 1. 
+</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Device%20Object%20Example%20for%20a%20SCSI%20HBA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

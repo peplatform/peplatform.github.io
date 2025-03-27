@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Registering and Queuing a CustomTimerDpc Routine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Registering and Queuing a CustomTimerDpc Routine">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_registering_and_queuing_a_customtimerdpc_routine_kg"></A>Registering and Queuing a <I>CustomTimerDpc</I> Routine</H3>
+
+<P>A driver can register a <I>CustomTimerDpc</I> routine by calling the following routines, usually from its <I>AddDevice</I> routine:
+
+<OL>
+	<LI><A HREF="k105_9d0y.htm"><B>KeInitializeDpc</B></A> to register its <I>CustomTimerDpc</I> routine</LI>
+
+	<LI><A HREF="k105_6g4y.htm"><B>KeInitializeTimer</B></A> or <A HREF="k105_15pu.htm"><B>KeInitializeTimerEx</B></A> to set up a timer object</LI>
+</OL>
+
+<P>Subsequently, the driver can call <A HREF="k105_9mlu.htm"><B>KeSetTimer</B></A> or <A HREF="k105_57aq.htm"><B>KeSetTimerEx</B></A> to specify an expiration time and to add the timer object to the system's timer queue. When the expiration time is reached, the system dequeues the timer object and calls the <I>CustomTimerDpc</I> routine. The following figure illustrates these calls:</P>
+
+
+
+<P><A NAME="ddk__bmc_3ketmdpc.wmf__kg"></A><B><IMG SRC="images/3ketmdpc.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Using Timer and DPC Objects for a CustomTimerDpc Routine</B></P>
+
+<P>As the previous figure shows, the driver must supply storage for both a DPC object and a timer object. Most drivers provide the storage for these objects in a <A HREF="devobjts_1gdj.htm">device extension</A> or in other driver-allocated, resident memory.</P>
+
+<P>In the call to <B>KeSetTimer</B>, the driver passes pointers to the <I>Dpc</I> and <I>Timer</I> objects, along with a <I>DueTime</I> expressed in units of 100 nanoseconds, as shown in the previous figure. A positive value for <I>DueTime</I> specifies an <I>absolute expiration time </I>(since January 1, 1601) at which the <I>CustomTimerDpc</I> routine should be called. A negative value for <I>DueTime</I> specifies a <I>relative expiration time</I>.</P>
+
+<P>An absolute timer expires at a specific system time, so if the system time changes before the timer expires, the wait duration of an absolute timer is not affected. On the other hand, a relative timer always expires after the specified number of time units elapses, regardless of changes to the absolute system time.</P>
+
+<P>To invoke a <I>CustomTimerDpc</I> routine repeatedly, use <B>KeSetTimerEx</B> to set the timer and specify a recurring interval in the <I>Period</I> parameter. <B>KeSetTimerEx</B> is just like <B>KeSetTimer</B> except for this additional parameter.</P>
+
+<P>As shown in the previous figure, the call to <B>KeSetTimer</B> or <B>KeSetTimerEx</B> queues the timer object for a specified interval as follows:
+
+<OL>
+	<LI>When the <I>DueTime</I> expires, the timer object is dequeued and set to the Signaled state.</LI>
+
+	<LI>If every processor in the machine is currently running code at an IRQL greater than or equal to DISPATCH_LEVEL, the DPC<I> </I>object associated with the timer object is put in a DPC queue. Otherwise, the <I>CustomTimerDpc</I> routine is called.</LI>
+
+	<LI>If the DPC object was already in the queue when the <I>DueTime</I> interval expired, the <I>CustomTimerDpc</I> routine is called as soon the IRQL on any processor in the machine falls below DISPATCH_LEVEL.
+<P>The <I>CustomTimerDpc</I> routine, like all DPCs, is called at IRQL DISPATCH_LEVEL.
+</LI>
+</OL>
+
+<P>The smallest time interval that can be specified to <B>KeSetTimer</B> and <B>KeSetTimerEx</B> is approximately ten milliseconds, so a driver can use a <I>CustomTimerDpc</I> routine when timing smaller intervals than an <I>IoTimer</I> routine, which is run once per second, can handle.</P>
+
+<P>Only one instantiation of a given timer object can be queued at any given moment. Calling <B>KeSetTimer</B> or <B>KeSetTimerEx</B> again with the same <I>Timer</I> object pointer cancels the queued timer object and resets it.</P>
+
+<P>Setting up a <A HREF="drvrrtns_0iwi.htm"><I>CustomTimerDpc</I></A> routine is exactly like setting up a <A HREF="drvrrtns_3tbm.htm"><I>CustomDpc</I></A> routine, with an additional step to initialize the timer object. In fact, their prototypes are identical, but <I>CustomTimerDpc</I> routine cannot use the two <I>SystemArgument</I> pointers declared in its prototype.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Registering%20and%20Queuing%20a%20CustomTimerDpc%20Routine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

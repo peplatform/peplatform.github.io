@@ -1,0 +1,70 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>V86MMGR_Allocate_Buffer</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_1950"></A>V86MMGR_Allocate_Buffer</H1>
+
+<PRE>include v86mmgr.inc
+
+mov     ebp, OFFSET32 ClientRegisters
+mov     ebx, VMHandle
+mov     ecx, NumBytes
+stc                      ; set carry flag to copy, clear otherwise
+lfs     esi, FarPtrMem   ; extended memory to copy if carry set
+VxDcall V86MMGR_Allocate_Buffer
+jc      error_handler
+mov     [BytesCopied], ecx
+mov     [FarPtrBuffer], edi
+ </PRE>
+
+<P>Allocates a portion of the current virtual machine's translation buffer, and optionally copies data into the buffer. Uses ECX, EDI, Flags. 
+
+<UL>
+	<LI>Returns with the carry flag clear if successful, or set otherwise. If successful, these registers contain these values: </LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=10%>ECX </TD>
+<TD width=90%>Actual number of bytes allocated in the translation buffer. Because this may be less than than the <I>NumBytes</I> parameter, you should preserve this value to pass to the <B>V86MMGR_Free_Buffer</B> service. For more information, see below. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>EDI </TD>
+<TD width=90%>Virtual 8086-mode address of the allocated portion of the translation buffer. The segment address is in the high-order word, the offset address in the low-order word. </TD>
+</TR>
+</TABLE><BR>
+
+<DL>
+<DT><I>ClientRegisters</I> </DT>
+
+<DD>Address of a <B>Client_Reg_Struc</B> structure containing the register values of the current VM. </DD>
+
+<DT><I>VMHandle</I> </DT>
+
+<DD>Handle of the current VM. The VM must be in protected mode. </DD>
+
+<DT><I>NumBytes</I> </DT>
+
+<DD>Number of bytes to copy if the carry flag is set, or the size of the buffer to allocate otherwise. </DD>
+
+<DT><I>FarPtrMem</I> </DT>
+
+<DD>Selector and offset address (in FS and ESI) of the extended memory to copy, if the carry flag is set. This parameter is ignored if the carry flag is clear. 
+</DD>
+</DL>
+
+<P>If the carry flag is set on entry, the service may return successfully (with the carry flag clear) yet allocate fewer bytes than are specified by <I>NumBytes</I> parameter. This is because the service ensures that number of bytes to copy plus the offset in ESI does not extend beyond the segment limit for the selector in FS. </P>
+
+<P>The buffers are maintained as a stack. Therefore, the last buffer allocated must be the first buffer freed. To free a buffer allocated by this service, use the <B>V86MMGR_Free_Buffer</B> service. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: V86MMGR_Allocate_Buffer"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

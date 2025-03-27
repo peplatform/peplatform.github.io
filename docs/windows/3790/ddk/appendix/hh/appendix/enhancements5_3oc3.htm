@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Memory Management Enhancements</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Memory Management Enhancements">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Appendix:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_supp_memory_management_enhancements"></A>Memory Management Enhancements</H1>
+
+<P>Windows&nbsp;XP provides improved memory management. The memory manager provides the system services to allocate and free virtual memory, share memory between processes, map files into memory, flush virtual pages to disk, retrieve information about a range of virtual pages, change the protection of virtual pages, and lock the virtual pages into memory. The memory manager also provides a number of services, such as allocating and deallocating physical memory and locking pages in physical memory for DMA transfers, to other kernel-mode components inside the executive as well as to device drivers.</P>
+
+<P>Memory management enhancements include the following:
+
+<UL>
+	<LI>Logical prefetcher for faster boot and application launch</LI>
+
+	<LI>Enhanced memory management for better scalability</LI>
+
+	<LI>Reduced paged pool usage </LI>
+
+	<LI>Increased number of system Page Table Entries (PTE) </LI>
+
+	<LI>Support of giant drivers </LI>
+</UL>
+
+<H3>Logical Prefetcher for Faster Boot and Application Launch</H3>
+
+<P>When a Windows&nbsp;XP system is booted, data is saved about all logical disk read operations. On later boots, this information is used to prefetch these files in parallel with other boot operations. During boot and application launch, a Windows system demands and pages a sizable amount of data in small chunks (4 KB to 64 KB), seeking between files, directories, and metadata. The Logical Prefetcher, which is new for Windows&nbsp;XP, brings much of this data into the system cache with efficient asynchronous disk I/Os that minimize seeks. During boot, the Logical Prefetcher finishes most of the disk I/Os that need to be done for starting the system in parallel to device initialization delays, providing faster boot and logon performance. </P>
+
+<P>Logical prefetching is accomplished by tracing frequently accessed pages in supported scenarios and efficiently bringing them into memory when the scenario is launched again. When a supported scenario is started, the transition page faults from mapped files are traced, recording which page of a file is accessed. When the scenario has completed (either the machine has booted or the application started), the trace is picked up by a user-mode maintenance service, the Task Scheduler. The information in the trace is used to update or create a prefetch-instructions file that specifies which pages from which files should be prefetched at the next launch. </P>
+
+<P>The user-mode service determines which pages to prefetch by looking at how successful prefetching has been for that scenario in the past, and which pages were accessed in the last several launches of the scenario. When the scenario is run again, the kernel opens the prefetch instructions file and asynchronously queues paging I/O for all of the frequently accessed pages. The actual disk I/Os are sorted by the disk drivers to go up the disk once to load all pages that are not already in memory. This minimizes seeks, cuts down on disk time, and increases performance. The kernel also prefetches the file system metadata for the scenario, for example, MFT entries and directory files. Because prefetching is useful only when the required data is not in memory, the applications that are launched frequently are not traced and prefetched each time.</P>
+
+<H4>Settings for Logical Prefetch</H4>
+
+<P>Registry setting:</P>
+
+<PRE>HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session
+Manager\Memory Management\PrefetchParameters
+RootDirPath - Key Name
+Reg_SZ     _ Data Type
+Prefetch    - Value &lt;default&gt;
+</PRE>
+
+<P>Value Names:</P>
+
+<PRE>EnablePrefetcher (DWORD)
+0x00000001= application launch prefetching
+0x00000002= boot prefetching</PRE>
+
+<P>Parameters are ANDed, so if all were enabled, the setting would be 0x00000003. The setting takes effect immediately. In Windows&nbsp;XP Server editions and later versions, only the boot prefetch is enabled by default. Application prefetch can be enabled by the registry setting cited here. The system boot prefetch file is in the <I>%systemroot%\Prefetch</I> directory. Although these prefetch-readable files can be opened using Notepad, they contain binary data that will not be recognized by Notepad. If you are going to view these file, make them read only or copy them to a different location before opening.</P>
+
+<H3>Scalability Improvements Due to Reduced Lock Contention</H3>
+
+<P>After significant analysis to identify the resource synchronization incurring the highest contention, the memory management subsystem has gone through numerous changes for Windows&nbsp;XP to reduce Page Frame Number (PFN), address windowing, system PTE, and dispatcher lock contention. The changes removed numerous unnecessary locks and in many cases redesigned the type of locking done, improving both scalability and performance.</P>
+
+<H3>Improved Caching and Backup Due to Dynamic Paged Pool Usage </H3>
+
+<P>A major redesign of some internal Memory Manager structures causes substantially less paged pool to be consumed, allowing for greater caching capacity and faster response. </P>
+
+<P>Paged pool is now only allocated while a view is active and even then, only for an amount proportional to the actual view size. When a view is unmapped, that pool is then immediately available for reclaiming if the system detects that overall pool usage is high. This can be done because the pool can be dynamically reallocated and repopulated later if the caller requests the view again. Paged pool used to be allocated for an amount proportional to the section (file) size, regardless of the actual views that were ever used.
+
+<UL>
+	<LI>File backup of any size can now be accomplished, from a machine of any size. File back up of any size is possible because prototype PTEs are dynamically constructed and trimmed. It is possible to back up a 500-GB file from a 32-MB client, whereas previously you couldn’t back it up at all. </LI>
+
+	<LI>Much greater availability of paged pool for any component that needs it, since the major amount of it (prototype PTEs) can now automatically grow and shrink dynamically in response to how the system is being used.</LI>
+</UL>
+
+<H3>Improved Server Scaling Due to Individual Page Charging</H3>
+
+<P>Greater scalability by reducing memory requirements for some operations. For example, a Web server that serves the same 4K page to 10,000 clients would require 40 MB, so that a lack of space could result in refusing requests. With Windows&nbsp;XP, only one page is charged, because the system knows that it’s the same page, not 10,000 separate pages. This provides a substantial boost in scalability. </P>
+
+<H3>Improved Terminal Server and Network Server Scaling Due to Increased Number of System PTEs</H3>
+
+<P>The number of system Page Table Entries (PTE) has been increased to a maximum of approximately 1.3 GB, of which just under 1&nbsp;GB is virtually contiguous. This is approximately twice as many PTEs as were available in Windows&nbsp;2000 and six times more than in Windows NT 4.0. This is subject to system configuration, such as RAM, registry switches, and other factors. Currently, a system must:
+
+<UL>
+	<LI>Be booted <I>without</I> the<B> /3GB</B> switch.</LI>
+
+	<LI>Have 128 MB or more of RAM.</LI>
+
+	<LI>Not have the registry key set that allows this RAM to be used for system cache (as it must be used for system PTEs instead).</LI>
+
+	<LI>Not have registry keys set to make session space or system mapped views larger than the default 48 MB. </LI>
+</UL>
+
+<P>On an x86-based systems with 256 MB, the changes made it possible to allocate a 960-MB contiguous mapping. The new mapping is made to keep the PTEs contiguous; by not freeing this second huge chunk of PTEs into the generally available pool until the initial (smaller) PTE pool cannot satisfy a request. Thus, the system will not fragment a big PTE before a driver can access it. Drivers should only experience contention for this resource from another driver that wants a huge chunk, instead of from small random system or driver allocations that happen to occur first. </P>
+
+<P>These extra PTEs also greatly enhance any configuration where PTE usage is critical, for example Terminal Server scenarios, network servers with many concurrent I/Os, and so on.</P>
+
+<H3>Support of Giant Drivers Due to Increased Number of System PTEs</H3>
+
+<P>Windows&nbsp;XP supports giant driver mappings. Although video drivers are the most obvious benefactors, this also enables other specialized drivers that support large amounts of dedicated RAM. Windows&nbsp;XP supports nearly a gigabyte of virtual continuous space for a driver. This compares to support of about 220 KB for Windows&nbsp;2000 and about 100 KB for Windows NT 4.0.</P>
+
+<H3>Support of Direct Execution from ROM</H3>
+
+<P>Windows&nbsp;XP supports executing applications directly from ROM. This enables products like Windows NT Embedded to ship on ROMs, allowing manufacturers to ship systems without disk drives for specific markets.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Memory%20Management%20Enhancements"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

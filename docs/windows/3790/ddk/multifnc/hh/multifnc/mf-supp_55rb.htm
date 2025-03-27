@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using the System-Supplied Multifunction Bus Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using the System-Supplied Multifunction Bus Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_capabilities_dr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_query_capabilities_dr">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_read_config_dr">
+</OBJECT>
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_write_config_dr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Multifunction&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_using_the_system_supplied_multifunction_bus_driver_dg"></A>Using the System-Supplied Multifunction Bus Driver</H1>
+
+<P>If a device's underlying bus supports a multifunction bus standard, such as PC Card, the vendor for a multifunction device on an NT-based platform can use the system-supplied multifunction bus driver (<I>mf.sys</I>) to support the device. </P>
+
+<P>The <I>mf.sys</I> bus driver handles PnP enumeration of the device functions and arbitrates resources, such as I/O ports and IRQs, between the functions. The <I>mf.sys</I> driver handles power management for the child functions by power managing the parent multifunction device. </P>
+
+<P>To use <I>mf.sys</I>, a multifunction device must meet the following requirements:
+
+<UL>
+	<LI>The device's underlying bus must have a multifunction standard.</LI>
+
+	<LI>The <A HREF="JavaScript:hhobj_1.Click()">DEVICE_CAPABILITIES</A> of the child functions must be identical and must match those of the parent device. When queried for the device capabilities of a child function (<A HREF="JavaScript:hhobj_2.Click()">IRP_MN_QUERY_CAPABILITIES</A>), the <I>mf.sys</I> driver reports the device capabilities of the parent device. </LI>
+
+	<LI>The driver for the bus on which the multifunction device resides, such as <I>pcmcia.sys</I>, must handle any <A HREF="JavaScript:hhobj_3.Click()">IRP_MN_READ_CONFIG</A> and <A HREF="JavaScript:hhobj_4.Click()">IRP_MN_WRITE_CONFIG</A> requests. The <I>mf.sys</I> driver just passes these IRPs to the parent bus driver.</LI>
+
+	<LI>The functions must be independent: they cannot have start-order dependencies; the resource requirements for one function cannot be expressed in terms of the resources of another function (for example, function1 uses I/O port X and function2 uses portX + 200); and each function must be able to operate as a separate device, even if it is serviced by the same driver(s) as another function.</LI>
+</UL>
+
+<P>To use <I>mf.sys</I>, a vendor supplies an INF for the multifunction device that specifies <I>mf.sys</I> as the driver for the device. If a device completely and accurately conforms to the multifunction standard for its underlying bus, the vendor of such a device can use the system-supplied <I>mf.inf</I>. If a device does not completely conform to the standard, the vendor must provide a custom INF. </P>
+
+<P>In either case, the vendor also supplies drivers and INF files for the individual functions on the device. </P>
+
+<P>The following skeleton of a custom multifunction INF illustrates the required syntax for specifying <I>mf.sys</I> as the driver for a multifunction device:</P>
+
+<PRE>[Version]
+Signature = "$Windows NT$"
+; ...
+Class = Multifunction   ; the system-defined class for MF devices
+ClassGUID  = {4d36e971-e325-11ce-bfc1-08002be10318} ; GUID for MF
+; ...
+; ...
+[ControlFlags]
+ExcludeFromSelect = *   ; don't include PnP devices in a displayed list of 
+                        ; devices available for manual installation
+[Manufacturer]
+; ...
+; ...
+[<I>ModelsSection</I>]         ; models section
+; ...
+; ...
+[<I>DDInstall.</I>NT]          ; install section
+Include = mf.inf        ; specify that this device requires mf.sys
+Needs = MFINSTALL.mf
+; ...
+ 
+[<I>DDinstall</I>.NT.Services]
+Include = mf.inf
+Needs = MFINSTALL.mf.Services
+
+[<I>DDInstall</I>.NT.HW]
+AddReg=<I>DDInstall</I>.RegHW
+ 
+[<I>DDInstall</I>.RegHW]
+; put entries with child function hardware IDs here
+; ...
+ 
+; put override sections here...
+; ...
+ 
+[Strings]
+; ...</PRE>
+
+<P>Consider a combination LAN/modem PC Card device. Without any special multifunction support, such a device might be reported by the PCMCIA bus driver as a single modem device. With the additional support of a multifunction INF and the <I>mf.sys</I> bus driver, both functions of the device are enumerated. The following figure shows the sample device stacks that might be created for such a combo PC Card with the required multifunction support. </P>
+
+<P><IMG SRC="images/mf-layers.gif" ALT="" BORDER=0></P>
+
+<P><B>Sample Device Stacks for a Multifunction Device Enumerated by <I>mf.sys</I></B></P>
+
+<P>As shown in the preceding figure, the driver for the bus on which the multifunction device resides enumerates one device. The hardware ID in the multifunction INF file causes the PnP Manager to load the <I>mf.sys</I> bus driver as the function driver for the device. The <I>mf.sys</I> bus driver enumerates two child devices, a LAN device and a modem. </P>
+
+<P>The PnP Manager treats each child device like a typical device, locating INF files, loading the appropriate drivers, calling their AddDevice routines, and so forth until a device stack is created for each device. The <I>mf.sys</I> bus driver arbitrates the resources for the child devices and manages any other multifunction aspects of the device. The vendor of the multifunction card provides function drivers and INFs for the multiple functions (LAN and modem), just as if they were separate devices.</P>
+
+<P>The illustration focuses on the function drivers and parent bus drivers and their associated FDOs and PDOs. Any filter drivers (and filter DOs) are omitted for simplicity.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20the%20System-Supplied%20Multifunction%20Bus%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

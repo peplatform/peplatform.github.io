@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>KStrMethodHandler</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="KStrMethodHandler">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_kstrmethodhandler_ks"></A>KStrMethodHandler</H3>
+
+<P>The minidriver-provided <I>KStrMethodHandler</I> routine is called when Kernel Streaming receives an IOCTL_KS_METHOD. Provide a pointer to this handler in the relevant <A HREF="ks-struct_6cab.htm">KSMETHOD_ITEM</A> structure.</P>
+
+<PRE class=syntax><B>typedef NTSTATUS 
+  KStrMethodHandler(
+</B>    <B>IN     PIRP</B>  <I>Irp</I><B>,</B>
+    <B>IN     PKSIDENTIFIER</B>  <I>Request</I><B>,</B>
+    <B>IN/OUT PVOID</B>  <I>Data</I>
+<B>    ); </B></PRE>
+
+<H4>Parameters </H4>
+
+<DL>
+<DT><I>Irp</I></DT>
+
+<DD>Specifies the IRP that contains the method request.</DD>
+
+<DT><I>Request</I></DT>
+
+<DD>Specifies an aligned copy of the method parameter. This is typically a pointer to a <A HREF="ks-struct_8xf7.htm">KSMETHOD</A> structure.</DD>
+
+<DT><I>Data</I></DT>
+
+<DD>Specifies an aligned copy of the method data parameter or the system address of the original data parameter, depending on the flag that was specified in the <A HREF="ks-struct_6cab.htm">KSMETHOD_ITEM</A> structure for the method.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>Return STATUS_SUCCESS if the method is handled and the data buffer has been filled per the flag that was specified in KSMETHOD_ITEM. Alternatively, return STATUS_SOME_NOT_MAPPED if the method has been handled but the particular request has not been completed  and must be completed by the calling helper function. Return any other error message to indicate that the method is not supported or a parameter error has occurred.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ks.h</I>. Include <I>ks.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The minidriver specifies this routine's address in the <B>MethodHandler</B> member of the <A HREF="ks-struct_6cab.htm">KSMETHOD_ITEM</A> structure.</P>
+
+<P>The handler declaration used for <I>KStrMethodHandler</I> and <I>KStrSupportHandler</I> is also used for handlers of property and event sets, with the same parameters and return values.</P>
+
+<P>When a helper function such as <A HREF="ksfunc_8wc3.htm"><B>KsMethodHandler</B></A> calls a method handler whose data buffer is defined as a write or modify buffer, the method handler must set the <B>Information</B> member of the IO_STATUS_BLOCK structure for the <B>IoStatus</B> member within the IRP (<I>Irp</I> parameter) to the size of that data buffer. The minidriver sets the <B>Flags</B> member of the KSMETHOD_ITEM structure for the method to KSMETHOD_TYPE_WRITE or KSMETHOD_TYPE_MODIFY to define the method handler's data buffer as write or modify respectively. </P>
+
+<P>The following code snippet shows an example of an implementation of a method handler that sets the size of the returning data buffer in the IRP:</P>
+
+<PRE>NTSTATUS 
+  MethodHandler(PIRP pIrp, PKSIDENTIFIER Request, PVOID Data) {
+    NTSTATUS Status = STATUS_UNSUCCESSFUL;
+    // Pointer to hold the position on the Irp stack
+    PIO_STACK_LOCATION  pIrpStack  = NULL; 
+    ASSERT(pIrp);
+    if(Data) {
+        // Modify data here
+    }
+    // Find the current Irp stack.
+    pIrpStack = IoGetCurrentIrpStackLocation(pIrp);
+    if(pIrpStack) {
+        // Set the size of the returning Irp data.
+        pIrp-&gt;IoStatus.Information = 
+          pIrpStack-&gt;Parameters.DeviceIoControl.OutputBufferLength;
+        Status = STATUS_SUCCESS;
+    }
+    return(Status);
+}</PRE>
+
+<H4>See Also</H4>
+
+<P><A HREF="ks-struct_8xf7.htm">KSMETHOD</A>, <A HREF="ksfunc_8wc3.htm"><B>KsMethodHandler</B></A>, <A HREF="ks-struct_6cab.htm">KSMETHOD_ITEM</A>, <A HREF="ks-struct_8m2b.htm">KSMETHOD_SET</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: KStrMethodHandler"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

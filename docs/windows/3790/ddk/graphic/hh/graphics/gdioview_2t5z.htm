@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>GDI Color Space Conversions</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="GDI Color Space Conversions">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_gdi_color_space_conversions_gg"></A>GDI Color Space Conversions</H3>
+
+<P>GDI uses three RGB color spaces for its bitmap representations. In each of these color spaces, three bitfields, or <I>color channels</I>, are used to specify  the number of bits used for red, green, and blue, respectively, in a given color. To be able to match GDI's capabilities with bitmaps, video drivers must be able to convert from one RGB color space to another. </P>
+
+<P>GDI recognizes the following RGB color spaces:
+
+<UL>
+	<LI>5:5:5 RGB: five-bit color channels for red, green, and blue</LI>
+
+	<LI>5:6:5 RGB: a five-bit color channel for red, a six-bit color channel for green, and a five-bit color channel for blue</LI>
+
+	<LI>8:8:8 RGB: eight-bit color channels for red, green, and blue</LI>
+</UL>
+
+<P>In general, when converting from a color channel with more bits to one with fewer bits, GDI discards the lower-order bits. When the conversion goes from a color channel with fewer bits to one with more bits, all of the bits of the smaller channel are copied to the larger channel. To fill out the remaining bits of the larger channel, some of the bits of the smaller channel are copied again to the larger channel. The following table summarizes the rules that GDI uses to convert from one RGB color space to another. In this table, color channels whose values change in the conversion are shown in <B>bold</B> font style.</P>
+
+<H4>GDI Color Space Conversion Rules</H4>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=10%>From</TH>
+<TH align=left width=11%>To</TH>
+<TH align=left width=34%>Rule</TH>
+<TH align=left width=45%>Example</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>5:5:5</TD>
+<TD width=11%>5:6:5</TD>
+<TD width=34%>The most-significant bit (MSB) of the source's green channel is appended to the low-order end of the target's green channel.</TD>
+<TD width=45%>(0x15, <B>0x19</B>, 0x1D) becomes<BR>
+(0x15, <B>0x33</B>, 0x1D)<BR>
+Note that only the green channel changes. The 5-bit channel value of the source is 1 1001, in binary, which is converted to a 6-bit value, 11 0011.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>5:5:5</TD>
+<TD width=11%>8:8:8</TD>
+<TD width=34%>For each channel, the three MSBs of the source channel are appended to the lower-order end of the target channel.</TD>
+<TD width=45%>(<B>0x15</B>, <B>0x19</B>, <B>0x1D</B>) becomes<BR>
+(<B>0xAD</B>, <B>0xCE</B>, <B>0xEF</B>)<BR>
+In the red channel, 1 0101 becomes 1010 1101. Similar changes occur in the green and blue channels.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>5:6:5</TD>
+<TD width=11%>5:5:5</TD>
+<TD width=34%>Discard the least-significant bit (LSB) of the source's green channel.</TD>
+<TD width=45%>(0x15, <B>0x33</B>, 0x1D) becomes<BR>
+(0x15, <B>0x19</B>, 0x1D)<BR>
+Note that only the green channel changes. Discard the lowest bit <BR>
+of 11 0011 to get 1 1001.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>5:6:5</TD>
+<TD width=11%>8:8:8</TD>
+<TD width=34%>For the 5-bit (red and blue) channels of the source, copy the three MSBs from the source and append them to the lower-order end of the target. For the 6-bit green channel, copy the two MSBs from the source and append them to the lower-order end of the target.</TD>
+<TD width=45%>(<B>0x15</B>, <B>0x33</B>, <B>0x1D</B>) becomes<BR>
+(<B>0xAD</B>, <B>0xCF</B>, <B>0xEF</B>)<BR>
+In the red channel, 1 0101 becomes 1010 1101. In the green channel,11 0011 becomes<BR>
+1100 1111. The transformation in the blue channel is similar to that of the red channel.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>8:8:8</TD>
+<TD width=11%>5:5:5</TD>
+<TD width=34%>Discard the three LSBs from each channel of the source.</TD>
+<TD width=45%>(<B>0xAB</B>, <B>0xCD</B>, <B>0xEF</B>) becomes<BR>
+(<B>0x15</B>, <B>0x19</B>, <B>0x1D</B>)<BR>
+In the red channel, 1010 1011 becomes 1 0101. Similar transformations occur in the other two channels.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>8:8:8</TD>
+<TD width=11%>5:6:5</TD>
+<TD width=34%>Discard the three LSBs from the red and blue channels. Discard the two LSBs from the green channel.</TD>
+<TD width=45%>(<B>0xAB</B>, <B>0xCD</B>, <B>0xEF</B>) becomes<BR>
+(<B>0x15</B>, <B>0x33</B>, <B>0x1D</B>)<BR>
+In the green channel, 1100 1101 becomes 11 0011. The changes in the red and blue channels are identical to those of the previously-listed transformation.</TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: GDI%20Color%20Space%20Conversions"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

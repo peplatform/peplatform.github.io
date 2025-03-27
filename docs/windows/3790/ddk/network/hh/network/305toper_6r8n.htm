@@ -1,0 +1,68 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Sending and Receiving Connectionless Data</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Sending and Receiving Connectionless Data">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_sending_and_receiving_connectionless_data_ng"></A>Sending and Receiving Connectionless Data</H1>
+
+<P>A kernel-mode client can engage in connectionless communication by sending data over the network as soon as it has successfully opened a transport address in the underlying TDI transport. </P>
+
+<P>To receive data in this manner, the client must register its ClientEventReceiveDatagram and, possibly, ClientEventChainedReceiveDatagram handlers with the underlying transport or issue an explicit TDI_RECEIVE_DATAGRAM request to the underlying transport. </P>
+
+<P>For more information about opening a transport address and registering an event handler on that address, see <A HREF="305toper_2grr.htm">Opening a Transport Address</A>.</P>
+
+<H4>Sending a Datagram</H4>
+
+<P>The following figure shows how a TDI client sends a datagram to a remote-node address. </P>
+
+<P><IMG SRC="images/426-06b.gif" ALT="" BORDER=0></P>
+
+<P><B>Sending a Datagram</B></P>
+
+<P>As this figure shows, sending a datagram is similar to sending connection-oriented data. However, the local-node client submits a <A HREF="32ioctl_2msy.htm">TDI_SEND_DATAGRAM</A> request to its underlying transport on an open transport address, instead of a send request on an established endpoint-to-endpoint connection as already described in <A HREF="305toper_8x2f.htm">Sending and Receiving Connectino-Oriented Data</A>. </P>
+
+<P>A TDI_SEND_DATAGRAM IRP requests the underlying transport to transmit a client-supplied datagram to an unknown number of remote-node clients at a particular remote-node transport address. </P>
+
+<P>The local-node client with an open transport address can use <A HREF="34bldmac_3rhu.htm"><B>TdiBuildSendDatagram</B></A> to set up such a request. Along with the target remote-node address, the client provides buffered data that can be any size up to the maximum the TDI transport driver allows for datagram sends. The client can determine this limit by querying the underlying transport, as described already in <A HREF="305toper_8xrb.htm">Setting and Querying Information</A>. </P>
+
+<H4>Receiving a Datagram</H4>
+
+<P>The following figure shows how a kernel-mode client receives a datagram through its underlying transport from a remote node. </P>
+
+<P><IMG SRC="images/426-07b.gif" ALT="" BORDER=0></P>
+
+<P><B>Receiving a Datagram</B></P>
+
+<P>As this figure shows, receiving a datagram is similar to receiving connection-oriented data. However, the local-node client submits a <A HREF="32ioctl_7ype.htm">TDI_RECEIVE_DATAGRAM</A> request to its underlying transport on its open transport address, instead of a receive request on an established endpoint-to-endpoint connection as already described in <A HREF="305toper_8x2f.htm">Sending and Receiving Connection-Oriented Data</A>. </P>
+
+<P>However, the client can receive a datagram sent by any remote-node client that specifies the local client's open transport address as the destination of the datagram. Other local clients that have opened the same transport address can also receive the same datagram. </P>
+
+<P>A TDI_RECEIVE_DATAGRAM IRP requests the underlying transport to return a datagram from any remote-node client that has sent one to the local-node client's open transport address. The local-node client can use <A HREF="34bldmac_0aya.htm"><B>TdiBuildReceiveDatagram</B></A> to set up such a request. Along with a pointer to the file object that represents its open transport address, the client provides a buffer that can be any size up to the maximum the TDI transport driver allows for received datagrams. Because TDI transports never fragment datagrams, the local-node client usually issues one receive-datagram request to accept one datagram. </P>
+
+<P>When it satisfies such a request, the transport driver copies a received datagram into the client-supplied buffer and returns the transport address of the remote-node client that sent the datagram with the completed IRP. If the received datagram is too large for the buffer, the transport returns as much data as possible and discards the remaining data.</P>
+
+<P>A client can also receive a datagram from a remote node as an event notification by the underlying TDI transport driver. For these notifications, the transport removes its header from the TSDU that it receives from the remote node and calls the client’s registered <A HREF="35tdicli_82nm.htm">ClientEventReceiveDatagram</A>, or possibly the <A HREF="35tdicli_0jci.htm">ClientEventChainedReceiveDatagram</A> handler. ClientEventReceiveDatagram can do one of the following:
+
+<UL>
+	<LI>Return a not-accepted status immediately, effectively telling the transport that the TSDU is not of interest to the client.</LI>
+
+	<LI>Copy as much data as possible into an internal buffer and set up a TDI_RECEIVE_DATAGRAM request for the remainder of the TSDU if the transport provided only part of the data and return control.</LI>
+
+	<LI>Copy all of the TSDU into an internal buffer and return control.</LI>
+</UL>
+
+<P>Non-buffering transport drivers can discard data after a receive-datagram event indication if their clients do not copy the data or return an IRP. Buffering transport drivers retain a certain amount of datagram information that their clients can retrieve later by making explicit TDI_RECEIVE_DATAGRAM requests.</P>
+
+<P>The ClientEventChainedReceiveDatagram handler is always given read-only access to a full TSDU by the underlying transport. Consequently, this routine has no need to issue a TDI_RECEIVE_DATAGRAM request to the underlying transport or to process partial indications of received TSDUs. However, the client is responsible for calling <A HREF="33tdifun_67aq.htm"><B>TdiReturnChainedReceives</B></A> promptly to return the resources associated with such an indication to the NDIS miniport driver that originally allocated them. </P>
+
+<P>For more information about registering ClientEvent<I>Xx</I>x handlers, see <A HREF="305toper_2grr.htm">Opening a Transport Address</A>. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Sending%20and%20Receiving%20Connectionless%20Data"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

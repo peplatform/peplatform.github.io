@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using Session Protocol</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using Session Protocol">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_using_session_protocol_ng"></A>Using Session Protocol</H3>
+
+<P>The Windows Sockets switch uses its session protocol to transfer data over a SAN connection. If the switch transfers a small amount of data, it transfers that data within a control message. Each control message consists of a header and an optional payload of application data. If the switch transfers a large amount of data, it transfers that data using RDMA operations. </P>
+
+<P>This section describes how to set up and perform a data transfer.</P>
+
+<P><B>Note</B>&nbsp;&nbsp;Depending on the behavior of applications that load the switch, the switch optimizes its session protocol to reduce the overhead involved in transferring application data.</P>
+
+<P>This section also provides examples of how the switch's session protocol performs data transfers. However, these examples do not include definitive descriptions of these operations.</P>
+
+<H4>Setting Up a Data Transfer</H4>
+
+<P>The switch allocates a pool of control message buffers for each connected socket. The switch then makes calls to the SAN service provider's <A HREF="wsdpref_62gi.htm"><B>WSPRegisterMemory</B></A> function to register those message buffers to regions of physical memory. The switch uses part of the buffer pool to send flow control information to a remote peer when calling a SAN service provider's <A HREF="wsdpref_6rqq.htm"><B>WSPSend</B></A> function. The switch uses the other part of the pool to post message buffers to receive flow control information from a remote peer when calling a SAN service provider's <A HREF="wsdpref_5hte.htm"><B>WSPRecv</B></A> function. After the switch receives control messages, it immediately consumes them. After consuming control messages, the switch calls the SAN service provider’s <B>WSPRecv</B> function and passes receive buffers to post them again so they can receive additional control messages from a remote peer. </P>
+
+<H4>Transferring Application Data</H4>
+
+<P>The size of the data transfer affects how the switch will handle the data transfer operation. </P>
+
+<P>If an application requests to send a small amount of data, the switch transfers that data as described in <A HREF="wsdp_2dev.htm">Sending Urgent Data on a SAN</A>. </P>
+
+<P>If an application requests to send a large amount of data, the switch copies the initial portion of the data to a control message buffer that is used for sending. The header for this control message contains information that specifies the amount of application data. The switch then calls the SAN service provider’s <B>WSPSend</B> function to send this control message to the SAN socket's remote peer. </P>
+
+<P>The switch completes the transfer of application data in either of the following two ways:</P>
+
+<H4>Data Transfer to WSPRdmaRead-Supported Provider</H4>
+
+<P>The following figure shows an overview of how the switch completes the transfer of application data if the SAN service provider at the remote peer supports a <A HREF="wsdpref_7soi.htm"><B>WSPRdmaRead</B></A> function. The sequence that follows describes transferring application data in more detail.</P>
+
+<P><IMG SRC="images/apiflow7.gif" ALT="" BORDER=0></P>
+
+<P><B>Remote Peer Supports WSPRdmaRead</B></P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To transfer data when the remote peer supports WSPRdmaRead</B>
+
+<OL>
+	<LI>The local switch must call the SAN service provider's <A HREF="wsdpref_0sj6.htm"><B>WSPRegisterRdmaMemory</B></A> function to register RDMA memory for read access. In this case, the control header for the message buffer also identifies the descriptor for the RDMA memory that holds the application's remaining data. </LI>
+
+	<LI>The switch at the remote peer then calls <B>WSPRdmaRead</B> to transfer application data from RDMA memory to receiving buffers that the switch at the remote peer previously registered with <B>WSPRegisterMemory</B> calls. The SAN service provider transmits the buffered data in the background. Doing so allows applications that do not post more than one send at a time to post another send request while the SAN service provider sends buffered data. </LI>
+
+	<LI>The switch at the remote peer then calls <B>WSPSend</B> to send a control message to the local switch to indicate that the transfer is complete. </LI>
+
+	<LI>The local switch calls the <A HREF="wsdpref_76gi.htm"><B>WSPDeregisterRdmaMemory</B></A> function to release RDMA memory. </LI>
+
+	<LI>The local switch completes the application's send request. If the switch cannot fully register memory for the application's data buffers or if temporary memory cannot be fully allocated, it completes an application's send request with the WSAENOBUFS error code. </LI>
+</OL>
+
+<H4>Data Transfer to Non-WSPRdmaRead-Supported Provider</H4>
+
+<P>The following figure shows an overview of how the switch completes the transfer of application data if the SAN service provider at the remote peer does not support a <B>WSPRdmaRead</B> function. The sequence that follows describes transferring application data in more detail.</P>
+
+<P><IMG SRC="images/apiflow6.gif" ALT="" BORDER=0></P>
+
+<P><B>Remote Peer Does Not Support WSPRdmaRead</B></P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To transfer data when the remote peer does not support WSPRdmaRead</B>
+
+<OL>
+	<LI>The switch at the remote peer calls <B>WSPRegisterRdmaMemory</B> to register RDMA memory for write access. </LI>
+
+	<LI>The switch at the remote peer then calls <B>WSPSend</B> to send a control message to the local switch that indicates the location of RDMA memory to which the local switch can write. </LI>
+
+	<LI>The local switch calls the <A HREF="wsdpref_7c6q.htm"><B>WSPRdmaWrite</B></A> function to transfer application data to the RDMA memory. The SAN service provider transmits the buffered data in the background. Doing so allows applications that do not post more than one send at a time to post another send request while the SAN service provider sends buffered data. </LI>
+
+	<LI>The local switch calls the <A HREF="wsdpref_254i.htm"><B>WSPGetOverlappedResult</B></A> function to obtain the results of the transfer. For more information, see the <A HREF="wsdp_4b1j.htm">Completing Data Transfer Requests</A> section. </LI>
+
+	<LI>The local switch calls <B>WSPSend</B> to send a control message to the remote peer to indicate that the transfer is complete. </LI>
+
+	<LI>The switch at the remote peer calls <B>WSPDeregisterRdmaMemory</B> to release RDMA memory. </LI>
+
+	<LI>The local switch completes the application’s send request. If the switch cannot register memory for the application's data buffers or if temporary memory cannot be allocated, it completes an application's send request with the WSAENOBUFS error code. </LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20Session%20Protocol"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

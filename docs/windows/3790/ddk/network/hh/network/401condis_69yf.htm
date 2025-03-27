@@ -1,0 +1,60 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Making a Call</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Making a Call">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_making_a_call_ng"></A>Making a Call</H3>
+
+<P>The following figure shows a client making an outgoing call through a call manager.</P>
+
+<P><IMG SRC="images/cm_11.gif" ALT="" BORDER=0></P>
+
+<P><B>Making a Call Through a Call Manager</B></P>
+
+<P>The following figure shows a client making an outgoing call through an MCM driver.</P>
+
+<P><IMG SRC="images/fig1_11.gif" ALT="" BORDER=0></P>
+
+<P><B>Making a Call Through an MCM Driver</B></P>
+
+<P>Before making an outgoing call, a connection-oriented client must do the following:
+
+<UL>
+	<LI>Initialize call parameters in a structure of type <A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A>. The call manager or MCM driver typically uses the call parameters specified by the client to set up the call and to derive media parameters for use by the miniport driver.</LI>
+
+	<LI>Initiate the creation of a VC with <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A> (see <A HREF="401condis_0t47.htm">Creating a VC</A>).</LI>
+</UL>
+
+<P>On the successful return of <B>NdisCoCreateVc</B>, the client calls <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A> to initiate the call (see the two figures in this section).</P>
+
+<P>In its call to <B>NdisClMakeCall</B>, the client passes a pointer to the CO_CALL_PARAMETERS structure initialized previously. The client also passes an <I>NdisVcHandle</I> (returned by <B>NdisCoCreateVc</B>) that identifies the VC on which the client will transmit (and perhaps receive) data for the call. If the client is making a multipoint call (a call to more than one remote party), it also passes a <I>ProtocolPartyContext</I> that specifies a handle to a client-allocated resident context area in which the client will maintain per-party state for the initial party on the multipoint VC.</P>
+
+<P>The call to <B>NdisClMakeCall</B> causes NDIS to forward this request to the <A HREF="104tdlow_20oi.htm"><I>ProtocolCmMakeCall</I></A> function of the call manager or MCM driver with which the client shares the given <I>NdisVcHandle</I>. <I>ProtocolCmMakeCall</I> must validate the input call parameters that were set up by the client.</P>
+
+<P><I>ProtocolCmMakeCall</I> communicates (exchanges signaling messages) with network control devices to make a connection. A call manager calls <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A> to initiate such an exchange (see <A HREF="401condis_3z3b.htm">Sending Packets on a VC</A>). An MCM driver never calls <B>NdisCoSendPackets</B>. Instead, it transmits the data directly across the network. </P>
+
+<P>The call manager or MCM driver can modify the client-supplied call parameters while negotiating with relevant network components and can return different traffic parameters than the client originally gave to <B>NdisClMakeCall</B> (see <A HREF="401condis_16qv.htm">Incoming Request to Change Call Parameters</A>).</P>
+
+<P>An explicit <I>NdisPartyHandle</I> passed to <I>ProtocolCmMakeCall</I> indicates that the VC created by the client will be used for a multipoint call. The call manager or MCM driver must allocate and initialize any necessary resources required to maintain per-party state information and control the multipoint call.</P>
+
+<P>After a call manager has done all the necessary communication with its networking hardware as required by its medium, it must call <A HREF="103ndisx_3zzm.htm"><B>NdisCmActivateVc</B></A> to initiate the activation of the VC on which call data will be sent and perhaps received (see <A HREF="401condis_1wx3.htm">Activating a VC</A>). An MCM driver must call <A HREF="103ndisx_2xde.htm"><B>NdisMCmActivateVc</B></A>.</P>
+
+<P>When the underlying miniport driver is ready to make data transfers on the VC (that is, after the VC has been activated), a call manager calls <A HREF="103ndisx_460i.htm"><B>NdisCmMakeCallComplete</B></A>, and an MCM driver calls <A HREF="103ndisx_8a2a.htm"><B>NdisMCmMakeCallComplete</B></A>. At this point, the call manager or MCM driver should have negotiated with the network to establish call parameters for the VC, and the underlying miniport driver should have completed activation of the VC.</P>
+
+<P>In the call to <B>Ndis(M)CmMakeCallComplete</B>, the call manager or MCM driver passes the call parameters for the VC as a pointer to a structure of type CO_CALL_PARAMETERS. If the call manager has modified the call parameters as originally specified by the client, it can notify the client by setting the CALL_PARAMETERS_CHANGED flag in the CO_CALL_PARAMETERS structure.</P>
+
+<P>A call to <B>Ndis(M)CmMakeCallComplete</B> causes NDIS to call the <A HREF="104tdlow_3qia.htm"><I>ProtocolClMakeCallComplete</I></A> function of the client that originated the outgoing call. A call to <I>ProtocolClMakeCallComplete</I> indicates that the call manager has completed processing the client's request to establish a virtual connection with <B>NdisClMakeCall</B>. </P>
+
+<P>If the client's attempt to establish an outgoing call was successful, <I>ProtocolClMakeCallComplete</I> should check the CALL_PARAMETERS_CHANGED flag to determine whether the call parameters originally specified by the client were modified. If the flag is set, indicating that the call parameters were changed, <I>ProtocolClMakeCallComplete</I> should examine the returned call parameters to determine whether they are acceptable for this connection.</P>
+
+<P>If the call parameters are acceptable, <I>ProtocolClMakeCallComplete</I> simply returns control. If the call parameters are not acceptable and if the signaling protocol allows renegotiation at this point, the client can call <A HREF="103ndisx_7jhu.htm"><B>NdisClModifyCallQoS</B></A> to request a change in call parameters (see <A HREF="401condis_1j6v.htm">Client-Initiated Request to Close a Call</A>). If the signaling protocol does not allow renegotiation of unacceptable call parameters, <I>ProtocolClMakeCallComplete</I> must tear down the call with <B>NdisClCloseCall</B> (see <A HREF="401condis_3i07.htm">Client-Initiated Request to Close a Call</A>).</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Making%20a%20Call"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,159 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Call_Priority_VM_Event</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_1185"></A>Call_Priority_VM_Event</H1>
+
+<PRE>include vmm.inc
+
+mov     eax, PriorityBoost
+mov     ebx, VMHandle
+mov     ecx, Flags
+mov     edx, RefData
+mov     esi, OFFSET32 PriorityEventCallback
+mov     edi, TimeOut
+VMMCall Call_Priority_VM_Event
+mov     [EventHandle], esi
+ </PRE>
+
+<P>Calls the callback function immediately or schedules a priority event for the specified virtual machine. This is an asynchronous service. Uses Flags and ESI. </P>
+
+<P>Returns zero in ESI if the callback function was called immediately. Otherwise, returns the event handle in ESI. The handle can be used in a subsequent call to the Cancel_Priority_VM_Event service to cancel the event. 
+
+<DL>
+<DT><I>PriorityBoost</I></DT>
+
+<DD>Priority boost for the virtual machine. This parameter must be a value such that when added to the current execution priority, the result is within the range Reserved_Low_Boost to Reserved_High_Boost. This parameter can be 0 if no boost is necessary. Common priority boost values, from lowest to highest, are as follows: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=30%>Value </TH>
+<TH align=left width=70%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>Reserved_Low_Boost </TD>
+<TD width=70%>Reserved for use by system. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>Cur_Run_VM_Boost </TD>
+<TD width=70%>Use to boost the priority of each virtual machine, in turn, forcing them to run for their allotted time slices. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>Low_Pri_Device_Boost </TD>
+<TD width=70%>Use for operations that need timely processing but are not time critical. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>High_Pri_Device_Boost </TD>
+<TD width=70%>Use for time-critical operations that should not circumvent the critical section boost. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>Critical_Section_Boost </TD>
+<TD width=70%>Use to boost the priority of the virtual machine whenever it enters a critical section (calls <B>Begin_Critical_Section)</B>. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>Time_Critical_Boost </TD>
+<TD width=70%>Use for operations that require immediate processing, even when another virtual machine is in a critical section. For example, VPICD uses this when simulating hardware interrupts. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>Reserved_High_Boost </TD>
+<TD width=70%>Reserved for use by system. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>Forgetting to pass a priority value in the EAX register is a common error. 
+</DD>
+
+<DT><I>VMHandle</I></DT>
+
+<DD>Handle of the virtual machine to process the event. This value must be a valid VM handle. </DD>
+
+<DT><I>Flags</I></DT>
+
+<DD>A combination of these action flags: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=27%>Value </TH>
+<TH align=left width=73%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>PEF_Always_Sched </TD>
+<TD width=73%>Event is always scheduled, meaning the callback function is never called immediately. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>PEF_Dont_Unboost </TD>
+<TD width=73%>Priority of the virtual machine is not reduced after return from callback function. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>PEF_Time_Out </TD>
+<TD width=73%>Specifies that time-out value in the EDI register should be used. Available in Windows version 3.1 or later. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>PEF_Wait_For_STI </TD>
+<TD width=73%>Callback function is not called until the virtual machine enables interrupts in all threads. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>PEF_Wait_Not_Crit </TD>
+<TD width=73%>Callback function is not called until the virtual machine is not in a critical section or time-critical operation. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>PEF_Wait_Not_Time_Crit, PEF_Wait_Not_HW_Int </TD>
+<TD width=73%>Callback function is not called until the thread priority is below TIME_CRITICAL_BOOST. Useful to prevent an event from occurring while an interrupt is being simulated into a VM. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>All other values are reserved. 
+</DD>
+
+<DT><I>RefData</I></DT>
+
+<DD>Reference data to pass to the callback function. </DD>
+
+<DT><I>EventCallback</I></DT>
+
+<DD>Address of the callback function to install. For more information about the callback function, see <B>PriorityEventCallback</B>. </DD>
+
+<DT><I>TimeOut</I></DT>
+
+<DD>Number of milliseconds until the event times out. The service uses this parameter only if the PEF_Time_Out value is specified by <I>Flags</I>. 
+</DD>
+</DL>
+
+<P>The system carries out a task switch to the specified virtual machine if it is not the current virtual machine. If <I>PriorityBoost</I> is not zero, the service boosts the priority of the virtual machine before calling the callback function. </P>
+
+<P>If the amount of time specified by <I>TimeOut</I> elapses before the system can switch to the virtual machine, the system sets the carry flag and calls the callback function immediately regardless of which virtual machine is currently running. In this case, any requested priority boost is canceled even if <I>Flags</I> specified the PEF_Dont_Unboost value. The callback function should always check the carry flag to determine whether a time out occurred. </P>
+
+<P>For additional information about event callbacks, see <I>Event Callbacks</I>. </P>
+
+<H4>See Also</H4>
+
+<P><B>Adjust_Exec_Priority</B>, <B>Begin_Critical_Section</B>, <B>Call_When_Not_Critical</B>, <B>Call_VM_Event</B>, <B>Cancel_Priority_VM_Event</B>, <B>PriorityEventCallback</B>,<B> Call_Restricted_Event</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Call_Priority_VM_Event"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

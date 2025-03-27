@@ -1,0 +1,37 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Setting Up the System DMA Controller for Common-Buffer DMA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_setting_up_the_system_dma_controller_for_common_buffer_dma_kg"></A>Setting Up the System DMA Controller for Common-Buffer DMA</H4>
+
+<P>When <B>AllocateAdapterChannel</B> transfers control to a driver's <I>AdapterControl</I> routine, the driver "owns" the system DMA controller and a set of map registers. Then, the driver must call <A HREF="kdma_1hv6.htm"><B>MapTransfer</B></A> to set up the system DMA controller to use the driver-allocated common buffer before the driver sets up its device for the transfer operation. </P>
+
+<P>The driver supplies the following parameters to <B>MapTransfer</B>:
+
+<UL>
+	<LI>The adapter object pointer returned by <B>IoGetDmaAdapter</B> </LI>
+
+	<LI>A pointer to the MDL describing the driver-allocated common buffer </LI>
+
+	<LI>The <I>MapRegisterBase</I> handle passed to the driver's <I>AdapterControl</I> routine by <B>AllocateAdapterChannel</B></LI>
+
+	<LI>A pointer to a variable (<I>Length</I>) indicating the size in bytes of the driver-allocated common buffer</LI>
+
+	<LI>A Boolean value, indicating the direction of the transfer operation (TRUE for a requested transfer from system memory to the device)</LI>
+</UL>
+
+<P><B>MapTransfer</B> returns a logical address, which drivers that use system DMA must ignore. When<B> MapTransfer</B> returns control, the driver should set up its device for the DMA operation. The driver calls <B>MapTransfer</B> only once but continues to copy data between its common buffer and a locked-down user buffer until the requested transfer is done.</P>
+
+<P>The driver can call <A HREF="kdma_0muq.htm"><B>ReadDmaCounter</B></A> to determine how many bytes currently remain to be transferred in the common buffer; the driver can then continue to fill its common buffer with user data or copy data from its common buffer to the user buffer, depending on the direction of the DMA operation.</P>
+
+<P>When the transfer is complete or if the driver must return an error status for the IRP, the driver calls <A HREF="kdma_9cxe.htm"><B>FlushAdapterBuffers</B></A> to ensure that any data cached in the system DMA controller is read into system memory or written out to the device. Then the driver should call <A HREF="kdma_3bua.htm"><B>FreeAdapterChannel</B></A> promptly to release the system DMA controller for use by any driver (including itself).</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Setting%20Up%20the%20System%20DMA%20Controller%20for%20Common-Buffer%20DMA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

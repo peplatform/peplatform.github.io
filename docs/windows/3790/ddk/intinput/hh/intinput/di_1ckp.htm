@@ -1,0 +1,178 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Axis Selection Overrides</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Axis Selection Overrides">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Interactive&nbsp;Input&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_axis_selection_overrides_di"></A>Axis Selection Overrides</H3>
+
+<P>The DirectX 8.0 release introduces a new mechanism to provide hardware vendors with limited ability to modify how DirectInput assigns axes for HID-compliant devices. The initial axis selection is made through an association between a HID usage page/usage pair on the device with an axis instance. The axis instance is described in an optional registry sub-key under the "Axes" sub-key for the device type key. (Note that the <B>Axes</B> sub-key is also an optional key under the device type-key.) Within the <B>Axes</B> sub-key, the <B>Attributes</B> value stores a DIOBJECTATTRIBUTES structure. Before DirectX 8.0, the <B>wUsagePage</B> and <B>wUsage </B>fields in the DIOBJECTATTRIBUTES structure assigned a HID usage page and usage to an object on a non-HID device. These members were ignored for HID-compliant devices.</P>
+
+<P>With the release of DirectX 8.0, these members became relevant to HID-compliant devices as well. They describe the HID usage page and usage that DirectInput should reference to find a match for a specific DirectInput axis in the joystick data formats. Hardware vendors can take advantage of these fields to impose greater consistency in how DirectInput maps axes on different Windows operating systems. However, these are not a preferred mechanism for remapping axes.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Axis mapping is static, so the behavior is undefined if these values are changed while the device is in use. If the suggested match for an axis cannot be made, processing continues as though no mapping had been suggested. </P>
+
+<P>For example, imagine a joystick device designed for use on a platform with a complete implementation of the HID_USAGE_PAGE_GAME controls. Such a device might describe its X and Y axes in HID as:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=9%>Axis</TH>
+<TH align=left width=18%>Usage Page</TH>
+<TH align=left width=10%>Usage</TH>
+<TH align=left width=63%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=9%>X</TD>
+<TD width=18%>5</TD>
+<TD width=10%>24</TD>
+<TD width=63%>Game page, move left/right</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=9%>Y</TD>
+<TD width=18%>5</TD>
+<TD width=10%>25</TD>
+<TD width=63%>Game page, move forward/backward</TD>
+</TR>
+</TABLE><BR>
+
+<P>Because these scenarios are not directly recognized by DirectInput (or JoyHID) they are not very useful to games. To get them recognized as the X and Y axes by DirectInput, the following registry entries could be added:</P>
+
+<PRE>[<B><I>DIRECT_INPUT_TYPES</I></B>\ VID_vvvv&amp;PID_pppp)\Axes\0]
+     Binary Attributes = 00 00 00 00 05 00 24 00
+
+[<B><I>DIRECT_INPUT_TYPES</I></B>\ VID_vvvv&amp;PID_pppp)\Axes\1]
+     Binary Attributes = 00 00 00 00 05 00 25 00
+
+Where "<B><I>DIRECT_INPUT_TYPES</I></B>” is a token for the following root key:
+HKLM\SYSTEM\CurrentControlSet\Control\MediaProperties\PrivateProperties\Joystick\OEM</PRE>
+
+<P>This mechanism has been implemented in the DirectInput 7.0 and below interfaces, the DirectInput 8.0 interfaces, as well as <I>JoyHID.Vxd</I>, the VJoyD minidriver used for WinMM support.
+
+<DL>
+<DT>On Windows&nbsp;95/98/Me, there are three possible data paths for a USB game controller: </DT>
+</DL>
+
+<UL>
+	<LI>The IHV can provide a VJoyD minidriver VxD that reports the data in the same way any other VJoyD minidriver does. In this case, axis selection is completely under the control of the IHV.</LI>
+
+	<LI>DirectInput can use the HID implementation that is provided with the operating system to communicate with the device. In this case, axis selection is made according to the device firmware or the registry flags (as described previously).</LI>
+
+	<LI>The system default HID-to-VJoyD driver (<I>JoyHID.VxD</I>) can be used.</LI>
+</UL>
+
+<P>DirectInput uses <I>JoyHID.VxD</I> (via <I>VJoyD.VxD</I>) to read data for applications that specify a DIRECTINPUT_VERSION of less than 0x0700, or if the JOYTYPE_NOHIDDIRECT flag is specified for the device. If the DIRECT_INPUTVERSION is greater than or equal to 0x0700, DirectInput uses HID to interact with the device. </P>
+
+<P>When the JoyHID/VJoyD path is taken, the following tables match WinMM axes to HID usage page/usage pairs:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=14%>WinMM Axis</TH>
+<TH align=left width=38%>Usage Page</TH>
+<TH align=left width=48%>Usage</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>X</TD>
+<TD width=38%>HID_USAGE_PAGE_GENERIC</TD>
+<TD width=48%>HID_USAGE_GENERIC_X</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>&nbsp;</TD>
+<TD width=38%>HID_USAGE_PAGE_GENERIC</TD>
+<TD width=48%>HID_USAGE_GENERIC_RY</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>Y</TD>
+<TD width=38%>HID_USAGE_PAGE_GENERIC</TD>
+<TD width=48%>HID_USAGE_GENERIC_Y</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>&nbsp;</TD>
+<TD width=38%>HID_USAGE_PAGE_GENERIC</TD>
+<TD width=48%>HID_USAGE_GENERIC_RX</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>Z</TD>
+<TD width=38%>HID_USAGE_PAGE_GENERIC</TD>
+<TD width=48%>HID_USAGE_GENERIC_Z</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>&nbsp;</TD>
+<TD width=38%>HID_USAGE_PAGE_SIMULATION</TD>
+<TD width=48%>HID_USAGE_SIMULATION_THROTTLE</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>&nbsp;</TD>
+<TD width=38%>HID_USAGE_PAGE_GENERIC</TD>
+<TD width=48%>HID_USAGE_GENERIC_SLIDER</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>&nbsp;</TD>
+<TD width=38%>HID_USAGE_PAGE_GENERIC</TD>
+<TD width=48%>HID_USAGE_GENERIC_DIAL</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>R</TD>
+<TD width=38%>HID_USAGE_PAGE_SIMULATION</TD>
+<TD width=48%>HID_USAGE_SIMULATION_RUDDER</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>&nbsp;</TD>
+<TD width=38%>HID_USAGE_PAGE_GENERIC</TD>
+<TD width=48%>HID_USAGE_GENERIC_RZ</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>U</TD>
+<TD width=38%>HID_USAGE_PAGE_SIMULATION</TD>
+<TD width=48%>HID_USAGE_SIMULATION_THROTTLE</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>&nbsp;</TD>
+<TD width=38%>HID_USAGE_PAGE_GENERIC</TD>
+<TD width=48%>HID_USAGE_GENERIC_SLIDER</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>&nbsp;</TD>
+<TD width=38%>HID_USAGE_PAGE_GENERIC</TD>
+<TD width=48%>HID_USAGE_GENERIC_DIAL</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>&nbsp;</TD>
+<TD width=38%>HID_USAGE_PAGE_GENERIC</TD>
+<TD width=48%>HID_USAGE_GENERIC_RY</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>V</TD>
+<TD width=38%>HID_USAGE_PAGE_GENERIC</TD>
+<TD width=48%>HID_USAGE_GENERIC_RX</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>Note</B>&nbsp;&nbsp;Mappings for the R, U and V axes fall through to the next axis if a mapping is not found, whereas X, Y and Z mappings are completely independent of each other. This is because <I>VJoyD.VxD</I> only supports contiguous sets of axes (for example, X, Y, Z, R is supported, but X, Y, Z, U is not). The only exceptions to this rule are made for joysticks that use the precise combinations of X, Y and R, or X, Y, Z, R and V. This method of mapping helps to avoid the possibility that <I>JoyHID.VxD</I> makes axis assignments that <I>VJoyD.VxD</I> cannot tolerate. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Axis%20Selection%20Overrides"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

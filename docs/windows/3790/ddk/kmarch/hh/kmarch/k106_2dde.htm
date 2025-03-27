@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>MmLockPagableCodeSection</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="MmLockPagableCodeSection">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_mmlockpagablecodesection_kr"></A>MmLockPagableCodeSection</H1>
+
+<P>The <B>MmLockPagableCodeSection </B>routine locks a section of driver code, containing a set of driver routines marked with a special compiler directive, into system space.</P>
+
+<PRE class=syntax><B>PVOID 
+</B>  <B>MmLockPagableCodeSection(</B>
+<B>    IN PVOID </B> <I>AddressWithinSection</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>AddressWithinSection</I></DT>
+
+<DD>Specifies a symbolic address, usually the entry point of a driver routine, within the pageable section of driver code.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>MmLockPagableCodeSection</B> returns a handle for the locked-down section of driver code. The handle can be passed subsequently to <A HREF="k106_5vea.htm"><B>MmLockPagableSectionByHandle</B></A> or to <A HREF="k106_5jxu.htm"><B>MmUnlockPagableImageSection</B></A>.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P>This routine and its reciprocal, <B>MmUnlockPagableImageSection</B>, support drivers that can do the following:
+
+<UL>
+	<LI>Defer loading a subset of driver routines into resident memory until incoming I/O requests for the driver’s devices make it necessary for these routines to process IRPs</LI>
+
+	<LI>Make the same subset of driver routines available for paging out when they have completed the processing of I/O requests and no additional requests for the driver’s devices are currently expected</LI>
+</UL>
+
+<P><B>MmLockPagableCodeSection</B>, <B>MmLockPagableSectionByHandle</B> and <B>MmUnlockPagableImageSection</B> are intended for use by device and intermediate drivers that have the following characteristics:
+
+<UL>
+	<LI>The driver has code paths that might not be needed while the system is running, but, if they are needed, the driver’s code must be resident because it runs in an arbitrary thread context or at raised IRQL.</LI>
+
+	<LI>The driver can determine exactly when the pageable routines should be loaded and when they can be paged out again. </LI>
+</UL>
+
+<P>For example, the system-supplied fault-tolerant disk driver supports the creation of mirror sets, stripe sets, and volume sets. Yet, a particular machine can be configured only with a mirror set, only with a stripe set, only with a volume set, or with any combination of these three possible options. In these circumstances, the system ftdisk driver reduces the size of its loaded image by marking routines that explictly support mirror, stripe, and volume sets as belonging to pageable-code sections. During driver initialization, pageable-code sections are made resident only if the user has configured the disks to have mirror, stripe, or volume sets. If the user repartitions the disks dynamically, the ftdisk driver loads any additional pageable-code sections necessary to support any mirror, stripe, or volume sets that the user requests.</P>
+
+<P>As other examples, the system-supplied serial and parallel drivers have <I>DispatchCreate</I> and <I>DispatchClose</I> routines that are called when a particular port is opened for exclusive I/O and when the handle for an opened port is released, respectively. Yet, serial and parallel I/O requests are sporadic, determined by which applications the end user is currently running and which application options the end user is currently exercising. In these circumstances, the system serial and parallel drivers reduce the sizes of their loaded images by marking many routines as belonging to a pageable-code section that the <I>DispatchCreate</I> routine makes resident only when the first port is opened for I/O. </P>
+
+<P>Note that each of the preceding system drivers satisfies both criteria for having pageable sections: the driver has code paths that might not be needed while the system is running and the driver can determine exactly when its pageable section should be loaded and can be paged out again.</P>
+
+<P>Because it is an expensive operation to lock down a section, if a driver locks down a pageable-code section in more than one place, use <B>MmLockPagableCodeSection</B> for the first request. Make subsequent lock requests by calling <B>MmLockPagableSectionByHandle</B> passing the handle returned by <B>MmLockPagableCodeSection</B>. Locking by handle significantly improves driver performance because the memory manager uses the handle to find the section rather than searching a loaded module list. A locked down section is unlocked by calling <B>MmUnlockPagableImageSection</B>.</P>
+
+<P>Each driver routine within a pageable code section must be marked with the following compiler directive:</P>
+
+<P><B>#pragma alloc_text(PAGE</B><I>xxxx</I>, <I>DriverRoutine</I>)</P>
+
+<P>where <I>xxxx</I> is an optional four-character, unique identifier for the caller’s pageable section and <I>DriverRoutine</I> is an entry point to be included within the pageable-code section. The keyword <B>PAGE</B> and the driver-determined suffix, which can be up to four characters, are case-sensitive; that is, <B>PAGE</B> must be capitalized.</P>
+
+<P>A single call to <B>MmLockPagableCodeSection</B> in, for example, a driver’s <I>DispatchCreate</I> routine, causes the entire section, containing every driver routine marked with the same <B>PAGE</B><I>xxxx</I> identifier, to be locked in system space.</P>
+
+<P>Certain types of driver routines cannot be made part of any driver’s pageable section, including the following:
+
+<UL>
+	<LI>Never make an ISR pageable. It is possible for a device driver to receive a spurious interrupt even if its device is not in use, particularly if the interrupt vector could be shared. In general, even if a driver can explictly disable interrupts on its device, an ISR should not be made pageable.</LI>
+
+	<LI>Never make a DPC routine pageable if the driver cannot control when the DPC is queued, such as any <I>DpcForIsr</I> or <I>CustomDpc</I> routine that might be queued from an ISR. In general, driver routines that run at raised IRQL and that can be called in an arbitrary thread context or in response to a random external event should not be made pageable.</LI>
+
+	<LI>Never make the <I>DispatchRead</I> or <I>DispatchWrite</I> routine pageable in any driver that might be part of the system paging I/O path. The driver of a disk that might contain the system page file must have <I>DispatchRead</I> and <I>DispatchWrite</I> routines that are resident while the system is running, as must all drivers layered above such a disk driver.</LI>
+</UL>
+
+<P>Note that routines in a pageable section marked with the compiler directive <B>#pragma alloc_text(PAGExxxx, ...)</B>differ from routines marked with the compiler directive <B>#pragma alloc_text(INIT, ...)</B>. The routines in the <B>INIT </B>section are not pageable and are discarded as soon as the driver returns from its <B>DriverEntry</B> or its <I>Reinitialize</I> routine, if it has one.</P>
+
+<P>The Memory Manager maintains an internal lock count on any driver’s pageable-section. Calls to <B>MmLockPagableCodeSection</B> increment this count and the reciprocal <B>MmUnlockPagableImageSection</B> decrements the count. A driver’s pageable section is not available to be paged out unless this count is zero.</P>
+
+<P>Callers of <B>MmLockPagableCodeSection </B>and <B>MmLockPagableDataSection</B> must take care to use the former for code sections and the latter for data sections. If the incorrect form of <B>MmLockPagable<I>Xxxx</I>Section</B> is used, a fatal error will occur on some platforms.</P>
+
+<P>For more information on creating pageable code sections, see <A HREF="memmgmt_6i07.htm">Making Drivers Pageable</A>.</P>
+
+<P>Callers of <B>MmLockPagableCodeSection </B>run at IRQL&nbsp;= PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k106_5jxu.htm"><B>MmUnlockPagableImageSection</B></A>, <A HREF="k106_7os2.htm"><B>MmPageEntireDriver</B></A>, <A HREF="k106_70s2.htm"><B>MmResetDriverPaging</B></A>, <A HREF="k106_6xbm.htm"><B>MmLockPagableDataSection</B></A>, <A HREF="k106_5vea.htm"><B>MmLockPagableSectionByHandle</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: MmLockPagableCodeSection"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

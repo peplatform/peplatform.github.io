@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Isochronous Listen Options for IEEE 1394 Devices</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Isochronous Listen Options for IEEE 1394 Devices">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_isochronous_listen_options_for_ieee_1394_devices_kg"></A>Isochronous Listen Options for IEEE 1394 Devices</H1>
+
+<P>This section describes the various isochronous listen options.  </P>
+
+<H4>Receiving or stripping packet headers</H4>
+
+<P>Host controllers may or may not automatically strip the headers off an isochronous packet. The bus driver sets the HOST_INFO_SUPPORTS_RETURNING_ISO_HDR flag of <B>HostCapabilities</B> member of the <A HREF="1394stct_91gy.htm">GET_LOCAL_HOST_INFO2</A> structure if the host controller does <I>not</I> automatically strip the headers off isochronous packets. </P>
+
+<P>Also, host controllers may support configurable stripping of headers. The bus driver sets the HOST_INFO_SUPPORTS_ISOCH_STRIPPING flag of HostCapabilities if the host controller can be configured to strip headers. To actually configure the host controller to strip headers, the driver submits the <A HREF="1394irp_5acy.htm">REQUEST_ISOCH_ALLOCATE_RESOURCES</A> request with the RESOURCE_STRIP_ADDITIONAL_QUADLETS flag set. The <B>nQuadletsToStrip</B> member specifies the number of quadlets to strip off the beginning of each packet. For example, <B>nQuadletsToStrip</B> = 1 would strip off the isochronous packet header.</P>
+
+<H4>Stream versus packet-based DMA</H4>
+
+<P>The stream-based and packet-based DMA strategies require support from the underlying host controller. All host controllers support at least one of the DMA strategies, and OHCI-compliant host controllers support both.</P>
+
+<P>Packet-based DMA and stream-based DMA have similar characteristics when all packets are of the same size. But the two sorts of DMA have very different characteristics when the packet size varies. </P>
+
+<P>In stream-based DMA, the host controller ignores packet boundaries as it fills the I/O buffers, leaving no gaps in the data that it writes. In order to determine the location of a particular packet, you must know the lengths of all the previous packets.</P>
+
+<P>In packet-based DMA, the host controller writes just one isochronous packet per buffer. Thus in packet mode, the host controller spaces the data it writes, so that each packet begins at a distance from the beginning of the I/O buffer that is an integral multiple of the maximum packet size. If a particular packet is smaller than the maximum, the data located between the end of that packet and the start of the next packet is undefined. So when packets are smaller than the maximum size, some buffer space is wasted. For example, a buffer large enough to hold 10 packets always holds exactly 10 packets, even if some packets are smaller than the maximum size allowed.</P>
+
+<P>Regardless of which DMA mode you choose, some design tradeoffs apply. For example, the choice of buffer size affects the performance of your device, no matter which DMA mode you use. Large buffers provide efficiency because you avoid some of the overhead associated with initializing a large number of buffers. Also, fewer buffers mean that fewer DMA descriptors are required. On the other hand, larger buffers increase the latency between the beginning of an I/O operation and the moment in which the bus driver informs the function driver that the buffer is full. </P>
+
+<P>If the host controller supports both types of DMA, the bus driver sets the host controller to default to stream-based DMA. To reset the host controller to packet-based DMA, the driver should set the RESOURCE_USE_PACKET_BASED flag when it allocates the resource handle.</P>
+
+<P>Drivers use the <A HREF="1394irp_6gqa.htm">REQUEST_GET_LOCAL_HOST_INFO</A> bus request (with the <B>u.GetLocalHostInformation.nLevel</B> member of the IRB = GET_HOST_CAPABILITIES) to determine the characteristics of the host controller. The bus driver returns a <A HREF="1394stct_91gy.htm">GET_LOCAL_HOST_INFO2</A> structure, and sets flags within the <B>HostCapabilities</B> member to indicate what the host controller supports:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>DMA type</TH>
+<TH align=left width=52%>HostCapabilities flag</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>stream-based</TD>
+<TD width=52%>HOST_INFO_STREAM_BASED</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>packet-based</TD>
+<TD width=52%>HOST_INFO_PACKET_BASED</TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Isochronous%20Listen%20Options%20for%20IEEE%201394%20Devices"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

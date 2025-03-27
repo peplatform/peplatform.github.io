@@ -1,0 +1,54 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Styled Cosmetic Lines</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Styled Cosmetic Lines">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_styled_cosmetic_lines_gg"></A>Styled Cosmetic Lines</H3>
+
+<P>The <A HREF="ddifncs_81ev.htm"><I>DrvStrokePath</I></A> function must support the drawing of cosmetic lines with arbitrary clipping using a solid-color brush. The driver can make a call to the GDI service <A HREF="gdifncs_5grr.htm"><B>PATHOBJ_vEnumStartClipLines</B></A> to precompute the clipping.</P>
+
+<P>Styling of a cosmetic line is similar to that of a geometric wide line because it is specified by a repeating array. For a styled cosmetic line, the array entries are LONG values that contain the lengths in style steps. The relation between style steps and pixels is defined by the <B>xStyleStep</B>, <B>yStyleStep</B>, and <B>denStyleStep</B> fields in the <A HREF="grstrcts_2k9z.htm">GDIINFO</A> structure returned by the <A HREF="ddifncs_0zzb.htm"><I>DrvEnablePDEV</I></A> function.</P>
+
+<P>When the driver calls <A HREF="gdifncs_4147.htm"><B>PATHOBJ_bEnumClipLines</B></A>, to handle styled cosmetic lines through complex clipping, GDI modifies the value of the <A HREF="grstrcts_11d3.htm">CLIPLINE</A> structure’s <B>iStyleState</B> member to represent the style state. The style state is the offset back to the first pixel of the line segment; that is, the first pixel that would be rendered if the line were not clipped. The style state consists of two 16-bit values packed into a ULONG value. If HIGH and LOW are the high-order and the low-order 16 bits of the style state, a fractional version of the style state, referred to as style position, can be computed as:</P>
+
+<PRE>    style position = HIGH + LOW/denStyleStep</PRE>
+
+<P>For example, if the values in <B>iStyleState</B> are 1 and 2, and <B>denStyleStep</B> is 3, then style position is 5/3. To determine exactly where the drawing of the style begins in the style array, take the product:</P>
+
+<PRE>    style position * denStyleStep</PRE>
+
+<P>In this example, with a <B>denStyleStep</B> value of 3, the drawing position is calculated to exclude the first five (5/3 * 3) pixels of the style array. That is, drawing begins at the sixth pixel in the style array of this clipped line.</P>
+
+<P>There are y-styled cosmetic lines and x-styled cosmetic lines. If a line extends dx device units in the x direction and dy units in the y direction, the line is y-styled when the following is true:</P>
+
+<PRE>    (dy * yStyleStep)  &ge;  (dx * xStyleStep)</PRE>
+
+<P>In this case, the style position is advanced by <B>yStyleStep</B>/<B>denStyleStep</B> for each pixel advanced in the y direction.</P>
+
+<P>Conversely, a line is x-styled and the style position is advanced by <B>xStyleStep</B>/<B>denStyleStep</B> for each pixel advanced in the x direction when the following is true:</P>
+
+<PRE>    (dx * xStyleStep)  &gt;  (dy * yStyleStep)</PRE>
+
+<P>When the style position advances to a new integer, the style step advances one unit in the style array.</P>
+
+<P>The following figure shows several cosmetic styled lines having different slopes. In this illustration, the pixel grid shown is not square, but is shown as it would be for an EGA display in which four pixels in the x direction represent the same distance as three pixels in the y direction. The style steps in the <A HREF="grstrcts_2k9z.htm">GDIINFO</A> structure ensure that styled lines appear the same at any slope on displays whose pixels are not square. In this illustration, the styling array (defined by the <B>pstyle</B> member of the <A HREF="grstrcts_8b3b.htm">LINEATTRS</A> structure) is {1,1}, which is a broken line having equal-sized dots and gaps. The driver’s value of <B>xStyleStep</B> is 3, <B>yStyleStep</B> is 4, and <B>denStyleStep</B> is 12.</P>
+
+<P><IMG SRC="images/102-02.gif" ALT="" BORDER=0></P>
+
+<P><B>Styled Cosmetic Line Examples</B></P>
+
+<P>To illustrate further, suppose a dot matrix printer has a 144-dpi horizontal resolution and a 72-dpi vertical resolution. In addition, suppose the dot length of the minimum dot is 1/24-inch. To support this printer, select the smallest numbers for <B>xStyleStep</B> and <B>yStyleStep</B> that can compensate for the printer’s aspect ratio, such as 1 for <B>xStyleStep</B> and 2 (144/72) for <B>yStyleStep</B>, and 6 (144/24) for <B>denStyleStep</B>.</P>
+
+<P>If the LA_ALTERNATE bit is set in the flag in the <A HREF="grstrcts_8b3b.htm">LINEATTRS</A> structure, a special style is used for a cosmetic line. In this case, every other pixel is on, regardless of direction or aspect ratio. Style state is returned as if the style array is {1,1} and <B>xStyleStep</B>, <B>yStyleStep</B>, and <B>denStyleStep</B> are all one. In other words, if <B>lStyleState</B> is zero, the first pixel is on; if <B>lStyleState</B> is one, the first pixel is off.</P>
+
+<P>If the LA_STARTGAP bit is set in the LINEATTRS flag, the sense of the elements in the style array is inverted. The first array entry specifies the length of the first gap, the second entry specifies the length of the first dash, and so forth.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Styled%20Cosmetic%20Lines"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

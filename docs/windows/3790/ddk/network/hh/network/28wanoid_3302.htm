@@ -1,0 +1,206 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>OID_WAN_GET_INFO</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="OID_WAN_GET_INFO">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_oid_wan_get_info_nr"></A>OID_WAN_GET_INFO</H1>
+
+<P>The OID_WAN_GET_INFO OID requests the miniport driver to return information about its or the NIC’s capabilities, formatted as an NDIS_WAN_INFO structure, defined as follows: </P>
+
+<PRE class=syntax>typedef struct _NDIS_WAN_INFO {
+  OUT ULONG  MaxFrameSize; 
+  OUT ULONG  MaxTransmit; 
+  OUT ULONG  HeaderPadding; 
+  OUT ULONG  TailPadding; 
+  OUT ULONG  Endpoints; 
+  OUT UINT  MemoryFlags; 
+  OUT NDIS_PHYSICAL_ADDRESS  HighestAcceptableAddress; 
+  OUT ULONG  FramingBits; 
+  OUT ULONG  DesiredACCM; 
+} NDIS_WAN_INFO, *PNDIS_WAN_INFO; </PRE>
+
+<P>The members of this structure contain the following information:
+
+<DL>
+<DT><B>MaxFrameSize</B></DT>
+
+<DD>Specifies the maximum frame size for any net packet that the NIC driver can send and receive. This value should exclude the driver’s own framing overhead and/or the PPP HDLC overhead. Typically this value is around 1500.
+
+<P>However, all WAN miniport drivers should use an internal <B>MaxFrameSize</B> that is 32 bytes larger than the value they return for this OID. For example, a WAN miniport driver that returns 1500 for this OID should internally accept and send up to 1532. Such a miniport driver can readily support future bridging and additional protocols.
+</DD>
+
+<DT><B>MaxTransmit</B></DT>
+
+<DD>Specifies the maximum number of outstanding frames that a link on the WAN miniport driver can handle. This member must be set to at least one. 
+
+<P>NDISWAN uses the value of this member as a default throttle on how many send requests it submits to the driver’s <I>MiniportWanSend</I> function before NDISWAN holds incoming sends. These sends are queued until the miniport driver completes an outstanding send. A miniport driver can adjust this value dynamically and on a per-link basis using the <B>SendWindow</B> member in the <A HREF="105nstru_4agi.htm">NDIS_MAC_LINE_UP</A> structure that the driver passes to <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A>. NDISWAN uses the current line-up <B>SendWindow</B> value as its throttle on outstanding sends. If the miniport driver sets <B>SendWindow</B> to zero for the initial line-up indication, NDISWAN uses the driver-set <B>MaxTransmit</B> value. 
+
+
+<P>Because a WAN miniport driver must queue packets internally, the value of <B>MaxTransmit</B> is theoretically <B>max(</B>ULONG<B>)</B>. However, this driver-determined value should reflect the link speed or hardware capabilities of the NIC. For example, if its NIC always has room for at least four frames, a miniport driver sets <B>MaxTransmit</B> to four so that any incoming packet to <I>MiniportWanSend</I> can be placed on the hardware immediately.
+</DD>
+
+<DT><B>HeaderPadding</B></DT>
+
+<DD>Specifies the amount of buffer space, in bytes, required at the beginning of each net packet, considering the current defaults, such as a <B>MaxFrameSize</B> of 1500. 
+
+<P>For example, if its NIC requires just a flag byte preceding the frame, the miniport driver would set this member to one.
+</DD>
+
+<DT><B>TailPadding</B> </DT>
+
+<DD>Specifies the amount of buffer space, in bytes, required at the end of each net packet, considering the current defaults, such as a <B>MaxFrameSize</B> of 1500. 
+
+<P>For example, if its NIC requires three bytes at the end of each net packet for the Frame Checksum Sequence (CRC check) and the flag byte, a miniport driver would set this member to three.
+</DD>
+
+<DT><B>Endpoints</B> </DT>
+
+<DD>Specifies the maximum number of links (sometimes called <I>ports</I>, or <I>point-to-point connections</I>) that the NIC can support at any given time. 
+
+<P>For example, a miniport driver would set this member to two for an ISDN card with two channels. It would set this member to ten for an X.25 card that can accept up to ten virtual circuits.
+</DD>
+
+<DT><B>MemoryFlags</B> </DT>
+
+<DD>If the NIC is not a DMA device, set this member to zero. 
+
+<P>Otherwise, set this to the type of memory to be allocated for the NIC, that is, NDIS_MEMORY_NONCACHED and/or NDIS_MEMORY_CONTIGUOUS. Subsequently, memory of the specified type will be allocated for all packets to be transmitted by the WAN adapter. 
+
+
+<P>Note that these flags should be used with caution because they force NDISWAN to allocate memory resources statically during miniport driver initialization.
+</DD>
+
+<DT><B>HighestAcceptableAddress</B> </DT>
+
+<DD>If the NIC is not a DMA device, set this member with the macro NDIS_PHYSICAL_ADDRESS_CONST(-1,-1). 
+
+<P>Otherwise, if the NIC can use 24-bit addresses, set this value to NDIS_PHYSICAL_ADDRESS_CONST (0x1000000, 0). Subsequently, memory within the specified range will be allocated for all packets to be transmitted by the NIC. Thus, memory can just be DMAed directly to the NIC instead of having to be double-buffered through a CPU-memory copy.
+</DD>
+
+<DT><B>FramingBits</B></DT>
+
+<DD>Set any bits (ORed) supported by the driver among the following: 
+
+<DL>
+<DT>RAS_FRAMING</DT>
+
+<DD>Set only if the driver can detect older RAS framing. Only legacy drivers that supported earlier RAS framing set this flag.</DD>
+
+<DT>RAS_COMPRESSION</DT>
+
+<DD>Set only if the driver supports the older RAS compression scheme.</DD>
+
+<DT>PPP_FRAMING</DT>
+
+<DD>Should always be set. Indicates the driver can detect and support PPP framing for its medium type.</DD>
+
+<DT>PPP_COMPRESS_ADDRESS_CONTROL</DT>
+
+<DD>Set if the driver supports PPP address and control-field compression. 
+
+<P>NDISWAN will remove the address and control field if this LCP option is negotiated. Some WAN medium types, such as X.25, do not support this option.
+</DD>
+
+<DT>PPP_COMPRESS_PROTOCOL_FIELD</DT>
+
+<DD>Set if the driver supports PPP protocol field compression. 
+
+<P>NDISWAN will remove one byte from the protocol field when applicable if this LCP option is negotiated.
+</DD>
+
+<DT>PPP_ACCM_SUPPORTED</DT>
+
+<DD>Set if the driver supports Asynchronous Control Character Mapping. This bit is only valid for asynchronous media, such as modems. If this bit is set the <B>DesiredACCM</B> member should be valid.</DD>
+
+<DT>PPP_MULTILINK_FRAMING</DT>
+
+<DD>Set if the driver supports multilink framing as specified in IETF RFC 1717. </DD>
+
+<DT>PPP_SHORT_SEQUENCE_HDR_FORMAT</DT>
+
+<DD>Set if the driver supports header format for multilink framing as specified in IETF RFC 1717.  </DD>
+
+<DT>SLIP_FRAMING</DT>
+
+<DD>Set if the driver can detect and support SLIP framing (asynchronous drivers only).</DD>
+
+<DT>SLIP_VJ_COMPRESSION</DT>
+
+<DD>Set if the driver can support Van Jacobsen TCP/IP header compression for SLIP. NDISWAN supports SLIP_VJ_COMPRESSION (with 16 slots). Asynchronous media (serial drivers) that support SLIP framing should set this bit. 
+
+<P>Asynchronous media need not write any code to support VJ header compression. NDISWAN will take care of it.
+</DD>
+
+<DT>SLIP_VJ_AUTODETECT</DT>
+
+<DD>Set if the driver can auto-detect Van Jacobsen TCP/IP header compression for SLIP. NDISWAN will auto-detect VJ header compression. Asynchronous media (serial drivers) should set this bit if they support SLIP framing.</DD>
+
+<DT>TAPI_PROVIDER</DT>
+
+<DD>Set if the driver supports the TAPI Service Provider OIDs. Unless this bit is set, TAPI OID calls will not be made to the driver.</DD>
+
+<DT>MEDIA_NRZ_ENCODING</DT>
+
+<DD>Set if the driver supports NRZ encoding, the PPP default for some media types such as ISDN. This value is reserved for future use.</DD>
+
+<DT>MEDIA_NRZI_ENCODING </DT>
+
+<DD>Set if the driver supports NRZI encoding. This value is reserved for future use. </DD>
+
+<DT>MEDIA_NLPID</DT>
+
+<DD>Set if the driver has and can set the NLPID in its frame. This value is reserved for future use. </DD>
+
+<DT>RFC_1356_FRAMING</DT>
+
+<DD>Set if the driver supports IETF RFC 1356 X.25 and ISDN framing. This value is reserved for future use. </DD>
+
+<DT>RFC_1483_FRAMING</DT>
+
+<DD>Set if the driver supports IETF RFC 1483 ATM adaptation layer-5 encapsulation. This value is reserved for future use.</DD>
+
+<DT>RFC_1490_FRAMING</DT>
+
+<DD>Set if the driver supports IETF RFC 1490 Frame Relay framing. This value is reserved for future use. </DD>
+
+<DT>NBF_PRESERVE_MAC_ADDRESS</DT>
+
+<DD>Set if the driver supports IETF framing as specified in the draft “The PPP NETBIOS Frames Control Protocol (NBFCP).” </DD>
+
+<DT>SHIVA_FRAMING</DT>
+
+<DD>Superseded by NBF_PRESERVE_MAC_ADDRESS.  </DD>
+
+<DT>PASS_THROUGH_MODE</DT>
+
+<DD>Set if the driver does its own framing. If this flag is set, NDISWAN passes frames, uninterpreted and unmodified. </DD>
+</DL>
+
+
+<P>NIC drivers must be in the default PPP framing mode until each driver receives an NDIS_WAN_SET_LINK_INFO call. The NIC driver must auto-detect any framing that it claims to support. 
+
+
+<P>For example, drivers that support old RAS framing must auto-detect RAS framing from PPP framing. If a driver detects a framing scheme other than the default, that driver should <I>automatically</I> switch its framing into the newly detected framing. 
+
+
+<P>A subsequent query with <A HREF="28wanoid_4pde.htm">OID_WAN_GET_LINK_INFO</A> should indicate the detected framing. If no framing is yet detected, the <B>FramingBits</B> should be zero in the returned NDIS_WAN_GET_LINK_INFO information.
+
+
+<P>If the WAN miniport driver is called subsequently with <A HREF="28wanoid_6kmq.htm">OID_WAN_SET_LINK_INFO</A> in which the <B>FramingBits</B> member is zero, the driver should attempt to auto-detect the framing upon reception of each frame.
+</DD>
+
+<DT><B>DesiredACCM </B></DT>
+
+<DD>The Asynchronous Control Character Map is negotiated. This member is relevant only for asynchronous media types.
+</DD>
+</DL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: OID_WAN_GET_INFO"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

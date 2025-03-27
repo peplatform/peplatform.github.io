@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProtocolClAddPartyComplete</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProtocolClAddPartyComplete">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocolcladdpartycomplete_nr"></A>ProtocolClAddPartyComplete</H1>
+
+<P>The <I>ProtocolClAddPartyComplete</I> function is required for connection-oriented NDIS clients that set up multipoint connections. Such clients must have <I>ProtocolClAddPartyComplete</I> functions to complete the asynchronous operations that they initiate with <A HREF="103ndisx_5fua.htm"><B>NdisClAddParty</B></A>. Otherwise, such a protocol driver's registered <I>ProtocolClAddPartyComplete</I> function can simply return control.</P>
+
+<PRE class=syntax><B>VOID 
+</B>  <B>ProtocolClAddPartyComplete(
+</B>    <B>IN NDIS_STATUS</B>  <I>Status</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>ProtocolPartyContext</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisPartyHandle</I><B>,</B>
+    <B>IN PCO_CALL_PARAMETERS</B>  <I>CallParameters
+</I>    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Status</I></DT>
+
+<DD>Specifies final status of the client-initiated add-party operation, which can be one of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>The given party was added on the client's active multipoint VC. </DD>
+
+<DT>NDIS_STATUS_RESOURCES</DT>
+
+<DD>NDIS could not allocate sufficient resources to track the new party.</DD>
+
+<DT>NDIS_STATUS_FAILURE</DT>
+
+<DD>The client passed an invalid <I>NdisVcHandle</I> to <B>NdisClAddParty</B>. </DD>
+
+<DT>NDIS_STATUS_<I>XXX</I></DT>
+
+<DD>The call manager's <A HREF="104tdlow_9trm.htm"><I>ProtocolCmAddParty</I></A> function returned a CM-determined value to indicate why it could not add the party to the VC.</DD>
+</DL>
+</DD>
+
+<DT><I>ProtocolPartyContext</I></DT>
+
+<DD>Specifies the client-supplied handle originally passed to <B>NdisClAddParty</B>.</DD>
+
+<DT><I>NdisPartyHandle</I></DT>
+
+<DD>If <I>Status</I> is NDIS_STATUS_SUCCESS, this NDIS-supplied handle represents the association between the call manager and client regarding this party. Otherwise, the attempt to add a party failed and the client should consider this parameter an invalid handle.</DD>
+
+<DT><I>CallParameters</I></DT>
+
+<DD>Pointer to a structure of type <A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A>, originally set up by the client for its call to <B>NdisClAddParty</B> but possibly modified subsequently by the call manager.  
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A call to <I>ProtocolClAddPartyComplete</I> indicates completion of the asynchronous operation initiated when the client called <A HREF="103ndisx_5fua.htm"><B>NdisClAddParty</B></A>. If the input <I>Status</I> is set to anything other than NDIS_STATUS_SUCCESS, <I>ProtocolClAddPartyComplete</I> can release or reuse the client-allocated buffers at <I>ProtocolPartyContext</I> and at <I>CallParameters</I>. </P>
+
+<P>If the attempt to add a party succeeded, <I>ProtocolClAddPartyComplete</I> should save the input <I>NdisPartyHandle</I> for subsequent calls to NDIS library functions concerning this party in the client's <I>ProtocolPartyContext</I> area. For example, the client must pass this handle in a subsequent call to <A HREF="103ndisx_2tf6.htm"><B>NdisClDropParty</B></A> eventually unless the remote party that it represents closes its connection first. </P>
+
+<P>The structure at <I>CallParameters</I> originally was allocated and initialized by the client, which passed this pointer to <B>NdisClAddParty</B>. However, the call manager might have modified the client-supplied values to reflect the results of the CM's negotiation with the network or with a signaling peer while processing the client's add-party request. To determine whether the call manager made any modifications, <I>ProtocolClAddPartyComplete</I> can check the <B>Flags</B> member of this structure for whether CALL_PARAMETERS_CHANGED is set. If so, <I>ProtocolClAddPartyComplete</I> must update the per-party state that the client maintains for this call at <I>ProtocolPartyContext</I> unless it finds the CM's modifications unacceptable. The particular signalling protocol determines what the client can do in this case. Usually, a client calls <B>NdisClDropParty</B> if it finds the CM-modified call parameters unacceptable. </P>
+
+<P>Depending on the signalling protocol of the call manager, the traffic parameters at <I>CallParameters</I> can be identical for all parties on any particular multipoint connection. That is, as the client of such a call manager adds parties on a multipoint connection that the client originally set up with <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>, it can supply only the target address of each party and leave the traffic parameters as originally set up for the multipoint VC each time it calls <B>NdisClAddParty</B>. </P>
+
+<P><I>ProtocolClAddPartyComplete</I> must be written so that it can run at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A>, <A HREF="103ndisx_5fua.htm"><B>NdisClAddParty</B></A>, <A HREF="103ndisx_2tf6.htm"><B>NdisClDropParty</B></A>, <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>, <A HREF="103ndisx_2ynm.htm"><B>NdisCmAddPartyComplete</B></A>, <A HREF="103ndisx_72pe.htm"><B>NdisMCmAddPartyComplete</B></A>, <A HREF="104tdlow_8pde.htm"><I>ProtocolClIncomingDropParty</I></A>, <A HREF="104tdlow_9trm.htm"><I>ProtocolCmAddParty</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProtocolClAddPartyComplete"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

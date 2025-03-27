@@ -1,0 +1,76 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Submitting a data buffer</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Submitting a data buffer">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_submitting_a_data_buffer_ksg"></A>Submitting a data buffer</H2>
+
+<P>With an open stream, a subunit driver can start to attach stream samples to AV/C Streaming. These samples can be either read or write operations and they can be submitted in the same manner to the AV/C Streaming filter driver. This service is always asynchronous because of its dependency on current stream state and stream data availability.</P>
+
+<PRE>INIT_AVCSTRM_HEADER(pAVCStrmReq, (pSrb-&gt;Command == SRB_READ_DATA) ?      AVCSTRM_READ : AVCSTRM_WRITE);
+pAVCStrmReq-&gt;AVCStreamContext = pStrmExt-&gt;AVCStreamContext;  // from cached context saved in OPEN_STREAM request
+
+// The AV/C Streaming filter driver does not act as a clock provider. The subunit driver must provide this functionality if it wants to be the clock provider.
+
+pAVCStrmReq-&gt;CommandData.BufferStruct.StreamHeader = pSrb-&gt;CommandData.DataBufferArray;
+
+pAVCStrmReq-&gt;CommandData.BufferStruct.FrameBuffer =             
+MmGetSystemAddressForMdlSafe(pSrb-&gt;Irp-&gt;MdlAddress,          NormalPagePriority);
+
+// This is an Async operation
+NextIrpStack = IoGetNextIrpStackLocation(pIrpReq);
+NextIrpStack-&gt;MajorFunction = IRP_MJ_INTERNAL_DEVICE_CONTROL;
+NextIrpStack-&gt;Parameters.DeviceIoControl.IoControlCode = IOCTL_AVCSTRM_CLASS;
+NextIrpStack-&gt;Parameters.Others.Argument1 = pAVCStrmReq;
+
+// Not cancelable! But can be aborted with AVCSTRM_ABORT_STREAMING
+IoSetCancelRoutine(
+    pIrpReq,
+    NULL
+    );
+
+IoSetCompletionRoutine( 
+    pIrpReq,
+    AVCTapeReqReadDataCR,
+    pDriverReq,
+    TRUE,  // Success
+    TRUE,  // Error
+    TRUE   // or Cancel
+    );
+
+pSrb-&gt;Status = STATUS_PENDING;
+
+Status = 
+    IoCallDriver(
+        pDevExt-&gt;pBusDeviceObject,
+        pIrpReq
+        );</PRE>
+
+<P>Because the operation is asynchronous, the status should be STATUS_PENDING. When the data is completed, the completion routine will be called. In the completion routine, a subunit driver can do post processing, including updating statistics of data processed and possibly add presentation time if the subunit is the clock provider.</P>
+
+<PRE>// Keep track of number of frames processed
+pStrmExt-&gt;FramesProcessed++;
+
+// Retrieve current stream time
+if(pStrmExt-&gt;hMasterClock) 
+    pStrmExt-&gt;CurrentStreamTime = pSrb-&gt;CommandData.DataBufferArray-&gt;PresentationTime.Time;
+
+// Update final status
+pSrb-&gt;Status = pIrpReq-&gt;IoStatus.Status;
+
+// Complete this data SRB
+StreamClassStreamNotification( 
+    StreamRequestComplete,
+    pSrb-&gt;StreamObject,
+    pSrb 
+    );</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Submitting%20a%20data%20buffer"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,66 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Determining BDA Device Topology</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Determining BDA Device Topology">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_determining_bda_device_topology_ksg"></A>Determining BDA Device Topology</H2>
+
+<P>A BDA device topology is composed of a connected network of nodes, each of which represent some transformation on a signal. Nodes can be grouped arbitrarily among different filters. This arbitrary grouping provides hardware vendors with a certain freedom in how they implement their hardware and drivers so that such hardware and drivers work in a generic way with the network providers for the different types of networks they wish to support. </P>
+
+<P>For this arbitrary grouping architecture to work, the network provider must be able to query filters as to what kind of transformations those filters perform on a signal (that is, what types of node networks the filter can support). The underlying Ring 0 minidriver for a filter conveys a picture of its supported node networks to the network provider through the <A HREF="bdaref_8chf.htm">KSPROPSETID_BdaTopology</A> property set. </P>
+
+<P>When determining the template topology for a filter, the network provider iterates lists of node types and pin types and queries each node and pin for its capabilities. The network provider uses the following properties of KSPROPSETID_BdaTopology to determine the template topology for the filter: 
+
+<UL>
+	<LI>KSPROPERTY_BDA_NODE_TYPES 
+<P>Node types represent possible functional nodes within the filter. The KSPROPERTY_BDA_NODE_TYPES property returns a list of all node types that are provided by a filter instance of the BDA minidriver. The minidriver assigns arbitrary values to identify node types. Typically, the minidriver uses the index of each element in the list of the minidriver's node types as the value for each node type. The BDA minidriver assigns each node type a node description GUID. Description GUIDs for node types that the network provider currently supports are defined in <I>bdamedia.h</I>. This node description indicates to the network provider what the node does. In a template topology, a node type can occur only once. However, more than one node of a specific type may have the same node description GUID. This allows a specific signal transformation to occur in more than one place in the filter’s topology while allowing the network provider to identify a single topology node unambiguously.
+</LI>
+
+	<LI>KSPROPERTY_BDA_PIN_TYPES 
+<P>Pin types represent possible connections to other filters in the graph. The KSPROPERTY_BDA_PIN_TYPES property returns a list of all pin types that can be created on the filter. In a template topology, a pin type can occur only once. 
+</LI>
+
+	<LI>KSPROPERTY_BDA_TEMPLATE_CONNECTIONS 
+<P>The KSPROPERTY_BDA_TEMPLATE_CONNECTIONS property returns an array that represents all the possible connections between node types and pin types that can be configured on the filter. See <A HREF="bdadg_5vdz.htm">Mapping Connection Topology</A> for more information. 
+</LI>
+</UL>
+
+<P>When a filter instance is first created and added to the graph, it typically has input pins but no output pins. To create output pins, the network provider first uses the KSPROPSETID_BdaTopology properties to determine what operations the filter can perform. From these properties, the network provider determines which operations it requires the filter to perform for a particular filter graph. The network provider then uses the <A HREF="bdaref_64hf.htm">KSMETHODSETID_BdaDeviceConfiguration</A> method set to create output pins matching a particular pin type and create the internal topology, which is the actual hardware path, between those pins and the input pins. See <A HREF="bdadg_2m93.htm">Configuring a BDA Filter</A> for more information. </P>
+
+<P>The following code snippet shows how to define functions that are exported by the BDA support library as dispatch routines for the KSPROPSETID_BdaTopology property set: </P>
+
+<PRE>//
+//  KSPROPSETID_BdaTopology property set
+//
+//  Defines the dispatch routines for the filter level
+//  topology properties
+//
+DEFINE_KSPROPERTY_TABLE(FilterTopologyProperties)
+{
+    DEFINE_KSPROPERTY_ITEM_BDA_NODE_TYPES(
+        BdaPropertyNodeTypes,
+        NULL
+        ),
+    DEFINE_KSPROPERTY_ITEM_BDA_PIN_TYPES(
+        BdaPropertyPinTypes,
+        NULL
+        ),
+    DEFINE_KSPROPERTY_ITEM_BDA_TEMPLATE_CONNECTIONS(
+        BdaPropertyTemplateConnections,
+        NULL
+        ),
+    DEFINE_KSPROPERTY_ITEM_BDA_CONTROLLING_PIN_ID(
+        BdaPropertyGetControllingPinId,
+        NULL
+        )
+};</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Determining%20BDA%20Device%20Topology"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

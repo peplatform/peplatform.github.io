@@ -1,0 +1,190 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>_PageAllocate</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_1230"></A>_PageAllocate</H1>
+
+<PRE>// C syntax
+#include &lt;vmm.h&gt;
+
+ULONG EXTERN _PageAllocate(ULONG nPages, ULONG pType, ULONG VM, 
+    ULONG AlignMask, ULONG minPhys, ULONG maxPhys, ULONG *PhysAddr,
+    ULONG flags);
+
+; assembler syntax
+include vmm.inc
+
+VMMCall _PageAllocate, &lt;nPages, pType, VM, AlignMask, minPhys,
+    maxPhys, &lt;OFFSET32 PhysAddr&gt;, flags&gt;
+
+test    eax, eax             ; returns 0 on error
+jz      error
+
+mov     [Address], eax       ; linear address of allocated memory block
+ </PRE>
+
+<P>Allocates a block of memory consisting of the specified number of pages. This service reserves linear address space for the memory block, and depending on the value of the <I>flags</I> parameter, may also map the linear addresses to physical memory, locking the pages in memory. The service returns a memory handle that can be used in subsequent memory management functions to lock, unlock, reallocate, and free the memory block. Uses EAX, ECX, EDX, and flags. </P>
+
+<P>Returns the ring-0 linear address of the memory block (in the EAX register). For compatibility with Windows 3.1, the same value is returned in EDX. For Windows 3.1, EAX was the memory handle and EDX the memory address. For Windows 95, the handle and the linear address are always the same. Both registers are zero if an error occurs, such as insufficient memory. 
+
+<DL>
+<DT><I>nPages</I></DT>
+
+<DD>Number of pages to allocate for the memory block. This parameter must not be zero. </DD>
+
+<DT><I>pType</I></DT>
+
+<DD>Value specifying the type of pages to allocate. Must be PG_HOOKED, PG_SYS, or PG_VM. If PG_SYS is specified, the pages are allocated in the system arena. Otherwise, they are allocated in the ring 3 shared arena. There is no real difference between the PG_HOOKED and PG_VM types. </DD>
+
+<DT><I>VM</I></DT>
+
+<DD>Handle of the virtual machine for which to allocate the pages. This parameter applies to pages allocated using the PG_VM and PG_HOOKED values only. This parameter must be zero if the <I>nType</I> parameter specifies PG_SYS. </DD>
+
+<DT><I>AlignMask</I></DT>
+
+<DD>Alignment mask that defines acceptable starting page numbers for the memory block. This parameter can be one of the following values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=21%>Value </TH>
+<TH align=left width=79%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>00000000h </TD>
+<TD width=79%>Physical address is a multiple of 4K. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>00000001h </TD>
+<TD width=79%>Physical address is a multiple of 8K. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>00000003h </TD>
+<TD width=79%>Physical address is a multiple of 16K. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>00000007h </TD>
+<TD width=79%>Physical address is a multiple of 32K. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>0000000Fh </TD>
+<TD width=79%>Physical address is a multiple of 64K. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>0000001Fh </TD>
+<TD width=79%>Physical address is a multiple of 128K. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>This parameter is used only if the <I>flags</I> parameter specifies the PAGEUSEALIGN value. 
+</DD>
+
+<DT><I>minPhys</I></DT>
+
+<DD>Minimum acceptable physical page number in the memory block. All page numbers must be greater than or equal to this value. This parameter is used only if the <I>flags</I> parameter specifies the PAGEUSEALIGN value. To impose no restriction on the minimum page number, pass zero for this parameter.  </DD>
+
+<DT><I>maxPhys</I></DT>
+
+<DD>Maximum acceptable physical page number in the memory block. All page numbers must be less than this value. This parameter is used only if the <I>flags</I> parameter specifies the PAGEUSEALIGN value. To impose no restriction on the maximum page number, pass the value 100000h (4GB) for this parameter.  NOTE: If _PageAllocate is called with a maxPhys value of 0xFFFFFFFF, this service does not fail due to the invalid parameter, but instead attempts to allocate the memory below 16MB using a maxPhys value of 0x1000.  This behavior can cause _PageAllocate to fail mysteriously, particularly for large memory blocks.  If you attempt to allocate a large block, say 16MB (0x1000 pages) of memory and specify a maxPhys value of 0xFFFFFFFF, _PageAllocate will always fail, even if there is sufficient free memory in the system.</DD>
+
+<DT></DT>
+
+<DD>Specifying 0xFFFFFFFF for the maxPhys parameter is a common error when failing to recognize that the parameter requires a page number, not a full physical address.  Running the debug version of vmm.vxd will display the following messages that are helpful in finding this problem:</DD>
+
+<DT></DT>
+
+<DD>PageAllocate: maxphys parameter is greater than 4gig (0x100000)<BR>
+PageAllocate: maxphys = -1, remapping to 16meg</DD>
+
+<DT></DT>
+
+<DD>The maximum value that should be specified for MaxPhys is 0x100000.</DD>
+
+<DT></DT>
+
+<DT><I>PhysAddr</I></DT>
+
+<DD>Address of a four-byte buffer that receives the physical address of the start of the memory block. The service uses this parameter only if the <I>flags</I> parameter specifies the PAGECONTIG and PAGEUSEALIGN values. The service ignores this parameter if it is zero. </DD>
+
+<DT><I>flags</I></DT>
+
+<DD>Operation flags. Can be zero or more of these values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=24%>Value </TH>
+<TH align=left width=76%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=24%>PAGECONTIG </TD>
+<TD width=76%>Allocates contiguous physical pages to create the memory block. This value is ignored if the PAGEUSEALIGN value is not also specified. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=24%>PAGEFIXED </TD>
+<TD width=76%>Locks the allocated pages in memory at a fixed linear address, and prevents the pages from subsequently being unlocked or moved. The service locks the memory block regardless of the type of virtual page swap device present. 
+<P>the page will remain locked throughout its life, use PAGEDFIXED; it's more efficient than PAGELOCKED. </P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=24%>PAGELOCKED </TD>
+<TD width=76%>Locks the allocated pages in the memory. The pages can be subsequently unlocked using the <B>_PageUnLock</B> service. The service locks the memory block regardless of the type of virtual page swap device present. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=24%>PAGELOCKEDIFDP </TD>
+<TD width=76%>Locks the allocated pages in the memory only if the virtual page swap device uses MS-DOS or BIOS functions to write to the hardware. If the pages are locked, they can be subsequently unlocked using the <B>_PageUnLock</B> service. 
+<P>A virtual device must not specify the PAGELOCKEDIFDP value until after it has received the <B>Init_Complete</B> message. </P>
+
+<P>PAGELOCKED and PAGELOCKEDIFDP values are mutually exclusive. </P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=24%>PAGEUSEALIGN </TD>
+<TD width=76%>Allocates pages using the alignment and physical addresses specified by the <I>AlignMask</I>, <I>minPhys</I>, and <I>maxPhys</I> parameters. If this value is specified, PAGEFIXED must also be specified. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=24%>PAGEZEROINIT </TD>
+<TD width=76%>Fills the memory block with zeros. If this value is not given, the contents of the memory block are undefined. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>All other values are reserved. 
+
+</DD>
+</DL>
+
+<P>This service reserves linear address space by calling the <B>_PageReserve</B> service, and then commits physical storage by calling the <B>_PageCommit</B> service. The address returned by this service can be used in the same manner as the linear address returned by the <B>_PageReserve</B> service. </P>
+
+<P>Unless the PAGELOCKED, PAGELOCKEDIFDP, or PAGEFIXED value is specified, the allocated pages are not initially present in physical memory. The system maps a page into physical memory (pages it in) when a virtual device attempts to access the page. You can force a page to be present by using the <B>_PageLock</B> service. </P>
+
+<P>Virtual devices use the PAGEUSEALIGN value to allocate buffers for use by the device which have additional alignment restrictions enforced by the hardware. For example, a DMA may require buffers to start at addresses that are a multiple of 64K or 128K. When allocating such buffers, the PAGECONTIG value is often used in combination with PAGEUSEALIGN. </P>
+
+<H4>See Also</H4>
+
+<P><B>_PageFree</B>, <B>_PageLock</B>, <B>_PageReAllocate</B>, <B>_PageUnLock</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: _PageAllocate"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

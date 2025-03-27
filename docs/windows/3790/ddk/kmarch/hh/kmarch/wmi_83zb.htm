@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WMI WNODE_XXX Structures</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WMI WNODE_XXX Structures">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_wmi_wnode_xxx_structures_kg"></A>WMI WNODE_XXX Structures</H2>
+
+<P>WMI uses a set of standard data structures called WNODE_XXX to pass data between user-mode data consumers and kernel-mode data providers such as drivers. If a driver handles WMI requests by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, the driver is not required to read or write WNODE_XXX structures. Otherwise, the driver must interpret the input WNODE_XXX at <B>Parameters.WMI.Buffer</B> and/or write an output WNODE_XXX to that location. </P>
+
+<P>The following table lists WMI IRPs and their corresponding WNODE_XXX structures.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=51%>WMI IRP</TH>
+<TH align=left width=49%>Related WNODE_XXX Structure</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%><A HREF="k901_8a7m.htm">IRP_MN_CHANGE_SINGLE<BR>
+_INSTANCE</A></TD>
+<TD width=49%><A HREF="k112_7a2a.htm">WNODE_SINGLE_INSTANCE</A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%><A HREF="k901_9b5e.htm">IRP_MN_CHANGE_SINGLE_ITEM</A></TD>
+<TD width=49%><A HREF="k112_20c2.htm">WNODE_SINGLE_ITEM</A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%><A HREF="k901_6hf6.htm">IRP_MN_EXECUTE_METHOD</A></TD>
+<TD width=49%><A HREF="k112_8mya.htm">WNODE_METHOD_ITEM</A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%><A HREF="k901_1nhu.htm">IRP_MN_QUERY_ALL_DATA</A></TD>
+<TD width=49%><A HREF="k112_1dpu.htm">WNODE_ALL_DATA</A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%><A HREF="k901_1bua.htm">IRP_MN_QUERY_SINGLE_ INSTANCE</A></TD>
+<TD width=49%><A HREF="k112_7a2a.htm">WNODE_SINGLE_INSTANCE</A></TD>
+</TR>
+</TABLE><BR>
+
+<P>Two additional WNODE_XXX structures, <A HREF="k112_45de.htm">WNODE_EVENT_ITEM</A> and <A HREF="k112_17zm.htm">WNODE_EVENT_REFERENCE</A>, are used to send notifications of enabled events. A driver that registers event blocks will, if an event is enabled and the event occurs, send notification of the event to WMI by calling <A HREF="k104_2uya.htm"><B>IoWMIWriteEvent</B></A> and passing a WNODE_EVENT_XXX structure. For information about sending WMI events, see <A HREF="wmi_7ns7.htm">Sending WMI Events</A>.</P>
+
+<P>Each WNODE_XXX structure consists of the following:
+
+<UL>
+	<LI>An embedded <A HREF="k112_26gi.htm">WNODE_HEADER</A> structure that contains information common to all WNODE_<I>XXX</I> including the size of the buffer, the GUID that represents the data block, and flags that indicate the type of WNODE_<I>XXX</I> structure, whether it uses static or dynamic instance names, and other characteristics of the block.</LI>
+
+	<LI>The fixed members of the particular WNODE_XXX structure, such as offsets to instance names and data. </LI>
+</UL>
+
+<P>A WNODE_XXX structure in an IRP buffer (<B>Parameters.WMI.Buffer</B>) is typically followed by variable data related to the request, such as dynamic instance names, static instance name strings, input for or output from a method, or data for one or more instances of a data block. The size of the buffer must therefore exceed <B>sizeof(</B>WNODE_<I>XXX</I><B>)</B> by the amount of variable data involved. </P>
+
+<P>Note that WMI does not perform type-checking on variable data supplied by a driver. The driver must align output data on an appropriate boundary in the output buffer so that a data consumer can parse the data correctly. In particular, each instance must start on an 8-byte boundary and each of its items must be aligned on a natural boundary according to the data block schema previously registered by the driver. Dynamic instance names can be aligned on a 2-byte boundary. </P>
+
+<P>The following figure shows a block diagram of an IRP buffer containing a <A HREF="k112_7a2a.htm">WNODE_SINGLE_INSTANCE</A> structure that a driver might return in response to an <A HREF="k901_1bua.htm">IRP_MN_QUERY_SINGLE_INSTANCE</A> request. </P>
+
+<P><IMG SRC="images/wnode_single_instance.gif" ALT="" BORDER=0></P>
+
+<P><B>An IRP Buffer Containing a WNODE_SINGLE_INSTANCE</B></P>
+
+<P>Starting at the top of the previous figure:
+
+<UL>
+	<LI>The <A HREF="k112_26gi.htm">WNODE_HEADER</A> structure at the beginning of the <A HREF="k112_7a2a.htm">WNODE_SINGLE_INSTANCE</A> is contained in a <B>WnodeHeader</B> member. WMI fills in all members of the WNODE_HEADER before sending the request. In the WNODE_HEADER:
+<UL>
+	<LI><B>WnodeHeader.Buffersize</B> indicates the size of the WNODE_SINGLE_INSTANCE, including data that follows the fixed members of the structure. (The value of <B>WnodeHeader.Buffersize</B> is typically less than <B>Parameters.WMI.Buffersize</B>, which indicates the size of the buffer allocated by WMI to receive output from the driver.)</LI>
+
+	<LI><B>WnodeHeader.Guid</B> contains the GUID that identifies the data block.</LI>
+
+	<LI>In this example, <B>WnodeHeader.Flags</B> indicates that this structure is a WNODE_SINGLE_INSTANCE and that the data block uses static instance names. </LI>
+</UL>
+</LI>
+
+	<LI>Because the data block uses static instance names, WMI sets <B>InstanceIndex</B> to the index of the instance in the list of static instance names passed by the driver when it registered the block. <B>OffsetInstanceNames</B> is not used. </LI>
+
+	<LI>WMI sets <B>DataBlockOffset</B> to indicate the offset from the beginning of the buffer to the first byte of instance data. (The driver must not change this value) Again because the data block uses static instance names, this offset indicates the same location as <B>VariableData</B>. If the data block used dynamic instance names, the instance names would start at <B>VariableData</B> and <B>DataBlockOffset</B> would specify a greater offset into the buffer.</LI>
+
+	<LI>The driver sets <B>SizeDataBlock</B> to the number of bytes of instance data being returned. </LI>
+
+	<LI>At <B>VariableData</B> (after instance name data, if present), the driver writes instance data for the requested instance in the output buffer. </LI>
+</UL>
+
+<P>A driver reads and writes <A HREF="k112_8mya.htm">WNODE_METHOD_ITEM</A> and <A HREF="k112_20c2.htm">WNODE_SINGLE_ITEM</A> structures in much the same way as WNODE_SINGLE_INSTANCE. These structures resemble each other in that each has the fixed members <B>OffsetInstanceName</B>, <B>InstanceIndex</B>, <B>DataBlockOffset</B>, <B>SizeDataBlock</B> (or, in the case of WNODE_SINGLE_ITEM, <B>SizeDataItem</B>) and <B>VariableData</B>. WNODE_METHOD_ITEM includes a <B>MethodId</B> and WNODE_SINGLE_ITEM includes an <B>ItemId</B> which WNODE_SINGLE_INSTANCE lacks. </P>
+
+<P><A HREF="k112_1dpu.htm">WNODE_ALL_DATA</A> differs from the preceding structures in that it is used to pass multiple instances of a data block, possibly including dynamic instance names and possibly of different sizes. </P>
+
+<P>The following figure shows a block diagram of an IRP buffer containing a WNODE_ALL_DATA that a driver might return in response to an <A HREF="k901_1nhu.htm">IRP_MN_QUERY_ALL_DATA</A> request.</P>
+
+<P><IMG SRC="images/wnode_all_data.gif" ALT="" BORDER=0></P>
+
+<P><B>An IRP Buffer Containing a WNODE_ALL_DATA</B></P>
+
+<P>Starting at the top of the previous figure:
+
+<UL>
+	<LI>As described in the previous figure, the <A HREF="k112_26gi.htm">WNODE_HEADER</A> structure at the beginning of the <A HREF="k112_1dpu.htm">WNODE_ALL_DATA</A> is contained in a <B>WnodeHeader</B> member. <B>WnodeHeader.Buffersize</B> and <B>WnodeHeader.Guid</B> indicate the size of the WNODE_ALL_DATA and the GUID of the data block, respectively.
+<P>In this example, WMI sets <B>WnodeHeader.Flags</B> to indicate that this structure is a WNODE_ALL_DATA and that the data block was registered with dynamic instance names (that is, WMI clears WNODE_FLAG_STATIC_INSTANCE_NAMES and WNODE_FLAG_PDO_INSTANCE_NAMES). On output, the driver sets WNODE_FLAG_FIXED_INSTANCE_SIZE to indicate that all of the instances are the same size.
+</LI>
+
+	<LI>WMI sets <B>DataBlockOffset</B> to indicate the offset from the beginning of the buffer to the first byte of instance data. (The driver must not change this value). In this example, instance data follows the instance names at <B>OffsetInstanceNameOffsets</B>. </LI>
+
+	<LI>The driver sets <B>InstanceCount</B> to indicate the number of instances being returned.</LI>
+
+	<LI>WNODE_XXX for data blocks that use dynamic instance names always contain the instance name strings. Because this example uses dynamic instance names, <B>OffsetInstanceNameOffsets</B> indicates the offset from the beginning of the buffer to an array of offsets to dynamic instance names in the buffer.</LI>
+
+	<LI><B>FixedInstanceSize</B> indicates the number of bytes of data in each instance being returned by the driver. If instances of this data block were to vary in size, the driver would clear WNODE_FLAG_FIXED_INSTANCE_SIZE in <B>WnodeHeader.Flags</B> and set <B>OffsetInstanceDataAndLength</B> to an array of OFFSETINSTANCEDATAANDLENGTH structures, each specifying an offset to the data for one instance and the number of bytes in that instance instead of setting <B>FixedInstanceSize</B>.</LI>
+</UL>
+
+<P>For more information about WNODE_<I>XXX</I> structures, see <A HREF="k112_60fm.htm">System Structures</A>.  </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WMI%20WNODE_XXX%20Structures"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,192 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Blt32</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_blt32_gg"></A><I>Blt32</I></H1>
+
+<P>The<I> Blt32</I> callback function performs a bit-block transfer.</P>
+
+<PRE class=syntax><B>DWORD
+  (FAR PASCAL *LPDDHALSURFCB_BLT)(</B>
+<B>    LPDDHAL_BLTDATA</B>  <I>pbd</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>pbd</I></DT>
+
+<DD>Points to the <A HREF="ddstrcts_8b3b.htm">DDHAL_BLTDATA</A> structure that contains the information required for the driver to perform the blit.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>Blt32</I> returns one of the following callback codes:</P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_handled_gg">DDHAL_DRIVER_HANDLED</A></P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_nothandled_gg">DDHAL_DRIVER_NOTHANDLED</A></P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ddrawi.h</I>. Include <I>ddrawi.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><I>Blt32</I> is called for every DirectDraw blt operation. Blts to surfaces that are being flipped from must not happen until the flip is completed. If a blt happens on the same surface that is being displayed, a tear can occur. This type of tear looks like the screen jerked upwards briefly. </P>
+
+<P>This callback should be optimized for the following three operations: source copy, transparent blt, and color fill. The optimization should include making a single test to determine whether the operation is a source copy, followed by a single test to see whether it is a transparent blt, followed by a single test to see whether it is a color fill, followed by code that handles any other permutations the driver supports. The first three are most critical to display performance because they are used most often (and are all that is covered in this sample). Obviously, handling more cases is preferable, but make sure the code to handle these cases does not interfere with the speed of the execution of source copy, transparent blt, and color fill. </P>
+
+<P>Local surface objects are passed in to <I>Blt32</I>. You must retrieve the pointer to the global surface object by referencing the surface object's <I>lpGbl</I> pointer. This happens in the first part of <I>Blt32</I> because the global surface pointer is what actually points to display memory. The DirectDraw object thinks the local surface pointer is the display memory pointer. However, because multiple DirectDraw objects may exist, this DirectDraw object is not guaranteed to have the input focus. The global surface pointer is guaranteed to correspond to the DirectDraw object that has the input focus. </P>
+
+<P>Before blitting to a flippable surface, call <A HREF="ddfncs_1ktj.htm"><I>updateFlipStatus</I></A> with a pointer to the display memory of the destination surface to see if that surface is involved in a flip. The blt cannot be done on a surface that is flipping because this causes a tear. The <I>updateFlipStatus</I> function is called with the <B>fpVidMem</B> member of the <A HREF="ddstrcts_5mw7.htm">DDRAWI_DDRAWSURFACE_GBL</A> structure (representing the destination surface) passed as a parameter to specify the surface of interest. If the return value of <I>updateFlipStatus</I> is not DD_OK, then the <B>ddRVal</B> member of the DDHAL_BLTDATA structure is set to <I>updateFlipStatus</I>'s return value and DDHAL_DRIVER_HANDLED is returned by <I>Blt32</I>. This gives up control to DirectDraw and passes it <I>updateFlipStatus</I>'s return value, that is, DDERR_WASSTILLDRAWING. If the return value of <I>updateFlipStatus</I> is DD_OK, the <B>dwFlags</B> member of the DDHAL_BLTDATA structure is examined to determine<I> </I>what kind of blt to do. If the <B>dwFlags</B> member is DDBLT_ASYNC, and there is enough FIFO memory to do a blt, the blt is done asynchronously through the FIFO, in the order received. If there is not enough FIFO memory, a message is sent out for debugging purposes to indicate that the asynchronous blt failed, the <B>ddRVal</B> member of the DDHAL_BLTDATA structure is set to DDERR_WASSTILLDRAWING, and DDHAL_DRIVER_HANDLED is returned. </P>
+
+<P>All of the information needed to do a blt is contained in the <B>bltFX</B> member of the DDHAL_BLTDATA structure. The <B>dwFlags</B> member of the DDHAL_BLTDATA structure determines what kind of blt is being done (see the latter half of the following sample implementation for these flags). The color key always comes in the DDBLTFX structure; it does not have to be looked up in the surface. </P>
+
+<P>If the <B>dwFlags</B> member is DDBLT_ASYNC, the sample checks to see whether the FIFO has enough room for a blt. If there is not enough room, return immediately. Otherwise, get the offset, width, and height for the blt, and check <B>dwFlags</B> to determine whether it is a raster operation (DDBLT_ROP). If it is a raster operation and the <B>dwROP</B> member of the DDBLTFX structure pointed to by the <B>bltFX</B> member of the DDHAL_BLTDATA structure is SRCCOPY, then the operation is a standard copy operation (for more information, see the DDBLTFX structure). The destination offset, source data, source offset, source width, source height, and color key (if one exists) are then determined in the sample. There may be a color key override (DDBLT_KEYSRCOVERRIDE) if it is a transparent blt. If no color key exists, the same information is set up without the color key. This double checks how the blt is set up. </P>
+
+<P>When performing a color fill instead of a raster operation (<B>dwFlags</B> == DDBLT_COLORFILL), the <B>dwFillColor</B> member of the DDBLTFX structure pointed to by the <B>bltFX</B> member of the DDHAL_BLTDATA structure is examined. A debug message is sent out to verify that the correct fill color, destination height, and width have been selected. If this is not a raster operation or color fill (or other implemented function), then return DDHAL_DRIVER_NOTHANDLED so this unsupported request can be passed on to the DIB engine. Otherwise the <B>ddRVal</B> member of the DDHAL_BLTDATA structure is set to DD_OK and DDHAL_DRIVER_HANDLED is returned. </P>
+
+<P>The equivalent NT-based callback is <A HREF="ddfncs_7lpj.htm"><I>DdBlt</I></A>.</P>
+
+<P>The following is the sample implementation of <I>Blt32</I>: </P>
+
+<PRE>/*
+ * Blt32
+ *
+ * 32-bit blt routine.
+ */
+DWORD __stdcall Blt32( LPDDHAL_BLTDATA pbd )
+{
+    HRESULT     ddrval;     // DirectDraw return value
+    DWORD       dwFlags;    // For specifying the type of blt
+
+    DWORD dwFillColor;      // Used to specify the RGB color to fill with
+    DWORD dwColorKey;       // Holds our color key for a transparent blt
+
+    DWORD dwDstOffset;      // Offset to beginning of destination surface
+    DWORD dwDstWidth;       // Width of destination surface (in pixels)
+    DWORD dwDstHeight;      // Height of destination surface (in rows)
+
+    DWORD dwSrcOffset;      // Offset to the beginning of source surface
+    DWORD dwSrcWidth;       // Width of source surface (in pixels)
+    DWORD dwSrcHeight;      // Height of source surface (in rows)
+
+    LPDDRAWI_DDRAWSURFACE_LCL  srcx;
+                            // Local pointer to source surface
+    LPDDRAWI_DDRAWSURFACE_LCL  dstx;
+                            // Local pointer to destination surface
+    LPDDRAWI_DDRAWSURFACE_GBL  src;
+                            // Global pointer to source surface
+    LPDDRAWI_DDRAWSURFACE_GBL  dst;
+                            // Global pointer to destination surface
+    dstx = pbd-&gt;lpDDDestSurface;      // Destination surface
+    dst = dstx-&gt;lpData;               // Destination data
+
+    /*
+     * NOTES:
+     *
+     * Everything you need is in pdb-&gt;bltFX.
+     * Look at pdb-&gt;dwFlags to determine what kind of blt you are doing,
+     * DDBLT_xxxx are the flags.
+     *
+     * COLORKEY NOTES:
+     *
+     * ColorKey ALWAY comes in BLTFX. You don't have to look it up in
+     * the surface.
+     */
+
+    /*
+     * Is a flip pending on our destination surface?  If so, pass
+     * ddrval return value and exit
+     */
+    ddrval = updateFlipStatus(dst-&gt;fpVidMem);
+    if( ddrval != DD_OK )
+    {
+        pbd-&gt;ddRVal = ddrval;          // Pass the return value
+        return DDHAL_DRIVER_HANDLED;   // Can't blt now, exit function
+    }
+
+    /*
+     * If async, then only work if blitter isn't busy
+     * This should probably be a little more specific to each call, but
+     * this is pretty close
+     */
+    dwFlags = pbd-&gt;dwFlags;
+    if( dwFlags &amp; DDBLT_ASYNC )
+    {
+        if( !ENOUGH_FIFO_FOR_BLT )
+        {
+            DPF("ASYNC FAILED");
+            pbd-&gt;ddRVal = DDERR_WASSTILLDRAWING;// Pass the return value
+            return DDHAL_DRIVER_HANDLED;        // Not enough FIFO, exit
+        }
+    }
+
+
+
+    /*
+     * Get offset, width, and height for destination
+     */
+    dwDstOffset = dst-&gt;fpVidMem     - pDriverData-&gt;ScreenAddress;
+    dwDstWidth  = pbd-&gt;rDest.right  - pbd-&gt;rDest.left;
+    dwDstHeight = pbd-&gt;rDest.bottom - pbd-&gt;rDest.top;
+
+    /* 
+     * Handle ROPs such as copy, transparent blts and color fills
+     */
+    if (dwFlags &amp; DDBLT_ROP)
+    {
+        if (pbd-&gt;bltFX.dwROP == SRCCOPY)
+        {
+            srcx = pbd-&gt;lpDDDestSurface;   
+            src = srcx-&gt;lpData;
+
+            dwSrcOffset = src-&gt;fpVidMem    - pDriverData-&gt;ScreenAddress;
+            dwSrcWidth  = pbd-&gt;rSrc.right  - pbd-&gt;rSrc.left;
+            dwSrcHeight = pbd-&gt;rSrc.bottom - pbd-&gt;rSrc.top;
+            dwColorKey  = 
+                pbd-&gt;bltFX.ddckSrcColorkey.dwColorSpaceLowValue;
+
+            if (dwFlags &amp; DDBLT_KEYSRCOVERRIDE)
+                DPF("Blt32: TransBlt from %08X %dx%d -&gt; %08X %dx%d 
+                    key=%08X", dwSrcOffset, dwSrcWidth, dwSrcHeight, 
+                    dwDstOffset, dwDstWidth, dwDstHeight, dwColorKey);
+            else
+                DPF("Blt32: Blt from %08X %dx%d -&gt; %08X %dx%d", 
+                    dwSrcOffset, dwSrcWidth, dwSrcHeight, dwDstOffset, 
+                    dwDstWidth, dwDstHeight);
+        }
+    }
+    else if (dwFlags &amp; DDBLT_COLORFILL)
+    {
+        dwFillColor = pbd-&gt;bltFX.dwFillColor;
+        DPF("Blt32: fill %08X %08X %dx%d", dwFillColor, dwDstWidth, 
+            dwDstHeight);
+    }
+    else
+    {
+                     // This is where you would handle extra ROPs
+   return DDHAL_DRIVER_NOTHANDLED;
+                     // We couldn't handle the blt, pass it on to HEL
+    }
+
+    pbd-&gt;ddRVal = DD_OK;         // Pass the return value 
+    return DDHAL_DRIVER_HANDLED; // Blt successful, exit function
+
+} /* Blt32 */</PRE>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddstrcts_5mw7.htm">DDRAWI_DDRAWSURFACE_GBL</A>, <A HREF="ddfncs_1ktj.htm"><I>updateFlipStatus</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Blt32"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

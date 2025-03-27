@@ -1,0 +1,76 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Device Mutex in AVStream</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_query_stop_device_dr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_query_remove_device_dr">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_start_device_dr">
+</OBJECT>
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_query_power_dr">
+</OBJECT>
+<OBJECT ID="hhobj_5" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_set_power_dr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_device_mutex_in_avstream_ksg"></A>Device Mutex in AVStream</H4>
+
+<P>The first mutex is the device mutex. Each AVStream device has a single associated device mutex. This mutex is used to synchronize access to the object hierarchy from the device down to the filters. Creation and destruction of both filter factories and filters are synchronized with this mutex. Certain Plug and Play and power management operations are also synchronized with this mutex. The main concern of the minidriver in dealing with the device mutex is in manually creating filter factories with <A HREF="avfunc_433n.htm"><B>KsCreateFilterFactory</B></A> or in traversing the object hierarchy through the <B>Ks<I>Xxx</I>GetFirstChild<I>Xxx</I></B> and <B>Ks<I>Xxx</I>GetNextSibling<I>Xxx</I></B> functions. The object hierarchy is guaranteed to be stable <I>only</I> from the device down to individual filters if the device mutex is held.</P>
+
+<P>AVStream holds the device mutex on behalf of the minidriver when it receives the following requests:
+
+<UL>
+	<LI><A HREF="JavaScript:hhobj_1.Click()">IRP_MN_QUERY_STOP_DEVICE</A></LI>
+
+	<LI><A HREF="JavaScript:hhobj_2.Click()">IRP_MN_QUERY_REMOVE_DEVICE</A></LI>
+
+	<LI><A HREF="avstclbk_5lbn.htm">PostStart dispatch</A></LI>
+
+	<LI><A HREF="JavaScript:hhobj_3.Click()">IRP_MN_START_DEVICE</A></LI>
+
+	<LI><A HREF="JavaScript:hhobj_4.Click()">IRP_MN_QUERY_POWER</A></LI>
+
+	<LI><A HREF="JavaScript:hhobj_5.Click()">IRP_MN_SET_POWER</A></LI>
+
+	<LI>Sleep and wake notifications on filters and pins. See <A HREF="avfunc_0x0z.htm"><B>KsFilterRegisterPowerCallbacks</B></A> and <A HREF="avfunc_0wtv.htm"><B>KsPinRegisterPowerCallbacks</B></A>.</LI>
+</UL>
+
+<P>It is important to note that the device mutex cannot be obtained recursively. This means that if AVStream calls a minidriver-provided callback routine for a Sleep notification in the context of thread A, and then the minidriver subsequently attempts to obtain the mutex in that same thread (A), thread A deadlocks with itself.</P>
+
+<P>Also note that AVStream often obtains control mutexes while the device mutex is already held. Consequently, as a general rule, a thread that has taken a control mutex should not subsequently take the device mutex.</P>
+
+<P>To manipulate the device mutex, use the following functions:</P>
+
+<P><A HREF="avfunc_6gj7.htm"><B>KsAcquireDevice</B></A>, <A HREF="avfunc_3ub7.htm"><B>KsReleaseDevice</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Device%20Mutex%20in%20AVStream"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling a Set-Power Request</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling a Set-Power Request">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_handling_a_set_power_request_ng"></A>Handling a Set-Power Request</H3>
+
+<P>An intermediate driver must handle set-power requests to the working state (a network device power state of D0) and to sleeping states (a network device power state of D1, D2, or D3). The intermediate driver should also maintain power state variables and a StandBy flag. These issues are discussed further in this topic. See the PassThru intermediate driver sample for examples of intermediate driver power management.</P>
+
+<H4>Handling a Set Power Request to a Sleeping State</H4>
+
+<P>There are two cases where an intermediate driver must handle a set power request to a sleeping state: 
+
+<UL>
+	<LI>NDIS requests the virtual miniport upper edge of the intermediate driver to go to a sleeping state. </LI>
+
+	<LI>The intermediate driver protocol lower edge handles the underlying miniport driver transition to a sleeping state when it receives a Plug and Play event notification. </LI>
+</UL>
+
+<P>These events can happen in any order and one event does not necessarily accompany the other.</P>
+
+<P>The sequence of events in handling set power requests to a sleeping state for the virtual miniport is as follows:
+
+<OL>
+	<LI>NDIS calls the <A HREF="104tdlow_5muq.htm"><I>ProtocolPnPEvent</I></A> function of each protocol driver bound to the virtual miniport. The call to <I>ProtocolPnPEvent</I> specifies a <B>NetEventSetPower</B> to a sleeping state. Protocol drivers that are bound to the intermediate driver stop sending packets and making OID requests to the intermediate driver virtual miniport. The protocol lower edge of the intermediate driver can continue to send packets and requests down until NDIS indicates that the underlying miniport driver is making the transition to a sleeping state.</LI>
+
+	<LI>NDIS issues an <A HREF="212pnpoid_52sy.htm">OID_PNP_SET_POWER</A> request to the virtual miniport of the intermediate driver. The intermediate driver succeeds the request by returning NDIS_STATUS_SUCCESS. The intermediate driver must not propagate the OID_PNP_SET_POWER request to the underlying miniport driver. Once the intermediate driver completes this request, it should not indicate any more receive packets or indicate status even if it keeps receiving packets and status indications from the underlying miniport driver.</LI>
+
+	<LI>Typically, an intermediate driver does not reinitialize its virtual miniport. If the underlying miniport driver is PM-aware and supports wake-up events, the intermediate driver should not reinitialize its virtual miniport. If the intermediate driver does reinitialize its virtual miniport by calling <A HREF="103ndisx_1q7m.htm"><B>NdisIMDeinitializeDeviceInstance</B></A>, NDIS calls the <A HREF="104tdlow_1l6a.htm"><I>ProtocolUnbindAdapter</I></A> function of each bound protocol driver to unbind it from the virtual miniport. </LI>
+</OL>
+
+<P>The sequence of events in handling set power requests to a sleeping state for the underlying miniport driver is as follows:
+
+<OL>
+	<LI>NDIS calls the <A HREF="104tdlow_5muq.htm"><I>ProtocolPnPEvent</I></A> function of the intermediate driver protocol lower edge. The call to <I>ProtocolPnPEvent</I> specifies a <B>NetEventSetPower</B> to a sleeping state. The intermediate driver must stop sending packets and making OID requests to the underlying miniport driver. Before returning from the <I>ProtocolPnPEvent</I> function, the intermediate driver can use the <A HREF="103ndisx_5e9e.htm"><B>NdisQueryPendingIOCount</B></A> function to verify that outstanding requests and sends submitted to the underlying miniport driver have completed. If there are outstanding requests or sends, the intermediate driver should return NDIS_STATUS_PENDING from the call to <I>ProtocolPnPEvent</I> and then call <B>NdisQueryPendingIOCount</B> periodically until it returns zero. When <B>NdisQueryPendingIOCount</B> returns zero, the intermediate driver calls <A HREF="103ndisx_0vaq.htm"><B>NDISCompletePnPEvent</B></A> to complete the call to <I>ProtocolPnPEvent</I>. The protocol edge of an intermediate driver can still get received packet and status indications from the underlying miniport driver. Received packets can be ignored. If an intermediate driver's implementation depends upon monitoring the status of the underlying miniport driver, status indications should still be monitored.</LI>
+
+	<LI>NDIS issues an <A HREF="212pnpoid_52sy.htm">OID_PNP_SET_POWER</A> request to the underlying miniport driver or if the underlying miniport driver does not support power management, it will be halted. In this case, even though NDIS halts the underlying miniport driver, it does not request the intermediate driver protocol to unbind from the underlying miniport driver and NIC. Once the underlying miniport driver has successfully completed processing the OID (or the miniport driver is halted), it will not indicate any more packets or status.</LI>
+</OL>
+
+<H4>Handling a Set Power Request to the Working State</H4>
+
+<P>There are two cases where an intermediate driver handles a set power request to the working state: 
+
+<UL>
+	<LI>NDIS requests the virtual miniport (upper edge) of the intermediate driver to go to the working state. </LI>
+
+	<LI>The intermediate driver protocol lower edge handles the underlying miniport driver transition to the working state when it receives a Plug and Play event notification. </LI>
+</UL>
+
+<P>These events can occur in any order and one event does not necessarily accompany the other.</P>
+
+<P>The sequence of events in handling set-power requests to a working state for the virtual miniport is as follows:
+
+<OL>
+	<LI>NDIS issues an <A HREF="212pnpoid_52sy.htm">OID_PNP_SET_POWER</A> to the virtual miniport of the intermediate driver. The intermediate driver returns NDIS_STATUS_SUCCESS to the set-power request. The intermediate driver must not propagate the OID_PNP_SET_POWER request to the underlying miniport driver.</LI>
+
+	<LI>If the intermediate driver reinitialized its virtual miniport by calling <A HREF="103ndisx_1q7m.htm"><B>NdisIMDeInitializeDeviceInstance</B></A>, it can reinitialize the virtual miniiport with <A HREF="103ndisx_0jn6.htm"><B>NdisIMInitializeDeviceInstanceEx</B></A>. The virtual miniport should be reinitialized when the intermediate driver is ready to accept I/O requests.</LI>
+</OL>
+
+<P>The sequence of events in handling set power requests to a working state for the underlying miniport driver is as follows:
+
+<OL>
+	<LI>NDIS issues an OID_PNP_SET_POWER to the underlying miniport driver or calls its <I>MiniportInitialize</I> handler if the underlying miniport driver was halted.</LI>
+
+	<LI>NDIS calls the <A HREF="104tdlow_5muq.htm"><I>ProtocolPnPEvent</I></A> function of the intermediate driver. The call to <I>ProtocolPnPEvent</I> specifies a <B>NetEventSetPower</B> to the working state. Bound protocol drivers can start sending packets to the intermediate driver. </LI>
+</OL>
+
+<H4>Power States and the Standby Flag</H4>
+
+<P>The intermediate driver should maintain a separate power state variable for each virtual miniport instance and for each underlying miniport driver to which the driver is bound. The intermediate driver should also maintain a StandingBy flag for each virtual miniport that is:
+
+<UL>
+	<LI>Set to TRUE when the power state of either the virtual miniport or the underlying miniport driver leaves D0.</LI>
+
+	<LI>Set to FALSE when the power state of either the virtual miniport or the underlying miniport driver returns to D0.</LI>
+</UL>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;For MUX intermediate drivers there can be multiple virtual miniports associated with an underlying miniport driver or multiple underlying miniports associated with each virtual miniport. When the power state of any miniport changes, the behavior of all the associated miniports are also affected. How the behavior is affected is implementation specific. For example, a driver that implements an Load Balancing Fail Over (LBFO) solution might not deactivate the virtual miniports when a single underlying miniport driver is deactivated. However, a driver implementation that depends on all underlying miniport drivers would require deactivation of virtual miniports when any underlying miniport driver is deactivated.</P>
+
+<P>The intermediate driver should use the StandingBy flag and power state variables when processing requests as follows:
+
+<UL>
+	<LI>The driver’s <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A> function should fail unless the virtual miniport and its underlying miniport driver are both in D0. </LI>
+
+	<LI>The driver’s <A HREF="101mini_2vw2.htm"><I>MiniportQueryInformation</I></A> function should always succeed OID_PNP_QUERY_POWER to ensure that the driver receives the subsequent OID_PNP_SET_POWER requests. <I>MiniportQueryInformation</I> should fail all other requests if the indicated virtual miniport is not in D0, or if its StandingBy flag is TRUE. Otherwise, if the underlying miniport driver that is associated with the indicated virtual miniport is not in D0, <I>MiniportQueryInformation</I> should queue a single request for the virtual miniport. A queued request should be processed when the underlying miniport driver state becomes D0.</LI>
+
+	<LI>The driver’s <A HREF="101mini_7ng2.htm"><I>MiniportSetInformation</I></A> function should fail if the virtual miniport is not in D0 or StandingBy is TRUE. Otherwise, it should queue a single request if the underlying miniport driver is not in D0. A queued request should be processed when the underlying miniport driver state becomes D0.</LI>
+
+	<LI>The intermediate driver virtual miniport should only report status if both the underlying miniport driver and virtual miniport are in D0.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20a%20Set-Power%20Request"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

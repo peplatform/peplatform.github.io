@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Points to Consider For StartIo Routines</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Points to Consider For StartIo Routines">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_points_to_consider_for_startio_routines_kg"></A>Points to Consider For <I>StartIo </I>Routines</H3>
+
+<P>Keep the following points in mind when implementing a <I>StartIo </I>routine:
+
+<UL>
+	<LI>A <I>StartIo </I>routine must synchronize its access to a physical device and to any shared state information or resources that the driver maintains in the device extension with the driver’s other routines that access the same device, memory location, or resources. 
+<P>If the <I>StartIo </I>routine shares the device or state with the ISR, it must use <B>KeSynchronizeExecution</B> to call a driver-supplied <A HREF="drvrrtns_4m2a.htm"><I>SynchCritSection</I></A> routine to program the device or to access the shared state. For more information, see <A HREF="intrupts_6g13.htm">Using Critical Sections</A>.
+
+<P>If the <I>StartIo </I>routine shares state or resources with routines other than the ISR, it must protect the shared state or resources with a driver-initialized executive spin lock for which the driver provides the storage. For more information, see <A HREF="synchro_8unb.htm">Spin Locks</A>. 
+</LI>
+
+	<LI>If a monolithic non-WDM device driver sets up a controller object, its <I>StartIo </I>routine can use the controller object to synchronize operations through a shared physical device with attached (similar) devices. 
+<P>See <A HREF="iputoput_5xd3.htm">Controller Objects</A> for more information. 
+</LI>
+
+	<LI>Unless a closely coupled higher-level driver pre-splits large DMA transfer requests for its underlying device driver, the underlying device driver’s <I>StartIo </I>routine must split large transfer requests into partial-transfer ranges and the driver must carry out a sequence of partial-transfer device operations. Each partial transfer must be sized to suit the capabilities of the hardware: either the capabilities of the driver’s device or, for a slave DMA device, the capabilities of the system DMA controller, whichever has stricter constraints. 
+<P>See <A HREF="iputoput_2wtj.htm">Adapter Objects and DMA</A> for more information about using system or bus-master DMA. 
+</LI>
+
+	<LI>The <I>StartIo </I>routine of a driver that uses DMA must synchronize transfers using an <A HREF="iputoput_2wtj.htm">adapter object</A>. </LI>
+
+	<LI>A <I>StartIo </I>routine is run at IRQL&nbsp;= DISPATCH_LEVEL, which restricts the set of support routines it can call. 
+<P>For example, a <I>StartIo </I>routine can neither access nor allocate pageable memory, and it cannot wait on a dispatcher object. On the other hand, a <I>StartIo </I>routine can acquire and release a driver-allocated executive spin lock with <A HREF="k105_9vaq.htm"><B>KeAcquireSpinLockAtDpcLevel</B></A> and <A HREF="k105_5ar6.htm"><B>KeReleaseSpinLockFromDpcLevel</B></A>, which run faster than <A HREF="k105_40qa.htm"><B>KeAcquireSpinLock</B></A> and <A HREF="k105_3mia.htm"><B>KeReleaseSpinLock</B></A>.
+
+<P>See <A HREF="intrupts_0kh3.htm">Managing Hardware Priorities</A> and <A HREF="synchro_8unb.htm">Spin Locks</A> for more information. 
+</LI>
+
+	<LI>If the driver holds IRPs in a cancelable state, its <I>StartIo </I>routine must check whether the input IRP has already been canceled before it begins any processing for that request on its device. For more information, see <A HREF="irps_6unb.htm">Canceling IRPs</A>.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Points%20to%20Consider%20For%20StartIo%20Routines"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

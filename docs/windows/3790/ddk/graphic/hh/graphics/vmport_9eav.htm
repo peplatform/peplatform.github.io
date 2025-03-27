@@ -1,0 +1,54 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Setting up Video Adapter Access Ranges</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Setting up Video Adapter Access Ranges">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_setting_up_video_adapter_access_ranges_gg"></A>Setting up Video Adapter Access Ranges</H3>
+
+<P>An array of <A HREF="vstrcts_6h0n.htm">VIDEO_ACCESS_RANGE</A>-type elements describes one or more ranges of memory and/or I/O ports that a video adapter decodes. Each access range element in this array contains bus-relative physical address values.</P>
+
+<P>The miniport driver's <A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A> routine must claim all PCI memory and ports or ranges of ports that the adapter will respond to. Depending on the adapter and the <B>AdapterInterfaceType</B> value in <A HREF="vstrcts_459j.htm">VIDEO_PORT_CONFIG_INFO</A>, <I>HwVidFindAdapter</I> can call some of the following <B>VideoPort</B><I>Xxx</I> functions to get the necessary bus-relative configuration data:</P>
+
+<P class=indent1><A HREF="vpfncs_22lj.htm"><B>VideoPortGetAccessRanges</B></A></P>
+
+<P class=indent1><A HREF="vpfncs_5naf.htm"><B>VideoPortGetBusData</B></A></P>
+
+<P class=indent1><A HREF="vpfncs_9353.htm"><B>VideoPortGetDeviceData</B></A></P>
+
+<P class=indent1><A HREF="vpfncs_8a07.htm"><B>VideoPortGetRegistryParameters</B></A></P>
+
+<P class=indent1><A HREF="vpfncs_0x7r.htm"><B>VideoPortVerifyAccessRanges</B></A> </P>
+
+<P>If <I>HwVidFindAdapter</I> cannot get bus-relative access ranges information by calling <B>VideoPortGetBusData</B> or <B>VideoPortGetAccessRanges</B>, or from the registry with <B>VideoPortGetDeviceData</B> or <B>VideoPortGetRegistryParameters</B>, the miniport driver should have a set of bus-relative default values for access ranges.</P>
+
+<P>Every <I>HwVidFindAdapter</I> function must map each claimed bus-relative physical address range to a range in kernel-mode address space with <A HREF="vpfncs_87mv.htm"><B>VideoPortGetDeviceBase</B></A> before the miniport driver attempts to communicate with an adapter. The HAL can remap bus-relative access range values to system-space logical address ranges, particularly in multiple bus machines.</P>
+
+<P>With mapped logical range addresses, the driver can call the <B>VideoPortRead</B><I>Xxx</I> and <B>VideoPortWrite</B><I>Xxx</I> functions to read from or write to an adapter. These kernel-mode addresses also can be passed to <A HREF="vpfncs_7k13.htm"><B>VideoPortCompareMemory</B></A>, <A HREF="vpfncs_49wn.htm"><B>VideoPortMoveMemory</B></A>, <A HREF="vpfncs_0exz.htm"><B>VideoPortZeroDeviceMemory</B></A>, and/or <A HREF="vpfncs_810n.htm"><B>VideoPortZeroMemory</B></A>. For a mapped range in I/O space, the miniport driver calls the <B>VideoPortReadPort</B><I>Xxx</I> and <B>VideoPortWritePort</B><I>Xxx</I> functions. For a mapped range in memory, the miniport driver calls the <B>VideoPortReadRegister</B><I>Xxx</I> and <B>VideoPortWriteRegister</B><I>Xxx</I> functions.</P>
+
+<P>The <A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A> function <I>must always</I> call <A HREF="vpfncs_0x7r.htm"><B>VideoPortVerifyAccessRanges</B></A> or <A HREF="vpfncs_22lj.htm"><B>VideoPortGetAccessRanges</B></A> successfully <I>before</I> it calls <A HREF="vpfncs_87mv.htm"><B>VideoPortGetDeviceBase</B></A>.
+
+<UL>
+	<LI>Any successful call to <B>VideoPortVerifyAccessRanges</B> or <B>VideoPortGetAccessRanges</B> establishes a miniport driver's claim on bus-specific video memory and register addresses or I/O ports for its adapter in the registry. It is critical to note, however, that any subsequent call to <B>VideoPortVerifyAccessRanges</B> or <B>VideoPortGetAccessRanges</B> will cause that driver's previously claimed resources to be erased and replaced with the ranges passed to the most recently called function. Therefore, if a driver claims ranges by separate calls to these functions, it must pass in all range arrays, including those already claimed.</LI>
+
+	<LI><I>HwVidFindAdapter</I> can claim a small set of access ranges for an adapter, use this set to determine whether the adapter is one that the miniport driver supports, and claim a full set of access ranges for a supported adapter with another call to <B>VideoPortGetAccessRanges</B> or <B>VideoPortVerifyAccessRanges</B>. Again, each successful call to these <B>VideoPort..AccessRanges</B> routines for a particular adapter overwrites the caller's previous claims in the registry.</LI>
+
+	<LI>To claim other types of hardware resources, such as an interrupt vector, a miniport driver should set appropriate values in the VIDEO_PORT_CONFIG_INFO and call <B>VideoPortVerifyAccessRanges</B>, or it should call <B>VideoPortGetAccessRanges</B>.</LI>
+
+	<LI>Calling <B>VideoPortGetAccessRanges</B> or <B>VideoPortVerifyAccessRanges</B> successfully ensures that a miniport driver does not try to use register or device memory addresses already in use by another driver.</LI>
+
+	<LI>Claiming an adapter's bus-relative hardware resources in the registry prevents drivers that load later from attempting to use the same access ranges (and other hardware resources) for their adapters. It also prevents a subsequently loaded driver from changing the initialized state of the video adapter.</LI>
+</UL>
+
+<P>The miniport driver of hardware that decodes legacy resources must claim these resources in its <B>DriverEntry</B> routine, or if implemented, its <I>HwVidLegacyResources</I> routine. Legacy resources are those resources not listed in the device's PCI configuration space but that are decoded by the device. See <A HREF="vmport_3yuf.htm">Claiming Legacy Resources</A> for details.</P>
+
+<P>After a miniport driver is loaded and its <A HREF="vmpfncs_6alj.htm"><I>HwVidInitialize</I></A> function is run, the miniport driver's <A HREF="vmpfncs_3wo7.htm"><I>HwVidStartIO</I></A> function is called to map any access range of video memory that the miniport driver makes visible to its corresponding display driver.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Setting%20up%20Video%20Adapter%20Access%20Ranges"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

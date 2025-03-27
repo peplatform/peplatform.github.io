@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Specifying Nonlocal Display Memory Heaps</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Specifying Nonlocal Display Memory Heaps">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_specifying_nonlocal_display_memory_heaps_gg"></A>Specifying Nonlocal Display Memory Heaps</H2>
+
+<P>A DirectDraw driver controls how much AGP memory is available and to which surfaces by returning heaps in the <A HREF="ddstrcts_17s7.htm">DD_HALINFO</A> structure that is passed back to DirectDraw. The driver identifies nonlocal heaps by specifying the VIDMEM_ISNONLOCAL flag in the <B>dwFlags</B> member of the <A HREF="ddstrcts_90yv.htm">VIDEOMEMORY</A> data structure that describes the heap. Furthermore, a driver can choose to enable combining of memory writes on a nonlocal heap by specifying the VIDMEM_ISWC flag in addition to VIDMEM_ISNONLOCAL. </P>
+
+<P>It is the responsibility of an AGP-compatible DirectDraw driver to describe to DirectDraw the size (linear or rectangular), attributes (write combining), and surface types the heap should not and cannot be used for. However, it is not the driver's responsibility to actually reserve address space for the heap or commit memory to it. This is handled by DirectDraw on the driver's behalf. DirectDraw hides the details of managing AGP memory from the driver. </P>
+
+<P>When specifying a nonlocal display memory heap, the start address specified by the driver has no meaning. The start address, both graphic address remapping table (GART) linear and physical, of a nonlocal heap is determined by the operating system when DirectDraw requests that a heap be created. Therefore, the driver can return any value for the start address. For a rectangular heap, this start address is ignored by DirectDraw. The specified width and height are all that DirectDraw needs to determine memory requirements. For a linear heap, the start address has a meaning, but only to the extent that it is used to compute the size of the heap. </P>
+
+<P>DirectDraw determines the size of a linear heap by <CODE>(fpEnd - fpStart) + 1</CODE> (note that the specified end address is the last byte in the heap, not the first byte after the end of the heap). As such, any start address can be specified as long as when DirectDraw subtracts that address from the end address and adds 1, the result is the maximum size of the heap.</P>
+
+<P>Although physical memory is only committed to the AGP heap when it is needed (that is, as surfaces are allocated), it is important not to specify very large nonlocal heaps. Such heaps consume shared address space and other important resources even before physical memory is committed. </P>
+
+<P>It is also important to note that DirectDraw and the Windows® operating system impose policy limits on the amount of AGP memory that can be committed at any given time. This is necessary to prevent resource starvation for the rest of the system. Therefore, it is quite possible for a request for a nonlocal display memory surface to fail even though the nonlocal heaps are not fully committed. </P>
+
+<P>When DirectDraw has determined the correct addresses (linear and physical) of the heap, it stores them in its heap descriptors. DirectDraw also provides a mechanism to notify a driver at initialization time of these addresses. How this is done is platform specific:
+
+<UL>
+	<LI>On Microsoft® Windows®&nbsp;2000 and later, this is done with a <A HREF="ddfncs_0yhz.htm"><I>DdGetDriverInfo</I></A> call using the GUID_UpdateNonLocalHeap GUID. When this GUID is passed to <I>DDGetDriverInfo</I>, the heap data is passed in the <A HREF="ddstrcts_9hk7.htm">DD_UPDATENONLOCALHEAPDATA</A> data structure.</LI>
+
+	<LI>On Windows&nbsp;98/Me, this is done with the <B>UpdateNonLocalHeap</B> member of the <A HREF="ddstrcts_8t2f.htm">DDHAL_DDMISCELLANEOUSCALLBACKS</A> structure. The DDHAL_DDMISCELLANEOUSCALLBACKS structure is retrieved from the driver with the <I>DDGetDriverInfo</I> call using the GUID_MiscellaneousCallbacks GUID. At initialization time, the DirectDraw runtime goes through a FOR loop, calling the callback specified by the <B>UpdateNonLocalHeap</B> member. DirectDraw then invokes the driver-supplied function for each heap and passes the function a heap number and the linear and high physical address of the start of the heap as specified in the <A HREF="ddstrcts_9hk7.htm">DDHAL_UPDATENONLOCALHEAPDATA</A> structure. </LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Specifying%20Nonlocal%20Display%20Memory%20Heaps"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

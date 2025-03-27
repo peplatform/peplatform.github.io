@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>UNWIND_INFO Structure</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_unwind_info_structure_kg"></A>UNWIND_INFO Structure</H4>
+
+<P>The unwind data information structure is used to record the effects that a function has on the stack pointer, and where the nonvolatile registers are saved on the stack. The UNWIND_INFO structure has the following format:</P>
+
+<PRE class=syntax>typedef struct _UNWIND_INFO {
+    UBYTE Version       : 3;
+    UBYTE Flags         : 5;
+    UBYTE SizeOfProlog;
+    UBYTE CountOfCodes;
+    UBYTE FrameRegister : 4;
+    UBYTE FrameOffset   : 4;
+    UNWIND_CODE UnwindCode[1];
+    union {
+        OPTIONAL ULONG ExceptionHandler;
+        OPTIONAL ULONG FunctionEntry;
+    };
+    OPTIONAL ULONG ExceptionData[]; 
+} UNWIND_INFO, *PUNWIND_INFO;</PRE>
+
+<P>The UNWIND_INFO structure must be DWORD aligned in memory. The members of UNWIND_INFO contain the following information:
+
+<DL>
+<DT><B>Version</B></DT>
+
+<DD>Specifies the version number of the unwind data. Currently set to 1.</DD>
+
+<DT><B>Flags</B></DT>
+
+<DD>Specifies flags for the unwind data. The following flags are currently defined:
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=38%>Flag</TH>
+<TH align=left width=62%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>UNW_FLAG_EHANDLER</TD>
+<TD width=62%>The function has an exception handler that should be called when looking for functions that need to examine exceptions.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>UNW_FLAG_UHANDLER</TD>
+<TD width=62%>The function has a termination handler that should be called when unwinding an exception.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>UNW_FLAG_CHAININFO</TD>
+<TD width=62%>This UNWIND_INFO structure is not the primary one for the procedure. Instead, the chained-unwind-info entry (<B>FunctionEntry</B> member) is the image-relative address of a previous RUNTIME_FUNCTION entry. If this flag is set, then the UNW_FLAG_EHANDLER and UNW_FLAG_UHANDLER flags must be cleared. Also, the frame register and fixed stack allocation fields must have the same values as in the primary unwind information.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>SizeOfProlog</B></DT>
+
+<DD>Specifies the length of the function prolog in bytes.</DD>
+
+<DT><B>CountOfCodes</B></DT>
+
+<DD>Specifies the number of slots in the unwind codes array. (For more information, see <A HREF="64bitamd_7btz.htm">UNWIND_CODE Structure</A>.) Note that some unwind codes (for example, UWOP_SAVE_NONVOL) require more than one slot in the array.</DD>
+
+<DT><B>FrameRegister</B></DT>
+
+<DD>Specifies the number of the nonvolatile register used as the frame pointer, if nonzero. If zero, specifies that the function does not use a frame pointer. This frame pointer uses the same encoding described in the <B>OpInfo</B> member of the <A HREF="64bitamd_7btz.htm">UNWIND_CODE Structure</A>.</DD>
+
+<DT><B>FrameOffset</B></DT>
+
+<DD>Specifies the scaled offset from RSP that is applied to the FP register when it is established, if the <B>FrameRegister</B> member is nonzero. The actual FP register is set to RSP plus 16 times this number, allowing offsets from 0 to 240. This permits pointing the FP register into the middle of the local stack allocation for dynamic stack frames, allowing better code density through shorter instructions (more instructions can use the 8-bit signed offset form).</DD>
+
+<DT><B>UnwindCode</B></DT>
+
+<DD>Specifies an array of items that explains the effect of the prolog on the nonvolatile registers and RSP. See the <A HREF="64bitamd_7btz.htm">UNWIND_CODE Structure</A> for the meanings of individual items. For alignment purposes, this array always has an even number of entries, with the final entry potentially unused (in which case, the array is one longer than indicated by the <B>CountOfCodes</B> member).</DD>
+
+<DT><B>ExceptionHandler</B></DT>
+
+<DD>Specifies an image-relative pointer to the function’s language-specific exception/termination handler (if flag UNW_FLAG_CHAININFO is clear and one of the flags UNW_FLAG_EHANDLER or UNW_FLAG_UHANDLER is set). </DD>
+
+<DT><B>FunctionEntry</B></DT>
+
+<DD>Specifies an image-relative pointer to the chained unwind information (if flag UNW_FLAG_CHAININFO is set).</DD>
+
+<DT><B>ExceptionData</B></DT>
+
+<DD>Specifies the function’s language-specific exception handler data. The format of this data is unspecified and completely determined by the specific exception handler in use.
+</DD>
+</DL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: UNWIND_INFO%20Structure"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

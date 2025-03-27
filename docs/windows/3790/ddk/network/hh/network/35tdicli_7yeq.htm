@@ -1,0 +1,162 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ClientEventReceive</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ClientEventReceive">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_clienteventreceive_nr"></A>ClientEventReceive</H1>
+
+<P>The ClientEventReceive routine is an event handler that the underlying TDI transport calls in response to an incoming receive from a remote node with which the client has an established endpoint-to-endpoint connection. Usually, this is a normal TSDU unless the client has not registered a ClientEventReceiveExpedited handler. </P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>ClientEventReceive(
+</B>    <B>IN PVOID</B>  <I>TdiEventContext</I><B>,
+</B>    <B>IN CONNECTION_CONTEXT</B>  <I>ConnectionContext</I><B>,
+</B>    <B>IN ULONG</B>  <I>ReceiveFlags</I><B>,
+</B>    <B>IN ULONG</B>  <I>BytesIndicated</I><B>,
+</B>    <B>IN ULONG</B>  <I>BytesAvailable</I><B>,
+</B>    <B>OUT ULONG</B>  <B>*</B><I>BytesTaken</I><B>,
+</B>    <B>IN PVOID</B>  <I>Tsdu</I><B>,
+</B>    <B>OUT PIRP</B>  <B>*</B><I>IoRequestPacket
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>TdiEventContext</I></DT>
+
+<DD>Pointer to the client-supplied context provided in the IRP that was set up with <B>TdiBuildSetEventHandler</B> when ClientEventReceive was registered with the underlying transport.</DD>
+
+<DT><I>ConnectionContext</I></DT>
+
+<DD>Pointer to the client's context area for this connection endpoint. The client previously supplied this value to its underlying transport when its ClientEventConnect handler accepted a connection offer from the remote-node peer and/or when it opened the connection endpoint with <B>ZwCreateFile</B>. </DD>
+
+<DT><I>ReceiveFlags</I></DT>
+
+<DD>Specifies the nature of the receive indication as a combination (ORed) of one or more of the following flags:
+
+<DL>
+<DT>TDI_RECEIVE_NORMAL</DT>
+
+<DD>The buffer at <I>Tsdu</I> contains normal data received from the client's remote-node peer. This flag and TDI_RECEIVE_EXPEDITED are mutually exclusive.</DD>
+
+<DT>TDI_RECEIVE_EXPEDITED</DT>
+
+<DD>The buffer at <I>Tsdu</I> contains expedited data received from the client's remote-node peer. This flag can be set only if the client did not register a ClientEventReceiveExpedited and/or ClientEventChainedReceiveExpedited handler. </DD>
+
+<DT>TDI_RECEIVE_ENTIRE_MESSAGE</DT>
+
+<DD>The buffer at <I>Tsdu</I> contains a full TSDU. The client should return control as quickly as possible after copying the indicated data into an internal buffer if it accepts the TSDU. 
+
+<P>If this flag is clear, ClientEventReceive must check the <I>BytesIndicated</I> and <I>BytesAvailable</I> parameters to determine how much of the TSDU has been provided. Although legacy TDI transports continue to set the TDI_RECEIVE_PARTIAL flag, newer transports leave clear the TDI_RECEIVE_ENTIRE_MESSAGE flag to indicate partial TSDUs to their clients. 
+</DD>
+
+<DT>TDI_RECEIVE_COPY_LOOKAHEAD</DT>
+
+<DD>Unless TDI_RECEIVE_ENTIRE_MESSAGE is set, <I>BytesIndicated</I> is something less than <I>BytesAvailable</I>, and ClientEventReceive should copy the number of indicated bytes into an internal buffer, set the variable at <I>BytesTaken</I>, and return control. The client will subsequently submit one or more TDI_RECEIVE requests to get the remainder of the TSDU or ClientEventReceive will be called again to copy the remainder of the TSDU. </DD>
+
+<DT>TDI_RECEIVE_FRAGMENT</DT>
+
+<DD>The buffer at Tsdu contains a fragmented TSDU. </DD>
+
+<DT>TDI_RECEIVE_PEEK</DT>
+
+<DD>The transport has buffered some receive data internally, but not yet the full TSDU. The client can examine the buffer at <I>Tsdu</I> to decide whether to submit a TDI_RECEIVE request for the TSDU. </DD>
+</DL>
+</DD>
+
+<DT><I>BytesIndicated</I></DT>
+
+<DD>Specifies the number of bytes of message-mode or stream-mode data in the buffer at <I>Tsdu</I>. This parameter is always less than or equal to the value of <I>BytesAvailable</I>. A TDI transport provides at least 128 bytes of data in a receive indication to its client, unless the received message or stream segment is less than 128 bytes in length. If <I>BytesAvailable</I> is greater than <I>BytesIndicated</I>, the transport has received data that it does not make available when it calls ClientEventReceive.</DD>
+
+<DT><I>BytesAvailable</I></DT>
+
+<DD>Specifies the total number of bytes in the received TSDU. </DD>
+
+<DT><I>BytesTaken</I></DT>
+
+<DD>Pointer to a caller-supplied variable in which ClientEventReceive returns the number of bytes of data it copies from the TSDU.</DD>
+
+<DT><I>Tsdu</I></DT>
+
+<DD>Pointer to a buffer containing the received TSDU data. </DD>
+
+<DT><I>IoRequestPacket</I></DT>
+
+<DD>Pointer to a variable in which ClientEventReceive returns a pointer to a caller-allocated IRP that was set up with <B>TdiBuildReceive</B>. If this variable is set to NULL, the client will not be making a receive request for the remainder of the TSDU.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>ClientEventReceive can return one of the following:
+
+<DL>
+<DT>STATUS_SUCCESS</DT>
+
+<DD>Indicates either that the client copied all the data in the given TSDU or that the client set <I>BytesTaken</I> to <I>BytesAvailable</I> and returned control immediately (effectively "tossing" the indication).</DD>
+
+<DT>STATUS_MORE_PROCESSING_REQUIRED</DT>
+
+<DD>Indicates the client has supplied an IRP requesting the remainder of the TSDU, usually after copying <I>BytesIndicated</I> into an internal buffer. </DD>
+
+<DT>STATUS_DATA_NOT_ACCEPTED</DT>
+
+<DD>Indicates this client is not interested in the TSDU. 
+</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>ClientEventReceive accepts or rejects a TSDU that its underlying TDI driver has received on an established endpoint-to-endpoint connection. The TSDU consists of stream-mode or message-mode data that represents a segment of a data stream, an entire message, or a piece of a message. The transport has removed the transport-layer header from the TSDU before it calls ClientEventReceive.</P>
+
+<P>ClientEventReceive copies normal data the TDI driver receives over the network. The transport does not call ClientEvent(Chained)Receive while the client has an outstanding normal receive request or has rejected previously indicated data for a particular incoming normal receive until that receive is done. However, a transport that supports expedited data can call ClientEvent(Chained)ReceiveExpedited in the process of indicating a normal TSDU if an expedited TSDU comes in from the remote-node peer.</P>
+
+<P>A message-mode transport delimits messages using end-of-record marks. Such a transport can make a sequence of separate receive indications for each block of data terminated with an end-of-record mark within a particular received TSDU. Such a receive usually indicates that the remote-node client issued a sequence of sends to transmit the TSDU. </P>
+
+<P>When ClientEventReceive is called, it can do one of the following:
+
+<UL>
+	<LI>Reject the indicated TSDU if it has no use for the data by returning STATUS_DATA_NOT_ACCEPTED</LI>
+
+	<LI>Copy all of the data into an internal buffer if TDI_RECEIVE_ENTIRE_MESSAGE is set in the <I>ReceiveFlags</I> and return STATUS_SUCCESS</LI>
+
+	<LI>If TDI_RECEIVE_ENTIRE_MESSAGE is clear (or TDI_RECEIVE_PARTIAL is set), copy some or all of the indicated data and return either of the following, depending on which operation it carries out:
+<P>STATUS_MORE_PROCESSING_REQUIRED if the client is supplying a TDI_RECEIVE request at <I>IoRequestPacket</I> to obtain the remaining TSDU data 
+
+<P>STATUS_SUCCESS if the transport is expected to call ClientEventReceive again with the remaining TSDU data 
+</LI>
+</UL>
+
+<P>When it has finished copying receive data, ClientEventReceive sets the variable at <I>BytesTaken</I> to the number of bytes of data accepted before it returns control.</P>
+
+<P>If ClientEventReceive supplies a TDI_RECEIVE request at <I>IoRequestPacket</I> for the underlying driver, the transport retrieves the data that it has not yet delivered to the client, along with any new data that is available. Retrieval continues until the client-supplied buffer in the IRP is full or the transport encounters an end-of-record mark. The transport always completes the given IRP before it issues a subsequent call to ClientEvent(Chained)Receive handler for this client. In effect, a client processes each normal TSDU received to completion before the transport will indicate a subsequent normal receive to the client. This allows each client to synchronize receive data correctly.</P>
+
+<P>If ClientEventReceive returns STATUS_DATA_NOT_ACCEPTED after the client has accepted some data from a TSDU, the TDI driver proceeds according to the amount of indicated data the client has accepted and the availability of additional data, as follows:
+
+<UL>
+	<LI>If the driver has passed all indicated data and no more data was available at the time of the indication, the driver calls ClientEventReceive again when it receives more data for the TSDU from the network.</LI>
+
+	<LI>If the driver has not passed all indicated data to the client, or if it has additional data available that it did not make available in the preceding call to ClientEventReceive, the transport assumes that its client has no internal buffer space for the data and makes no further indications until the client issues an explicit TDI_RECEIVE request. 
+<P>In these circumstances, a transport can optionally initiate protocol-flow-control action to prevent retransmissions of data from the remote-node transport until the local-node client makes the receive request.
+</LI>
+</UL>
+
+<P>A TDI transport is not required to correlate data reception from the network with TDI_EVENT_RECEIVE indications. If the driver provides internal buffering, it can acknowledge data at any time and make receive indications as necessary, for instance, when it has received a certain amount of data or when its internal buffers are nearly full. A buffering driver should retain any data that its client does not accept in an indication until that client notifies the transport that the client's receive request is satisfied. A transport that does not support internal data buffering can acknowledge received data after its client has accepted the data from ClientEventReceive or after the driver has transferred the received data into a client-supplied IRP. </P>
+
+<P>A received TSDU can be any length up to a transport-specific limit, which the client can find by submitting a request set up with <B>TdiBuildQueryInformation</B> for the <I>QType</I> TDI_QUERY_CONNECTION_INFO and examining the value returned for <B>ReceiveBufferSize</B> if the transport buffers received data internally. However, ClientEventReceive does not necessarily receive an entire TSDU, or even the available portion of a TSDU, each time this handler is called. Each TDI transport can set its own limits on the minimum and maximum amounts of data it will indicate at each receive to its clients, as long as its minimum is at least 128 bytes. The client can find these limits by submitting another query-information request for the <I>QType</I> TDI_QUERY_PROVIDER_INFO and examining the values returned for <B>MinimumLookaheadData</B> and <B>MaximumLookaheadData</B>. </P>
+
+<P>ClientEventReceive must be capable of carrying out its operations at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_4qnm.htm"><B>ClientEventChainedReceive</B></A>, <A HREF="35tdicli_7jea.htm"><B>ClientEventReceiveExpedited</B></A>, <A HREF="35tdicli_82nm.htm"><B>ClientEventReceiveDatagram</B></A>, <A HREF="34bldmac_8df6.htm"><B>TdiBuildInternalDeviceControlIrp</B></A>, <A HREF="34bldmac_3f5e.htm"><B>TdiBuildQueryInformation</B></A>, <A HREF="34bldmac_21de.htm"><B>TdiBuildReceive</B></A>, <A HREF="34bldmac_6sxe.htm"><B>TdiBuildSetEventHandler</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ClientEventReceive"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

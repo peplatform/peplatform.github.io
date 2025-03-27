@@ -1,0 +1,108 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisSend</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisSend">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndissend_nr"></A>NdisSend</H1>
+
+<P><B>NdisSend</B> forwards a send request to the underlying driver. </P>
+
+<PRE class=syntax><B>VOID
+  NdisSend(
+    OUT PNDIS_STATUS</B>  <I>Status</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisBindingHandle</I><B>,</B>
+    <B>IN PNDIS_PACKET</B>  <I>Packet</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Status</I></DT>
+
+<DD>Pointer to a caller-supplied variable that is set on return from this function. The underlying driver determines which NDIS_STATUS_<I>XXX</I> is returned, but it is usually one of the following values: 
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>The given packet is being transmitted over the network. </DD>
+
+<DT>NDIS_STATUS_PENDING</DT>
+
+<DD>The request is being handled asynchronously, and the caller’s <I>ProtocolSendComplete</I> function will be called when it is completed. </DD>
+
+<DT>NDIS_STATUS_INVALID_PACKET</DT>
+
+<DD>The size of the requested transfer is too large for the NIC, or possibly the NIC indicated an erroneous packet transmission to its driver. </DD>
+
+<DT>NDIS_STATUS_CLOSING</DT>
+
+<DD>The underlying driver is closing. </DD>
+
+<DT>NDIS_STATUS_RESET_IN_PROGRESS</DT>
+
+<DD>The underlying driver is currently resetting the NIC. The caller’s <I>ProtocolStatus</I> function was or will be called with NDIS_STATUS_RESET_START to indicate that a reset is in progress.</DD>
+
+<DT>NDIS_STATUS_FAILURE</DT>
+
+<DD>This value usually is a nonspecific default, returned when none of the more specific NDIS_STATUS_<I>XXX</I> caused the underlying driver to fail the request. </DD>
+</DL>
+
+
+<P>The specific NDIS_STATUS_<I>XXX</I> returned for device I/O errors that occur during a transmit operation depends on the nature of the NIC and the discretion of the NIC driver writer. For example, a miniport driver might return NDIS_STATUS_NO_CABLE if its NIC indicates this condition to the driver. 
+</DD>
+
+<DT><I>NdisBindingHandle</I></DT>
+
+<DD>Specifies the handle returned by <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A> that identifies the target NIC or the virtual adapter of the next-lower driver to which the caller is bound. If the underlying driver is a connection-oriented miniport driver, the protocol must call <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>, rather than <B>NdisSend</B>. </DD>
+
+<DT><I>Packet</I></DT>
+
+<DD>Pointer to the caller-supplied packet descriptor, allocated with <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, with chained buffer descriptors mapping buffers containing the data that the underlying NIC driver should transmit over the wire. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Before calling <B>NdisSend</B>, a protocol driver can call <A HREF="103ndisx_5sdu.htm"><B>NdisSetPacketFlags</B></A> to set the flags in the private header (reserved for use by NDIS) of the packet descriptor it allocated. These flags specify caller-determined information about the requested send operation that is not contained in the packet data. The underlying NIC driver’s <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A> function is given the send flags as an input parameter. The meaning of the packet flags bits is medium-specific and defined by the pair of collaborating drivers.</P>
+
+<P>However, such a pair of collaborating drivers can use the <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A> block associated with each packet descriptor to communicate far more information than the packet flags can convey. Before calling <B>NdisSend</B>, a protocol can use the <A HREF="103ndisx_9fg2.htm">NDIS_SET_PACKET_TIME_TO_SEND</A> and/or <A HREF="103ndisx_6rxu.htm">NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO</A> macros to set up out-of-band information, if any, relevant to the underlying driver in the NDIS_PACKET_OOB_DATA block associated with the protocol-allocated packet descriptor. </P>
+
+<P>When an underlying driver that is serialized has insufficient resources to transmit a valid send packet, it has two alternatives:
+
+<OL>
+	<LI>Its <I>MiniportSend</I> function can insert the packet into an internal queue and return NDIS_STATUS_PENDING.
+<P>The driver holds the packet queued until resources become available and sends the packet when they are. 
+</LI>
+
+	<LI>Its <I>MiniportSend</I> function can simply return control with NDIS_STATUS_RESOURCES. 
+<P>The NDIS library holds such a returned packet in an internal queue for resubmission to the serialized miniport driver. The miniport driver can indicate its readiness to accept send packets later by calling <A HREF="103ndisx_58c2.htm"><B>NdisMSendResourcesAvailable</B></A> or <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A>, whichever call occurs first. 
+</LI>
+</OL>
+
+<P>In either of the preceding scenarios, <B>NdisSend</B> returns NDIS_STATUS_PENDING to the caller, and that driver’s <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A> function is called when the packet has been transmitted. If the underlying driver is deserialized, every packet passed in calls to <B>NdisSend</B> is returned to the caller's <I>ProtocolSendComplete</I> function when the underlying deserialized miniport driver completes the send operation. </P>
+
+<P>As soon as a protocol calls <B>NdisSend</B>, it relinquishes ownership of the packet descriptor at <I>Packet</I>, of all buffers mapped by buffer descriptors it chained to the packet, and of any out-of-band information it supplied with the packet descriptor. The protocol regains ownership of these resources when the packet is completed with a status other than NDIS_STATUS_PENDING or when its <I>ProtocolSendComplete</I> function is called. </P>
+
+<P>When either occurs, the protocol can call <A HREF="103ndisx_87hu.htm"><B>NdisReinitializePacket</B></A> to prepare the packet for reuse after saving the buffer descriptors chained to the packet descriptor with calls to an <B>NdisUnchainBufferAt</B><I>Xxx</I> function. Reusing such a packet descriptor yields better performance than returning the packet to driver-allocated packet pool with <A HREF="103ndisx_47le.htm"><B>NdisFreePacket</B></A> and, then, reallocating it for another send later. </P>
+
+<P>An NDIS intermediate driver must repackage incoming sends from still higher level protocols in fresh packet descriptors before passing such a send request to the underlying miniport driver with <B>NdisSend</B> (or <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A>). </P>
+
+<P>Callers of <B>NdisSend</B> run at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_7svm.htm"><I>MiniportSend</I></A>, <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A>, <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>, <A HREF="103ndisx_47le.htm"><B>NdisFreePacket</B></A>, <A HREF="103ndisx_67si.htm"><B>NdisGetPacketFlags</B></A>, <A HREF="103ndisx_58c2.htm"><B>NdisMSendResourcesAvailable</B></A>, <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="103ndisx_87hu.htm"><B>NdisReinitializePacket</B></A>, <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A>, <A HREF="103ndisx_5sdu.htm"><B>NdisSetPacketFlags</B></A>, <A HREF="103ndisx_6rxu.htm">NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO</A>, <A HREF="103ndisx_9fg2.htm">NDIS_SET_PACKET_TIME_TO_SEND</A>, <A HREF="103ndisx_9vci.htm"><B>NdisUnchainBufferAtBack</B></A>, <A HREF="103ndisx_30mq.htm"><B>NdisUnchainBufferAtFront</B></A>, <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A>, <A HREF="104tdlow_6e42.htm"><I>ProtocolStatus</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisSend"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

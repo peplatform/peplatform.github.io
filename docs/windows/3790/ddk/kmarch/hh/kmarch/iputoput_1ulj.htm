@@ -1,0 +1,60 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using Buffered I/O</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using Buffered I/O">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_using_buffered_i_o_kg"></A>Using Buffered I/O</H2>
+
+<P>A driver that services an interactive or slow device, or one that usually transfers relatively small amounts of data at a time, should use the <A HREF="iputoput_3m07.htm#ddk_buffered_i_o_kg">buffered I/O</A> transfer method. Using buffered I/O for small, interactive transfers improves overall physical memory usage, because the Memory Manager doesn't need to lock down a full physical page for each transfer, as it does for drivers that request direct I/O. Generally, video, keyboard, mouse, serial, and parallel drivers request buffered I/O.</P>
+
+<P>The I/O Manager determines that an I/O operation is using buffered I/O as follows:
+
+<UL>
+	<LI>For <A HREF="k113_7fhu.htm">IRP_MJ_READ</A> and <A HREF="k113_45o2.htm">IRP_MJ_WRITE</A> requests, DO_BUFFERED_IO is set in the <B>Flags</B> member of the <A HREF="k112_32cy.htm">DEVICE_OBJECT</A> structure. For more information, see <A HREF="devobjts_8zdz.htm">Initializing a Device Object</A>.</LI>
+
+	<LI>For <A HREF="k113_0hiq.htm">IRP_MJ_DEVICE_CONTROL</A> and <A HREF="k113_2yia.htm">IRP_MJ_INTERNAL_DEVICE_CONTROL</A> requests, the IOCTL code's value contains METHOD_BUFFERED as the <I>TransferType</I> value in the IOCTL value. For more information, see <A HREF="irps_1l0n.htm">Defining I/O Control Codes</A>.</LI>
+</UL>
+
+
+
+<P><A NAME="ddk_figure_3..4_kg"></A>The following figure illustrates how the I/O Manager sets up an IRP_MJ_READ request for a transfer operation that uses buffered I/O.</P>
+
+<P><B><IMG SRC="images/3mdlbffr.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Buffered I/O for User Buffers</B></P>
+
+<P>The figure shows an overview of how drivers can use the <B>SystemBuffer</B> pointer in the IRP to transfer data for a read request, when a driver has ORed the device object's <B>Flags</B> with DO_BUFFERED_IO:
+
+<OL>
+	<LI>Some range of user-space virtual addresses represents the current thread's buffer, and that buffer's contents might be stored somewhere within a range of page-based physical addresses (dark shading in the previous figure).</LI>
+
+	<LI>The I/O Manager services the current thread's read request, for which the thread passes a range of user-space virtual addresses representing a buffer.</LI>
+
+	<LI>The I/O Manager checks the user-supplied buffer for accessibility and calls <A HREF="k102_2omq.htm"><B>ExAllocatePoolWithTag</B></A> to create a resident system-space buffer (<B>SystemBuffer</B>) the size of the user-supplied buffer. </LI>
+
+	<LI>The I/O Manager provides access to the newly allocated <B>SystemBuffer</B> in the IRP it sends to the driver.
+<P>If the figure showed a write request, the I/O Manager would copy data from the user buffer into the system buffer before it sent the IRP to the driver.
+</LI>
+
+	<LI>For the read request shown in the previous figure, the driver reads data from the device into the system-space buffer. When the read request has been satisfied, the driver calls <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with the IRP.</LI>
+
+	<LI>When the original thread is again active, the I/O Manager copies the read-in data from the system buffer into the user buffer. It also calls <A HREF="k102_6uuq.htm"><B>ExFreePool</B></A> to release the system buffer.</LI>
+</OL>
+
+<P>After the I/O Manager has created a system-space buffer for the driver, the requesting user-mode thread can be swapped out and its physical memory can be reused by another thread, possibly by a thread belonging to another process. However, the system-space virtual address range supplied in the IRP remains valid until the driver calls <B>IoCompleteRequest</B> with the IRP.</P>
+
+<P>Drivers that transfer large amounts of data at a time, in particular, drivers that do multi-page transfers, should not attempt to use buffered I/O. As the system runs, nonpaged pool can become fragmented so that the I/O Manager cannot allocate large, contiguous system-space buffers to send in IRPs for such a driver.</P>
+
+<P>Typically, a driver uses buffered I/O for some types of IRPs, such as <A HREF="k113_0hiq.htm">IRP_MJ_DEVICE_CONTROL</A> requests, even if it also uses <A HREF="iputoput_3m07.htm#ddk_direct_i_o_kg">direct I/O</A>. Drivers that use direct I/O typically only do so for <A HREF="k113_7fhu.htm">IRP_MJ_READ</A> and <A HREF="k113_45o2.htm">IRP_MJ_WRITE</A> requests, and possibly driver-defined <A HREF="k113_2yia.htm">IRP_MJ_INTERNAL_DEVICE_CONTROL</A> requests that require large data transfers.</P>
+
+<P>Every IRP_MJ_DEVICE_CONTROL and IRP_MJ_INTERNAL_DEVICE_CONTROL request includes an I/O control code. If the I/O control code indicates that the IRP must be supported by using buffered I/O, the I/O manager uses a single system buffer to represent the user application's input and output buffers. A driver that supports such an I/O control code must read input data (if any) from the buffer and then supply output data (if any) by overwriting the input data. For more information, see <A HREF="irps_1l0n.htm">Defining I/O Control Codes</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20Buffered%20I%2FO"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

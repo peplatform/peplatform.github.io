@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisTransferData</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisTransferData">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndistransferdata_nr"></A>NdisTransferData</H1>
+
+<P><B>NdisTransferData</B> forwards a request to copy data received on the underlying NIC into a protocol-supplied packet. </P>
+
+<PRE class=syntax><B>VOID
+  NdisTransferData(
+    OUT PNDIS_STATUS</B>  <I>Status</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisBindingHandle</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>MacReceiveContext</I><B>,</B>
+    <B>IN UINT</B>  <I>ByteOffset</I><B>,</B>
+    <B>IN UINT</B>  <I>BytesToTransfer</I><B>,</B>
+    <B>IN OUT PNDIS_PACKET</B>  <I>Packet</I><B>,</B>
+    <B>OUT PUINT</B>  <I>BytesTransferred</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Status</I></DT>
+
+<DD>Pointer to a caller-supplied variable that can be one of the following values on return from this function: 
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>The requested data has been transferred into the packet at <I>Packet</I>. </DD>
+
+<DT>NDIS_STATUS_PENDING</DT>
+
+<DD>The request is being handled asynchronously, and the caller’s <I>ProtocolTransferComplete</I> function will be called when it is completed. </DD>
+
+<DT>NDIS_STATUS_RESET_IN_PROGRESS</DT>
+
+<DD>The underlying driver is currently resetting its NIC or virtual NIC state. The caller’s <A HREF="104tdlow_6e42.htm"><I>ProtocolStatus</I></A> function was or will be called with NDIS_STATUS_RESET_START to indicate that a reset is in progress. </DD>
+
+<DT>NDIS_STATUS_REQUEST_ABORTED</DT>
+
+<DD>The caller’s binding is being closed. </DD>
+
+<DT>NDIS_STATUS_FAILURE</DT>
+
+<DD>The given <I>ByteOffset</I> and/or the given <I>BytesToTransfer</I> is too large. </DD>
+</DL>
+</DD>
+
+<DT><I>NdisBindingHandle</I></DT>
+
+<DD>Specifies the handle returned by <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A> that identifies the target NIC or the virtual adapter of the next-lower driver to which the caller is bound.  </DD>
+
+<DT><I>MacReceiveContext</I></DT>
+
+<DD>Specifies the underlying driver’s handle that was passed as an input parameter to the caller’s <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> function. The protocol driver must consider this handle to be opaque. </DD>
+
+<DT><I>ByteOffset</I></DT>
+
+<DD>Specifies the offset from the start of the receive network packet at which to begin the transfer. </DD>
+
+<DT><I>BytesToTransfer</I></DT>
+
+<DD>Specifies the number of bytes to transfer. This value can be zero. </DD>
+
+<DT><I>Packet</I></DT>
+
+<DD>Pointer to the packet descriptor, provided by the caller, into which the underlying NIC driver is to copy the data. </DD>
+
+<DT><I>BytesTransferred</I></DT>
+
+<DD>Pointer to a caller-supplied variable in which this function returns the number of bytes actually transferred. The value is invalid if <B>NdisTransferData</B> returns NDIS_STATUS_PENDING at <I>Status</I>. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Several protocols can be bound to a single underlying NIC, and each such protocol driver can receive an indication for the same packet. Such a packet is read-only to protocol drivers. Each such driver’s <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> function determines whether to make itself a copy of the indicated packet with <B>NdisTransferData</B>. </P>
+
+<P>Before calling <B>NdisTransferData</B>, the protocol must allocate a packet descriptor and chain some number of buffer descriptors mapping protocol-allocated buffers into which the underlying driver will copy the data. The protocol also might set up the <B>ProtocolReserved</B> part of its packet descriptor before calling <B>NdisTransferData</B>. </P>
+
+<P>A protocol driver should always allocate its packet descriptors from the packet pool that the driver set up during initialization. </P>
+
+<P>The range requested in a call to <B>NdisTransferData</B>, specified by <I>ByteOffset</I> and <I>BytesToTransfer</I>, should be suitable to the <I>PacketSize</I> passed in to the caller’s <I>ProtocolReceive</I> function. Callers of <B>NdisTransferData</B> usually pass a <I>ByteOffset</I> value calculated from the input parameters to <I>ProtocolReceive</I> as (<I>LookaheadBufferRange</I> + 1). That is, the <I>ProtocolReceive</I> function already consumed the data in the lookahead buffer so it calls <B>NdisTransferData</B> to get the remaining data in the indicated receive packet. </P>
+
+<P>Callers of <B>NdisTransferData</B> run at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A>, <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A>, <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A>, <A HREF="104tdlow_8u7m.htm"><I>ProtocolTransferDataComplete</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisTransferData"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

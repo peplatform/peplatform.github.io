@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling an IRP_MN_QUERY_STOP_DEVICE Request (Windows 98/Me)</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling an IRP_MN_QUERY_STOP_DEVICE Request (Windows 98/Me)">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_handling_an_irp_mn_query_stop_device_request_windows_98_me_kg"></A>Handling an IRP_MN_QUERY_STOP_DEVICE Request (Windows&nbsp;98/Me)</H3>
+
+<P>An <A HREF="pnp-irps_6d4i.htm">IRP_MN_QUERY_STOP_DEVICE</A> request is handled first by the top driver in the device stack and then by each next lower driver. A driver handles stop IRPs in its <I>DispatchPnP</I> routine.</P>
+
+<P>In response to an IRP_MN_QUERY_STOP_DEVICE, a driver must do the following:
+
+<OL>
+	<LI>Determine whether the device can be stopped without adverse affects.
+<P>A driver <I>must</I> fail a query-stop IRP if any of the following are true:
+
+<UL>
+	<LI>A driver has been notified (through <A HREF="pnp-irps_1wmq.htm">IRP_MN_DEVICE_USAGE_NOTIFICATION</A>) that the device is in the path of a paging, hibernation, or crash dump file.</LI>
+
+	<LI>The device's hardware resources cannot be released.</LI>
+
+	<LI>There are open handles to the device.</LI>
+</UL>
+
+<P>A driver <I>might</I> fail a query-stop IRP if the following is true:
+
+<UL>
+	<LI>The driver must not drop I/O requests.</LI>
+</UL>
+</LI>
+
+	<LI>If the device cannot be stopped, fail the query-stop IRP.
+<P>Set <B>Irp-&gt;IoStatus.Status</B> to an appropriate error status, call <B>IoCompleteRequest</B> with IO_NO_INCREMENT, and return from the driver's <I>DispatchPnP</I> routine. Do not pass the IRP to the next lower driver. 
+</LI>
+
+	<LI>If the device can be stopped, call <A HREF="k104_3epe.htm"><B>IoSetDeviceInterfaceState</B></A> and <A HREF="k104_27n6.htm"><B>IoRegisterDeviceInterface</B></A> to disable and deregister any user-mode interfaces. Then start failing any incoming I/O requests that require access to the device.
+<P>Alternatively, the drivers for a device can defer completely pausing the device until the drivers receive the subsequent IRP_MN_STOP_DEVICE request. Such drivers, however, should disable and deregister their user-mode interfaces while handling the query-stop request to prevent the opening of any additional handles to the device.   
+
+<P>Furthermore, such drivers must fail any requests that would prevent them from immediately succeeding the stop IRP when it arrives. Until the device is restarted, such drivers must fail requests such as the following:
+
+<UL>
+	<LI>IRP_MN_DEVICE_USAGE_NOTIFICATION requests (for example, to put a paging file on the device).</LI>
+
+	<LI>Requests for isochronous transfers.</LI>
+
+	<LI>Create requests that would prevent the drivers from succeeding a stop IRP.</LI>
+</UL>
+</LI>
+
+	<LI>If the device cannot allow an IRP in progress to fail, ensure that any outstanding requests that were passed to other driver routines and to lower drivers have completed. 
+<P>One way that a driver can achieve this is to use a reference count and an event to ensure that all requests have been completed:
+
+<UL>
+	<LI>In its <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine, the driver defines an I/O reference count in the device extension and initializes the count to one. </LI>
+
+	<LI>Also in its <I>AddDevice</I> routine, the driver creates an event with <A HREF="k105_8jaq.htm"><B>KeInitializeEvent</B></A> and initializes the event to the Not-Signaled state with <A HREF="k105_47g2.htm"><B>KeClearEvent</B></A>.</LI>
+
+	<LI>Each time it processes an IRP, the driver increments the reference count with <A HREF="k102_2cs2.htm"><B>InterlockedIncrement</B></A>. </LI>
+
+	<LI>Each time it completes a request, the driver decrements the reference count with <A HREF="k102_00j6.htm"><B>InterlockedDecrement</B></A>. 
+<P>The driver decrements the reference count in the <I>IoCompletion</I> routine, if the request has one, or immediately after the call to <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A> if the driver uses no <I>IoCompletion</I> routine for the request.
+</LI>
+
+	<LI>When the driver receives an IRP_MN_QUERY_STOP_DEVICE, it decrements the reference count with <B>InterlockedDecrement</B>. If there are no outstanding requests, this reduces the reference count to zero.</LI>
+
+	<LI>When the reference count reaches zero, the driver sets the event with <A HREF="k105_1prm.htm"><B>KeSetEvent</B></A> signaling that the query-stop code can continue. </LI>
+</UL>
+
+<P>As an alternative to the above procedure, a driver can serialize the IRP_MN_QUERY_STOP_DEVICE IRP behind any IRPs in progress.
+</LI>
+
+	<LI>Perform any other steps required to put the device in the stop-pending state.
+<P>After a driver succeeds a query-stop IRP, it must be ready to succeed an IRP_MN_STOP_DEVICE.
+</LI>
+
+	<LI>Finish the IRP.
+<P>In a function or filter driver:
+
+<UL>
+	<LI>Set <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS.</LI>
+
+	<LI>Set up the next stack location with <A HREF="k104_1ohe.htm"><B>IoSkipCurrentIrpStackLocation</B></A> and pass the IRP to the next lower driver with <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A>.</LI>
+
+	<LI>Propagate the status from <B>IoCallDriver</B> as the return status from the <I>DispatchPnP</I> routine.</LI>
+
+	<LI>Do not complete the IRP.</LI>
+</UL>
+
+<P>In a bus driver:
+
+<UL>
+	<LI>Set <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS.
+<P>If, however, the devices on the bus use hardware resources, re-evaluate the resource requirements of the bus and the child devices. If any of the requirements have changed, return STATUS_RESOURCE_REQUIREMENTS_CHANGED instead of STATUS_SUCCESS. This status indicates success but requests that the PnP Manager requery your resources before sending the stop IRP. 
+</LI>
+
+	<LI>Complete the IRP (<A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>) with IO_NO_INCREMENT.</LI>
+
+	<LI>Return from the <I>DispatchPnP</I> routine.</LI>
+</UL>
+</LI>
+</OL>
+
+<P>If any driver in the device stack fails the IRP_MN_QUERY_STOP_DEVICE, the PnP Manager sends an <A HREF="pnp-irps_4tpu.htm">IRP_MN_CANCEL_STOP_DEVICE</A> to the device stack. This prevents drivers from requiring an <I>IoCompletion</I> routine for a query-stop IRP to detect whether a lower driver failed the IRP.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20an%20IRP_MN_QUERY_STOP_DEVICE%20Request%20(Windows%2098%2FMe)"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

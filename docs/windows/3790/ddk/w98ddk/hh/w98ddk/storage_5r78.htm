@@ -1,0 +1,398 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AEP</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_4234"></A>AEP</H3>
+
+<PRE>#include &lt;aep.h&gt;
+
+typedef struct AEPHDR {
+    USHORT AEP_func;       // function; see below
+    USHORT AEP_result;     // result; set to zero if successful; see below
+    ULONG  AEP_ddb;        // address of DDB
+    UCHAR  AEP_lgn;        // current load group number (from DVT) 
+    UCHAR  AEP_align[3];   // reserved; don't use
+} AEPHDR, *PAEPHDR;
+</PRE>
+
+<P>Contains information for an asynchronous event function. 
+
+<DL>
+<DT><B>AEP_func</B> </DT>
+
+<DD>Function code. Can be one of these values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_1_SEC (8) </TD>
+<TD width=68%>Notifies driver that one second has elapsed. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_2_SECS (9) </TD>
+<TD width=68%>Notifies driver that two seconds have elapsed. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_4_SECS (10) </TD>
+<TD width=68%>Notifies driver that four seconds have elapsed. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_ASSOCIATE_DCB (12) </TD>
+<TD width=68%>Associates a logical DCB with a physical DCB. Uses <B>AEP_assoc_dcb</B> structure. Sent when the ISP_ASSOCIATE_DCB service is called. A layer driver can specify additional logical volumes that are associated with a particular physical drive that the TSD cannot deduce for itself. These logical volumes need to be present in real mode as well as protected mode. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_BOOT_COMPLETE (2) </TD>
+<TD width=68%>Notifies driver to either unload or continue full operation. Uses <B>AEP_boot_done</B> structure. Sent when initialization is complete and at the end of loading, initializing, and registering a port driver. If the driver chooses to unload at this time it should return AEP_FAILURE in <B>AEP_result</B>. This deregisters and unloads the driver. No DDB pointer is passed with this call, so only one call is received. For instance a VSD can return failure if it has determined that it has not inserted itself in any one of the DCBs in the system. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_CONFIG_DCB (3) </TD>
+<TD width=68%>Configures physical device. Uses <B>AEP_dcb_config</B> structure. Sent during initialization so that all layer drivers have opportunity to examine the DCBs in the system, both physical and logical, typically created by port drivers. Made when each layer is initialized. Each layer driver can choose to insert itself in the call down list for the DCB if necessary. For example, a driver interested in seeing requests to a CDROM inserts itself in that DCB. A layer driver that satisfies a specific demand that is stipulated in the DCB dmd flags must turn off the demand bit, indicating to the layers above that the demand has been met. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_CREATE_VRP (18) </TD>
+<TD width=68%>Notifies driver that a VRP has been created. Uses <B>AEP_vrp_create_destroy</B> structure. Sent when a <B>VRP</B> goes into service, that is, when the IFSMGR determines that a <B>VRP</B> describes a newly mounted volume. <B>VRP</B>s are actually created any time a mount is attempted, but this message is not sent if the mount fails for any reason (among which is ERROR_VOLUME_EXISTS, a successful remount of a volume). The mounted volume must be a parent volume; this call is not issued when child volumes are successfully mounted. This call, made for symmetry with AEP_DESTROY_VRP, is informational only, so any response is ignored. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_DBG_DOT_CMD (11) </TD>
+<TD width=68%>Notifies driver of parameters for .I debug command. Uses <B>AEP_dot_command</B> structure. Provides a means for debug "dot" commands entered by the user into the windows system debugger to be propagated to each layer. A layer can easily implement support for a "dot" command without having to directly interface with the debugger. Each layer receives a call for each debug command that begins with ".I". In this call, the <B>AEP_d_c_pkeyword</B> member is a pointer to the subkeyword typed by the user. For example, if the user types ".IXYZ", the subkeyword is "XYZ". The <B>AEP_d_c_key_len</B> member contains the length of this subkeyword. The <B>AEP_d_c_flags</B> member indicates which numeric parameters are present. example, if the user types ".IXYZ 1 46", the flag values AEP_NUM_1_PRES and AEP_NUM_2_PRES are set, and <B>AEP_d_c_num_1</B> and <B>AEP_d_c_num_2</B> contain the hexadecimal values 1 and 46, respectively. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_DCB_LOCK (16) </TD>
+<TD width=68%>Notifies driver that a logical DCB is about to be locked. Uses <B>AEP_lock_dcb</B> structure. Linked to the IRS_QUERY_VOLUME_LOCK service, this AEP call notifies layer drivers that the IFSMGR is servicing an exclusive volume lock. Sent to all layer drivers to determine whether there are any volumes that are associated with a volume that about to be locked. For example, if a compression driver determines that one of its host volumes is about to be locked, the driver needs to indicate all the compressed volumes associated with the host by setting bits in the <B>AEP_d_l_drives</B> member. This ensures that the IFSMGR will lock all the compressed volumes as well. The layer drivers should stop carrying out any operations (such as caching) that are not appropriate on a locked volume. Also see the AEP_DRIVE_REFRESH call and the <B>AEP_drive_refresh</B> structure. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_DESTROY_VRP (19) </TD>
+<TD width=68%>Notifies driver that a <B>VRP</B> has been deleted. Uses <B>AEP_vrp_create_destroy</B> structure. Sent when a <B>VRP</B> "goes out of service", that is, when the IFSMGR determines that the volume and any child volumes associated with the volume have been fully unmounted by the FSD that mounted them. This call is used, for example, by the DBLSPACE VxD to determine when it can dispose of its data structures for a particular set of child volumes. This call is informational only, so any response is ignored. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_DEVICE_INQUIRY (6) </TD>
+<TD width=68%>Gets device identification data. Uses <B>AEP_inquiry_device</B> structure. Intended for port drivers. The drive fills the <B>DCB_product_id</B>, <B>DCB_vendor_id</B>, <B>DCB_rev_level, and DCB_inquiry_flags</B> members. <B>AEP_result</B> can be set to AEP_NO_INQ_DATA to indicate no inquiry data available or AEP_NO_MORE_DEVICES to indicate that no more devices of this type exist. Your driver typically fills in the DCB_inquiry_flags field to indicate the type of storage device used.
+<P>For example, during the device inquiry phase, ESDI_506 (the default driver handling CD-ROM devices) issues an IDE hardware inquiry to the physical device. The returned device type (the first character in the returned Inquiry) is saved in the DCB_inquiry_flags field. IOS looks at the device type in this field to determine how large to make the DCB.  </P>
+
+<P>The dcb_inquiry_flags field returns the results of an ATA INQUIRY command. Its first byte contains the device type. There's an IOS routine named IOS_process_device that copies the inquiry DCB into a real DCB. It uses an "inquiry_type_table" to look up the various statistics for the target DCB, including its size.  The i_t_scsi_type field listed below is obtained from the DCB_inquiry_flags field:</P>
+
+<P><CODE>inquiry_table   struc</CODE></P>
+
+<P><CODE>i_t_scsi_type   db      ?    ; scsi device type code.</CODE></P>
+
+<P><CODE>i_t_ios_type    db      ?    ; equivalent ios type.</CODE></P>
+
+<P><CODE>i_t_dcb_size    dw      ?    ; size of dcb for this type.</CODE></P>
+
+<P><CODE>i_t_count       dd      ?    ; pointer to counter for</CODE></P>
+
+<P><CODE>; second part of device name.</CODE></P>
+
+<P><CODE>i_t_sector_size dw      ?    ; default sector size in bytes.</CODE></P>
+
+<P><CODE>i_t_sector_shift db     ?    ; default sector shift.</CODE></P>
+
+<P><CODE>i_t_q_algo      db      ?    ; queuing algorithm index.</CODE></P>
+
+<P><CODE>inquiry_table   ends</CODE></P>
+
+<P><CODE>public  inquiry_type_table</CODE></P>
+
+<P><CODE>inquiry_type_table      label   byte</CODE></P>
+
+<P><CODE>db      SCSI_DASD_TYPE          ; dasd (eg magnetic disk)</CODE></P>
+
+<P><CODE>db      DCB_type_disk</CODE></P>
+
+<P><CODE>dw      size DCB_disk</CODE></P>
+
+<P><CODE>dd      offset32 disk_count</CODE></P>
+
+<P><CODE>dw      512</CODE></P>
+
+<P><CODE>db      9</CODE></P>
+
+<P><CODE>db      DCB_q_sort</CODE></P>
+
+<P><CODE>db      SCSI_FLOPPY_TYPE      ; floppy (removable media)</CODE></P>
+
+<P><CODE>db      DCB_type_floppy</CODE></P>
+
+<P><CODE>dw      size DCB_floppy         ; enlarged for 3mode flags</CODE></P>
+
+<P><CODE>dd      offset32 floppy_count</CODE></P>
+
+<P><CODE>dw      512</CODE></P>
+
+<P><CODE>db      9</CODE></P>
+
+<P><CODE>db      DCB_q_sort</CODE></P>
+
+<P><CODE>db      REAL_MAPPER_TYPE        ; real mode</CODE></P>
+
+<P><CODE>db      DCB_type_disk</CODE></P>
+
+<P><CODE>dw      size DCB_disk  </CODE></P>
+
+<P><CODE>dd      offset32 disk_count</CODE></P>
+
+<P><CODE>dw      512</CODE></P>
+
+<P><CODE>db      9</CODE></P>
+
+<P><CODE>db      DCB_q_sort</CODE></P>
+
+<P><CODE>db      SCSI_SEQUENTIAL_TYPE    ; sequential (eg magnetic </CODE></P>
+
+<P><CODE>tape)</CODE></P>
+
+<P><CODE>db      DCB_TYPE_TAPE</CODE></P>
+
+<P><CODE>dw      size DCB</CODE></P>
+
+<P><CODE>dd      offset32 tape_count</CODE></P>
+
+<P><CODE>dw      1</CODE></P>
+
+<P><CODE>db      0</CODE></P>
+
+<P><CODE>db      DCB_q_fi_fo</CODE></P>
+
+<P><CODE>db      SCSI_PRINTER_TYPE       ; printer</CODE></P>
+
+<P><CODE>db      DCB_type_printer</CODE></P>
+
+<P><CODE>dw      size DCB_disk</CODE></P>
+
+<P><CODE>dd      offset32 prnt_count</CODE></P>
+
+<P><CODE>dw      1</CODE></P>
+
+<P><CODE>db      0</CODE></P>
+
+<P><CODE>db      DCB_q_fi_fo</CODE></P>
+
+<P><CODE>db      SCSI_PROCESSOR_TYPE     ; processor</CODE></P>
+
+<P><CODE>db      DCB_type_processor</CODE></P>
+
+<P><CODE>dw      size DCB</CODE></P>
+
+<P><CODE>dd      offset32 proc_count</CODE></P>
+
+<P><CODE>dw      1</CODE></P>
+
+<P><CODE>db      0</CODE></P>
+
+<P><CODE>db      DCB_q_fi_fo</CODE></P>
+
+<P><CODE>db      SCSI_WORM_TYPE          ; worm (eg some optical disks)</CODE></P>
+
+<P><CODE>db      DCB_type_worm</CODE></P>
+
+<P><CODE>dw      size DCB</CODE></P>
+
+<P><CODE>dd      offset32 worm_count</CODE></P>
+
+<P><CODE>dw      1</CODE></P>
+
+<P><CODE>db      0</CODE></P>
+
+<P><CODE>db      DCB_q_sort</CODE></P>
+
+<P><CODE>db      SCSI_CDROM_TYPE         ; cd-rom.</CODE></P>
+
+<P><CODE>db      DCB_type_cdrom</CODE></P>
+
+<P><CODE>dw      size DCB_cdrom</CODE></P>
+
+<P><CODE>dd      offset32 cdrm_count</CODE></P>
+
+<P><CODE>dw      2048</CODE></P>
+
+<P><CODE>db      11</CODE></P>
+
+<P><CODE>db      DCB_q_fi_fo</CODE></P>
+
+<P><CODE>db      SCSI_SCANNER_TYPE       ; scanner.</CODE></P>
+
+<P><CODE>db      DCB_type_scanner</CODE></P>
+
+<P><CODE>dw      size DCB</CODE></P>
+
+<P><CODE>dd      offset32 scan_count</CODE></P>
+
+<P><CODE>dw      1</CODE></P>
+
+<P><CODE>db      0</CODE></P>
+
+<P><CODE>db      DCB_q_fi_fo</CODE></P>
+
+<P><CODE>db      SCSI_OPTICAL_TYPE       ; optical memory (eg some </CODE></P>
+
+<P><CODE>optical disks)</CODE></P>
+
+<P><CODE>db      DCB_type_disk           ; treat as type disk</CODE></P>
+
+<P><CODE>dw      size DCB</CODE></P>
+
+<P><CODE>dd      offset32 omem_count</CODE></P>
+
+<P><CODE>dw      512</CODE></P>
+
+<P><CODE>db      9</CODE></P>
+
+<P><CODE>db      DCB_q_fi_fo</CODE></P>
+
+<P><CODE>db      SCSI_MEDIACHANGER_TYPE  ; media changer</CODE></P>
+
+<P><CODE>db      DCB_type_changer</CODE></P>
+
+<P><CODE>dw      size DCB</CODE></P>
+
+<P><CODE>dd      offset32 juke_count</CODE></P>
+
+<P><CODE>dw      1</CODE></P>
+
+<P><CODE>db      0</CODE></P>
+
+<P><CODE>db      DCB_q_fi_fo</CODE></P>
+
+<P><CODE>inquiry_table_unknown   label   byte</CODE></P>
+
+<P><CODE>db      1fh                     ; unknown</CODE></P>
+
+<P><CODE>db      DCB_type_disk</CODE></P>
+
+<P><CODE>dw      size DCB_disk</CODE></P>
+
+<P><CODE>dd      offset32 unkn_count</CODE></P>
+
+<P><CODE>dw      1</CODE></P>
+
+<P><CODE>db      0</CODE></P>
+
+<P><CODE>db      DCB_q_fi_fo</CODE></P>
+
+<P><CODE>inquiry_type_table_l equ ($-inquiry_type_table)/size inquiry_table</CODE></P>
+
+<P>The size of the allocated DCB depends on the returned contents of the DCB_inquiry_flags. Failure to set DCB_inquiry_flags is likely to result in strange failures when the amount of memory allocated for the DCB is smaller than the amount you expect (to accommodate CD-ROM extensions, etc.).</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_HALF_SEC (7) </TD>
+<TD width=68%>Notifies driver that 1/2 second has elapsed. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_INITIALIZE (0) </TD>
+<TD width=68%>Initializes driver and interface. Uses <B>AEP_bi_init</B> structure. Sent during the registration of a layer driver. In the case of a port driver registration, the IOS checks to see if the initialization was successful. If so, the IOS sends an AEP_DEVICE_INQUIRY function to the driver. If the AEP_DEVICE_INQUIRY is successful, the IOS sends an AEP_CONFIG_DCB call to all the layer drivers. It then repeats the AEP_DCB_INQUIRY call. In the case of a SCSI port driver, the IOS makes as many inquiries as is specified in <B>AEP_bi_i_max_target</B> member returned in the AEP_INITIALIZE call. Also in the case of SCSI, the scan order can be specified in the <B>AEP_bi_flags</B> member. If AEP_BI_FL_SCSI_SCAN_DOWN is set, the scanning is done in the reverse order. The driver can also set AEP_BI_FL_SEND_CONFIG_AGAIN in <B>AEP_bi_flags</B>. If this is set, the IOS repeats the whole sequence of AEP_INITIALIZE, AEP_DEVICE_INQUIRY, and AEP_CONFIG_DCB again. This is typically not needed as IOS will call the port driver again if the port driver controls more than one controller. Note that in the case of a non-SCSI port drivers, the IOS sends down as AEP_DEVICE_INQUIRY until the driver sets AEP_NO_MORE_DEVICES in the <B>AEP_result</B> member. If the result of the AEP_DEVICE_INQUIRY is AEP_NO_INQ_DATA, the next location is inquired and there is no config call sent out. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_IOP_TIMEOUT (5) </TD>
+<TD width=68%>Notifies driver that time-out member in an IOP has been decremented to zero. Uses <B>AEP_iop_timeout_occurred</B> structure. Once an IOP is issued to the IOS using the <B>IOS_SendCommand</B> service, a 7.5 second timer is started on the IOP (the timer counts in 0.5 second increments). Unless the input and output is done and the IOP is released within 7.5 seconds, this timer goes to zero and all layer drivers are notified using this AEP call. Note that IOS clients using SCSI Passthrough establish the initial IOP_Timer value by setting the SRB’s TimeoutValue accordingly.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_MOUNT_NOTIFY (17) </TD>
+<TD width=68%>Notifies driver that a volume has been mounted. Uses <B>AEP_mnt_notify</B> structure. Sent when the IFSMGR has successfully mounted a new volume, but before the operation which caused the mount has been completed. Intended to be used by drivers that create child volumes from special files on the volume (for example, a DBLSPACE driver which causes CVFs to appear as volumes). The driver should find such files and prepare them for mounting. Can also be used by other drivers that want to know when a new volume is mounted. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>&nbsp;</TD>
+<TD width=68%>A driver can carry out one of these valid responses: 1. Associate the original volume with a different drive, for example, move the original volume from drive A to drive H. In this case, if the target drive is already in use, IFSMGR attempts to unmount the current volume for that drive. 2. Return a bitmap of child volumes to mount. The low-order bit corresponds to drive A and so forth. For each bit in the bitmap, the IFSMGR will send a mount child volume command to the same FSD that mounted the original volume. The child volumes and their parent (the original volume) share the same VRP; this is the mechanism by which the relationship among the volumes is maintained. 3. Return a bitmap set to zero. The IFSMGR takes no additional action regardless of any change in the drive number. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>&nbsp;</TD>
+<TD width=68%>When moving a volume, either or both the original volume's effective and actual drives may be changed. For example, drive G is the host for DBLSPACE drive E, E and G are swapped (meaning if there were no compressed drive E, G would be known as E), and G is also host for another compressed drive H. E, G, and H are all visible in real mode. The user's first access may touch any of these drives first. Whichever drive letter is used first, G will be the first drive mounted. Thus, the Compressed Volume Manager will respond that the drive's effective name is really G and its actual name is really E. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_PEND_UNCONFIG_DCB (21) </TD>
+<TD width=68%>Notifies driver that a DCB is about to be removed. Uses <B>AEP_dcb_unconfig_pend</B> structure. First AEP function sent to a driver when a DCB is being destroyed. Upon receiving this function call, layer drivers are expected to stop and prevent all further input and output to the device. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_REAL_MODE_HANDOFF (13) </TD>
+<TD width=68%>Notifies driver that INT 21h vector is about to be hooked by the IFSMGR. Uses <B>AEP_rm_handoff</B> structure. Sent just prior to the INT 21h vector being hooked by the IFSMGR (in response to the IRS_rm_handoff function). Notifies the layer drivers that this is the last chance to carry out INT 21h function calls through MS-DOS. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_REFRESH_DRIVE (20) </TD>
+<TD width=68%>Uses <B>AEP_drive_refresh</B> structure. Informs the layer drivers that an exclusive lock on the volume specified in <B>AEP_d_r_drive</B> is being released. At this point, all on disk file system related data structures could have been moved. For more information about exclusive volume locking, see . </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_SYSTEM_CRIT_SHUTDOWN (1) </TD>
+<TD width=68%>Indicates a system critical shutdown. Uses <B>AEP_sys_crit_shutdown</B> structure. Broadcast to the layer drivers at Sys_Critical_Exit time. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_SYSTEM_SHUTDOWN (14) </TD>
+<TD width=68%>Indicates a system shutdown. Uses <B>AEP_sys_shutdown</B> structure. Broadcast to the layer drivers at System_Exit time. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_UNCONFIG_DCB (4) </TD>
+<TD width=68%>Removes configuration of physical device. Uses <B>AEP_dcb_unconfig</B> structure. Sent when a DCB is being destroyed. A layer driver can carry out any action necessary to prepare for the removal of the DCB. For example, if the driver has inserted itself into the calldown of the DCB, it can decrement its internal count of DCBs. Layer drivers typically use such an internal count to determine whether they have inserted themselves into any DCBs. This helps the driver determine the appropriate action to take when it receives a subsequent AEP_BOOT_COMPLETE function. Before processing this message, first check the DCB to make sure it is yours.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%>AEP_UNINITIALIZE (15) </TD>
+<TD width=68%>Uninitializes driver and interface. Uses <B>AEP_bi_uninit</B> structure. Broadcast during the process of deallocating a DDB. Port drivers respond by freeing or deallocating any resources that they may have allocated to handle input and output to the corresponding controller. (For port drivers, there is typically one DDB per controller.) For example, a driver should free IRQ and port trappings when it receives this call. Note that the DDB is part of the standard AEP header. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>AEP_result</B> </DT>
+
+<DD>Result Flag. Can be one of these values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%>AEP_SUCCESS (0) </TD>
+<TD width=57%>No error occurred. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>AEP_FAILURE (-1) </TD>
+<TD width=57%>Error occurred. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>AEP_NO_INQ_DATA </TD>
+<TD width=57%>No inquiry data available. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>AEP_NO_MORE_DEVICES </TD>
+<TD width=57%>No more devices of this type exist. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+</DL>
+
+<H4>See Also</H4>
+
+<P><B>DDB</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: AEP"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

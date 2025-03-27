@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IRP_MN_CHANGE_SINGLE_INSTANCE</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IRP_MN_CHANGE_SINGLE_INSTANCE">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_irp_mn_change_single_instance_kr"></A>IRP_MN_CHANGE_SINGLE_INSTANCE</H1>
+
+<P>All drivers that support WMI must handle this IRP.</P>
+
+<H4>Major Code</H4>
+
+<P><A HREF="k113_8hwy.htm">IRP_MJ_SYSTEM_CONTROL</A> </P>
+
+<H4>When Sent</H4>
+
+<P>WMI sends this IRP to change all data items in a single instance of a data block.</P>
+
+<P>WMI sends this IRP at IRQL = PASSIVE_LEVEL in an arbitrary thread context.</P>
+
+<H4>Input</H4>
+
+<P><B>Parameters.WMI.ProviderId</B> points to the device object of the driver that should respond to the request. This pointer is found in the driver's I/O stack location in the IRP. </P>
+
+<P><B>Parameters.WMI.DataPath</B> points to a GUID that identifies the data block associated with the instance to be changed. </P>
+
+<P><B>Parameters.WMI.BufferSize</B> indicates the size of the nonpaged buffer at <B>Parameters.WMI.Buffer</B>.</P>
+
+<P><B>Parameters.WMI.Buffer</B> points to a <A HREF="k112_7a2a.htm">WNODE_SINGLE_INSTANCE</A> structure that identifies the instance and specifies new data values.</P>
+
+<H4>Output </H4>
+
+<P>None.</P>
+
+<H4>I/O Status Block</H4>
+
+<P>If the driver handles the IRP by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, WMI sets <B>Irp-&gt;IoStatus.Status</B> and <B>Irp-&gt;IoStatus.Information</B> in the I/O status block.</P>
+
+<P>Otherwise, the driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS or to an appropriate error status such as the following:</P>
+
+<P class=indent1>STATUS_WMI_INSTANCE_NOT_FOUND</P>
+
+<P class=indent1>STATUS_WMI_GUID_NOT_FOUND</P>
+
+<P class=indent1>STATUS_WMI_READ_ONLY</P>
+
+<P class=indent1>STATUS_WMI_SET_FAILURE</P>
+
+<P>On success, the driver sets <B>Irp-&gt;IoStatus.Information</B> to zero.</P>
+
+<H4>Operation</H4>
+
+<P>A driver can handle WMI IRPs either by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A> or by handling the IRP itself, as described in <A HREF="wmi_9d47.htm">Handling WMI Requests</A>.</P>
+
+<P>If a driver handles WMI IRPs by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, that routine calls the driver's <A HREF="k903_9zqq.htm"><I>DpWmiSetDataBlock</I></A> routine, or returns STATUS_WMI_READ_ONLY if the driver does not define the routine. </P>
+
+<P>If a driver handles an IRP_MN_CHANGE_SINGLE_INSTANCE request itself, it does so only if the device object pointer at <B>Parameters.WMI.ProviderId</B> matches the pointer passed by the driver in its call to <A HREF="k104_5dbm.htm"><B>IoWMIRegistrationControl</B></A>. Otherwise, the driver must forward the request to the next-lower driver.</P>
+
+<P>If the driver handles the request, it must first check the GUID at <B>Parameters.WMI.DataPath</B> to determine whether it identifies a data block supported by the driver. If not, the driver must fail the IRP and return STATUS_WMI_GUID_NOT_FOUND.</P>
+
+<P>If the driver supports the data block, it must check the received <A HREF="k112_7a2a.htm">WNODE_SINGLE_INSTANCE</A> structure at <B>Parameters.WMI.Buffer</B> for the instance name, as follows: 
+
+<UL>
+	<LI>If WNODE_FLAG_STATIC_INSTANCE_NAMES is set in <B>WnodeHeader.Flags</B>, the driver uses <B>InstanceIndex</B> as an index into the driver's list of static instance names for that block. WMI obtains the index from registration data provided by the driver when it registered the block.</LI>
+
+	<LI>If WNODE_FLAG_STATIC_INSTANCE_NAMES is clear in <B>WnodeHeader.Flags,</B> the driver uses the offset at <B>OffsetInstanceName</B> to locate the instance name string in the input <A HREF="k112_7a2a.htm">WNODE_SINGLE_INSTANCE</A>. <B>OffsetInstanceName</B> is the offset in bytes from the beginning of the structure to a USHORT-sized length of the instance name string in bytes (not characters), including the NULL terminator if present, followed by the instance name string in Unicode. </LI>
+</UL>
+
+<P>The driver is responsible for validating all input values. Specifically, the driver must do the following if it handles the IRP request itself:
+
+<UL>
+	<LI>For static names, verify that the <B>InstanceIndex</B> member of the WNODE_SINGLE_INSTANCE structure is within the range of instance indexes supported by the driver for the data block.</LI>
+
+	<LI>For dynamic names, verify that the instance name string identifies a data block instance supported by the driver.</LI>
+
+	<LI>Verify that the <B>DataBlockOffset</B> and <B>SizeDataBlock</B> members of the WNODE_SINGLE_INSTANCE structure describe a valid-sized data block, including any padding that exists between data items, and that the contents of the buffer are valid for the data block.</LI>
+
+	<LI>Verify that the specified data block is one for which the driver allows caller-initiated modifications. In other words, the driver should not allow modifications to data blocks that you intended to be read-only. </LI>
+</UL>
+
+<P>Do not assume the thread context is that of the initiating user-mode application – a higher-level driver might have changed it.</P>
+
+<P>If the driver cannot locate the specified instance, it must fail the IRP and return STATUS_WMI_INSTANCE_NOT_FOUND. If the instance has a dynamic instance name, this status indicates that the driver does not support the instance. WMI can therefore continue to query other data providers, and return an appropriate error to the data consumer if another provider finds the instance but cannot handle the request for some other reason.</P>
+
+<P>If the driver locates the instance and can handle the request, it sets the writable data items in the instance to the values in the <A HREF="k112_7a2a.htm">WNODE_SINGLE_INSTANCE</A> structure, leaving any read-only items unchanged. If the entire data block is read-only, the driver should fail the IRP and return STATUS_WMI_READ_ONLY. </P>
+
+<P>If the instance is valid but the driver cannot handle the request, it can return any appropriate error status.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k903_9zqq.htm"><I>DpWmiSetDataBlock</I></A>, <A HREF="k104_5dbm.htm"><B>IoWMIRegistrationControl</B></A>, <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A>, <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, <A HREF="k112_7a2a.htm">WNODE_SINGLE_INSTANCE</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IRP_MN_CHANGE_SINGLE_INSTANCE"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Hardware Reset</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Hardware Reset">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_hardware_reset_ng"></A>Hardware Reset</H1>
+
+<P>A miniport driver must register a <I>MiniportReset</I> function with <B>NdisMRegisterMiniport</B>. The definition of <I>MiniportReset</I> is:</P>
+
+<PRE class=syntax><B>NDIS_STATUS
+</B>  <B>MiniportReset(
+</B>    <B>OUT PBOOLEAN</B>  <I>AddressingReset</I><B>,</B><I>
+</I>    <B>IN NDIS_HANDLE  </B><I>MiniportAdapterContext</I>
+    <B>);</B></PRE>
+
+<P><I>MiniportReset</I> is called if NDIS determines that the miniport driver’s network interface card (NIC) has hung, because of one of the following:
+
+<UL>
+	<LI>The miniport driver’s <I>MiniportCheckForHang</I> function returned TRUE.</LI>
+
+	<LI>NDIS detected a pending send packet (for serialized miniport drivers only).</LI>
+
+	<LI>NDIS detected a pending request that did not complete in a specified timeout period.</LI>
+</UL>
+
+<P><I>MiniportReset</I> can complete synchronously or asynchronously with a call to <B>NdisMResetComplete</B> (see the following figure).</P>
+
+<P><IMG SRC="images/207-09.gif" ALT="" BORDER=0></P>
+
+<P><B>Resetting a Network Interface Card</B></P>
+
+<P><I>MiniportReset</I> should:
+
+<UL>
+	<LI>Disable further interrupts.</LI>
+
+	<LI>Clear out the packets associated with any sends in progress. For instance, on a ring buffer for a bus-master direct memory access (DMA) device, the pointers to send buffers should be cleared. A serialized miniport driver relinquishes pending packet ownership, regardless of the state of the send. For such a miniport driver, NDIS completes any pending sends to higher layers with an appropriate status. Deserialized and connection-oriented miniport drivers must return NDIS_STATUS_REQUEST_ABORTED for any queued send packets. </LI>
+
+	<LI>Restore the hardware state and the miniport driver’s internal state back to the initial state it had with respect to multicast addresses and registered filters. Either the miniport driver takes responsibility for doing this or it relies on NDIS. </LI>
+</UL>
+
+<P>If the miniport driver returns FALSE in the <I>AddressingReset</I> parameter, the miniport driver returns its addressing values to their initial state. If the miniport driver returns TRUE in <I>AddressingReset</I>, NDIS calls a connectionless miniport driver’s <I>MiniportSetInformation</I> function or a connection-oriented miniport driver's <I>MiniportCoRequest</I> function to set addresses and filters to their initial state. Note that the driver writer determines whether the miniport driver saves this addressing state so that the it can restore the state on reset or whether the miniport driver relies on NDIS to restore the addressing state on reset.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Hardware%20Reset"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

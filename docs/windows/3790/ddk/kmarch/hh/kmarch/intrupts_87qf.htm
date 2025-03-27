@@ -1,0 +1,78 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Registering an ISR</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Registering an ISR">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_registering_an_isr_kg"></A>Registering an ISR</H2>
+
+<P>To register an ISR, a driver's <A HREF="drvrrtns_8uya.htm"><I>DispatchPnP</I></A> routine must call <A HREF="k104_7h9u.htm"><B>IoConnectInterrupt</B></A> when it receives an <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> request. In response, the I/O Manager creates an interrupt object for each processor that the device can interrupt.</P>
+
+
+
+<H4><A NAME="ddk_connecting_to_a_single_interrupt_vector_kg"></A>Connecting to a Single Interrupt Vector</H4>
+
+<P>If the ISR handles a single device that uses a single interrupt vector, the driver should specify the following parameters when calling <B>IoConnectInterrupt</B>:
+
+<UL>
+	<LI>The address of a driver-allocated location that receives the interrupt object pointer returned by <B>IoConnectInterrupt</B>.</LI>
+
+	<LI>The ISR's entry point.</LI>
+
+	<LI>A pointer to driver-supplied information the ISR will use when it is called (see <A HREF="intrupts_8ilj.htm">Providing ISR Context Information</A>).</LI>
+
+	<LI>A NULL spin lock pointer, which indicates that the driver will use an internal interrupt spin lock provided by the system (see <A HREF="intrupts_9sfb.htm">Synchronizing Access to Device Data</A>).</LI>
+
+	<LI>The device's interrupt vector, obtained from a <B>CmResourceTypeInterrupt</B> resource in the <A HREF="k112_92k2.htm">CM_RESOURCE_LIST</A> structure for translated resources, received in the IRP_MN_START_DEVICE IRP.</LI>
+
+	<LI>The device's DIRQL, obtained from a <B>CmResourceTypeInterrupt</B> resource in the <A HREF="k112_92k2.htm">CM_RESOURCE_LIST</A> structure for translated resources, received in the IRP_MN_START_DEVICE IRP. (Use this value for both the <I>Irql</I> and <I>SynchronizeIrql</I> parameters.)</LI>
+
+	<LI>The device's interrupt triggering mode (level-sensitive or latched), obtained from the <B>Flags</B> member of a <B>CmResourceTypeInterrupt</B> resource, in the <A HREF="k112_92k2.htm">CM_RESOURCE_LIST</A> structure for translated resources received in the IRP_MN_START_DEVICE IRP.</LI>
+
+	<LI>A Boolean value indicating whether the device can share the vector, calculated by examining the <B>ShareDisposition</B> member of a <B>CmResourceTypeInterrupt</B> resource, in the <A HREF="k112_92k2.htm">CM_RESOURCE_LIST</A> structure for translated resources received in the IRP_MN_START_DEVICE IRP.</LI>
+
+	<LI>A processor affinity mask value, indicating the set of processors the device can interrupt on the machine, obtained from a <B>CmResourceTypeInterrupt</B> resource in the <A HREF="k112_92k2.htm">CM_RESOURCE_LIST</A> structure for translated resources, received in the IRP_MN_START_DEVICE IRP.</LI>
+
+	<LI>A value indicating whether the system should save floating-point registers when the device interrupts (this must be FALSE for platform-independent drivers).</LI>
+</UL>
+
+<P>In response to the <B>IoConnectInterrupt</B> call, the I/O Manager does the following 
+
+<OL>
+	<LI>Allocates sufficient resident memory for as many interrupt objects as the processor affinity mask indicates, which could be as many interrupt objects as processors in SMP machines or could be a lesser number. The I/O Manager also provides an internal interrupt spin lock and initializes it if the driver passes a NULL pointer to <B>IoConnectInterrupt</B>.</LI>
+
+	<LI>Initializes each interrupt object and connects it to a particular processor in the machine. To connect the interrupt object, this call sets the specified interrupt vector in the kernel's Interrupt Dispatch Table (IDT) for each specified processor. (For more information about IDTs, see <I>Inside Windows 2000</I> from Microsoft Press.)</LI>
+</OL>
+
+<P>When all interrupt objects have been initialized and connected to the processors, <B>IoConnectInterrupt</B> returns a pointer to the set of interrupt objects. Driver routines must pass the returned pointer when calling <A HREF="k105_99rm.htm"><B>KeSynchronizeExecution</B></A>.</P>
+
+<P>When a device interrupts one of a machine's processors, the driver's ISR executes on that processor at DIRQL and receives the context pointer that the driver specified when calling <A HREF="k104_7h9u.htm"><B>IoConnectInterrupt</B></A>.</P>
+
+<H4>Connecting to Multiple Interrupt Vectors</H4>
+
+<P>If a driver must handle interrupts from more than one device, each with a different interrupt vector, or if a single device can interrupt through more than one interrupt vector, the driver can have a single multi-vector ISR, or it can have multiple ISRs. </P>
+
+<P>Such a driver must call <B>IoConnectInterrupt</B> for each interrupt vector. It must also allocate a spin lock for each interrupt vector. The following steps must be used:
+
+<OL>
+	<LI>The driver must call <A HREF="k105_60xe.htm"><B>KeInitializeSpinLock</B></A> with a pointer to driver-provided, resident storage for an interrupt spin lock (in a device extension, controller extension, or nonpaged pool allocated by the driver).</LI>
+
+	<LI>For each interrupt vector a driver's devices use, the driver calls <B>IoConnectInterrupt</B> as described previously for <A HREF="#ddk_connecting_to_a_single_interrupt_vector_kg">connecting to a single interrupt vector</A>, except for the following parameters:
+<UL>
+	<LI>The <I>SpinLock</I> value must be the spin lock pointer initialized by <B>KeInitializeSpinlock</B>.</LI>
+
+	<LI>The <I>SynchronizeIrql</I> value must be the highest DIRQL assigned to any device for which its ISRs handle interrupts.</LI>
+</UL>
+</LI>
+</OL>
+
+<P>For more information, see <A HREF="intrupts_9sfb.htm">Synchronizing Access to Device Data</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Registering%20an%20ISR"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

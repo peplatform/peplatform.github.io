@@ -1,0 +1,153 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AEC System Filter</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="AEC System Filter">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_aec_system_filter_ksg"></A>AEC System Filter</H3>
+
+<P>The AEC system filter (<I>aec.sys</I>) implements the acoustic echo cancellation (AEC) and noise suppression (NS) algorithms in software. This filter is a standard operating-system component in Windows&nbsp;XP and later. For information about how DirectSoundCapture applications enable use of the AEC system filter, see the Platform SDK documentation.</P>
+
+<H4>Constraints Imposed by AEC System Filter</H4>
+
+<P>An audio filter graph that incorporates a capture effect that is implemented in the AEC system filter is subject to the following restrictions:
+
+<UL>
+	<LI>The AEC system filter can connect only to pins that handle PCM data formats.</LI>
+
+	<LI>The bit depth must be 16 bits for the capture stream and 8 or 16 bits for the render stream.</LI>
+
+	<LI>The AEC system filter performs all internal processing at 16 kHz. The input and output streams are source-rate converted as necessary.</LI>
+
+	<LI>In Windows&nbsp;XP, the capture and render streams must have the same sample rate. In Windows&nbsp;XP&nbsp;SP1, Windows Server&nbsp;2003, and later, the AEC system filter's capture-out and render-in pins (see the following figure) must have the same sample rate, but the sample rates at the capture-in and render-out pins can each be selected independently of the other pins. The sample rate at the capture-in pin can be (in order of preference) 16 kHz, 48 kHz, 44.1 kHz, or 8 kHz. (The order of preference is based on processing time and audio quality.) The sample rate at the render-out pin can be (in order of preference) 16 kHz, 48 kHz, or 44.1 kHz. Note that the render-out pin does not support a sample rate of 8 kHz.</LI>
+</UL>
+
+<P><IMG SRC="images/aecfilt.gif" ALT="" BORDER=0></P>
+
+<P><B>AEC System Filter: Pins and Connections</B>
+
+<UL>
+	<LI>The AEC and NS nodes (see figure in <A HREF="pcdesign_1pyf.htm">Exposing Hardware-Accelerated Capture Effects</A>) can handle only monophonic streams. If the capture stream is multichannel (for example, two-channel stereo), all channels other than the first are ignored (and discarded). Only monophonic streams can be processed by the render side.</LI>
+
+	<LI>In Windows&nbsp;XP, the clock rate must be matched between the capture and render streams. The AEC system filter implements no mechanism for matching sample rates across devices. This limitation precludes using AEC when the capture and render functions are performed by different devices. In Windows&nbsp;XP&nbsp;SP1, Windows Server&nbsp;2003, and later, this limitation does not exist. The AEC system filter correctly handles mismatches between the clocks for the capture and render streams, and separate devices can be used for capture and rendering.</LI>
+
+	<LI>When the AEC system filter is used, the <A HREF="aud-design_1kiv.htm#ddk_sysaudio_system_driver_ksg">SysAudio system driver</A> turns off hardware acceleration for mixing, sample-rate conversion, 3D spatialization, and so on. All mixing of streams is done in software emulation by the <A HREF="aud-design_1kiv.htm#ddk_kmixer_system_driver_ksg">KMixer system driver</A>. This restriction is necessary to ensure that all audio that is played by the rendering device can be canceled out of the capture stream by the AEC system filter.</LI>
+
+	<LI>Any signal processing that is done before the AEC or NS node on the capture side of the graph or after the AEC or NS node on the render side must be linear time-invariant. Performing any nonlinear or time-varying signal processing in either of these locations prevents AEC from canceling the echo in the capture signal.</LI>
+
+	<LI>SysAudio never inserts a <A HREF="aud-design_6tgn.htm">GFX filter</A> into the same graph as the AEC system filter. As a result, GFX filtering cannot be performed on a render or capture stream that uses the AEC system filter.</LI>
+
+	<LI>AEC filtering cancels only echoes coming from the AEC-filtered channels in your computer. Audio that is output through channels that do not pass through AEC is not echo-canceled. Echoes in a non-AEC audio channel are functionally equivalent to echoes in the audio that is playing on a radio in the office next to your computer. AEC has no way of canceling (and no effect on) echoes from either a radio or a non-AEC channel.</LI>
+</UL>
+
+<P>The preceding requirements apply to all kernel-streaming audio filter graphs that incorporate capture effects that are implemented in <I>aec.sys</I>. These restrictions reflect fundamental assumptions in the design and implementation of the AEC system filter. The constraints on stream formats might change in future versions of Windows.</P>
+
+<P>Any product design that uses the AEC system filter should take the preceding constraints into account. The following questions and answers show how these constraints can affect AEC filtering behavior:</P>
+
+<P class=indent1><B><I>Q: I've created a DirectSound buffer for stereo rendering, but both channels sound the same when I'm using AEC. Why is this?</I></B></P>
+
+<P class=indent1><I>A:</I> AEC works only on mono streams, so KMixer is mixing the stereo stream back to mono to meet this constraint.</P>
+
+<P class=indent1><B><I>Q: Why does my 44-kHz, 16-bit audio sound like 16 kHz when I use AEC?</I></B></P>
+
+<P class=indent1><I>A:</I> Because the AEC system filter performs all internal processing at 16 kHz.</P>
+
+<P class=indent1><B><I>Q: Why can't I get a hardware-accelerated DirectSound buffer with AEC?</I></B></P>
+
+<P class=indent1><I>A:</I> Because SysAudio turns off hardware-accelerated mixing when AEC is enabled.</P>
+
+<P class=indent1><B><I>Q: Will the AEC system filter work with my old Sound Blaster 16 card?</I></B></P>
+
+<P class=indent1>A: Yes. Although the Sound Blaster16 card is unable to simultaneously manage 16-bit rendering and capture streams, it <I>can</I> simultaneously manage an 8-bit rendering stream and a 16-bit capture stream, which is a combination that the AEC system filter's render-out and capture-in pins support. New audio cards should be designed to support bit depths of at least 16 bits for both rendering and capture.</P>
+
+<H4>Summary of Data Formats for AEC Pins</H4>
+
+<P>A DirectSound application that enables the AEC system filter can choose for its DirectSound buffers any sample rate or sample size that KMixer supports. KMixer converts the data from the application's rendering buffer to a 16-kHz mono 16-bit format before it enters the AEC system filter. Similarly, KMixer can convert the data that is destined for a DirectSoundCapture application's capture buffer to a 16-kHz mono 16-bit format after it leaves the AEC system filter. However, to both minimize the amount of processing done in the graph and achieve the highest audio quality, the applications should use a 16-kHz mono 16-bit format for <I>both</I> the rendering and capture buffers.</P>
+
+<P>If you want your audio hardware to work with the AEC system filter, then the hardware rendering pin must support at least one of the sample rates supported by the AEC render-out pin and the hardware capture pin must support one of the sample rates supported by the AEC capture-in pin. To achieve the best AEC performance, your hardware should support a 16-kHz sample rate in addition to any higher rates it supports. By supporting the 16-kHz rate, the hardware reduces the amount of processing that the AEC system filter must do by eliminating the need to do source-rate conversion.</P>
+
+<P>The AEC system filter's render-in pin connects to KMixer's output pin. KMixer performs the necessary conversion of its input streams to the format that the render-in pin requires. The render-in pin supports only two data formats:
+
+<UL>
+	<LI>A 16-kHz mono PCM format with a sample size of 16 bits</LI>
+
+	<LI>A 16-kHz mono PCM format with a sample size of 8 bits</LI>
+</UL>
+
+<P>The capture-out pin supports only one format:
+
+<UL>
+	<LI>A 16-kHz mono PCM format with a sample size of 16 bits</LI>
+</UL>
+
+<P>If the DirectSoundCapture application's buffer format is 16-kHz mono 16-bit PCM, the AEC capture-out pin can bypass KMixer and connect directly to <I>DSound.DLL</I> (see preceding figure). Otherwise, the AEC capture-out pin connects to KMixer, which converts the 16-kHz mono 16-bit PCM stream from the pin into whatever format the application's capture buffer uses.</P>
+
+<P>The AEC render-out pin can handle any of the following formats:
+
+<UL>
+	<LI>16-kHz 16-bit PCM with two channels (stereo)</LI>
+
+	<LI>16-kHz 8-bit PCM with two channels</LI>
+
+	<LI>48-kHz 16-bit PCM with two channels</LI>
+
+	<LI>48-kHz 8-bit PCM with two channels</LI>
+
+	<LI>44.1-kHz 16-bit PCM with two channels</LI>
+
+	<LI>44.1-kHz 8-bit PCM with two channels</LI>
+</UL>
+
+<P>The render-out pin produces a stereo stream by copying the single channel from the AEC node into both channels of the output stream.</P>
+
+<P>The capture-in pin can handle any of the following formats:
+
+<UL>
+	<LI>16-kHz 16-bit PCM with any number of channels</LI>
+
+	<LI>48-kHz 16-bit PCM with any number of channels</LI>
+
+	<LI>44.1-kHz 16-bit PCM with any number of channels</LI>
+
+	<LI>8-kHz 16-bit PCM with any number of channels</LI>
+</UL>
+
+<P>The capture-in pin uses only the first channel and ignores (and discards) the others.</P>
+
+<P>All of the AEC system filter's pins use the data-format parameter values shown in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=36%>KSDATARANGE Member</TH>
+<TH align=left width=64%>Parameter Value</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%><B>MajorFormat</B></TD>
+<TD width=64%>KSDATAFORMAT_TYPE_AUDIO</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%><B>SubFormat</B></TD>
+<TD width=64%>KSDATAFORMAT_SUBTYPE_PCM</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%><B>Specifier</B></TD>
+<TD width=64%>KSDATAFORMAT_SPECIFIER_WAVEFORMATEX</TD>
+</TR>
+</TABLE><BR>
+
+<P>For more information on the <B>MajorFormat</B>, <B>SubFormat</B>, and <B>Specifier</B> members, see <A HREF="ks-struct_065v.htm">KSDATARANGE</A>. For an example of a <A HREF="aud-prop_6p0z.htm">KSDATARANGE_AUDIO</A> data-range descriptor that uses these three parameter values, see <A HREF="aud-design_7p5z.htm">PCM Stream Data Range</A>.</P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: AEC%20System%20Filter"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

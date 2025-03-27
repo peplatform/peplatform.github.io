@@ -1,0 +1,110 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisMAllocateSharedMemory</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisMAllocateSharedMemory">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndismallocatesharedmemory_nr"></A>NdisMAllocateSharedMemory</H1>
+
+<P><B>NdisMAllocateSharedMemory</B> allocates and maps a host memory range so that the memory range is simultaneously accessible from both the host system and a DMA NIC.</P>
+
+<PRE class=syntax><B>VOID 
+  NdisMAllocateSharedMemory(</B>
+    <B>IN NDIS_HANDLE</B>  <I>MiniportAdapterHandle</I><B>,</B>
+    <B>IN ULONG</B>  <I>Length</I><B>,</B>
+    <B>IN BOOLEAN</B>  <I>Cached</I><B>,</B>
+    <B>OUT PVOID</B>  <B>*</B><I>VirtualAddress</I><B>,</B>
+    <B>OUT PNDIS_PHYSICAL_ADDRESS</B>  <I>PhysicalAddress
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>MiniportAdapterHandle</I></DT>
+
+<DD>Specifies the handle input to <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>.</DD>
+
+<DT><I>Length</I></DT>
+
+<DD>Specifies the number of bytes to allocate.</DD>
+
+<DT><I>Cached</I></DT>
+
+<DD>Specifies TRUE if the range can be allocated from cached memory. </DD>
+
+<DT><I>VirtualAddress</I></DT>
+
+<DD>Pointer to a caller-supplied variable in which this function returns the base virtual address of the allocation for use by the miniport driver. If <B>NdisMAllocateSharedMemory</B> cannot satisfy its caller, it returns NULL to indicate that no memory was allocated. </DD>
+
+<DT><I>PhysicalAddress</I></DT>
+
+<DD>Pointer to a caller-supplied variable in which this function returns a physical address, suitable for use by the NIC, that corresponds to that returned at <I>VirtualAddress</I>, or it returns NULL. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Windows Server 2003 and Windows XP Service Pack 1 and later releases allow both bus-master DMA NICs and slave DMA NICs to call <B>NdisMAllocateSharedMemory</B>. Prior releases allow only bus-master DMA NICs to call <B>NdisMAllocateSharedMemory</B>. In these prior releases, if <I>MiniportInitialize</I> did not specify that the NIC is a bus master when it called <A HREF="103ndisx_175e.htm"><B>NdisMSetAttributes</B></A> or <A HREF="103ndisx_1pmb.htm"><B>NdisMSetAttributesEx</B></A>, <B>NdisMAllocateSharedMemory</B> simply returns control without attempting to make an allocation. </P>
+
+<P><B>NdisMAllocateSharedMemory</B> provides both the mapped virtual address range that the driver uses to access the shared memory block and the <A HREF="105nstru_1iia.htm">NDIS_PHYSICAL_ADDRESS</A>-type range that the NIC uses. A value returned at <I>PhysicalAddress</I> can be doubly mapped by the system. That is, a “physical” address range described by the value at <I>PhysicalAddress</I> and <I>Length</I> can be a range of mapped logical addresses that do not match the host physical addresses for the allocation in every possible platform.  </P>
+
+<P><B>NdisMAllocateSharedMemory</B> can be called only from <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>. How large an allocation to request depends on how the driver writer, knowing the capabilities and features of the NIC, decides to make the tradeoff between the following performance versus size dilemma:
+
+<UL>
+	<LI>In periods of high network traffic, a miniport driver cannot maintain high I/O throughput if it runs low on shared memory space for device-accessible data buffers. 
+<P>For example, the miniport driver could be indicating receive buffers in shared memory faster than such buffers are being returned from bound protocols when a flood of receives come in to its NIC. If all its shared memory space is consumed by outstanding receive buffers, the miniport driver might have to disable receive interrupts on its NIC until it has some shared memory space available for receive buffers.
+</LI>
+
+	<LI>On the other hand, calling <B>NdisMAllocateSharedMemory</B> with a <I>Length</I> chosen to anticipate some maximum transfer demand makes the driver’s image larger and its resource usage quite uneconomical, except for rare periods of very high I/O demand. Moreover, <B>NdisMAllocateSharedMemory</B> might not give the driver such a large block if insufficient system memory is available, forcing the driver to fail initialization. </LI>
+</UL>
+
+<P>A NIC driver that supplies a <A HREF="101mini_225u.htm"><I>MiniportAllocateComplete</I></A> function has considerably more flexibility in resolving the preceding performance versus size dilemma. <I>MiniportInitialize</I> should allocate only enough shared memory with <B>NdisMAllocateSharedMemory</B> for a moderate demand for network transfer operations through the NIC if the driver has a <I>MiniportAllocateComplete</I> function. Such a miniport driver can call <A HREF="103ndisx_3fg2.htm"><B>NdisMAllocateSharedMemoryAsync</B></A> dynamically to allocate more shared memory in periods of heavier transfer demand on its NIC. When the high demand for transfers subsides, such a driver calls <A HREF="103ndisx_9fjm.htm"><B>NdisMFreeSharedMemory</B></A> to release the additional memory it allocated. Note that only bus-master DMA NICs can call <B>NdisMAllocateSharedMemoryAsync</B> and export <I>MiniportAllocateComplete</I>. This functionality is not supported for slave DMA NICs.</P>
+
+<P><B>NdisMAllocateSharedMemory</B> and <B>NdisMAllocateSharedMemoryAsync</B> are the only <B>Ndis</B><I>Xxx</I> functions that can be called to allocate host memory that is shared between the driver, which uses virtual addresses, and a NIC, which uses the corresponding logical addresses. </P>
+
+<P>Whenever possible, a NIC driver calls <B>NdisMAllocateSharedMemory</B> with <I>Cached</I> set to TRUE because its request is more likely to succeed. In any platform, noncached memory is always a scarce system resource. Usually, drivers can get larger allocations from cached memory as well. A NIC driver must allocate its shared memory space from noncached memory if either of the following is true:
+
+<UL>
+	<LI>The NIC or miniport driver writes directly into receive buffers before the miniport driver indicates the newly received data. 
+<P>For example, a NIC that sets flags in each received frame after it has been transferred must have access to receive buffers in noncached memory. Otherwise, the miniport driver could not determine when it should issue a flush to maintain cache coherency: either the miniport driver would take a performance hit by waiting for a fail-safe interval to flush the cached receive buffer, or the miniport driver would make indications in which the frame flags were randomly set.
+</LI>
+
+	<LI>The NIC transfers some number of received frames sequentially into contiguous physical memory within the shared memory space. 
+<P>If such a NIC transferred incoming frames into contiguous cached memory, its driver cannot maintain data integrity for all such frames when any frame might straddle a cache-line boundary. When the miniport driver flushed the range for such a frame, it also might flush the cache space containing some of the next frame if it was already transferred, thereby making that next frame incoherent. 
+</LI>
+</UL>
+
+<P>A miniport driver should align the buffers it allocates from shared cached memory on an integral of the host data-cache-line boundary to prevent cache-line tearing during DMA. Cache-line tearing can cause data-integrity problems in the driver or degrade the driver’s (and the system’s) I/O performance by requiring excessive data-cache flushing to maintain data integrity. <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A> can call <A HREF="103ndisx_8cqa.htm"><B>NdisMGetDmaAlignment</B></A> to determine the alignment boundary in the current platform for device-accessible buffers that the driver will set up within an allocated range of shared memory. </P>
+
+<P>A miniport driver should set a limit on how much shared memory it can allocate. This limit is driver-specific and should be high enough so that the driver does not run out of buffers. Do not set a limit that is excessively high, as this could result in a wasteful consumption of shared memory that could reduce system performance.</P>
+
+<P><I>MiniportInitialize</I> also might call <A HREF="103ndisx_14ky.htm"><B>NdisSystemProcessorCount</B></A> before it calls <B>NdisMAllocateSharedMemory</B> if the driver writer decides to allocate a larger shared memory block in multiprocessor machines on the assumption that any SMP machine is likely to be a network server with higher network-transfer demands on the NIC than a workstation.</P>
+
+<P><I>MiniportInitialize</I> must call <A HREF="103ndisx_44j6.htm"><B>NdisMAllocateMapRegisters</B></A> before it calls <B>NdisMAllocateSharedMemory</B>; otherwise, no memory can be allocated. NDIS allocates an additional map register internally for the shared memory range when it is allocated.</P>
+
+<P>If its call to <B>NdisMAllocateSharedMemory</B> fails, <I>MiniportInitialize</I> can call again requesting a smaller allocation. However, if <I>MiniportInitialize</I> cannot allocate sufficient shared memory for the NIC, it must release all resources it has already allocated and fail initialization. </P>
+
+<P>If the NIC driver subsequently indicates receives with <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, it must allocate some number of buffer descriptors from buffer pool that map the NIC’s receive buffers in the shared memory block.</P>
+
+<P>If the allocated memory is cached and, therefore, needs to be flushed on transfers, the miniport driver must call <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A> to allocate an NDIS_BUFFER-type descriptor for the shared memory range. The NIC driver must call <A HREF="103ndisx_188i.htm"><B>NdisFlushBuffer</B></A> with this buffer descriptor to perform such a flush. In addition, such a miniport driver should call <A HREF="103ndisx_29rm.htm"><B>NdisMUpdateSharedMemory</B></A> to ensure data integrity on all possible platforms. </P>
+
+<P>Any miniport driver that calls <A HREF="103ndisx_3fg2.htm"><B>NdisMAllocateSharedMemoryAsync</B></A> or <B>NdisMAllocateSharedMemory</B> must release all outstanding allocations with one or more calls to <A HREF="103ndisx_9fjm.htm"><B>NdisMFreeSharedMemory</B></A> when its NIC is removed, that is, when its <A HREF="101mini_6stu.htm"><I>MiniportHalt</I></A> function is called. </P>
+
+<P>Callers of <B>NdisMAllocateSharedMemory</B> run at IRQL = PASSIVE_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_225u.htm"><I>MiniportAllocateComplete</I></A>, <A HREF="101mini_6stu.htm"><I>MiniportHalt</I></A>, <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A>, <A HREF="103ndisx_1unm.htm"><B>NdisAllocateBufferPool</B></A>, <A HREF="103ndisx_8z5e.htm"><B>NdisCreateLookaheadBufferFromSharedMemory</B></A>, <A HREF="103ndisx_2rg2.htm"><B>NdisDestroyLookaheadBufferFromSharedMemory</B></A>, <A HREF="103ndisx_188i.htm"><B>NdisFlushBuffer</B></A>, <A HREF="103ndisx_8cqa.htm"><B>NdisMGetDmaAlignment</B></A>, <A HREF="103ndisx_44j6.htm"><B>NdisMAllocateMapRegisters</B></A>, <A HREF="103ndisx_3fg2.htm"><B>NdisMAllocateSharedMemoryAsync</B></A>, <A HREF="103ndisx_9fjm.htm"><B>NdisMFreeSharedMemory</B></A>, <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, <A HREF="103ndisx_175e.htm"><B>NdisMSetAttributes</B></A>, <A HREF="103ndisx_1pmb.htm"><B>NdisMSetAttributesEx</B></A>, <A HREF="103ndisx_3a42.htm"><B>NdisMStartBufferPhysicalMapping</B></A>, <A HREF="103ndisx_29rm.htm"><B>NdisMUpdateSharedMemory</B></A>, <A HREF="103ndisx_14ky.htm"><B>NdisSystemProcessorCount</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisMAllocateSharedMemory"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,76 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DdVideoPortGetBandwidth</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DdVideoPortGetBandwidth">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ddvideoportgetbandwidth_gg"></A><I>DdVideoPortGetBandwidth</I></H1>
+
+<P>The<I> DdVideoPortGetBandwidth</I> callback function reports the bandwidth limitations of the device's frame buffer memory based the specified VPE object output format.</P>
+
+<PRE class=syntax><B>DWORD
+  (APIENTRY *PDD_VPORTCB_GETBANDWIDTH)(</B>
+<B>    PDD_GETVPORTBANDWIDTHDATA</B>  <I>lpGetVideoPortBandwidth</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>lpGetVideoPortBandwidth</I></DT>
+
+<DD>Points to a <A HREF="ddstrcts_9axz.htm">DD_GETVPORTBANDWIDTHDATA</A> structure that contains the information required for the driver to return the bandwidth data.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>DdVideoPortGetBandwidth</I> returns one of the following callback codes:</P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_handled_gg">DDHAL_DRIVER_HANDLED</A> </P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_nothandled_gg">DDHAL_DRIVER_NOTHANDLED</A> </P>
+
+<H4>Headers</H4>
+
+<P class=indent1>Declared in <I>ddrawint.h</I>.  Include <I>winddi.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P><I>DdVideoPortGetBandwidth</I> must be implemented in DirectDraw drivers that support VPE.</P>
+
+<P><I>DdVideoPortGetBandwidth</I> informs clients of bandwidth requirements for any specified format, helping them to choose a format and better understand its limitations. The driver can supply accurate bandwidth information only after the VPE object has been created because the driver needs the information in the <A HREF="ddstrcts_4ofb.htm">DDVIDEOPORTDESC</A> structure.</P>
+
+<P><I>DdVideoPortGetBandwidth</I> is typically called twice to obtain the bandwidth parameters of the specified hardware video port. Depending on the <B>dwFlags</B> member of the DD_GETVPORTBANDWIDTHDATA structure at <I>lpGetVideoPortBandwidth</I>, the driver should do the following:
+
+<UL>
+	<LI>When the flag is DDVPB_TYPE, the driver should indicate the type of device it is by setting one of the following flags in the <B>dwCaps</B> member of the <A HREF="ddstrcts_2jon.htm">DDVIDEOPORTBANDWIDTH</A> structure to which the <B>lpBandwidth</B> member of DD_GETVPORTBANDWIDTHDATA points:
+<UL>
+	<LI>DDVPBCAPS_DESTINATION indicates that the device will describe its bandwidth capabilities in terms of the overlay stretch factor; that is, that the bandwidth information returned by the driver in the next call to <I>DdVideoPortGetBandwidth</I> will refer to the size of the destination overlay. This flag best describes hardware that refreshes from both the primary and overlay surfaces simultaneously. As the destination video is stretched, the hardware has more time to read the pixels from the overlay surface, decreasing the required memory bandwidth.</LI>
+
+	<LI>DDVPBCAPS_SOURCE indicates that the device will describe its bandwidth capabilities in terms of the required source overlay size; that is, that the bandwidth information returned by the next call to <I>DdVideoPortGetBandwidth</I> refers to the size of the source overlay. This flag best describes hardware that pre-fetches the overlay data into a line buffer or large FIFO. Such hardware does not require extra bandwidth, but does require that the source overlay data fit entirely within the buffer/FIFO size supported by the hardware.</LI>
+</UL>
+
+<P>The driver should also set the <B>dwSize</B> member of the DDVIDEOPORTBANDWIDTH structure before returning.
+</LI>
+
+	<LI>When the flag is DDVPB_VIDEOPORT, the <B>dwWidth</B> and <B>dwHeight</B> members in the DD_GETVPORTBANDWIDTHDATA structure refer to the pre-scale size of the video data that the hardware video port will write to the frame buffer as the source overlay. The driver should return an overlay stretch factor at which the device can display the overlay, multiplied by 1000, in each of the <B>dwOverlay</B>, <B>dwColorkey</B>, <B>dwYInterpolate</B>, and <B>dwYInterpAndColorkey</B> members of the DDVIDEOPORTBANDWIDTH structure. For example, a value of 2000 indicates that the device has the bandwidth to stretch the overlay to two times the source's specified size when displaying it. A value of 1000 indicates that no stretching need be done for the specified data size. A value of 500 indicates that the device has sufficient bandwidth to shrink the overlay destination in half. The driver must set a valid value in <B>dwOverlay</B>, but can return -1 in any of the other three members that it does not support.
+<P>The DDVPB_VIDEOPORT flag assumes that the device is best described by the DDVPBCAPS_DESTINATION flag. If this is not the case, the driver should fail the call.
+</LI>
+
+	<LI>When the DDVPB_OVERLAY flag is set, the <B>dwWidth</B> and <B>dwHeight</B> members in the DD_GETVPORTBANDWIDTHDATA structure refer to the source overlay size. The driver should return a percentage of this overlay's size, multiplied by 1000, at which it can support displaying the overlay in each of the <B>dwOverlay</B>, <B>dwColorkey</B>, <B>dwYInterpolate</B>, and <B>dwYInterpAndColorkey</B> members of the DDVIDEOPORTBANDWIDTH structure. For example, a value of 750 indicates that the device requires the specified source overlay to be shrunk to 75% of its original size in order for the device to successfully display it. A value of 1000 indicates that no shrinking is required. Drivers for this type of device do not typically return a value greater than 1000. The driver must set a valid value in <B>dwOverlay</B>, but can return 0 in any of the other three members if it does not support color keying and/or Y-axis interpolation.
+<P>The DDVPB_OVERLAY flag assumes that the device is best described using the DDVPBCAPS_SOURCE flag. If this is not the case, the driver should fail the call.
+</LI>
+</UL>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddstrcts_9axz.htm">DD_GETVPORTBANDWIDTHDATA</A>, <A HREF="ddstrcts_2jon.htm">DDVIDEOPORTBANDWIDTH</A>, <A HREF="ddstrcts_4ofb.htm">DDVIDEOPORTDESC</A>, <A HREF="ddfncs_8vtz.htm"><I>DdVideoPortCreate</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DdVideoPortGetBandwidth"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

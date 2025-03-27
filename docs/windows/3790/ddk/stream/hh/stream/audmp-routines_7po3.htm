@@ -1,0 +1,83 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IPortDMus::Notify</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IPortDMus::Notify">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_providing_isr_context_information_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_iportdmus_notify_ks"></A>IPortDMus::Notify</H1>
+
+<P>The <B>Notify</B> method should be called from the miniport driver's interrupt-service routine when a hardware interrupt has occurred. This call requests that the port driver call the miniport driver back with a DPC (deferred procedure call) while the miniport driver handles the interrupt.</P>
+
+<PRE class=syntax><B>void
+  Notify(
+    IN PSERVICEGROUP  </B><I>pServiceGroup<B> </B></I><B> OPTIONAL</B>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>pServiceGroup (optional)</I></DT>
+
+<DD>Pointer to an <A HREF="audmp-routines_0p4j.htm"><B>IServiceGroup</B></A> object. This parameter is optional and can be specified as NULL. See the following <B>Comments</B> section.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>None</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>dmusicks.h</I>. Include <I>dmusicks.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The <B>Notify</B> method sends notification to the miniport driver's service group:
+
+<UL>
+	<LI>If the <I>pServiceGroup</I> parameter is non-NULL, the <B>Notify</B> method calls the <B>RequestService</B> method on the <A HREF="audmp-routines_0p4j.htm"><B>IServiceGroup</B></A> object that this parameter points to.</LI>
+
+	<LI>If <I>pServiceGroup</I> is NULL:
+<UL>
+	<LI>The <B>Notify</B> method calls the <B>RequestService</B> method on the miniport driver's <B>IServiceGroup</B> object. This is the <B>IServiceGroup</B> object that the miniport driver output during the <A HREF="audmp-routines_2lrn.htm"><B>IMiniportDMus::Init</B></A> call. The miniport driver also might have registered this object early (that is, earlier than the return from <B>Init</B>) by calling <A HREF="audmp-routines_63zn.htm"><B>IPortDMus::RegisterServiceGroup</B></A>.</LI>
+
+	<LI>The <B>Notify</B> method also calls the <B>RequestService</B> method on the <B>IServiceGroup</B> object belonging to each of the miniport driver's streams. This is the <B>IServiceGroup</B> object that the <A HREF="audmp-routines_8oqb.htm"><B>IMiniportDMus::NewStream</B></A> method outputs.</LI>
+</UL>
+</LI>
+</UL>
+
+<P>The miniport driver typically calls <B>Notify</B> to notify the port driver that the audio device has generated a hardware interrupt. When an interrupt signals, for example, that some register needs to be read, the miniport driver's ISR (interrupt-service routine) cannot access the MXF (MIDI transform filter) graph at the elevated IRQL. Instead, the miniport driver can store the input data (a byte of MIDI data, for example) from the register, call <B>Notify</B>, and wait for the port driver to get back to it with a DPC.</P>
+
+<P>When the miniport driver's ISR calls <B>Notify</B>, the port driver receives the notification at the elevated hardware interrupt IRQL and puts a DPC on the queue. When IRQL drops to the DISPATCH_LEVEL, the port driver's DPC fires and services the miniport driver.</P>
+
+<P>Within the DPC, the port driver calls <A HREF="audmp-routines_38vn.htm"><B>IMXF::PutMessage</B></A> on the miniport input stream with a parameter of NULL to signify that the miniport driver can now put the previously stored MIDI message into the MXF graph because the IRQL has dropped back to DISPATCH_LEVEL.</P>
+
+<P>This method is vital for accurate timing. Most miniports will call this method in response to a notification interrupt after having cleared the interrupt source. Although the miniport driver is free to use other methods for determining when to call this method, precise timing is important and should be maintained.</P>
+
+<P>When an adapter driver installs an ISR, it submits a <I>ServiceContext</I> parameter along with the ISR's entry point (for details, see <A HREF="JavaScript:hhobj_1.Click()">Providing ISR Context Information</A>). When the interrupt occurs, the operating system calls the ISR and passes <I>ServiceContext</I> as a call parameter to the ISR. Although the meaning of the <I>ServiceContext</I> parameter is known only to the driver developer, it is typically a pointer to the miniport object. The ISR uses this pointer to access information about the miniport object.</P>
+
+<P>The <I>pServiceGroup</I> parameter follows the <A HREF="pcdesign_1y93.htm">reference-counting conventions for COM objects</A>.</P>
+
+<P>Callers of <B>Notify</B> can run at any IRQL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="audmp-routines_0p4j.htm"><B>IServiceGroup</B></A>, <A HREF="audmp-routines_63zn.htm"><B>IPortDMus::RegisterServiceGroup</B></A>, <A HREF="audmp-routines_2lrn.htm"><B>IMiniportDMus::Init</B></A> <A HREF="audmp-routines_8oqb.htm"><B>IMiniportDMus::NewStream</B></A>, <A HREF="audmp-routines_38vn.htm"><B>IMXF::PutMessage</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IPortDMus::Notify"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Buffer Descriptions for I/O Control Codes</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Buffer Descriptions for I/O Control Codes">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_buffer_descriptions_for_i_o_control_codes_kg"></A>Buffer Descriptions for I/O Control Codes</H2>
+
+<P>I/O control codes are contained in <A HREF="k113_0hiq.htm">IRP_MJ_DEVICE_CONTROL</A> and <A HREF="k113_2yia.htm">IRP_MJ_INTERNAL_DEVICE_CONTROL</A> requests. The I/O manager creates these requests as a result of calls to <B>DeviceIoControl</B> (described in the Platform SDK documentation) and <A HREF="k104_8ble.htm"><B>IoBuildDeviceIoControlRequest</B></A>.</P>
+
+<P>Because <B>DeviceIoControl</B> and <B>IoBuildDeviceIoControlRequest</B> accept both an input buffer and an output buffer as arguments, all IRP_MJ_DEVICE_CONTROL and IRP_MJ_INTERNAL_DEVICE_CONTROL requests supply both an input buffer and an output buffer. The way the system describes these buffers is dependent on the data transfer type. The transfer type is specified by the <I>TransferType</I> value in the <A HREF="irps_1l0n.htm">CTL_CODE</A> macro that creates IOCTL code values. </P>
+
+<P>The system describes buffers for each <I>TransferType</I> value as follows:
+
+<DL>
+<DT>METHOD_BUFFERED</DT>
+
+<DD>For this transfer type, IRPs supply a pointer to a buffer at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B>. This buffer represents both the input buffer and the output buffer that are specified in calls to <B>DeviceIoControl</B> and <B>IoBuildDeviceIoControlRequest</B>. The driver transfers data out of, and then into, this buffer. 
+
+<P>For input data, the buffer size is specified by <B>Parameters.DeviceIoControl.InputBufferLength</B> in the driver's <A HREF="k112_49bm.htm">IO_STACK_LOCATION</A> structure. For output data, the buffer size is specified by <B>Parameters.DeviceIoControl.OutputBufferLength</B> in the driver's IO_STACK_LOCATION structure. 
+
+
+<P>The size of the space that the system allocates for the single input/output buffer is the larger of the two length values.
+</DD>
+
+<DT>METHOD_IN_DIRECT or METHOD_OUT_DIRECT</DT>
+
+<DD>For these transfer types, IRPs supply a pointer to a buffer at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B>. This represents the input buffer that is specified in calls to <B>DeviceIoControl</B> and <B>IoBuildDeviceIoControlRequest</B>. The buffer size is specified by <B>Parameters.DeviceIoControl.InputBufferLength</B> in the driver's IO_STACK_LOCATION structure.
+
+<P>For these transfer types, IRPs also supply a pointer to an MDL at <B>Irp-&gt;MdlAddress</B>. This represents the output buffer that is specified in calls to <B>DeviceIoControl</B> and <B>IoBuildDeviceIoControlRequest</B>. However, this buffer can actually be used as either an input buffer or an output buffer, as follows: 
+
+
+<UL>
+	<LI>METHOD_IN_DIRECT is specified if the driver that handles the IRP receives data in the buffer when it is called. The MDL describes an input buffer, and specifying METHOD_IN_DIRECT ensures that the executing thread has read-access to the buffer.</LI>
+
+	<LI>METHOD_OUT_DIRECT is specified if the driver that handles the IRP will write data into the buffer before completing the IRP. The MDL describes an output buffer, and specifying METHOD_OUT_DIRECT ensures that the executing thread has write-access to the buffer.</LI>
+</UL>
+
+
+<P>For both of these transfer types, <B>Parameters.DeviceIoControl.OutputBufferLength</B> specifies the size of the buffer that is described by the MDL.
+</DD>
+
+<DT>METHOD_NEITHER</DT>
+
+<DD>The I/O manager does not provide any system buffers or MDLs. The IRP supplies the user-mode virtual addresses of the input and output buffers that were specified to <B>DeviceIoControl</B> or <B>IoBuildDeviceIoControlRequest</B>, without validating or mapping them. 
+
+<P>The input buffer's address is supplied by <B>Parameters.DeviceIoControl.Type3InputBuffer</B> in the driver's IO_STACK_LOCATION structure, and the output buffer's address is specified by <B>Irp-&gt;UserBuffer</B>. 
+
+
+<P>Buffer sizes are supplied by <B>Parameters.DeviceIoControl.InputBufferLength</B> and <B>Parameters.DeviceIoControl.OutputBufferLength</B> in the driver's IO_STACK_LOCATION structure.
+
+</DD>
+</DL>
+
+<P>For more information about the CTL_CODE macro and the transfer types listed above, see <A HREF="irps_1l0n.htm">Defining I/O Control Codes</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Buffer%20Descriptions%20for%20I%2FO%20Control%20Codes"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

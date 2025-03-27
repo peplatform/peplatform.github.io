@@ -1,0 +1,139 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IRP_MN_QUERY_ID</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IRP_MN_QUERY_ID">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_id_dg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_instance_id_dg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_hardware_id_dg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_compatible_id_dg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_irp_mn_query_id_dr"></A>IRP_MN_QUERY_ID</H1>
+
+<P>Bus drivers must handle requests for <B>BusQueryDeviceID</B> for their child devices (child PDOs). Bus drivers can handle requests for <B>BusQueryHardwareIDs</B>, <B>BusQueryCompatibleIDs</B>, and <B>BusQueryInstanceID</B> for their child devices. Function and filter drivers do not handle this IRP.</P>
+
+<H4>Major Code</H4>
+
+<P><A HREF="k113_8ur6.htm">IRP_MJ_PNP</A> </P>
+
+<H4>When Sent</H4>
+
+<P>The PnP Manager sends this IRP when a device is enumerated. A driver might send this IRP to retrieve the instance ID for one of its devices. </P>
+
+<P>The PnP Manager and drivers send this IRP at IRQL PASSIVE_LEVEL in an arbitrary thread context.</P>
+
+<H4>Input</H4>
+
+<P>The <B>Parameters.QueryId.IdType</B> member of the <A HREF="k112_49bm.htm">IO_STACK_LOCATION</A> structure specifies the kind of ID(s) requested. Possible values include <B>BusQueryDeviceID</B>, <B>BusQueryHardwareIDs</B>, <B>BusQueryComptibleIDs</B>, and <B>BusQueryInstanceID</B>. The following ID type is reserved: <B>BusQueryDeviceSerialNumber</B>.</P>
+
+<H4>Output</H4>
+
+<P>Returned in the I/O status block.</P>
+
+<H4>I/O Status Block</H4>
+
+<P>A driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS or to an appropriate error status.</P>
+
+<P>On success, a driver sets <B>Irp-&gt;IoStatus.Information</B> to a WCHAR pointer that points to the requested information. On error, a driver sets <B>Irp-&gt;IoStatus.Information</B> to zero. </P>
+
+<H4>Operation</H4>
+
+<P>If a driver returns ID(s) in response to this IRP, it allocates a WCHAR structure from paged pool to contain the ID(s). The PnP Manager frees the structure when it is no longer needed. </P>
+
+<P>A driver returns a single string in response to a <B>BusQueryDeviceID</B> or a <B>BusQueryInstanceID</B> request, and a MULTI_SZ string in response to a <B>BusQueryHardwareIDs</B> or a <B>BusQueryComptibleIDs</B> request.</P>
+
+<P>If a driver returns an ID with an illegal character, the system will bugcheck. Characters with the following values are illegal in an ID for this IRP:</P>
+
+<P class=indent1>Less than 0x20 (' ')<BR>
+Greater than 0x7F<BR>
+Equal to 0x2C ('<CODE>,</CODE>')</P>
+
+<P>A driver must conform to the following length restrictions for IDs:
+
+<UL>
+	<LI>Each hardware ID or compatible ID that a driver returns in this IRP must be less than MAX_DEVICE_ID_LEN characters long. This constant currently has a value of 200 as defined in <I>sdk\inc\cfgmgr32.h</I>.  </LI>
+
+	<LI>If a bus driver supplies globally unique instance IDs for its child devices (that is, the driver sets DEVICE_CAPABILITIES.<B>UniqueID</B> for the devices), then the combination of device ID plus instance ID must be less than (MAX_DEVICE_ID_LEN - 1) characters. The OS requires the additional character for a path separator.</LI>
+
+	<LI>If a bus driver does not supply globally unique instance IDs for its child devices, then the combination of device ID plus instance ID must be less than (MAX_DEVICE_ID_LEN - 28). The value of this equation is currently 172. </LI>
+</UL>
+
+<P>Bus drivers should be prepared to handle this IRP for a child device immediately after the device is enumerated. </P>
+
+<H4>Specifying BusQueryDeviceID and BusQueryInstanceID</H4>
+
+<P>The values a bus driver supplies for <B>BusQueryDeviceID </B>and <B>BusQueryInstanceID </B>allow the OS to differentiate a device from other devices on the machine. The OS uses the device ID, instance ID, and the unique ID field returned in the IRP_MN_QUERY_DEVICE_CAPABILITIES IRP to locate registry information for device.</P>
+
+<P>For <B>BusQueryDeviceID</B>, a bus driver supplies the device's <A HREF="JavaScript:hhobj_1.Click()">device ID</A>. A device ID should contain the most-specific description of the device possible, incorporating the name of the enumerator and strings identifying the manufacturer, device, revision, packager, and packaged product, where possible. For example, the PCI bus driver responds with device IDs of the form PCI\VEN_xxxx&amp;DEV_xxxx&amp;SUBSYS_xxxxxxxx&amp;REV_xx, encoding all five of the items mentioned above. However, a device ID should <I>not</I> contain enough information to differentiate between two identical devices. This information should be encoded in the instance ID.</P>
+
+<P>For <B>BusQueryInstanceID</B>, a bus driver should supply a string that contains the <A HREF="JavaScript:hhobj_2.Click()">instance ID</A> for the device. Setup and bus drivers use the instance ID, with other information, to differentiate between two identical devices on the machine. The instance ID is either unique across the whole machine or just unique on the device's parent bus. </P>
+
+<P>If an instance ID is only unique on the bus, the bus driver specifies that string for <B>BusQueryInstanceID</B> but also specifies a <B>UniqueID</B> value of FALSE in response to an IRP_MN_QUERY_CAPABILITIES request for the device. If <B>UniqueID</B> is FALSE, the PnP Manager enhances the instance ID by adding information about the device's parent and thus makes the ID unique on the machine. In this case the bus driver should not take extra steps to make its devices' instance IDs globally unique; just return the appropriate capabilities information and the OS takes care of it. </P>
+
+<P>If a bus driver can supply a globally unique ID for each child device, such as a serial number, the bus driver specifies those strings for <B>BusQueryInstanceID</B> and specifies a <B>UniqueID</B> value of TRUE in response to an IRP_MN_QUERY_CAPABILITIES request for each device.</P>
+
+<H4>Specifying BusQueryHardwareIDs and BusQueryCompatibleIDs</H4>
+
+<P>The values a bus driver supplies for <B>BusQueryHardwareIDs </B>and <B>BusQueryCompatibleIDs </B>allow Setup to locate the appropriate drivers for the bus's child device. </P>
+
+<P>A bus driver responds to each of these requests with a list of IDs that describe the device. When returning more than one <A HREF="JavaScript:hhobj_3.Click()">hardware ID</A> and/or more than one <A HREF="JavaScript:hhobj_4.Click()">compatible ID</A>, a bus driver should list the IDs in the order of most-specific to most-general to facilitate choosing the best driver match for the device. The first entry in the hardware IDs list is the most-specific description of the device and, as such, it is usually identical to the device ID.</P>
+
+<P>Setup checks the IDs against the IDs listed in INF files for possible matches. Setup first scans the hardware IDs list, then the compatible IDs list. Earlier entries are treated as more specific descriptions of the device, and later entries as more general (and thus less optimal) matches for the device. If no match is found in the list of hardware IDs, Setup might prompt the user for installation media before moving on to the list of compatible IDs. </P>
+
+<P>See <A HREF="plugplay_15t3.htm">Plug and Play</A> for the general rules for handling <A HREF="pnp-irps_9bzm.htm">Plug and Play Minor IRPs</A>.</P>
+
+<H4>Sending This IRP</H4>
+
+<P>Typically, only the PnP Manager sends this IRP. </P>
+
+<P>To get the hardware IDs or compatible IDs for a device, call <A HREF="k104_7pgy.htm"><B>IoGetDeviceProperty</B></A> instead of sending this IRP.</P>
+
+<P>A driver might send this IRP to retrieve the instance ID for one of its devices. For example, consider a multifunction PnP ISA device whose functions do not operate independently. The PnP Manager enumerates the functions as separate devices, but the driver for such a device might be required to associate one or more of the functions. Because PnP ISA guarantees a unique instance ID, the driver for such a multifunction device can use the instance IDs to locate functions that reside on the same device. The driver for such a device must also get the device's enumerator name by calling <A HREF="k104_7pgy.htm"><B>IoGetDeviceProperty</B></A>, to confirm that the device is a PnP ISA device.</P>
+
+<P>See <A HREF="irps_0uuf.htm">Handling IRPs</A> for information on sending IRPs. The following steps apply specifically to this IRP:
+
+<UL>
+	<LI>Set the values in the next I/O stack location of the IRP: set <B>MajorFunction</B> to <A HREF="k113_8ur6.htm">IRP_MJ_PNP</A>, set <B>MinorFunction</B> to IRP_MN_QUERY_ID, and set <B>Parameters.QueryId.IdType</B> to <B>BusQueryInstanceID</B>. </LI>
+
+	<LI>Set <B>IoStatus.Status</B> to STATUS_NOT_SUPPORTED.</LI>
+</UL>
+
+<P>In addition to sending the query ID IRP, the driver must call <A HREF="k104_7pgy.htm"><B>IoGetDeviceProperty</B></A> to get the <B>DevicePropertyEnumeratorName</B> for the device.</P>
+
+<P>After the IRP completes and the driver is finished with the ID, the driver must free the ID structure returned by the driver(s) that handled the query IRP.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k104_7pgy.htm"><B>IoGetDeviceProperty</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IRP_MN_QUERY_ID"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

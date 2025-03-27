@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DrvLoadFontFile</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DrvLoadFontFile">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_drvloadfontfile_gg"></A><I>DrvLoadFontFile</I></H1>
+
+<P>The <I>DrvLoadFontFile</I> function receives information from GDI relating to loading and mapping font files.</P>
+
+<PRE class=syntax><B>ULONG_PTR
+  </B><I>DrvLoadFontFile</I><B>(
+    ULONG</B>  <I>cFiles</I><B>,</B>
+    <B>ULONG_PTR</B>  <I>*piFile</I><B>,</B>
+    <B>PVOID</B>  <I>*ppvView</I><B>,</B>
+    <B>ULONG</B>  <I>*pcjView</I><B>,
+    DESIGNVECTOR</B>  <I>*pdv</I><B>,</B>
+    <B>ULONG</B>  <I>ulLangID</I>,
+    <B>ULONG</B>  <I>ulFastCheckSum</I>
+    <B>)</B>;</PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>cFiles</I></DT>
+
+<DD>Caller-supplied value indicating the number of files associated with the font.</DD>
+
+<DT><I>piFile</I></DT>
+
+<DD>Caller-supplied pointer to a <I>cFiles</I>-sized array of file handles. Each handle represents one of the files associated with the font. The file handles can be passed individually to <A HREF="gdifncs_0co7.htm"><B>EngMapFontFileFD</B></A>.</DD>
+
+<DT><I>ppvView</I></DT>
+
+<DD>Caller-supplied pointer to a <I>cFiles</I>-sized array containing the starting address of the memory space into which each font file has been mapped.</DD>
+
+<DT><I>pcjView</I></DT>
+
+<DD>Caller-supplied pointer to a <I>cFiles</I>-sized array containing the size of the memory space into which each font file has been mapped.</DD>
+
+<DT><I>pdv</I></DT>
+
+<DD>For Adobe Multiple Master fonts, this is a caller-supplied pointer to a DESIGNVECTOR structure (described in the Platform SDK documentation) identifying the Multiple Master instance. Otherwise, this parameter is NULL.</DD>
+
+<DT><I>ulLangID</I></DT>
+
+<DD>Caller-supplied language identifier, obtained from the registry.</DD>
+
+<DT><I>ulFastCheckSum</I></DT>
+
+<DD>Specifies a GDI-supplied checksum for the font. If this parameter is nonzero, the GDI font cache engine can be used in order to access a font more quickly. If this parameter is zero, the GDI font engine cannot be used. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>If the operation succeeds, it should return a pointer to a driver-defined value that uniquely identifies the font. The driver subsequently receives this pointer as an input parameter to such functions as <A HREF="ddifncs_66uf.htm"><I>DrvQueryFont</I></A>, <A HREF="ddifncs_461z.htm"><I>DrvQueryFontFile</I></A>, <A HREF="ddifncs_9faf.htm"><I>DrvQueryFontTree</I></A>. If an error is encountered, the function should return HFF_INVALID.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>winddi.h</I>. Include <I>winddi.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Font drivers are required to supply a <I>DrvLoadFontFile</I> function. The function's purpose is to allow a font driver to receive notification that a font's associated files are being loaded and mapped. The driver can store input arguments for later use.</P>
+
+<P>Loading and mapping a font file entails calling <A HREF="gdifncs_0co7.htm"><B>EngMapFontFileFD</B></A>. When an application calls <B>AddFontResource</B> or <B>AddFontResourceEx</B> (described in the Platform SDK documentation), GDI calls <B>EngMapFontFileFD</B> and then calls <I>DrvLoadFontFile</I>. The <I>DrvLoadFontFile</I> function's <I>ppvView</I> and <I>pcjView</I> parameters supply the location and size of each file's mapping, as returned by <B>EngMapFontFileFD</B>.</P>
+
+<P>GDI unmaps the files when <I>DrvLoadFontFile</I> returns. If the driver needs to remap the files later, in response to subsequent calls from GDI, it can call <B>EngMapFontFileFD</B> itself if it has saved the <I>cFiles</I> and <I>piFile</I> parameters.</P>
+
+<P>When the GDI font engine calls the font driver's <I>DrvLoadFontFile</I> DDI, it passes a checksum for the font in the <I>ulFastCheckSum </I>parameter. If this parameter is nonzero and the font in question has been cached, <I>DrvLoadFontFile</I> can obtain a pointer to the font data with a call to <A HREF="gdifncs_7xnr.htm"><B>EngFntCacheLookUp</B></A>. After the font driver obtains the pointer to the font data, it can then load the font data. If the font has not been cached, the font driver can cache the font by first allocating memory for the font cache, using a call to <A HREF="gdifncs_7elj.htm"><B>EngFntCacheAlloc</B></A>, and then writing the font data to that memory. If the font driver encounters an error reading or writing the font data, it can notify the GDI font engine by making a call to <A HREF="gdifncs_5jfr.htm"><B>EngFntCacheFault</B></A>.</P>
+
+<P>If the GDI font engine called <I>DrvLoadFontFile</I> and passed in a value of zero for the <I>ulFastCheckSum</I> parameter, this means that the GDI font engine is not in operation, and the font driver does not need to take any action.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddifncs_6syv.htm"><I>DrvUnloadFontFile</I></A>, <A HREF="gdifncs_7xnr.htm"><B>EngFntCacheLookUp</B></A>, <A HREF="gdifncs_7elj.htm"><B>EngFntCacheAlloc</B></A>, <A HREF="gdifncs_5jfr.htm"><B>EngFntCacheFault</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DrvLoadFontFile"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

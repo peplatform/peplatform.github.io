@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisReturnPackets</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisReturnPackets">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndisreturnpackets_nr"></A>NdisReturnPackets</H1>
+
+<P><B>NdisReturnPackets</B> releases ownership of one or more packets after a protocol has consumed the received data. </P>
+
+<PRE class=syntax><B>VOID</B>
+<B>  NdisReturnPackets(</B>
+    <B>IN PNDIS_PACKET</B>  <B>*</B><I>PacketsToReturn</I><B>,</B>
+    <B>IN UINT</B>  <I>NumberOfPackets</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>PacketsToReturn</I></DT>
+
+<DD>Pointer to an array of pointers to packet descriptors to be returned to the underlying driver that allocated them for a receive indication. </DD>
+
+<DT><I>NumberOfPackets</I></DT>
+
+<DD>Specifies the number of pointers in the array. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>An NDIS intermediate driver should call <B>NdisReturnPackets</B> as soon as possible after its <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A> or <A HREF="104tdlow_3pwy.htm"><I>ProtocolCoReceivePacket</I></A> function has returned control. Otherwise, both the underlying driver that supports multipacket receive indications and the bound protocol driver that processes them suffer a performance degradation. </P>
+
+<P>When an underlying NIC driver runs low on available packet pool for receive indications or when its NIC runs low on empty receive buffers, it sets a packet descriptor's associated OOB block <B>Status</B> to NDIS_STATUS_RESOURCES:
+
+<UL>
+	<LI>If the underlying NIC driver is a connectionless driver, this forces the NDIS library to call every bound protocol driver’s <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> function with a single packet descriptor at a time until the miniport driver has regained ownership of its packet descriptors and the NIC has receive buffers available for incoming net packets.</LI>
+
+	<LI>If the underlying NIC driver is a connection-oriented driver, this forces the NDIS library to call every bound protocol driver’s <I>ProtocolCoReceivePacket</I> function with a single packet descriptor at a time until the miniport driver has regained ownership of its packet descriptors and the NIC has receive buffers available for incoming net packets.</LI>
+</UL>
+
+<P>A <I>ProtocolReceive</I> function cannot begin postprocessing a packet of received data and forwarding the processed data to clients until the driver’s <A HREF="104tdlow_5i7m.htm"><I>ProtocolReceiveComplete</I></A> function is called. </P>
+
+<P>For a packet descriptor passed in to a connectionless protocol's <I>ProtocolReceivePacket</I> function or to a connection-oriented protocol's <I>ProtocolCoReceivePacket</I> function with an associated OOB <B>Status</B> of NDIS_STATUS_SUCCESS, a highest level protocol driver can process its copy of received data and forward the processed data to clients immediately because the protocol can control how long it retains ownership of the resources allocated by the indicating driver. Assuming a highest level protocol driver does not massage the data it indicates to its clients, the protocol can even set up the range of data within the receive buffer of interest to its client, and make a receive indication to its client(s) by forwarding the input packet descriptor to those clients. </P>
+
+<P>If an intermediate protocol driver’s <I>Protocol(Co)ReceivePacket</I> function returns a nonzero reference count to an input packet descriptor, that driver must call <B>NdisReturnPackets</B> one or more times. When it has called <B>NdisReturnPackets</B> with a particular packet descriptor as many times as the value returned by <I>Protocol(Co)ReceivePacket</I>, the NDIS library returns the packet descriptor to the driver that made the indication. For a highest level protocol that forwards an input packet descriptor to its clients, those clients return the packet descriptor to the NDIS driver that allocated it by making calls to <A HREF="33tdifun_67aq.htm"><B>TdiReturnChainedReceives</B></A>. </P>
+
+<P>A protocol driver can rely on NDIS to manage the reference count for every receive packet passed to the <I>Protocol(Co)ReceivePacket</I> function. When the reference count for a packet descriptor originally set to the return from <I>Protocol(Co)ReceivePacket</I> goes to zero, the NDIS library calls the indicating driver’s <A HREF="101mini_81ki.htm"><I>MiniportReturnPacket</I></A> function with the released packet descriptor. </P>
+
+<P><B>NdisReturnPackets</B> cannot be called from a <I>Protocol(Co)ReceivePacket</I> function. </P>
+
+<P>Callers of <B>NdisReturnPackets</B> run at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_81ki.htm"><I>MiniportReturnPacket</I></A>, <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_47le.htm"><B>NdisFreePacket</B></A>, <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="104tdlow_3pwy.htm"><I>ProtocolCoReceivePacket</I></A>, <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A>, <A HREF="33tdifun_67aq.htm"><B>TdiReturnChainedReceives</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisReturnPackets"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

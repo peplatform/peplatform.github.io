@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Errors in Direct I/O</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Errors in Direct I/O">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_errors_in_direct_i_o_kg"></A>Errors in Direct I/O</H2>
+
+<P>The most common direct I/O problem is failing to handle zero length buffers correctly. Because the I/O Manager does not create MDLs for zero-length transfers, a zero-length buffer results in a NULL value at <B>Irp-&gt;MdlAddress</B>. </P>
+
+<P>To map the address space, drivers should use <A HREF="k106_0nqq.htm"><B>MmGetSystemAddressForMdlSafe</B></A>, which returns NULL if mapping fails, as it will if a driver passes a NULL <B>MdlAddress</B>. Drivers should always check for a NULL return before attempting to use the returned address.</P>
+
+<P>Direct I/O involves double-mapping the user's address space to a system address buffer, so that two different virtual addresses have the same physical address. Double-mapping has the following consequences, which can sometimes cause problems for drivers: 
+
+<UL>
+	<LI>The offset into the virtual page of the user's address becomes the offset into the system page. 
+<P>Access beyond the end of these system buffers may go unnoticed for long periods of time depending on the page granularity of the mapping. Unless a caller's buffer is allocated near the end of a page, data written beyond the end of the buffer will nevertheless appear in the buffer, and the caller will be unaware that any error has occurred. If the end of the buffer coincides with the end of a page, the system virtual addresses beyond the end could point to anything or could be invalid. Such problems can be extremely difficult to find.
+</LI>
+
+	<LI>If the calling process has another thread that modifies the user's mapping of the memory, the contents of the system buffer will change when the user's memory mapping changes.
+<P>In this situation, using the system buffer to store scratch data can cause problems. Two fetches from the same memory location might yield different values. 
+
+<P>The following code snippet receives a string in a direct I/O request, then tries to convert that string to uppercase characters: 
+
+<PRE>PWCHAR  PortName = NULL;
+
+PortName = (PWCHAR)MmGetSystemAddressForMdlSafe (irp-&gt;MdlAddress, NormalPagePriority);
+
+//
+// Null-terminate the PortName so that RtlInitUnicodeString will not
+// be invalid.
+//
+<span style="color:#ff0000"><B>PortName[Size / sizeof(WCHAR) - 1]</B></span> = UNICODE_NULL;
+
+RtlInitUnicodeString(&amp;AdapterName, PortName);</PRE>
+
+<P>Because the buffer might not be correctly formed, the code attempts to force a Unicode NULL as the last buffer character. However, if the underlying physical memory is doubly mapped to both a user- and a kernel-mode address, another thread in the process can overwrite the buffer as soon as this write operation completes. 
+
+<P>Conversely, if the NULL is not present, then the call to <B>RtlInitUnicodeString</B> can exceed the range of the buffer and possibly cause a bug check if it falls outside the system mapping. 
+</LI>
+</UL>
+
+<P>If a driver creates and maps its own MDL, it should ensure that it accesses the MDL only with the method for which it has probed. That is, when the driver calls <A HREF="k106_8ble.htm"><B>MmProbeAndLockPages</B></A>, it specifies an access method (<B>IoReadAccess</B>, <B>IoWriteAccess</B>, or <B>IoModifyAccess</B>). If the driver specifies <B>IoReadAccess</B>, it must not later attempt to write to the system buffer made available by <A HREF="k106_4o4y.htm"><B>MmGetSystemAddressForMdl</B></A> or <A HREF="k106_0nqq.htm"><B>MmGetSystemAddressForMdlSafe</B></A>. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Errors%20in%20Direct%20I%2FO"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

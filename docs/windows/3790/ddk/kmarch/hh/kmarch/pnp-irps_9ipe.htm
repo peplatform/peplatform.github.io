@@ -1,0 +1,148 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IRP_MN_READ_CONFIG</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IRP_MN_READ_CONFIG">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_irp_mn_read_config_dr"></A>IRP_MN_READ_CONFIG</H1>
+
+<P>Bus drivers for buses with configuration space must handle this request for their child devices (child PDOs). Filter and function drivers do not handle this request. </P>
+
+<H4>Major Code</H4>
+
+<P><A HREF="k113_8ur6.htm">IRP_MJ_PNP</A> </P>
+
+<H4>When Sent</H4>
+
+<P>A driver or other system component sends this IRP to read the configuration space of a device's parent bus.</P>
+
+<P>A driver or other system component sends this IRP at IRQL &lt; DISPATCH_LEVEL in an arbitrary thread context. </P>
+
+<H4>Input</H4>
+
+<P>The <B>Parameters.ReadWriteConfig</B> member of the <A HREF="k112_49bm.htm">IO_STACK_LOCATION</A> structure is itself a structure containing the following information:</P>
+
+<PRE>ULONG WhichSpace;
+PVOID Buffer;
+ULONG Offset;
+ULONG Length</PRE>
+
+<P>The members of the structure can be interpreted differently by different bus drivers, but the members are typically defined as follows:
+
+<DL>
+<DT><B>WhichSpace</B></DT>
+
+<DD>Specifies which memory area to access. This parameter can take the following values:<BR>
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=54%>Value</TH>
+<TH align=left width=19%>Bus</TH>
+<TH align=left width=27%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=54%>PCI_WHICHSPACE_CONFIG </TD>
+<TD width=19%>PCI</TD>
+<TD width=27%>PCI configuration space. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=54%>PCI_WHICHSPACE_ROM </TD>
+<TD width=19%>PCI</TD>
+<TD width=27%>Read only memory. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=54%>PCCARD_COMMON_MEMORY_SPACE </TD>
+<TD width=19%>PCMCIA</TD>
+<TD width=27%>Main PCCARD memory. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=54%>PCCARD_ATTRIBUTE_MEMORY_SPACE </TD>
+<TD width=19%>PCMCIA</TD>
+<TD width=27%>PCMCIA attribute (configuration) space. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=54%>PCCARD_PCI_CONFIGURATION_MEMORY_SPACE</TD>
+<TD width=19%>PCMCIA</TD>
+<TD width=27%>PCI configuration space. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>Buffer</B></DT>
+
+<DD>Points to a buffer in which to return the requested information. The component sending the IRP allocates this structure from paged memory. The format of the buffer is bus-specific.</DD>
+
+<DT><B>Offset</B></DT>
+
+<DD>Specifies an offset into the configuration space.</DD>
+
+<DT><B>Length</B></DT>
+
+<DD>Specifies the number of bytes to read. 
+</DD>
+</DL>
+
+<H4>Output</H4>
+
+<P>On success, a bus driver fills the buffer at <B>Parameters.ReadWriteConfig.Buffer</B> with the requested data.</P>
+
+<H4>I/O Status Block</H4>
+
+<P>A bus driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS or to an appropriate error status such as STATUS_INVALID_PARAMETER_<I>n</I>, STATUS_NO_SUCH_DEVICE, or STATUS_DEVICE_NOT_READY.</P>
+
+<P>On success, a bus driver sets <B>Irp-&gt;IoStatus.Information</B> to the number of bytes returned.</P>
+
+<P>If a bus driver is unable to complete this request immediately it can mark the IRP pending, return STATUS_PENDING, and complete the IRP at a later time. </P>
+
+<H4>Operation</H4>
+
+<P>A bus driver handles this IRP for its child devices (child PDOs). </P>
+
+<P>Function and filter drivers do not handle this IRP; they pass it to the next lower driver with no changes to <B>Irp-&gt;IoStatus.Status</B> and do not set an IoCompletion routine.</P>
+
+<P>A bus driver that handles this request should check the <I>WhichSpace</I> parameter to ensure that it contains a value that the driver supports.</P>
+
+<P>See <A HREF="plugplay_15t3.htm">Plug and Play</A> for the general rules for handling <A HREF="pnp-irps_9bzm.htm">Plug and Play Minor IRPs</A>.</P>
+
+<H4>Sending This IRP</H4>
+
+<P>Typically, a function driver sends this IRP to the top driver in the device stack to which it is attached and the IRP is handled by the parent bus driver.</P>
+
+<P>See <A HREF="irps_0uuf.htm">Handling IRPs</A> for information on sending IRPs. The following steps apply specifically to this IRP: 
+
+<UL>
+	<LI>Allocate a buffer from paged pool and initialize it to zeros.</LI>
+
+	<LI>Set the values in the next I/O stack location of the IRP: set <B>MajorFunction</B> to <A HREF="k113_8ur6.htm">IRP_MJ_PNP</A>, set <B>MinorFunction</B> to IRP_MN_READ_CONFIG, and set the appropriate values in <B>Parameters.ReadWriteConfig</B>. </LI>
+
+	<LI>Initialize <B>IoStatus.Status</B> to STATUS_NOT_SUPPORTED. </LI>
+
+	<LI>Deallocate the IRP and the buffer when they are no longer needed.</LI>
+</UL>
+
+<P>Drivers must send this IRP from IRQL &lt; DISPATCH_LEVEL. </P>
+
+<P>A driver can access a bus's configuration space at DISPATCH_LEVEL through a bus interface routine, if the parent bus driver supports such an interface. To get a bus interface, a driver sends an IRP_MN_QUERY_INTERFACE request to the device stack in which the driver is attached. The driver then calls the appropriate routine returned in the interface. </P>
+
+<P>For example, to read configuration space from DISPATCH_LEVEL a driver can call <A HREF="pnp-irps_9k36.htm">IRP_MN_QUERY_INTERFACE</A> during driver initialization to get the BUS_INTERFACE_STANDARD interface from the parent bus driver. The driver sends the query IRP from IRQL PASSIVE_LEVEL. Later, from code at IRQL DISPATCH_LEVEL, the driver calls the appropriate routine returned in the interface, such as the <B>Interface.GetBusData</B> routine. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="pnp-irps_9k36.htm">IRP_MN_QUERY_INTERFACE</A>, <A HREF="pnp-irps_0rjm.htm">IRP_MN_WRITE_CONFIG</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IRP_MN_READ_CONFIG"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

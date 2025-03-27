@@ -1,0 +1,151 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Sending 802.1Q-Marked Packets</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Sending 802.1Q-Marked Packets">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_sending_802.1q_marked_packets_ng"></A>Sending 802.1Q-Marked Packets</H4>
+
+<P>A miniport driver that supports 802.1Q must insert 802.1Q information into a packet that the driver transmits over the network if and only if either of the following conditions is true:
+
+<UL>
+	<LI>The configured VLAN identifier (VLAN ID) for the NIC is nonzero and the VLAN ID in the per-packet information is either zero or matches the configured VLAN ID for the NIC.</LI>
+
+	<LI>The configured VLAN ID for the NIC is zero and the VLAN ID from the packet descriptor's per-packet information is nonzero.</LI>
+</UL>
+
+<P>Before inserting 802.1Q information into a packet, the miniport driver retrieves per-packet VLAN information by calling the <A HREF="103ndisx_0bjm.htm">NDIS_PER_PACKET_INFO_FROM_PACKET</A> macro with the second parameter set to <B>Ieee8021Q</B>.</P>
+
+<P>The following sample code shows how a miniport driver:
+
+<UL>
+	<LI>Retrieves the 802.1Q values that are contained in the packet descriptor pointed to by the <I>pPacketDesc</I> variable.</LI>
+
+	<LI>Assigns the priority and VLAN ID values to the <I>UserPriority</I> and <I>VlanID</I> variables, respectively. </LI>
+</UL>
+
+<PRE>NDIS_PACKET_8021Q_INFODDK_NDIS_PACKET_8021Q_INFO_NR VlanPriInfo;
+UINT32 UserPriority;
+UINT32 VlanID;
+VlanPriInfo.Value = 
+      NDIS_PER_PACKET_INFO_FROM_PACKET(pPacketDesc, Ieee8021QInfo);
+UserPriority = VlanPriInfo.TagHeader.UserPriority;
+VlanID = VlanPriInfo.TagHeader.VlanId;
+‹ ›</PRE>
+
+<P>To generate the components of the packet's <A HREF="204_802p_5cdj.htm">tag header</A>, a miniport driver: 
+
+<OL>
+	<LI>Sets the tag header's CFI bit to zero.</LI>
+
+	<LI>Proceeds as indicated in the following table, based on the following values:
+<UL>
+	<LI>Configured VLAN ID for the NIC.</LI>
+
+	<LI>Priority or VLAN ID in the packet's OOB data.</LI>
+
+	<LI>VLAN ID in the packet's tag header.</LI>
+</UL>
+</LI>
+</OL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=18%>Configured VLAN ID for the NIC</TH>
+<TH align=left width=21%>Priority or VLAN ID in the Packet's OOB Data</TH>
+<TH align=left width=21%>VLAN ID in the Packet's Tag Header</TH>
+<TH align=left width=40%>Miniport Driver Action</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>Zero</TD>
+<TD width=21%>Priority and VLAN ID are zero.</TD>
+<TD width=21%>Any value or not present</TD>
+<TD width=40%>Send the packet with no changes.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>Zero</TD>
+<TD width=21%>Priority or VLAN ID is nonzero.</TD>
+<TD width=21%>Not present</TD>
+<TD width=40%>Insert tag header into packet.
+<P>Set VLAN ID in tag header to the value of VLAN ID in OOB data.</P>
+
+<P>Send packet.</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>Nonzero</TD>
+<TD width=21%>VLAN ID is zero or matches the configured VLAN ID for the NIC.</TD>
+<TD width=21%>Not present</TD>
+<TD width=40%>Insert tag header into packet.
+<P>Set VLAN ID in tag header to the value of configured VLAN ID for the NIC.</P>
+
+<P>Send packet.</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>Nonzero</TD>
+<TD width=21%>VLAN ID matches the configured VLAN ID for the NIC.</TD>
+<TD width=21%>Zero</TD>
+<TD width=40%>Set VLAN ID in tag header to the value of configured VLAN ID for the NIC.
+<P>Send packet.</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>Nonzero</TD>
+<TD width=21%>Not present.</TD>
+<TD width=21%>Matches the configured VLAN ID for the NIC.</TD>
+<TD width=40%>Send the packet with no changes.</TD>
+</TR>
+</TABLE><BR>
+
+<P>If the priority value that the miniport driver retrieves from the packet is zero, the miniport driver should not mark the packet with a priority value before transmitting the packet over the network. On Ethernet (802.3) networks, an unmarked packet is the same as a packet that is marked with the "best effort" priority value appended to it. Not marking packets ensures backward compatibility with devices on the network that do not support the tag header. </P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;If a send packet's Ethernet header specifies a protocol type (EtherType) of 802.3ad or GARP VLAN Registration Protocol (GVRP), the miniport driver should transmit the packet without modifying it.</P>
+
+<P>The following table indicates the circumstances under which a miniport driver should not send an 802.1Q-marked packet.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=18%>Configured VLAN ID for the NIC</TH>
+<TH align=left width=21%>Priority or VLAN ID in Packet's OOB Data</TH>
+<TH align=left width=21%>VLAN ID in the Packet's Tag Header</TH>
+<TH align=left width=40%>Miniport Driver Action</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>Nonzero</TD>
+<TD width=21%>VLAN ID does not match configured VLAN ID for NIC.</TD>
+<TD width=21%>Any value or not present</TD>
+<TD width=40%>Fail the send.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>Nonzero</TD>
+<TD width=21%>Not present</TD>
+<TD width=21%>Does not match the configured VLAN ID for the NIC.</TD>
+<TD width=40%>Fail the send.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>Any value</TD>
+<TD width=21%>Nonzero</TD>
+<TD width=21%>Nonzero</TD>
+<TD width=40%>Fail the send because VLAN ID should not be set in both OOB data and tag header.</TD>
+</TR>
+</TABLE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Sending%20802.1Q-Marked%20Packets"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

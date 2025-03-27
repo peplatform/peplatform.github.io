@@ -1,0 +1,83 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Introduction to Kernel Dispatcher Objects</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Introduction to Kernel Dispatcher Objects">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_scsiport_routines_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_introduction_to_kernel_dispatcher_objects_kg"></A>Introduction to Kernel Dispatcher Objects</H2>
+
+<P>The kernel defines a set of object types called <I>kernel</I> <I>dispatcher objects</I>, or just <I>dispatcher objects</I>. Dispatcher objects include timer objects, event objects, semaphore objects, mutex objects, and thread objects.</P>
+
+<P>Drivers can use dispatcher objects as synchronization mechanisms within a nonarbitrary thread context while executing at IRQL <A HREF="intrupts_0kh3.htm#ddk_passive_level_kg">PASSIVE_LEVEL</A>.</P>
+
+<H4>Dispatcher Object States</H4>
+
+<P>Every kernel-defined dispatcher object type has a state that is either set to Signaled or set to Not-Signaled.</P>
+
+<P>A group of threads can synchronize their operations if one or more threads call <A HREF="k105_40c2.htm"><B>KeWaitForSingleObject</B></A>, <A HREF="k105_2kvm.htm"><B>KeWaitForMutexObject</B></A>, or <A HREF="k105_18oi.htm"><B>KeWaitForMultipleObjects</B></A>. These functions take dispatcher object pointers as input and wait until another routine or thread sets one or more dispatcher objects to the Signaled state.</P>
+
+<P>When a thread calls the <B>KeWaitForSingleObject</B> to wait for a dispatcher object (or <B>KeWaitForMutexObject</B> for a mutex), the thread is put into a <I>wait</I> state until the dispatcher object is set to the Signaled state. A thread can call <B>KeWaitForMultipleObjects</B> to wait either for any, or for all, of a set of dispatcher objects to be set to Signaled.</P>
+
+<P>Whenever a dispatcher object is set to the Signaled state, the kernel changes the state of any thread waiting on that object to <I>ready</I>: (Synchronization timers and synchronization events are exceptions to this rule; when a synchronization event or timer is signaled, only one waiting thread is set to the ready state. For more information, see <A HREF="synchro_75pj.htm">Timer Objects and DPCs</A> and <A HREF="synchro_4euf.htm">Event Objects</A>.) A thread in the ready state will be scheduled to run according to its current run-time <A HREF="synchro_6dd3.htm">thread priority</A> and the current availability of processors for any thread with that priority. </P>
+
+<H4>When Can Drivers Wait on Dispatcher Objects?</H4>
+
+<P>In general, drivers can wait on dispatcher objects only if at least one of the following circumstances is true:
+
+<UL>
+	<LI>The driver is executing in a nonarbitrary thread context. 
+<P>That is, you can identify the thread that will enter a wait state. In practice, the only driver routines that execute in a nonarbitrary thread context are the <B>DriverEntry</B>, <I>AddDevice</I>, <I>Reinitialize</I>, and <I>Unload</I> routines of any driver, plus the dispatch routines of highest-level drivers. All these routines are called directly by the system.
+</LI>
+
+	<LI>The driver is performing a completely synchronous I/O request.
+<P>That is, no driver queues any operations while handling the I/O request, and no driver returns until the driver below it has finished handling the request.
+</LI>
+</UL>
+
+<P>Additionally, a driver cannot enter a wait state if it is executing at or above IRQL DISPATCH_LEVEL.</P>
+
+<P>Based on these limitations, you must use the following rules:
+
+<UL>
+	<LI>The <B>DriverEntry</B>, <I>AddDevice</I>, <I>Reinitialize</I>, and <I>Unload</I> routines of any driver can wait on dispatcher objects. </LI>
+
+	<LI>The dispatch routines of a highest-level driver can wait on dispatcher objects.</LI>
+
+	<LI>The dispatch routines of lower-level drivers can wait on dispatch objects, <I>if</I> the I/O operation is synchronous, such as create, flush, shutdown, and close operations, some device I/O control operations, and some PnP and power operations. </LI>
+
+	<LI>The dispatch routines of lower-level drivers cannot wait on a dispatcher object for the completion of asynchronous I/O operations.</LI>
+
+	<LI>A driver routine that is executing at or above IRQL DISPATCH_LEVEL must not wait on a dispatcher object.</LI>
+
+	<LI>A driver must not attempt to wait on a dispatcher object for the completion of a transfer operation to or from a paging device.</LI>
+
+	<LI>Driver dispatch routines servicing read/write requests generally cannot wait on a dispatcher object.</LI>
+
+	<LI>A dispatch routine for a device I/O control request can wait on a dispatcher object <I>only</I> if the transfer type for the I/O control code is METHOD_BUFFERED.</LI>
+
+	<LI>SCSI miniport drivers should not use kernel dispatcher objects. SCSI miniport drivers should call only the <A HREF="JavaScript:hhobj_1.Click()"><B>ScsiPort</B> routines</A>.</LI>
+</UL>
+
+<P>Every other standard driver routine executes in an arbitrary thread context: that of whatever thread happens to be current when the driver routine is called to process a queued operation or to handle a device interrupt. Moreover, most standard driver routines are run at raised IRQL, either at DISPATCH_LEVEL, or for device drivers, at DIRQL.</P>
+
+<P>If necessary, a driver can create a device-dedicated thread, which can wait on a dispatcher object that the driver's other routines (except an ISR or <I>SynchCritSection</I> routine) can set to the Signaled state and reset to the Not-Signaled state.</P>
+
+<P>As a general guideline, if you expect that your new device driver will often need to stall for longer than 50 microseconds while it waits for device-state changes during I/O operations, consider implementing a driver with a device-dedicated thread. If the device driver is also a highest-level driver, consider using <A HREF="synchro_9y1z.htm">system worker threads</A> and implementing one or more worker-thread callback routines. See <A HREF="k108_0q42.htm"><B>PsCreateSystemThread</B></A> and <A HREF="irps_8qw7.htm">Managing Interlocked Queues with a Driver Created Thread</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Introduction%20to%20Kernel%20Dispatcher%20Objects"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

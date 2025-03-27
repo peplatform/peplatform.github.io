@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NOTIFICATION_INFO</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NOTIFICATION_INFO">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_notification_info_kr"></A>NOTIFICATION_INFO</H1>
+
+<P>The bus driver passes NOTIFICATION_INFO to pass information to the driver-provided notification routine for a driver-allocated address range in the computer's IEEE 1394 address space. The bus driver calls the notification routine when it receives an asynchronous I/O request packet for that address.</P>
+
+<PRE class=syntax>typedef struct _NOTIFICATION_INFO {
+  PMDL  Mdl;
+  ULONG  ulOffset;
+  ULONG  nLength;
+  ULONG  fulNotificationOptions;
+  PVOID  Context;
+  PADDRESS_FIFO  Fifo;
+  PVOID  RequestPacket;
+  PMDL  ResponseMdl;
+  PVOID *  ResponsePacket;
+  PULONG  ResponseLength;
+  PKEVENT *  ResponseEvent;
+} NOTIFICATION_INFO, *PNOTIFICATION_INFO;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>Mdl</B></DT>
+
+<DD>If non-NULL, <B>Mdl</B> specifies the MDL for the allocated address range.</DD>
+
+<DT><B>ulOffset</B></DT>
+
+<DD>Specifies the byte offset with the MDL that corresponds to the address that received a request packet. Only used when <B>Mdl</B> is non-NULL.</DD>
+
+<DT><B>nLength</B></DT>
+
+<DD>Specifies the number of bytes affected by the request packet. Only used when <B>Mdl</B> is non-NULL.</DD>
+
+<DT><B>fulNotificationOptions</B></DT>
+
+<DD>Specifies which type of event triggered the bus driver to call the notification routine. The possible events the bus driver can return are: NOTIFY_FLAGS_AFTER_READ, NOTIFY_FLAGS_AFTER_WRITE, or NOTIFY_FLAGS_AFTER_LOCK. Only used when <B>Mdl</B> is non-NULL.</DD>
+
+<DT><B>Context</B></DT>
+
+<DD>Pointer to specific context data for this allocated address range. The driver supplies this data through the <B>u.AllocateAddressRange.Context</B> member of the IRB for the original REQUEST_ALLOCATE_ADDRESS_RANGE request.</DD>
+
+<DT><B>Fifo</B></DT>
+
+<DD>Pointer to the <A HREF="1394stct_7ynm.htm">ADDRESS_FIFO</A> structure containing the FIFO element just completed. Only used if the driver submitted an ADDRESS_FIFO list in the original REQUEST_ALLOCATE_ADDRESS_RANGE request.</DD>
+
+<DT><B>RequestPacket</B></DT>
+
+<DD>If non-NULL, <B>RequestPacket</B> points to the original request packet. The bus driver only supplies this if the device driver did not supply an MDL or an ADDRESS_FIFO list in the original REQUEST_ALLOCATE_ADDRESS_RANGE request.</DD>
+
+<DT><B>ResponseMdl</B></DT>
+
+<DD>If non-NULL, <B>ResponseMdl</B> points to an uninitialized MDL. The driver must initialize this MDL for a non-pageable buffer, and fill the buffer with the response packet. The bus driver only supplies this if the device driver did not supply an MDL or an ADDRESS_FIFO list in the original REQUEST_ALLOCATE_ADDRESS_RANGE request.</DD>
+
+<DT><B>ResponsePacket</B></DT>
+
+<DD>If non-NULL, <B>ResponsePacket</B> points to a memory location that the driver fills in with a pointer to the beginning of its response packet. The bus driver only supplies this if the device driver did not supply an MDL or an ADDRESS_FIFO list in the original REQUEST_ALLOCATE_ADDRESS_RANGE request.</DD>
+
+<DT><B>ResponseLength</B></DT>
+
+<DD>If non-NULL, <B>ResponseLength</B> points to a memory location that the driver fills in with the length of its response packet. The bus driver only supplies this if the device driver did not supply an MDL or an ADDRESS_FIFO list in the original REQUEST_ALLOCATE_ADDRESS_RANGE request.</DD>
+
+<DT><B>ResponseEvent</B></DT>
+
+<DD>If non-NULL, <B>ResponseEvent</B> points to a memory location that the driver fills in with the kernel event the bus driver should use to signal that it has completed sending the response packet. The bus driver only supplies this if the device driver did not supply an MDL or an ADDRESS_FIFO list in the original REQUEST_ALLOCATE_ADDRESS_RANGE request.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>1394.h</I>. Include <I>1394.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P>When a driver allocates an address range on the computer's IEEE 1394 address space, it may require the bus driver to notify it for some or all request packets sent to the allocated addresses. As part of the original allocate request, the driver may either require the bus driver to forward each packet to the driver for handling, or it may require the bus driver to handle the packet and merely notify the device driver when it has finished. See <A HREF="1394irp_5q9e.htm">REQUEST_ALLOCATE_ADDRESS_RANGE</A> for details.</P>
+
+<P>If the device driver provides no backing store, the bus driver forwards each packet to the device driver to handle. The bus driver passes NULL for <B>Mdl</B>, and passes the packet in <B>RequestPacket</B>. The bus driver also passes pointers to memory locations that the device driver must fill in with the buffer for the response packet (in <B>ResponsePacket</B>), the buffer length (in <B>ResponseLength</B>), and an MDL for the buffer (in <B>ResponseMdl</B>). The bus driver also supplies a memory location the driver can use to pass a kernel event object in <B>ResponseEvent</B>. If the device driver provides an event object, the bus driver uses it to signal the driver when it has finished sending the response packet.</P>
+
+<P>If the driver provides backing store in the original allocate address range request, the bus driver uses the driver's notification routine to signal that it has completed reading or writing data from the backing store. It passes the MDL of the backing store in the <B>Mdl</B> member, and the starting location and size within the associated buffer in <B>ulOffset</B> and <B>nLength</B>. The bus driver also passes the type of event that led to notification in <B>fulNotificationOptions</B>.</P>
+
+<P>If the device driver is using a linked list of ADDRESS_FIFO's as backing store, the bus driver returns the list element it popped off in <B>Fifo</B>. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="1394irp_5q9e.htm">REQUEST_ALLOCATE_ADDRESS_RANGE</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NOTIFICATION_INFO"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,65 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Intermediate Driver DriverEntry Function</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Intermediate Driver DriverEntry Function">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_driverentry_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_driverentry_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_intermediate_driver_driverentry_function_ng"></A>Intermediate Driver DriverEntry Function</H2>
+
+<P>An intermediate driver’s initial required entry point must be explicitly named <A HREF="JavaScript:hhobj_1.Click()"><B>DriverEntry</B></A> so that the loader can properly identify it. All other exported driver functions, described here as <I>MiniportXxx</I> and <I>ProtocolXxx,</I> can have any developer-specified name because they are passed as addresses to NDIS.</P>
+
+<P>In an intermediate driver, <B>DriverEntry</B> must at a minimum:
+
+<OL>
+	<LI>Call <A HREF="103ndisx_244y.htm"><B>NdisMInitializeWrapper</B></A> and save the handle returned in the <I>NdisWrapperHandle</I> parameter.</LI>
+
+	<LI>Call <A HREF="103ndisx_0sj7.htm"><B>NdisIMRegisterLayeredMiniport</B></A> to register the driver’s <I>MiniportXxx</I> functions, passing the handle obtained in Step 1. </LI>
+
+	<LI>Call <A HREF="103ndisx_2cfm.htm"><B>NdisRegisterProtocol</B></A> to register the driver’s <I>ProtocolXxx</I> functions if the driver subsequently binds itself to an underlying NDIS driver. </LI>
+
+	<LI>Call <A HREF="103ndisx_1hiq.htm"><B>NdisIMAssociateMiniport</B></A> to inform NDIS about the association between the driver's miniport lower edge and protocol upper edge. </LI>
+</OL>
+
+<P>An intermediate driver should call <A HREF="103ndisx_32pe.htm"><B>NdisMRegisterUnloadHandler</B></A> to<B> </B>register an unload handler. This unload handler is called when the system unloads the intermediate driver. If <A HREF="JavaScript:hhobj_2.Click()"><B>DriverEntry</B></A> fails, this unload handler is not called, the driver is simply unloaded.</P>
+
+<P>The unload handler registered with <B>NdisMRegisterUnloadHandler</B> should call <A HREF="103ndisx_9ucy.htm"><B>NdisDeregisterProtocol</B></A> to deregister the protocol portion of the intermediate driver. The unload handler should also perform any necessary cleanup operations, such as reallocating resources used by the protocol portion of the driver.</P>
+
+<P>Note that an unload handler differs from a <A HREF="101mini_6stu.htm"><I>MiniportHalt</I></A> function: the unload handler has a more global scope, whereas the scope of the <I>MiniportHalt</I> function is restricted to a particular miniport driver instance. The intermediate driver should clean up state information and reallocate resources when each underlying miniport driver that is bound to it is halted.</P>
+
+<P><A HREF="104tdlow_8kxe.htm"><I>ProtocolUnload</I></A> is an optional unload handler. Register an entry point for this function in the <I>ProtocolCharacteristics</I> structure that you pass to <A HREF="103ndisx_2cfm.htm"><B>NdisRegisterProtocol</B></A>. NDIS calls <I>ProtocolUnload</I> in response to a user request to uninstall an intermediate driver. NDIS calls <A HREF="104tdlow_1l6a.htm"><I>ProtocolUnbindAdapter</I></A> once for each bound adapter, then NDIS calls <I>ProtocolUnload</I>. This handler is called before the system actually unloads the driver. This timing provides a chance to release any device objects or other resources that might otherwise prevent the system from calling the unload handler registered with <B>NdisMRegisterUnloadHandler</B> and unloading the driver.</P>
+
+<P><B>DriverEntry</B> can initialize spin locks to protect any globally-shared resources that the intermediate driver allocates, such as state variables, structures, and memory areas.  The driver uses these resources to track connections and to track sends in progress or driver-allocated queues.</P>
+
+<P>If <B>DriverEntry</B> fails to allocate any resources that the driver needs to carry out network I/O operations, it should release any previously allocated resources and return an appropriate error status. For example, if <B>DriverEntry</B> has called <B>NdisMInitializeWrapper</B>, <B>DriverEntry</B> must call <A HREF="103ndisx_7mgi.htm"><B>NdisTerminateWrapper</B></A>.</P>
+
+<P>For more information about registering intermediate drivers, see the following topics:</P>
+
+<P class=indent1><A HREF="301int_2vvr.htm">Registering as an NDIS Intermediate Driver</A></P>
+
+<P class=indent1><A HREF="301int_184n.htm">Registering an Intermediate Driver as a Miniport</A></P>
+
+<P class=indent1><A HREF="301int_80kn.htm">Registering an Intermediate Driver as a Protocol</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Intermediate%20Driver%20DriverEntry%20Function"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

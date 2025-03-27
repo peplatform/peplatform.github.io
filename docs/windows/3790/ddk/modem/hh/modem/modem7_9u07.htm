@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using ChkINF with Modem INF Files</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Modem&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_using_chkinf_with_modem_inf_files_mg"></A>Using ChkINF with Modem INF Files</H3>
+
+<P>Use the INF File Syntax Checker (ChkINF) to check the syntax and content of a modem INF file. This topic provides general information about using ChkINF, including how to handle certain error messages. This topic also supplements the complete instructions that are included with ChkINF.
+
+<DL>
+<DT>Always include all possible responses for your modem in your INF file. Do not include responses that the modem cannot actually provide. Use your modem documents and firmware to determine the actual responses that you should put in the INF file. ChkINF might respond with a large number of warnings about missing INF file response entries. These warnings point out cases that you might have overlooked and should only be taken as reminders.</DT>
+</DL>
+
+<P>ChkINF warns about PCMCIA card tuple hardware IDs of more than 50 characters. This warning can be ignored in Windows&nbsp;2000 and later versions of the operating system. If you need to support older Windows versions, consider shortening your tuple if you do not require the extra length. Do not confuse this issue (tuple ID length) with a long friendly string. </P>
+
+<H4>Incorrect Response State Example</H4>
+
+<P>The following INF file entry will generate an error in ChkINF:</P>
+
+<PRE>HKR, Responses, "RINGING",     1, 01, 00, 00,00,00,00, 00,00,00,00
+;(E3117) The response contains no keyword for the state 0x01 (Negotiation Progress).</PRE>
+
+<P>Assuming that your modem supports the RING and RINGING responses, the <A HREF="modemref1_90vm.htm"><B>Responses</B></A> INF file entries should have the <B>bResponseState</B> byte set to 0x08 as shown in the following examples:</P>
+
+<PRE>HKR, Responses, "RING",        1, 08, 00, 00,00,00,00, 00,00,00,00
+HKR, Responses, "RINGING",     1, 08, 00, 00,00,00,00, 00,00,00,00
+</PRE>
+
+<H4>Unrecognized Response Example</H4>
+
+<P>In this example, ChkINF warns about the following response entry:</P>
+
+<PRE>HKR, Responses, "&lt;cr&gt;&lt;lf&gt;NO CARRIER: HEADSET&lt;cr&gt;&lt;lf&gt;", 1, 04, 00, 00,00,00,00, 00,00,00,00
+;(E3117) The response contains no keyword for the state 0x04 (No Carrier).</PRE>
+
+<P>The ChkINF lookup table does not contain information about the response. Verify that the correct <B>bResponseState</B> for your modem is indicated in the <A HREF="modemref1_90vm.htm"><B>Responses</B></A> entry. In this example, the modem is not connected, and an error has occurred. Therefore the <B>Responses</B> entry is correct. In this event, attach a note with your submission to WHQL to make them aware of the ChkINF issue. </P>
+
+<H4>Connect Response Example</H4>
+
+<P>ChkINF generates a warning in response to the following INF file entry: </P>
+
+<PRE>HKR, Responses, "&lt;cr&gt;&lt;lf&gt;CONNECT&lt;cr&gt;&lt;lf&gt;", 1, 01, 00, 00,00,00,00, ff,01,00,00</PRE>
+
+<P>Two errors are present in this example:
+
+<OL>
+	<LI>The <B>bResponseState</B> byte is set incorrectly for a connect message. </LI>
+
+	<LI>In addition, the last DWORD (<B>dwNegotiatedDTERate</B>) should not be used. </LI>
+</OL>
+
+<P>The correct response entry is as follows:</P>
+
+<PRE>HKR, Responses, "&lt;cr&gt;&lt;lf&gt;CONNECT&lt;cr&gt;&lt;lf&gt;", 1, <B>02</B>, 00, 00,00,00,00, <B>00,00,00,00</B></PRE>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The <B>dwNegotiatedDTERate</B> data field should rarely be used. For modems that support only direct modes, it is possible to direct Unimodem to lower its DTE speed by specifying a value for <B>dwNegotiatedDTERate</B>. This is not usually needed because most modems make connections with automatic speed buffering. </P>
+
+<H4>TerminateRecord Warning Example</H4>
+
+<P>It is possible to create errors by cutting and pasting from an old INF file. Obsolete voice INF files had <A HREF="modemref3_07n6.htm"><B>TerminateRecord</B></A> settings ending in <I>AT&lt;cr&gt;</I> as shown in the following example:</P>
+
+<PRE>HKR,, TerminateRecord,,      "&lt;h10&gt;E&lt;cr&gt;at&lt;cr&gt;"
+;(W4040) Command "TerminateRecord" should not terminate in AT&lt;cr&gt;.</PRE>
+
+<P>Use the following INF file entry instead:</P>
+
+<PRE>HKR,, TerminateRecord,,      "&lt;h10&gt;E&lt;cr&gt;"</PRE>
+
+<P>The following warning messages all require a similar fix:</P>
+
+<PRE>;(W4040) Command "TerminateRecord" should not terminate in AT&lt;cr&gt;. 
+;(W4040) Command "TerminatePlay" should not terminate in AT&lt;cr&gt;. 
+;(W4040) Command "AbortPlay" should not terminate in AT&lt;cr&gt;.</PRE>
+
+<H4>Mixer Chip Example</H4>
+
+<P>ChkINF generates a warning message about the mixer chip setting in the <A HREF="modemref3_5ooi.htm"><B>VoiceProfile</B></A><B> </B>entry as follows:</P>
+
+<PRE>HKR,, VoiceProfile,          1, 27,03,08,00
+;(W4052) Separate sound mixer chip required.
+</PRE>
+
+<P>This message is a reminder to verify the correct mixer chip setting. Ignore this message if you have verified the correct mixer chip setting. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20ChkINF%20with%20Modem%20INF%20Files"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

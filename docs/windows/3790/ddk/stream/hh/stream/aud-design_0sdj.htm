@@ -1,0 +1,32 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Requirements for a Non-PCM Pin Factory</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Requirements for a Non-PCM Pin Factory">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_requirements_for_a_non_pcm_pin_factory_ksg"></A>Requirements for a Non-PCM Pin Factory</H3>
+
+<P>Under Windows&nbsp;Me, and Windows&nbsp;XP and later, drivers that play non-PCM <A HREF="aud-prop_5s4z.htm">WAVEFORMATEX</A> formats should expose their non-PCM pins according to the following guidelines.</P>
+
+<P>First, define a pin factory for your non-PCM data format that is separate from any PCM pin factories. PCM and non-PCM cannot share the same single-instance pin factory because the sole pin instance automatically is allocated to KMixer. If the pin factory supports multiple instances, PCM and non-PCM can co-exist on the same pin factory. In this case, however, you cannot guarantee that these pin instances are available to a non-PCM client at runtime; PCM clients already might have allocated them. The safest option is to provide a separate pin factory for your non-PCM format.</P>
+
+<P>In order for the pin to be discovered and used by DirectSound 8, define this non-PCM pin factory on a filter that already supports PCM. In other words, do not put the non-PCM pin in a totally separate filter in your miniport driver. Otherwise, DirectSound will not detect the non-PCM pin. This also means that a device that does not support PCM at all cannot support a non-PCM format.</P>
+
+<P>Second, implement a data-range-intersection handler on your non-PCM pin. PortCls provides a built-in handler, but this default handler always chooses PCM, so you should add your own handler for non-PCM formats. You should not support WAVE_FORMAT_PCM in the intersection handler for your non-PCM pin. Note that this handler can be called with an <I>OutputBufferLength</I> of 0, in which case the caller is asking only for the size of the preferred data range, not for the data itself. In this case, the handler should respond by copying the non-PCM data range's size into the <I>ResultantFormatLength</I> parameter and returning STATUS_BUFFER_OVERFLOW. The <I>msvad</I> sample in the DDK contains the code for a <B>DataRangeIntersection</B> routine that you can use as an example handler. To test your <B>DataRangeIntersection</B> routine, use the <A HREF="aud-design_1spz.htm">KsStudio utility</A> to instantiate your pin—it first calls your intersection handler in order to determine an acceptable default format. To support a non-PCM format, your driver must properly handle it in the following locations:
+
+<UL>
+	<LI><A HREF="audmp-routines_06r7.htm"><B>IMiniport::DataRangeIntersection</B></A> </LI>
+
+	<LI>Miniport methods <B>Init</B> and <B>NewStream</B> (For example, see <A HREF="audmp-routines_12ur.htm"><B>IMiniportWavePci::Init</B></A> and <A HREF="audmp-routines_0g1f.htm"><B>IMiniportWavePci::NewStream</B></A>.)</LI>
+
+	<LI>Miniport-stream method <B>SetFormat</B> (For example, see <A HREF="audmp-routines_56er.htm"><B>IMiniportWavePciStream::SetFormat</B></A>.)</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Requirements%20for%20a%20Non-PCM%20Pin%20Factory"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

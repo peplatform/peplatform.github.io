@@ -1,0 +1,78 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Introduction to AV/C</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Introduction to AV/C">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_introduction_to_av_c_ksg"></A>Introduction to AV/C</H1>
+
+<P>Microsoft supports the AV/C protocol (as defined by the 1394 Trade Association) and subunit enumeration through the <I>avc.sys</I> Windows Driver Model (WDM) device driver.</P>
+
+<P><I>Avc.sys</I> may be loaded in one of two manners. If a physical AV/C device is connected to the system, an instance of <I>avc.sys</I> is loaded and the GUID_AVC_CLASS device interface is registered. This is the "peer" mode of <I>avc.sys</I>.</P>
+
+<P>Alternatively, AV/C subunit drivers may expose SYSTEM hardware as valid AV/C targets. The instance of <I>avc.sys</I> loaded to support this mode registers the GUID_VIRTUAL_AVC_CLASS device interface. This is the "virtual" mode of <I>avc.sys</I>.</P>
+
+<P>An instance of the <I>avc.sys</I> driver is inserted on the driver stack above the <I>61883.sys</I> and <I>1394bus.sys</I> drivers for every AV/C unit enumerated on the 1394 bus. Enumeration occurs, for example, after a 1394 bus reset, or after a MiniDV camcorder has been plugged into the bus and its power turned on.</P>
+
+<P>Peer subunit drivers are WDM drivers for subunits in AV/C devices such as MiniDV camcorders and Digital-VHS tape decks, attached to the SYSTEM through an IEEE 1394 serial bus connection.</P>
+
+<P>Virtual subunit drivers are WDM drivers that expose SYSTEM hardware, such as hard drives and web cameras as valid AV/C subunits which may be targeted for AV/C commands and responses.</P>
+
+<P>Using standard AV/C unit and subunit commands, the <I>avc.sys</I> driver discovers the active subunits in the AV/C unit for which it was loaded, and using standard PnP facilities, causes subunit drivers to load for each physical subunit. These subunit drivers may be generic for the type of subunit (for example, a class driver), or may be a vendor-specific implementation. The subunit driver selection is based on the device ID generated from the unit information of the device, in combination with the type and ID of the subunit. The template for an AV/C device ID is:</P>
+
+<P>AVC\&lt;Vendor&gt;&amp;&lt;Model&gt;&amp;&lt;SubunitType&gt;&amp;&lt;SubunitID&gt;</P>
+
+<P>For more information about subunit enumeration and the format of the device IDs associated with an AV/C device, see <A HREF="avcguide_2so7.htm">Peer Subunit Enumeration</A>.</P>
+
+<P>The subunit drivers access and control the physical 1394 AV/C subunits through an I/O control (IOCTL) interface with <I>avc.sys</I>. <I>Avc.sys</I> takes care of the AV/C command and response protocol, including all interaction with the 61883 Function Control Protocol (FCP). This does not prevent the subunit driver from communicating and directly accessing certain <I>61883.sys</I> functionality when necessary. This may become necessary, when, for example, the subunit driver represents a subunit that uses a stream format not supported by Microsoft.</P>
+
+<P>Any peer subunit driver can cause the computer to become a peer device (command target), simply by issuing an IOCTL to <I>avc.sys</I> requesting incoming requests. This means that a peer subunit device driver on the SYSTEM can actually receive requests from the device for which it has been loaded. This does not mean that a tape subunit will be sending tape subunit commands to the SYSTEM, but instead permits support for such things as CCM (Connection and Compatibility Management, <a href="http://go.microsoft.com/fwlink/?linkid=8728&clcid=0x409" target="_blank">1394 Trade Association</A> Web site) and DTCP (Digital Transmission Content Protection). For more information about DTCP, see the <a href="http://go.microsoft.com/fwlink/?linkid=8731&clcid=0x409" target="_blank">Digital Transmission Licensing Administrator</A> Web site.</P>
+
+<P>Microsoft provides an optional filter driver to handle format-aware streaming services. For more information, see <A HREF="avcsguide_2ylj.htm">AV/C Streaming</A>.</P>
+
+<P>The 1394 driver stack may also be configured to expose computer functionality to other devices on the 1394 bus through the 1394, 61883 and AV/C protocol drivers. This is known as <I>virtual</I> 1394 device support. For more information, see <A HREF="avcguide_29bb.htm">Virtual Device Stack</A>.</P>
+
+<P>From information stored in the registry, or through direct program control, the <I>avc.sys</I> driver enumerates the active virtual subunits in the computer’s AV/C unit, and using standard PnP facilities, causes virtual subunit drivers to load. For example, a webcam attached to the computer might have a virtual subunit driver loaded to enable it to be used as a camera subunit. A hard drive may have a virtual subunit driver loaded to enable it to be used as a storage device (like a tape subunit in a DV camcorder). The virtual subunit drivers respond to external AV/C control, status, and notification commands through the <A HREF="avcref_0h4j.htm">IOCTL_AVC_CLASS</A> interface with <I>avc.sys</I>.</P>
+
+<P>The registry is the persistent way to save virtual device configuration, but virtual device configuration is always carried out programmatically. That is, although the registry holds the persistent information, that information should not be placed in the registry directly. Instead, it can be done through a combination of I/O control codes (IOCTLs) under software control and INF <B>AddReg</B> directives under setup control.</P>
+
+<P>Virtual 1394 device support permits the following:
+
+<UL>
+	<LI>Implementing devices through software that do not yet exist in hardware (excellent for prototyping new hardware, or getting a jump on implementing new subunit drivers).</LI>
+
+	<LI>Exposing computer resources as AV/C subunits.</LI>
+
+	<LI>Implementing extensions to target functionality such as <I>Authentication and Key Exchange</I> (AKE) and <I>Connection and Compatibility Management</I> (CCM) by third parties on the computer.</LI>
+
+	<LI>Developing automated test suites for nonvirtual (peer) subunit drivers, without requiring the presence of actual hardware. This permits testing of boundary conditions not otherwise possible with the range of hardware devices available.</LI>
+</UL>
+
+<P>Features of the <I>avc.sys</I> driver include:
+
+<UL>
+	<LI>AV/C <A HREF="avcguide_2so7.htm">Peer Subunit Enumeration</A></LI>
+
+	<LI>AV/C command arbitration</LI>
+
+	<LI>Interim response handling (see <A HREF="avcguide_4hev.htm">AV/C Requests</A>)</LI>
+
+	<LI>Plug control and enumeration within the WDM Kernel Streaming framework (see <A HREF="avcguide_9ezr.htm">Connection Management</A>)</LI>
+
+	<LI>AV/C <A HREF="avcguide_36p3.htm">Virtual Subunit Enumeration</A></LI>
+
+	<LI>Peer device functionality</LI>
+</UL>
+
+<P>For the full details of the 1394 AV/C protocols, see the <a href="http://go.microsoft.com/fwlink/?linkid=8729&clcid=0x409" target="_blank">1394 Trade Association specifications</A> Web site.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;For the sake of readability, the code samples provided in <A HREF="avcguide_4eqv.htm">Allocating and Initializing an IRB</A> and <A HREF="avcguide_5e3r.htm">Setting Up the IRP for AV/C Processing</A> do not include error handling.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Introduction%20to%20AV%2FC"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

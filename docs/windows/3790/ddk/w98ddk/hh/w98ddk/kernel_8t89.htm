@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>_Assert_Range</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_1139"></A>_Assert_Range</H1>
+
+<PRE>#include vmm.h 
+
+_Assert_Range(DWORD pStruc, DWORD ulSize, DWORD sSignature, 
+              DWORD lSignatureOffset, DWORD ulFlags);
+ </PRE>
+
+<P>Verifies that a pointer to any structure is valid. Uses the C calling convention. </P>
+
+<P>Returns nonzero in the EAX register if the structure is valid; otherwise, returns zero. 
+
+<DL>
+<DT><I>pStruc</I></DT>
+
+<DD>Structure pointer to validate. </DD>
+
+<DT><I>ulSize</I></DT>
+
+<DD>Size of the structure in bytes. </DD>
+
+<DT><I>sSignature</I></DT>
+
+<DD>A DWORD value to validate. </DD>
+
+<DT><I>lSignatureOffset</I></DT>
+
+<DD>Offset in bytes to <I>sSignature</I>. </DD>
+
+<DT><I>ulFlags</I></DT>
+
+<DD>Validation flags. May be one or more of these values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%>ASSERT_RANGE_NULL_BAD </TD>
+<TD width=66%>Return failure for NULL pointers. May not be combined with ASSERT_RANGE_NULL_OK. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>ASSERT_RANGE_NULL_OK </TD>
+<TD width=66%>Return success for NULL pointers. May not be combined with ASSERT_RANGE_NULL_BAD. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>ASSERT_RANGE_NO_DEBUG </TD>
+<TD width=66%>Do not output a debugging message on failure when debugger is present. This flag is ignored if no debugger is installed. </TD>
+</TR>
+</TABLE><BR>
+
+
+</DD>
+</DL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>The following validation steps are taken</B>
+
+<OL>
+	<LI>If pStruc is a null pointer, its validity is determined by which of the ASSERT_RANGE_NULL_BAD or ASSERT_RANGE_NULL_OK flags is passed. </LI>
+
+	<LI>Otherwise, pStruc must be a pointer to valid data of length ulSize bytes. </LI>
+
+	<LI>Furthermore, if sSignature is nonzero, then the DWORD at pStruc + lSignatureOffset must be equal to sSignature. </LI>
+</OL>
+
+<P>For example, suppose you have a structure defined as follows: </P>
+
+<PRE>struct ABC {
+    DWORD member1;
+    BYTE  member2[20];
+    DWORD dwSignature;
+};
+
+// Every valid ABC has ABCSIGNATURE stored in the dwSignature field.
+
+#define ABCSIGNATURE 0x31415926
+ </PRE>
+
+<P>If you want to check whether some pointer variable p is a valid pointer to a ABC, except that null pointers are okay, then you would write </P>
+
+<PRE>if (!_Assert_Range(p, sizeof(SAMPLE), ABCSIGNATURE, 
+    offsetof( SAMPLE, dwSignature), ASSERT_RANGE_NULL_OK)) {
+       return ERROR_INVALID_PARAMETER;
+    }
+ </PRE>
+
+<P>This service can be called only at a time when page faults can safely be handled. It cannot be called at hardware interrupt time, nor at any other time when paging is not allowed. Since this service touches the memory at <I>pStruc</I> as part of the validation (even if <I>sSignature</I> is zero), if <I>pStruc</I> points to a phys/linear region owned by memory-mapped hardware, there may be unusual side-effects. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: _Assert_Range"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

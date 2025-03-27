@@ -1,0 +1,77 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProtocolUnbindAdapter</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProtocolUnbindAdapter">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocolunbindadapter_nr"></A>ProtocolUnbindAdapter</H1>
+
+<P>The <I>ProtocolUnbindAdapter</I> function is required to support Plug and Play. All NDIS protocol drivers must export a <I>ProtocolUnBindAdapter</I> function.</P>
+
+<PRE class=syntax><B>VOID</B>
+  <B>ProtocolUnbindAdapter(</B>
+    <B>OUT PNDIS_STATUS</B>  <I>Status</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>ProtocolBindingContext</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>UnbindContext</I>
+    )<B>;</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Status</I></DT>
+
+<DD>Specifies the status of the unbinding operation as the value returned by <A HREF="103ndisx_27ea.htm"><B>NdisCloseAdapter</B></A>, which can be either of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>The binding was closed and all resources pertaining to that binding have been released. </DD>
+
+<DT>NDIS_STATUS_PENDING</DT>
+
+<DD>The request is being handled asynchronously, and the <A HREF="104tdlow_3v5e.htm"><I>ProtocolCloseAdapterComplete</I></A> function will complete the operation. </DD>
+</DL>
+</DD>
+
+<DT><I>ProtocolBindingContext</I></DT>
+
+<DD>Specifies the handle to a protocol-allocated context area in which the protocol driver maintains per-binding run-time state. The driver supplied this handle when it called <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A>. </DD>
+
+<DT><I>UnbindContext</I></DT>
+
+<DD>Specifies a handle, supplied by NDIS, that the protocol passes subsequently to <A HREF="103ndisx_7pma.htm"><B>NdisCompleteUnbindAdapter</B></A>. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>As the reciprocal of <A HREF="104tdlow_2bqq.htm"><I>ProtocolBindAdapter</I></A>, <I>ProtocolUnbindAdapter</I> releases all resources the driver allocated for per-binding network I/O operations with one possible exception: the driver-allocated context area designated by the <I>ProtocolBindingContext</I> handle. </P>
+
+<P><I>ProtocolUnbindAdapter</I> must call <A HREF="103ndisx_27ea.htm"><B>NdisCloseAdapter</B></A>, which can, in turn, call the driver’s <A HREF="104tdlow_3v5e.htm"><I>ProtocolCloseAdapterComplete</I></A> function with the <I>ProtocolBindingContext</I> handle, so <I>ProtocolUnbindAdapter</I> cannot free the memory at <I>ProtocolBindingContext</I> unless <B>NdisCloseAdapter</B> returns NDIS_STATUS_SUCCESS. </P>
+
+<P>Consequently, <I>ProtocolUnbindAdapter </I>should store the input <I>UnbindContext</I> handle in the area at <I>ProtocolBindingContext</I> before it calls <B>NdisCloseAdapter</B>. If this call is completed asynchronously, the <I>ProtocolCloseAdapterComplete</I> function will free all driver-allocated per-binding resources and call <A HREF="103ndisx_7pma.htm"><B>NdisCompleteUnbindAdapter</B></A> with the <I>UnbindContext</I> handle. </P>
+
+<P>If <B>NdisCloseAdapter</B> returns NDIS_STATUS_SUCCESS, <I>ProtocolUnbindAdapter</I> frees all per-binding resources, including the driver-allocated memory at <I>ProtocolBindingContext</I>, and calls <B>NdisCompleteUnbindAdapter</B> itself. </P>
+
+<P>The <I>ProtocolUnbindAdapter</I> function of an NDIS intermediate driver makes a reciprocal call to <A HREF="103ndisx_1q7m.htm"><B>NdisIMDeinitializeDeviceInstance</B></A>. Such a driver's <A HREF="101mini_6stu.htm"><I>MiniportHalt</I></A> function must release all driver-allocated resources associated with the intermediate driver's NIC before its virtual NIC is removed from the system. </P>
+
+<P>As soon as <I>ProtocolUnbindAdapter</I> calls <B>NdisCloseAdapter</B>, the <I>NdisBindingHandle</I> originally returned by <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A> should be considered invalid. <I>ProtocolUnbindAdapter</I> cannot make any subsequent calls to <B>Ndis</B><I>Xxx</I> functions with this handle, and the protocol cannot receive any indications from the underlying driver. However, if the underlying NIC is being removed to be reconfigured, NDIS will call the driver’s <I>ProtocolBindAdapter</I> function to reestablish the binding when the NIC is available again.  </P>
+
+<P><I>ProtocolUnbindAdapter</I> runs at IRQL = PASSIVE_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="103ndisx_27ea.htm"><B>NdisCloseAdapter</B></A>, <A HREF="103ndisx_7pma.htm"><B>NdisCompleteUnbindAdapter</B></A>, <A HREF="103ndisx_2fw2.htm"><B>NdisDeleteNPagedLookasideList</B></A>, <A HREF="103ndisx_920i.htm"><B>NdisCoDeleteVc</B></A>, <A HREF="103ndisx_0auq.htm"><B>NdisFreeBufferPool</B></A>, <A HREF="103ndisx_6sc2.htm"><B>NdisFreeMemory</B></A>, <A HREF="103ndisx_59f6.htm"><B>NdisFreePacketPool</B></A>, <A HREF="103ndisx_1q7m.htm"><B>NdisIMDeinitializeDeviceInstance</B></A>, <A HREF="104tdlow_2bqq.htm"><I>ProtocolBindAdapter</I></A>, <A HREF="104tdlow_3v5e.htm"><I>ProtocolCloseAdapterComplete</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProtocolUnbindAdapter"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

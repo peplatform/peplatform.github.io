@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Startup Sequence</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Startup Sequence">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_driverentry_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_adddevice_kr">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_starting_a_device_kg">
+</OBJECT>
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_fdo_dg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_5" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_pdo_dg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_6" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_start_device_dr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_startup_sequence_ksg"></A>Startup Sequence</H3>
+
+<P>Because the adapter driver is installed as a <I>kernel-mode driver service</I>, the operating system loads the adapter driver at system-startup time and calls the driver's <A HREF="JavaScript:hhobj_1.Click()"><B>DriverEntry</B></A> routine. The <B>DriverEntry</B> routine receives two parameters: a driver object and a registry path name. <B>DriverEntry</B> should call the PortCls function <A HREF="audpc-routines_7xyr.htm"><B>PcInitializeAdapterDriver</B></A> with the driver-object and registry-path name parameters plus a third parameter, which is a pointer to the adapter driver’s <A HREF="JavaScript:hhobj_2.Click()"><I>AddDevice</I></A> function.</P>
+
+<P>In the following example, the driver's <B>DriverEntry</B> function passes the function pointer <B>MyAddDevice</B>, which points to the driver's <I>AddDevice</I> function, as the third parameter to the <B>PcInitializeAdapterDriver</B> routine.</P>
+
+<PRE>NTSTATUS 
+  DriverEntry( 
+    PDRIVER_OBJECT  DriverObject,
+    PUNICODE_STRING  RegistryPath
+    )
+  {
+      return PcInitializeAdapterDriver(DriverObject, RegistryPath, MyAddDevice);
+  }</PRE>
+
+<P>The <B>PcInitializeAdapterDriver</B> routine installs the supplied <I>AddDevice</I> routine in the driver object’s driver extension and installs the PortCls driver’s IRP handlers in the driver object itself.</P>
+
+<P>The following code is an example implementation of the driver's <B>MyAddDevice</B> function.</P>
+
+<PRE>#define MAX_MINIPORTS 6    // maximum number of miniports
+NTSTATUS
+  MyAddDevice(
+    PDRIVER_OBJECT  DriverObject,
+    PDEVICE_OBJECT  PhysicalDeviceObject 
+    )
+  {
+      return PcAddAdapterDevice(DriverObject, PhysicalDeviceObject, MyStartDevice,
+                                MAX_MINIPORTS, 0);
+  }</PRE>
+
+<P>This function calls the PortCls function<B> <A HREF="audpc-routines_6i7n.htm">PcAddAdapterDevice</A></B>, which creates the specified adapter device, associates a driver with the device, and stores a pointer to the adapter driver's <B>MyStartDevice</B> function, which is called when the operating system starts the device (see <A HREF="JavaScript:hhobj_3.Click()">Starting a Device</A>). The <B>PcAddAdapterDevice</B> routine creates a <I>functional device object</I> (<A HREF="JavaScript:hhobj_4.Click()">FDO</A>) and associates it with the <I>physical device object</I> (<A HREF="JavaScript:hhobj_5.Click()">PDO</A>) that is supplied by the system. The new FDO is created with an extension that PortCls uses to store context information about the device. This context includes the <B>MyStartDevice</B> function pointer that is supplied by <B>MyAddDevice</B>.</P>
+
+<P>After the operating system determines what resources (interrupts, DMA channels, I/O port addresses, and so on) to assign to the device, it sends the device a request to start (<A HREF="JavaScript:hhobj_6.Click()">IRP_MN_START_DEVICE</A>). In response to this request, the request handler in the PortCls driver calls the adapter driver’s <B>MyStartDevice</B> function, which is shown in the following example code:</P>
+
+<PRE>NTSTATUS
+  MyStartDevice(
+    PDEVICE_OBJECT DeviceObject,
+    PIRP Irp,
+    PRESOURCELIST ResourceList
+    )
+  {
+    ...
+  }</PRE>
+
+<P>The request handler supplies <B>MyStartDevice</B> with pointers to the device object, IRP_MN_START_DEVICE request, and resource list (see <A HREF="audmp-routines_4c37.htm"><B>IResourceList</B></A>). The <B>MyStartDevice</B> function partitions the resource list into the resources that are required for each miniport driver that needs to be started. The function then starts each miniport driver and returns control to PortCls, which completes the IRP and returns control to the operating system.</P>
+
+<P>For more examples of driver startup code, see the sample audio adapter drivers in the Windows DDK.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Startup%20Sequence"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,67 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TdiReturnChainedReceives</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TdiReturnChainedReceives">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdireturnchainedreceives_nr"></A>TdiReturnChainedReceives</H1>
+
+<P>The <B>TdiReturnChainedReceives</B> function returns an array of TSDU descriptors for one or more chained receive indications previously forwarded to a transport's client, which returned STATUS_PENDING for each such chained receive indication. </P>
+
+<PRE class=syntax><B>VOID</B>
+  <B>TdiReturnChainedReceives(</B>
+    <B>IN PVOID</B>  <B>*</B><I>TsduDescriptors</I><B>,</B>
+    <B>IN ULONG</B>  <I>NumberOfTsdus</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>TsduDescriptors</I></DT>
+
+<DD>Pointer to an array of descriptors of type NDIS_PACKET. </DD>
+
+<DT><I>NumberOfTsdus</I></DT>
+
+<DD>Specifies the number of elements in the array at <I>TsduDescriptors</I>. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>TdiKrnl.h</I>. Include <I>TdiKrnl.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>For faster network throughput, a TDI transport can pass to its clients direct (but read-only) access to a chain of NDIS miniport driver-allocated buffers containing a full received network packet, subject to the following conditions:
+
+<UL>
+	<LI>The NDIS protocol driver at the bottom of the transport stack (or the monolithic transport) registered a <I>ProtocolReceivePacket</I> function with <B>NdisRegisterProtocol</B>, so it can receive indications that permit direct, read-only access to the contents of the underlying NDIS miniport driver's receive buffers. If the transport is bound directly to the driver of a physical NIC, its <I>ProtocolReceivePacket</I> function is given read-only access to the NIC's receive buffers. </LI>
+
+	<LI>The underlying NIC driver calls <B>NdisMIndicateReceivePacket</B> to make receive indications, thereby allowing any bound protocol that supplies a <I>ProtocolReceivePacket</I> function to retain read-only access to the received data in the NIC driver's receive buffers until it is consumed, possibly by one or more clients of the TDI driver at the top of the transport stack. Such a receive indication is always a full network packet, mapped by the buffer descriptors (MDLs) chained to each indicated NDIS_PACKET-type TSDU descriptor. </LI>
+
+	<LI>The client has registered its handler for TDI_EVENT_CHAINED_RECEIVE or TDI_EVENT_RECEIVE_DATAGRAM events with the transport. </LI>
+</UL>
+
+<P>When such a transport's <I>ProtocolReceivePacket</I> function is called, it can forward the receive indication up the transport stack to the TDI driver. The TDI driver indicates the receive to the appropriate ClientEventReceive(Datagram) function, thereby giving the client the opportunity to process the indicated TSDU without the overhead of double buffering such a received packet in the transport. If the ClientEventReceive(Datagram) callback returns STATUS_PENDING, the client retains exclusive read-only access to the indicated packet until that client calls <B>TdiReturnChainedReceives</B> with the TSDU descriptors. </P>
+
+<P>A TDI client's call to <B>TdiReturnChainedReceives</B> returns the indicated packet descriptors and all the associated resources directly to NDIS, bypassing the indicating TDI driver and any lower drivers in its transport stack. This allows NDIS to return the packet descriptors and associated resources more quickly to the underlying NDIS miniport driver (or NDIS intermediate driver, if any) that originally allocated the packet descriptors and chained buffer descriptors, possibly after NDIS indicates this chained receive to any other transports that also bound themselves to the same NDIS miniport driver. </P>
+
+<P>Packets indicated by the underlying NDIS driver to the transport's <I>ProtocolReceive</I> function should be buffered internally in the transport, but they must be indicated to such a client's ClientEventReceive, ClientEventReceiveExpedited, or ClientEventReceiveDatagram function. Calls to these client event handlers direct the client to make a copy of the indicated data as quickly as possible, and ClientEventReceive(Expedited/Datagram) relinquishes the client's access to the buffers containing the indicated data when the event handler returns control.</P>
+
+<P>Only kernel-mode clients with registered ClientEventChainedReceive, ClientEventChainedReceiveExpedited, and/or ClientEventChainedReceiveDatagram handlers call <B>TdiReturnChainedReceives</B>. </P>
+
+<P>Callers of <B>TdiReturnChainedReceives</B> run at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_4qnm.htm"><B>ClientEventChainedReceive</B></A>, <A HREF="35tdicli_0jci.htm"><B>ClientEventChainedReceiveDatagram</B></A>, <A HREF="35tdicli_57n6.htm"><B>ClientEventChainedReceiveExpedited</B></A>, <A HREF="35tdicli_7yeq.htm"><B>ClientEventReceive</B></A>, <A HREF="35tdicli_82nm.htm"><B>ClientEventReceiveDatagram</B></A>, <A HREF="35tdicli_7jea.htm"><B>ClientEventReceiveExpedited</B></A>, <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, <A HREF="105nstru_6jn6.htm"><B>NDIS_PACKET</B></A>, <A HREF="103ndisx_61de.htm"><B>NdisReturnPackets</B></A>, <A HREF="104tdlow_62k2.htm"><B>ProtocolReceive</B></A>, <A HREF="104tdlow_5i7n.htm"><B>ProtocolReceivePacket</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TdiReturnChainedReceives"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

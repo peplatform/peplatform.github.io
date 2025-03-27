@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Special Effects in Display Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Special Effects in Display Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_alpha_blending_gg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_gradient_fill_gg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_triangle_texture_fill_gg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_special_effects_in_display_drivers_gg"></A>Special Effects in Display Drivers</H1>
+
+<P>Windows®&nbsp;2000 and later operating system versions support the following special effects:
+
+<UL>
+	<LI>If the display hardware supports <A HREF="JavaScript:hhobj_1.Click()">alpha blending</A>, the display driver can implement <A HREF="ddifncs_40br.htm"><I>DrvAlphaBlend</I></A>.</LI>
+
+	<LI>If the display hardware supports <A HREF="JavaScript:hhobj_2.Click()">gradient fills</A>, the display driver should implement <A HREF="ddifncs_6bvr.htm"><I>DrvGradientFill</I></A>. </LI>
+</UL>
+
+<H2>Alpha Blending</H2>
+
+<P>The Windows&nbsp;2000 (and later) Shell uses alpha blending extensively to perform operations such as <I>blend-in</I> and <I>blend-out animations</I> and <I>alpha cursors</I>. Because alpha blend operations require reading from both the source and destination surfaces, it is very slow to punt to GDI when either the source or destination is in video memory. Consequently, hardware accelerations in the driver will yield visibly smoother animations and improve overall system performance.</P>
+
+<P>Drivers should implement <A HREF="ddifncs_40br.htm"><I>DrvAlphaBlend</I></A> for <I>bit-block transfers</I> from compatible bitmaps using a constant alpha, and from 32 bpp BGRA system-memory surfaces with per-pixel alpha values. <I>DrvAlphaBlend</I> can be implemented using <A HREF="JavaScript:hhobj_3.Click()"><I>triangle texture fills</I></A>, provided that no seam is ever visible.</P>
+
+<P>The worst-case error produced by <I>DrvAlphaBlend</I> should not exceed one (1) per color channel. When stretching is involved, the source should be COLORONCOLOR-stretched (see the Platform SDK documentation) prior to blending; the worst-case error should not exceed one (1) per color channel combined with the worst-case stretching error. </P>
+
+<P>In cases where alpha blending is combined with stretching, the Hardware Compatibility Test (HCT) tests a display driver's implementation of <I>DrvAlphaBlend</I> in the following way:
+
+<OL>
+	<LI>The HCT calls the display driver's <I>DrvAlphaBlend</I>, producing an alpha-blended and stretched rectangle. </LI>
+
+	<LI>The HCT generates a destination rectangle, using the same source rectangle as was used in the call to <I>DrvAlphaBlend</I>. </LI>
+
+	<LI>For each pixel P in the destination rectangle of step 2, the HCT simulates a reverse stretch to determine the corresponding pixel in the source rectangle, before stretching. The HCT applies a tolerance value to the reverse stretch to accommodate the varying stretch implementations by drivers. The HCT then calculates the alpha blend that should be applied to that pixel.
+<P>Because any of four possible pixels (the corners of the 3 X 3 pixel square centered on pixel P) in the source rectangle could be stretched to produce pixel P in the destination rectangle, the HCT must compare the color value of each corner pixel with that of the pixel at the corresponding position in the rectangle produced by <I>DrvAlphaBlend</I>. 
+</LI>
+</OL>
+
+<P>The worst-case stretching error is the largest difference in color value between any pair of corresponding corner pixels, where one of them is on the <I>DrvAlphaBlend</I>-produced rectangle, and the other is on the HCT-produced source rectangle. </P>
+
+<H2>Gradient Fills</H2>
+
+<P>The Windows&nbsp;2000 (and later) Shell uses <I>gradient fills</I> on all caption bars.</P>
+
+<P>The results produced by <A HREF="ddifncs_6bvr.htm"><I>DrvGradientFill</I></A> depend on the number of bits per pixel, and must satisfy the following guidelines:</P>
+
+<H4>24-bpp or 32-bpp surfaces</H4>
+
+<UL>
+	<LI>Values must increase or decrease monotonically in all gradated directions.</LI>
+
+	<LI>For rectangular gradients:
+<P class=indent1>When <I>ulMode</I> == GRADIENT_FILL_RECT_H, each vertical bar must be a single color.</P>
+
+<P class=indent1>When <I>ulMode</I> == GRADIENT_FILL_RECT_V, each horizontal bar must be a single color.</P>
+</LI>
+
+	<LI>The worst-case error in any channel cannot exceed &plusmn; 1.
+<P class=indent1><B></B></P>
+</LI>
+
+	<LI>The endpoints of the region must be exact matches.</LI>
+</UL>
+
+<H4>15-bpp or 16-bpp surfaces</H4>
+
+<P class=indent1>The worst-case error in any channel cannot exceed &plusmn;15.</P>
+
+<H4>1-bpp to 8-bpp surfaces</H4>
+
+<P class=indent1>No error is permitted in gradient fills for any of these surfaces. For an 8-bpp surface, GDI does not call the driver's <I>DrvGradientFill</I> function.</P>
+
+<P>Note that in all surfaces, clipping does not affect results.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Special%20Effects%20in%20Display%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

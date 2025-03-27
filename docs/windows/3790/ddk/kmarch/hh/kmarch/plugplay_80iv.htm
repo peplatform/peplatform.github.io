@@ -1,0 +1,37 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using Remove Locks</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using Remove Locks">
+<META NAME="MS-HKWD" CONTENT="remove locks">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_using_remove_locks_kg"></A>Using Remove Locks</H2>
+
+<P>The <A HREF="k101_7vle.htm">remove lock routines</A> provide a way to track the number of outstanding I/O operations on a device, and to determine when it is safe to detach and delete a driver's device object. The system provides these routines to driver writers as an alternative to implementing their own tracking mechanism. </P>
+
+<P>A driver can use this mechanism for two purposes:
+
+<OL>
+	<LI>To ensure that the driver's <A HREF="drvrrtns_8uya.htm"><I>DispatchPnP</I></A> routine will not complete an <A HREF="pnp-irps_4noy.htm">IRP_MN_REMOVE_DEVICE</A> request while the lock is held (for example, while another driver routine is accessing the device).</LI>
+
+	<LI>To count the number of reasons why the driver should not delete its device object, and to set an event when that count goes to zero.</LI>
+</OL>
+
+<P>To initialize a remove lock, a driver should allocate an IO_REMOVE_LOCK structure in its <A HREF="devobjts_1gdj.htm">device extension</A> and then call <A HREF="k104_814i.htm"><B>IoInitializeRemoveLock</B></A>. A driver typically calls <B>IoInitializeRemoveLock</B> in its <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine, when the driver initializes the rest of the device extension for a device object.</P>
+
+<P>Your driver must call <A HREF="k104_6tde.htm"><B>IoAcquireRemoveLock</B></A> each time it starts an I/O operation. The driver must call <A HREF="k104_8n5e.htm"><B>IoReleaseRemoveLock</B></A> each time it finishes an I/O operation. A driver can acquire the lock more than once.  The remove lock routines maintain a count of the outstanding acquisitions of the lock. Each call to <B>IoAcquireRemoveLock</B> increments the count, and <B>IoReleaseRemoveLock</B> decrements the count.</P>
+
+<P>Your driver should also call <B>IoAcquireRemoveLock</B> when it passes out a reference to its code (for timers, DPCs, callbacks, and so on). The driver then must call <B>IoReleaseRemoveLock</B> when the event has returned.</P>
+
+<P>In its dispatch code for <A HREF="pnp-irps_4noy.htm">IRP_MN_REMOVE_DEVICE</A>, the driver must acquire the lock once more and then call <A HREF="k104_5zg2.htm"><B>IoReleaseRemoveLockAndWait</B></A>. This routine does not return until all outstanding acquisitions of the lock have been released. To allow queued I/O operations to complete, each driver should call <B>IoReleseRemoveLockAndWait</B> before it passes the IRP_MN_REMOVE_DEVICE request to the next-lower driver, and before it releases memory, calls <A HREF="k104_4s36.htm"><B>IoDetachDevice</B></A>, or calls <A HREF="k104_3wky.htm"><B>IoDeleteDevice</B></A>. After <B>IoReleaseRemoveLockAndWait</B> has been called for a particular remove lock, all subsequent calls to <B>IoAcquireRemoveLock</B> for the same remove lock will fail.</P>
+
+<P>Because a driver stores an IO_REMOVE_LOCK structure in the device extension of a device object, the remove lock is deleted when the driver deletes the device extension while processing an IRP_MN_REMOVE_DEVICE request.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20Remove%20Locks"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

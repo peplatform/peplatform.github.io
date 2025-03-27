@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Guidelines for Writing DPC Routines</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Guidelines for Writing DPC Routines">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_guidelines_for_writing_dpc_routines_kg"></A>Guidelines for Writing DPC Routines</H2>
+
+<P>Keep the following points in mind when writing a <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> or <A HREF="drvrrtns_3tbm.htm"><I>CustomDpc</I></A> routine:
+
+<UL>
+	<LI>A <I>DpcForIsr</I> or <I>CustomDpc</I> routine must synchronize its access to a physical device, and to any shared state information or resources that the driver maintains, with the driver’s other routines that access the same device or memory locations. 
+<P>If a <I>DpcForIsr</I> or <I>CustomDpc</I> routine shares the device or state with an ISR, it must call <A HREF="k105_99rm.htm"><B>KeSynchronizeExecution</B></A>, supplying the address of a driver-supplied <I>SynchCritSection</I> routine that programs the device or accesses the shared state. For more information, see <A HREF="intrupts_6g13.htm">Using Critical Sections</A>.
+
+<P>If a <I>DpcForIsr</I> or <I>CustomDpc</I> routine shares state or resources, such as an interlocked queue or a timer object, with routines other than an ISR, it must protect the shared state or resources with a driver-initialized executive spin lock. For more information, see <A HREF="synchro_8unb.htm">Spin Locks</A>.
+</LI>
+
+	<LI><I>DpcForIsr</I> and <I>CustomDpc</I> routines run at IRQL <A HREF="intrupts_0kh3.htm#ddk_dispatch_level_kg">DISPATCH_LEVEL</A>, which restricts the set of support routines they can call. 
+<P>For example, <I>DpcForIsr</I> and <I>CustomDpc</I> routines can neither access nor allocate pageable memory, and they cannot wait on <A HREF="synchro_4s9z.htm">kernel dispatcher objects</A>. On the other hand, they can acquire and release a driver’s executive spin lock with <A HREF="k105_9vaq.htm"><B>KeAcquireSpinLockAtDpcLevel</B></A> and <A HREF="k105_5ar6.htm"><B>KeReleaseSpinLockFromDpcLevel</B></A>, which run faster than <B>KeAcquireSpinLock</B> and <B>KeReleaseSpinLock</B>.
+</LI>
+
+	<LI> <I>DpcForIsr</I> and <I>CustomDpc</I> routines are typically responsible for starting the next I/O operation on the device.
+<P>For lowest-level physical device drivers that use direct I/O, this responsibility can include using a <I>SynchCritSection</I> routine to program the device to transfer more data in order to satisfy the current IRP <I>before</I>  the driver calls <A HREF="k104_7eb6.htm"><B>IoStartNextPacket</B></A>.<B> </B>
+</LI>
+
+	<LI>If the driver uses DMA and its <A HREF="drvrrtns_7vea.htm"><I>AdapterControl</I></A> routine returns <B>KeepObject</B> or <B>DeallocateObjectKeepRegisters</B> (thereby retaining the system DMA controller channel or bus-master adapter for additional transfer operations), the <I>DpcForIsr</I> or <I>CustomDpc</I> routine is responsible for releasing the adapter object or map registers with <A HREF="kdma_3bua.htm"><B>FreeAdapterChannel</B></A> or <A HREF="kdma_5rqq.htm"><B>FreeMapRegisters</B></A> <I>before</I> it completes the current IRP and returns control.</LI>
+
+	<LI>If a lowest-level physical device driver sets up a <A HREF="iputoput_5xd3.htm">controller object</A> to synchronize I/O operations through the controller to attached devices, its <I>DpcForIsr</I> or <I>CustomDpc</I> routine is responsible for releasing the controller object using <A HREF="k104_8hte.htm"><B>IoFreeController</B></A> before it completes the current IRP and returns control.</LI>
+
+	<LI><I>DpcForIsr</I> and <I>CustomDpc</I> routines are generally responsible for logging any device errors that occurred during the processing of a given request, retrying the current request if necessary and possible, and for setting the I/O status block and calling <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> for the current IRP.</LI>
+
+	<LI>If the driver and device support overlapped I/O operations, the driver must follow the rules for <A HREF="intrupts_5iqv.htm">handling overlapped I/O operations</A>.</LI>
+
+	<LI>The <I>DpcForIsr</I> or <I>CustomDpc</I> routine of any driver usually completes the I/O processing only for a subset of the public I/O control codes that the driver must support. In particular, the DPC routine completes operations for device control requests with the following characteristics:
+<UL>
+	<LI>Requests that change the state of the physical device </LI>
+
+	<LI>Requests that require the return of inherently volatile information about the physical device </LI>
+</UL>
+</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Guidelines%20for%20Writing%20DPC%20Routines"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

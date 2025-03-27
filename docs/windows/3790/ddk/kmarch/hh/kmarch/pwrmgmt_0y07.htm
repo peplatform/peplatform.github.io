@@ -1,0 +1,74 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling IRP_MN_QUERY_POWER for Device Power States</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling IRP_MN_QUERY_POWER for Device Power States">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_handling_irp_mn_query_power_for_device_power_states_kg"></A>Handling IRP_MN_QUERY_POWER for Device Power States</H2>
+
+<P>A device query-power IRP queries about a change of state for a single device and is sent to all the drivers in the stack for the device. Such an IRP specifies <B>DevicePowerState</B> in the <B>Power.Type</B> member of the I/O stack location.</P>
+
+<P>Drivers handle query-power IRPs as they travel down the stack. </P>
+
+<P>A function or filter driver can fail an <A HREF="poirp_9e9e.htm">IRP_MN_QUERY_POWER</A> request if any of the following is true: 
+
+<UL>
+	<LI>The device is enabled for wake-up and the requested power state is below the state from which the device can wake the system. For example, a device that can wake the system from D2 but not from D3 would fail a query for D3 but succeed a query for D2. </LI>
+
+	<LI>Entering the requested state would force the driver to abandon an operation that would lose data, such as an open modem connection. A driver rarely will fail a query for this reason; under most circumstances, the application handles such cases. </LI>
+</UL>
+
+<P>To fail an IRP_MN_QUERY_POWER request, a driver takes the following steps: 
+
+<OL>
+	<LI>Call <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A> to indicate its readiness to handle the next power IRP. </LI>
+
+	<LI>Set <B>Irp-&gt;IoStatus.Status</B> to a failure status and call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>, specifying IO_NO_INCREMENT. The driver does not pass the IRP further down the device stack. </LI>
+
+	<LI>Return an error status from its<I> <A HREF="drvrrtns_00mq.htm">DispatchPower</A></I> routine. </LI>
+</OL>
+
+<P>If the driver succeeds the query IRP, it must not start any operations or take any other action that would prevent its successful completion of a subsequent IRP_MN_SET_POWER request to the queried power state. </P>
+
+<P>A driver that succeeds the IRP must prepare for a set-power IRP for the queried state and pass down the query IRP, as follows: 
+
+<OL>
+	<LI>Finish any outstanding I/O operations. </LI>
+
+	<LI>Queue incoming I/O requests. </LI>
+
+	<LI>Avoid starting any other new activities that would interfere with a transition to the specified power state. However, the driver should not save device context or take other steps toward shutdown. </LI>
+
+	<LI>Call <B>IoCopyCurrentIrpStackLocationToNext</B> to set the IRP stack location for the next-lower driver. </LI>
+
+	<LI>Set an <I>IoCompletion</I> routine. In the <I>IoCompletion</I> routine, call <B>PoStartNextPowerIrp </B>to indicate the driver's readiness to handle the next power IRP. </LI>
+
+	<LI>Call <A HREF="portn_7tki.htm"><B>PoCallDriver</B></A> to pass the query IRP to the next-lower driver. Do not complete the IRP. </LI>
+
+	<LI>Return STATUS_PENDING. The driver must not change the value at <B>Irp-&gt;IoStatus.Status</B>. </LI>
+</OL>
+
+<P>When the query IRP reaches the bus driver, the bus driver calls <B>PoStartNextPowerIrp</B> and sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS if it can change to the specified power state or sets a failure status if it cannot. It then calls <B>IoCompleteRequest</B>, specifying IO_NO_INCREMENT. </P>
+
+<P>The drivers in a typical device stack handle a device query-power IRP as follows:
+
+<UL>
+	<LI>Most filter drivers should simply pass the IRP to the next-lower driver (see <A HREF="pwrmgmt_5n3b.htm">Passing Power IRPs</A>) and return STATUS_PENDING. Some filter drivers, however, might first need to perform device-specific tasks, such as queuing incoming IRPs or saving device state. </LI>
+
+	<LI>A function driver performs device-specific tasks (such as, completing pending I/O requests, queuing incoming I/O requests, saving device context, or changing device power), sets an<I> IoCompletion</I> routine, and passes the device power IRP to the next-lower driver (see <A HREF="pwrmgmt_5n3b.htm">Passing Power IRPs</A>). It returns STATUS_PENDING from its<I> DispatchPower</I> routine.</LI>
+
+	<LI>The bus driver calls <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A> to start the next power IRP. It then completes the IRP, specifying IO_NO_INCREMENT. If the driver cannot complete the IRP immediately, it calls <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A>, returns STATUS_PENDING from its<I> DispatchPower</I> routine, and completes the IRP later.</LI>
+</UL>
+
+<P>Even if the target device is already in the queried power state, each function or filter driver must queue I/O and pass the IRP down to the next-lower driver. The IRP must travel all the way down the device stack to the bus driver, which completes it. </P>
+
+<P>While handling an IRP_MN_QUERY_POWER request, a driver should return from the<I> DispatchPower</I> routine as quickly as possible. A driver must not wait in its<I> DispatchPower</I> routine for a kernel event signaled by code that handles the same IRP. Because power IRPs are synchronized throughout the system, a deadlock might occur.   </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20IRP_MN_QUERY_POWER%20for%20Device%20Power%20States"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

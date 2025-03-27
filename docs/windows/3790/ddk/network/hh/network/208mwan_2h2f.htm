@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Indicating Received Data from an NDIS WAN Miniport Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Indicating Received Data from an NDIS WAN Miniport Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_indicating_received_data_from_an_ndis_wan_miniport_driver_ng"></A>Indicating Received Data from an NDIS WAN Miniport Driver</H2>
+
+<P>The following operations occur when an NDIS WAN miniport driver receives a packet:
+
+<OL>
+	<LI>The NDIS WAN miniport driver calls the <A HREF="103ndisx_9jaq.htm"><B>NdisMWanIndicateReceive</B></A> function to indicate that a packet has arrived. </LI>
+
+	<LI>NDISWAN processes the packet and calls <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A> to indicate the arrival of the packet.</LI>
+
+	<LI>To forward the packet, NDIS calls the <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> or <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A> handlers of bound overlying protocol drivers. </LI>
+</OL>
+
+<P>The entire packet is present because the miniport driver does not indicate up any lookahead data. Because the entire packet is <I>always</I><B> </B>indicated up, the miniport driver will <I>never</I> receive a transfer-data call. (NDISWAN copies the data and then passes it up to the next higher driver.) The entire packet is always passed up because compression and encryption might have been applied to the packet. Also, because the WAN link is point-to-point, at least one bound protocol driver will always requires the packet for processing.</P>
+
+<P>After the NIC receives a packet, the NDIS WAN miniport driver removes driver-specific encapsulation from that packet only if required. For example, the miniport driver adjusts the <I>PacketBuffer</I> and <I>PacketSize</I> parameters before calling <B>NdisMWanIndicateReceive</B> to remove PPPoE encapsulation. However, the miniport driver should leave encapsulated data, such as the PPP header and payload, intact. </P>
+
+<P>An NDIS WAN miniport driver calls the <A HREF="103ndisx_60aa.htm"><B>NdisMWanIndicateReceiveComplete</B></A> function to denote the end of one or more receive indications so that protocols can postprocess received packets. In response, NDISWAN calls the <A HREF="104tdlow_5i7m.htm"><I>ProtocolReceiveComplete</I></A> handler of each bound protocol to notify the protocol that it can begin to process the received data. In a protocol's receive-complete handler, the protocol need not operate under the severe time constraints that it does in its receive handler.</P>
+
+<P>The protocol should assume that interrupts are enabled during the call to <I>ProtocolReceiveComplete</I>. In an SMP machine, the receive handler and the receive complete handler can be running concurrently on different processors.</P>
+
+<P>Note that an NDIS WAN miniport driver need not deliver <B>NdisMWanIndicateReceiveComplete</B> indications in one-to-one correspondence with <B>NdisMWanIndicateReceive</B> indications. The miniport driver can issue a single receive-complete indication after several receive indications have occurred. For example, an NDIS WAN miniport driver could call <B>NdisMWanIndicateReceiveComplete</B> from its receive handler for every ten packets completed or before exiting the handler, whichever occurs first.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Indicating%20Received%20Data%20from%20an%20NDIS%20WAN%20Miniport%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

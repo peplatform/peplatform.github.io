@@ -1,0 +1,250 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>OID_TCP_TASK_IPSEC_ADD_SA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="OID_TCP_TASK_IPSEC_ADD_SA">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_oid_tcp_task_ipsec_add_sa_nr"></A>OID_TCP_TASK_IPSEC_ADD_SA</H1>
+
+<P>The OID_TCP_TASK_IPSEC_ADD_SA OID is set by the transport protocol to request that a miniport driver add one or more security associations (SAs) to its NIC.</P>
+
+<P>The information for each SA is formatted as an OFFLOAD_IPSEC_ADD_SA structure, which is defined as follows:</P>
+
+<PRE class=syntax>typedef struct _OFFLOAD_IPSEC_ADD_SA {
+  IPAddr  SrcAddr;
+  IPMask  SrcMask;
+  IPAddr  DestAddr;
+  IPMask  DestMask;
+  ULONG  Protocol;
+  USHORT  SrcPort;
+  USHORT  DestPort;
+  IPAddr  SrcTunnelAddr;
+  IPAddr  DestTunnelAddr;
+  USHORT  Flags;
+  SHORT  NumSAs;
+  OFFLOAD_SECURITY_ASSOCIATION  SecAssoc[OFFLOAD_MAX_SAS];
+  NDIS_HANDLE  OffloadHandle;
+  ULONG  KeyLen;
+  UCHAR  KeyMat[1];
+} OFFLOAD_IPSEC_ADD_SA, *POFFLOAD_IPSEC_ADD_SA;</PRE>
+
+<P>The members of this structure contain the following information:
+
+<DL>
+<DT><B>SrcAddr</B></DT>
+
+<DD>Specifies the IP address of the source host (the host sending the packets)</DD>
+
+<DT><B>SrcMask</B></DT>
+
+<DD>Specifies the subnet mask for the source IP address</DD>
+
+<DT><B>DestAddr</B></DT>
+
+<DD>Specifies the IP address of the destination host (the host receiving the packets)</DD>
+
+<DT><B>DestMask</B></DT>
+
+<DD>Specifies the subnet mask for the destination IP address</DD>
+
+<DT><B>Protocol</B></DT>
+
+<DD>Specifies the IP protocol. Any combination of IP protocol types, such as TCP, UDP, ICMP, can be specified. The encoding of <B>Protocol</B> is identical to that of the Protocol field in an IP header. If <B>Protocol</B> is set to zero, the SA applies to any IP protocol.</DD>
+
+<DT><B>SrcPort</B></DT>
+
+<DD>Specifies a source TCP or UDP port. If <B>SrcPort</B> is set to zero, the SA applies to any source TCP/UDP port.</DD>
+
+<DT><B>DestPort</B></DT>
+
+<DD>Specifies a destination TCP or UDP port. If <B>DestPort</B> is set to zero, the SA applies to any source TCP/UDP port.</DD>
+
+<DT><B>SrcTunnelAddr</B></DT>
+
+<DD>Specifies the IP address for the source endpoint, such as a connector, of a tunnel. The miniport driver uses <B>SrcTunnelAddr</B> as the source address for the tunnel IP header of packets sent on the SA. <B>SrcTunnelAddr</B> is specified only for an SA that applies to the tunnel portion of a packet. <B>SrcTunnelAddr</B> is set to zero for an SA that applies to the transport portion of a packet.</DD>
+
+<DT><B>DestTunnelAddr</B></DT>
+
+<DD>Specifies the IP address for the destination endpoint, such as a connector, of a tunnel. The miniport driver uses <B>DestTunnelAddr</B> as the destination address for the tunnel IP header of packets sent on the SA. <B>DestTunnelAddr</B> is specified only for an SA that applies to the tunnel portion of a packet. <B>DestTunnelAddr</B> is set to zero for an SA that applies to the transport portion of a packet.</DD>
+
+<DT><B>Flags</B></DT>
+
+<DD>A bitmask that indicates whether the SA being added is an inbound or outbound SA as follows:
+
+<DL>
+<DT><B>OFFLOAD_INBOUND_SA</B></DT>
+
+<DD>Specifies an inbound SA.</DD>
+
+<DT><B>OFFLOAD_OUTBOUND_SA</B></DT>
+
+<DD>Specifies an outbound SA.</DD>
+</DL>
+</DD>
+
+<DT><B>NumSAs</B></DT>
+
+<DD>Specifies the number of elements in the <B>SecAssoc</B> array. Each element in the array is an OFFLOAD_SECURITY_ASSOCIATION structure, which is described below.</DD>
+
+<DT><B>SecAssoc</B></DT>
+
+<DD>Specifies a variable-length array that contains the information on the IP Security operations (AH and/or ESP) for the SA. The information for each IP Security operations is formatted as an OFFLOAD_SECURITY_ASSOCIATION structure, which is described below.
+
+<P>The TCP/IP transport specifies one or two OFFLOAD_SECURITY_ASSOCIATION structures in the buffer at <B>SecAssoc</B>. Each OFFLOAD_SECURITY_ASSOCIATION structure indicates the type of operation—authentication or encryption/decryption— for which the SA specified in the structure is to be used. The order of the OFFLOAD_SECURITY_ASSOCIATION structures in the array indicates the order in which the miniport driver should perform the operations for each SA. Only one combination of operations is supported: encryption/decryption (ESP) followed by authentication (AH).
+</DD>
+
+<DT><B>OffloadHandle</B></DT>
+
+<DD>Specifies the handle to the newly created SA. The miniport driver supplies this handle before completing the OID_TCP_TASK_IPSEC_ADD_SA request. The TCP/IP transport must specify this handle in the <A HREF="105nstru_2tbm.htm">NDIS_IPSEC_PACKET_INFO</A> structure before passing a send packet to the miniport driver. The TCP/IP transport must also specify this handle when deleting the SA with an <A HREF="216offload_7bsi.htm">OID_TCP_TASK_IPSEC_DELETE_SA</A> request.</DD>
+
+<DT><B>KeyLen</B></DT>
+
+<DD>Specifies the length in bytes of the buffer at <B>KeyMat</B>.</DD>
+
+<DT><B>KeyMat</B></DT>
+
+<DD>Specifies a variable-length array that contains key(s) for the SA(s) specified at <B>SecAssoc</B>. If both a confidentiality (encryption/decryption) algorithm and an integrity (authentication) algorithm are specified by the <B>ConfAlgo</B> and <B>IntegrityAlgo</B> of an OFFLOAD_SECURITY_ASSOCIATION structure, the buffer at <B>KeyMat</B> contains key information for the confirmation algorithm first, followed immediately by key information for the integrity algorithm.
+
+<P>The length of each key in the buffer at <B>KeyMat</B> is specified by <B>algoKeyLen</B> in the OFFLOAD_ALGO_INFO structure that specifies the confidentiality or integrity algorithm. (An OFFLOAD_ALGO_INFO structure is a member of an OFFLOAD_SECURITY_ASSOCIATION structure.)
+
+</DD>
+</DL>
+
+<P>The first seven members of the OFFLOAD_IPSEC_ADD_SA structure (<B>SrcAddr</B>, <B>SrcMask</B>, <B>DestAddr</B>, <B>DestMask</B>, <B>Protocol</B>, <B>SrcPort</B>, and <B>DestPort</B>) constitute a filter that specifies the source and destination, as well as the IP protocol(s), to which the SA(s) apply. This filter pertains to a transport-mode connection—that is, an end-to-end connection between two hosts. If the specified connection is made through a tunnel, the source and destination addresses of the tunnel are specified by <B>SrcTunnelAddr</B> and <B>DestTunnelAddr</B>, respectively.</P>
+
+<P>If a filter parameter is set to zero, that parameter is not used to filter packets for the specified SA(s). For example, if <B>SrcAddr</B> is set to zero, the specified SA(s) can apply to a packet that contains any source address. To take this to the extreme, if all the filter parameters are set to zero, the specified SA(s) apply to any source host sending any type of packet to any destination host. </P>
+
+<P>The TCP/IP transport can specify an IP protocol in the <B>Protocol</B> member to indicate that the specified SA(s) apply only to packets of the specified protocol type. If <B>Protocol</B> is set to zero, the specified SA(s) apply to all packets sent from the specified source to the specified destination.</P>
+
+<H4>OFFLOAD_SECURITY_ASSOCIATION structure</H4>
+
+<P>An OFFLOAD_SECURITY_ASSOCIATION structure specifies a single security association (SA). The OFFLOAD_SECURITY_ASSOCIATION structure is an element in the <B>SecAssoc</B> variable-length array. <B>SecAssoc</B> contains one or two OFFLOAD_SECURITY_ASSOCIATION structures.</P>
+
+<P>The OFFLOAD_SECURITY_ASSOCIATION structure is defined as follows:</P>
+
+<PRE class=syntax>typedef struct _OFFLOAD_SECURITY_ASSOCIATION {
+  OFFLOAD_OPERATION_E  Operation;
+  SPI_TYPE  SPI;
+  OFFLOAD_ALGO_INFO  IntegrityAlgo;
+  OFFLOAD_ALGO_INFO  ConfAlgo;
+  OFFLOAD_ALGO_INFO  Reserved;
+} OFFLOAD_SECURITY_ASSOCIATION, *POFFLOAD_SECURITY_ASSOCIATION;</PRE>
+
+<P>The members of the OFFLOAD_SECURITY_ASSOCIATION structure contain the following information:
+
+<DL>
+<DT><B>Operation</B></DT>
+
+<DD>Specifies the IP security operation for which the SA is to be used. The following operations are supported:
+
+<DL>
+<DT><B>AUTHENTICATE</B></DT>
+
+<DD>Specifies that the SA is to be used for authentication (integrity checking).</DD>
+
+<DT><B>ENCRYPT</B></DT>
+
+<DD>Specifies that the SA is to be used for encryption/decryption (confidentiality).</DD>
+</DL>
+</DD>
+
+<DT><B>SPI</B></DT>
+
+<DD>Specifies the Security Parameters Index for the SA.</DD>
+
+<DT><B>IntegrityAlgo</B></DT>
+
+<DD>Specifies the integrity (authentication) algorithm for the SA, formatted as an OFFLOAD_ALGO_INFO structure. The OFFLOAD_ALGO_INFO structure is described below.</DD>
+
+<DT><B>ConfAlgo</B></DT>
+
+<DD>Specifies the confidentiality (encryption/decryption) algorithm for the SA, formatted as an OFFLOAD_ALGO_INFO structure. The OFFLOAD_ALGO_INFO structure is described below. </DD>
+
+<DT><B>Reserved</B></DT>
+
+<DD>This is reserved.
+</DD>
+</DL>
+
+<P>An SA specified for use in processing authentication headers (AH) will have an operation type of <B>AUTHENTICATE</B> and will have an <B>IntegrityAlgo</B> (integrity algorithm). The SA will not have an a <B>ConfAlgo</B> (confidentiality algorithm). In this case, <B>ConfAlgo</B> will contain zeros.</P>
+
+<P>An SA specified for use in processing encapsulating security payloads (ESPs) will have an operation type of <B>ENCRYPT</B> and may have an <B>IntegrityAlgo</B> (integrity algorithm) and/or a <B>ConfAlgo</B> (confidentiality algorithm).</P>
+
+<H4>OFFLOAD_ALGO_INFO structure</H4>
+
+<P>The OFFLOAD_ALGO_INFO structure, which is a member of an OFFLOAD_SECURITY_ASSOCIATION structure, specifies an algorithm used for a security association (SA).</P>
+
+<P>The OFFLOAD_ALGO_INFO structure is defined as follows:</P>
+
+<PRE class=syntax>typedef struct _OFFLOAD_ALGO_INFO {
+  ULONG  algoIdentifier;
+  ULONG  algoKeylen;
+  ULONG  Reserved;
+} OFFLOAD_ALGO_INFO, *POFFLOAD_ALGO_INFO;</PRE>
+
+<P>The members of an OFFLOAD_ALGO_INFO structure contain the following information:
+
+<DL>
+<DT><B>algoIdentifier</B></DT>
+
+<DD>Specifies the confidentiality or integrity algorithm used for the SA. 
+
+<P>If the algorithm is a confidentiality algorithm (that is, if the OFFLOAD_ALGO_INFO structure is specifying a <B>ConfAlgo</B>), <B>algoIdentifier</B> can be any of the following values:
+
+
+<DL>
+<DT><B>OFFLOAD_IPSEC_CONF_NONE</B></DT>
+
+<DD>Specifies no confidentiality algorithm. Used for null encryption—that is, when a packet is not encrypted but its ESP header contains authentication information.</DD>
+
+<DT><B>OFFLOAD_IPSEC_CONF_DES</B></DT>
+
+<DD>Specifies the DES algorithm.</DD>
+
+<DT><B>OFFLOAD_IPSEC_CONF_3_DES</B></DT>
+
+<DD>Specifies the triple-DES algorithm.</DD>
+</DL>
+
+
+<P>If the algorithm is an integrity algorithm (that is, if the OFFLOAD_ALGO_INFO structure is specifying an <B>IntegrityAlgo</B>), <B>algoIdentifier</B> can be either of the following values:
+
+
+<DL>
+<DT><B>OFFLOAD_IPSEC_INTEGRITY_NONE</B></DT>
+
+<DD>Specifies no integrity algorithm. Used when the ESP header contains no authentication information.</DD>
+
+<DT><B>OFFLOAD_IPSEC_INTEGRITY_MD5</B></DT>
+
+<DD>Specifies the keyed MD5 algorithm.</DD>
+
+<DT><B>OFFLOAD_IPSEC_INTEGRITY_SHA</B></DT>
+
+<DD>Specifies the SHA 1 algorithm.</DD>
+</DL>
+</DD>
+
+<DT><B>algoKeylen</B></DT>
+
+<DD>Specifies in bytes the length of the key for the algorithm. The key is contained in the buffer at <B>KeyMat</B>¸ which is the variable-length array specified in the OFFLOAD_IPSEC_ADD_SA structure.
+
+<P>If only an integrity algorithm (<B>IntegrityAlgo</B>) is specified in the OFFLOAD_SECURITY_ASSOCIATION structure, <B>algoKeylen</B> indicates the length of the key for the integrity algorithm, starting from the beginning of the buffer at <B>KeyMat</B>.
+
+
+<P>If both an integrity and a confidentiality algorithm (<B>IntegrityAlgo</B> and <B>ConfAlgo</B>) are specified, <B>algoKeylen</B> for the integrity algorithm indicates the length of the key for the integrity algorithm, starting from the beginning of the buffer at <B>KeyMat</B>. The <B>algoKeylen</B> for the confidentiality algorithm, in this case, indicates the length of the key for the confidentiality algorithm, starting the from the end of the key for the integrity algorithm.
+</DD>
+
+<DT><B>Reserved</B></DT>
+
+<DD>This is reserved.</DD>
+</DL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: OID_TCP_TASK_IPSEC_ADD_SA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

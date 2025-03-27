@@ -1,0 +1,68 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Getting an Adapter Object</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Getting an Adapter Object">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_getting_an_adapter_object_kg"></A>Getting an Adapter Object</H2>
+
+<P>At device start-up, a driver that uses system or bus-master DMA calls <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A> to get a pointer to an adapter object and to determine the maximum number of map registers available for each transfer operation. When a driver calls <B>IoGetDmaAdapter</B>, the I/O Manager, in turn, calls the HAL to get the necessary platform-specific information. </P>
+
+<P>A driver must supply certain information in a system-defined <A HREF="k112_7f76.htm">DEVICE_DESCRIPTION</A> structure in its call to <B>IoGetDmaAdapter</B>. Drivers must use <A HREF="k109_4nci.htm"><B>RtlZeroMemory</B></A> to initialize the DEVICE_DESCRIPTION structure with zeros before setting values in it.</P>
+
+<P>The required data includes information about the features of the driver's device, such as whether the device is a bus master, if it has scatter/gather capabilities, and how many bytes of data the device can transfer at a time (<B>MaximumLength</B>). </P>
+
+<P>The required device description data also includes platform-specific information, such as the platform-specific and system-assigned number of the bus that a driver of a bus-master device controls. A driver can obtain this information by calling <A HREF="k104_7pgy.htm"><B>IoGetDeviceProperty</B></A>.  </P>
+
+<P>The DEVICE_DESCRIPTION structure includes some fields that might be irrelevant to some DMA devices or drivers. For example, the <B>BusNumber</B> field is not used in WDM drivers. Each driver should supply values for the relevant structure members and should set the values for all other members to zero.</P>
+
+<P>The driver of a slave device should not pass TRUE in the <B>ScatterGather</B> field unless the device is capable of waiting for the system DMA controller to be reprogrammed when a request must be broken up into two or more DMA operations. </P>
+
+<P><B>IoGetDmaAdapter</B> returns both a pointer to an adapter object and a platform-specific or device-specific value indicating how many map registers are available with the adapter object for each DMA transfer operation. </P>
+
+<P>The returned adapter object contains three fields that are accessible to drivers: 
+
+<UL>
+	<LI>Version number (<B>Version</B>)</LI>
+
+	<LI>Size (<B>Size</B>), </LI>
+
+	<LI>Pointer to a <A HREF="k112_3tf6.htm">DMA_OPERATIONS</A> structure (<B>DmaOperations</B>)</LI>
+</UL>
+
+<P>The DMA_OPERATIONS structure comprises a table of pointers to functions the driver must use to perform DMA operations on its device. The functions are accessible only through the pointers in this data structure; a driver cannot call them directly by name. (Note that these routines replace <B>HalXxx</B> supported in previous versions of Windows NT. To ensure compatibility for legacy drivers, the <I>wdm.h</I> and <I>ntddk.h</I> header files supply macros with the obsolete names, but new drivers should always call the functions through the data structure.)</P>
+
+<P>The number of map registers can vary from device to device and from platform to platform. Generally, the HAL assigns a number of map registers according to the following criteria:
+
+<UL>
+	<LI>If possible, the HAL returns a value that is one more than the number of map registers needed to transfer <B>MaximumLength</B> bytes, as specified in the driver's call to <B>IoGetDmaAdapter</B>.</LI>
+
+	<LI>Otherwise, the HAL returns a lesser value that is as large as possible for the particular platform.</LI>
+</UL>
+
+<P>In other words, the HAL usually gives each driver enough map registers to maximize DMA throughput for its device, but the HAL can return a lesser value on some Windows platforms. There is no guarantee that a driver will get the number of map registers it requests, so drivers should always check the returned value.</P>
+
+<P>Any DMA device driver must provide storage for the adapter object pointer and <I>NumberOfMapRegisters</I> value returned by <B>IoGetDmaAdapter</B>. This pointer is a required parameter to the system-supplied support routines used for DMA. Because many of these support routines must be called at IRQL DISPATCH_LEVEL, the driver-allocated storage must be resident. Most DMA drivers provide the necessary storage in a <A HREF="devobjts_1gdj.htm">device extension</A>. However, the storage can be in a controller extension if the driver also uses a <A HREF="iputoput_5xd3.htm">controller object</A> or in nonpaged pool that is allocated by the driver. See <A HREF="memmgmt_9mef.htm">Allocating System-Space Memory</A> and <A HREF="intrupts_0kh3.htm">Managing Hardware Priorities</A> for more information.</P>
+
+<P>When the driver has completed all DMA operations, it calls <A HREF="kdma_3l4i.htm"><B>PutDmaAdapter</B></A> to free the adapter object.</P>
+
+<P>The following sections (<A HREF="iputoput_3zfr.htm">Using System DMA</A> and <A HREF="iputoput_2cyv.htm">Using Bus-Master DMA</A>) describe how monolithic drivers of DMA devices use support routines to satisfy transfer requests. These sections assume that the driver has the following:
+
+<UL>
+	<LI>A standard <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A> routine, rather than setting up and managing an internal queue of IRPs</LI>
+
+	<LI>An internal routine to split transfer requests for which an insufficient number of map registers is available</LI>
+
+	<LI>No device-specific DMA constraints</LI>
+</UL>
+
+<P>In other words, these sections describe the simplest possible technique for drivers' DMA operations, but individual drivers do not necessarily use exactly the same techniques. For any driver of a DMA device, which driver routines should split up large DMA transfer requests depends on the driver model (class/port or monolithic), on the device's features, and on any device-specific DMA constraints that driver must handle.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Getting%20an%20Adapter%20Object"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

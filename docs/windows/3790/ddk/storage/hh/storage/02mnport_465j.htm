@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Calling ScsiPortInitialize</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Calling ScsiPortInitialize">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_calling_scsiportinitialize_kg"></A>Calling ScsiPortInitialize</H2>
+
+<P>If a miniport driver’s HBA can be connected on more than one type of I/O bus, the miniport must call <B>ScsiPortInitialize</B> for each bus type and can have a different <I>HwScsiFindAdapter</I> routine for each bus type. After each call to <B>ScsiPortInitialize</B>, such a miniport driver must modify the <B>AdapterInterfaceType </B>member, modify the <B>HwScsiFindAdapter</B> member in the HW_INITIALIZATION_DATA if the miniport has a different <I>HwScsiFindAdapter</I> routine for that bus type, possibly modify the miniport-supplied context data for the new bus type, and call <B>ScsiPortInitialize</B> for each type of bus on which a supported HBA might be connected. </P>
+
+<P>If the miniport is a legacy driver that does not support Plug and Play, <B>ScsiPortInitialize</B> calls the miniport’s <I>HwScsiFindAdapter</I> routine one or more times before it returns control to the miniport’s <B>DriverEntry</B> routine. All of the <I>HwScsiFindAdapter</I> calls are made in the context of the miniport’s <B>DriverEntry</B> routine, in the order <B>DriverEntry</B> called <B>ScsiPortInitialize</B>.</P>
+
+<P>If the miniport supports Plug and Play, <B>ScsiPortInitialize</B> stores the initialization data for future use and returns STATUS_SUCCESS to the miniport’s <B>DriverEntry</B> routine. The port driver does not call  the miniport’s <I>HwScsiFindAdapter</I> routine until the Plug and Play Manager detects an HBA for which the miniport is registered as a service.</P>
+
+<P>For both Plug and Play and legacy miniport drivers, the port driver does all of the following before it calls the miniport’s<B> </B><I>HwScsiFindAdapter</I> routine:
+
+<UL>
+	<LI>Checks the validity of the HW_INITIALIZATION_DATA. </LI>
+
+	<LI>Collects and stores pertinent information in the device extension of a device object that it creates to represent the HBA. </LI>
+
+	<LI>Allocates memory for and initializes with zeros a device extension of the requested size in which the miniport driver can store driver-determined information about the HBA. </LI>
+
+	<LI>Allocates memory for a configuration information buffer that is <B>sizeof</B>(PORT_CONFIGURATION_INFORMATION). </LI>
+
+	<LI>In the configuration information buffer, fills in a PORT_CONFIGURATION_INFORMATION structure with as much configuration information about an HBA on a particular I/O bus as possible, from the miniport-supplied HW_INITIALIZATION_DATA and from other sources, such as the registry for a legacy miniport or from the Plug and Play Manager for a Plug and Play miniport. </LI>
+</UL>
+
+<P>For more information about the miniport driver’s <I>HwScsiFindAdapter</I> routine, see <A HREF="02mnport_9huv.htm">SCSI Miniport Driver's HwScsiFindAdapter Routine</A>. </P>
+
+<P>If the miniport’s <B>DriverEntry</B> routine sets a particular <B>AdapterInterfaceType</B> value in the HW_INITIALIZATION_DATA but there is no bus of that type in the machine, the port driver returns an operating system-specific status value indicating that such an HBA does not exist in the current machine. It does not call the driver-supplied <I>HwScsiFindAdapter</I> routine for that bus type. </P>
+
+<P>A miniport driver does not remain loaded if the machine has no I/O buses of the type(s) specified by the miniport’s <B>DriverEntry</B> routine. </P>
+
+<P>For a legacy miniport, note that <B>ScsiPortInitialize</B> also is responsible for the following before it returns control to the legacy miniport’s <B>DriverEntry</B> routine: 
+
+<UL>
+	<LI>Setting up all necessary system objects </LI>
+
+	<LI>Getting configuration information from and setting configuration information in the registry</LI>
+
+	<LI>Allocating system resources on behalf of the miniport driver, including memory in the amounts indicated by the miniport-specified <B>DeviceExtensionSize</B>, <B>SpecificLuExtensionSize</B>, and/or <B>SrbExtensionSize</B> in which the miniport driver can maintain HBA-specific state, per-logical-unit state, and/or per-request state, respectively </LI>
+</UL>
+
+<P>For a Plug and Play miniport, the port driver performs these operations after the miniport driver’s <I>HwScsiFindAdapter</I> routine returns and before the port driver calls the miniport’s <I>HwScsiInitialize</I> routine.</P>
+
+<P>Each SCSI miniport driver defines the internal structure and contents of its device extension, logical unit extensions (if any), and SRB extensions (if any). A pointer to the HBA-specific device extension is an input argument to every system-defined miniport driver routine except <B>DriverEntry</B>. Many <B>ScsiPort</B><I>Xxx</I> routines require this pointer as an argument. </P>
+
+<P><B>ScsiPortInitialize</B> can be called only from a miniport driver’s <B>DriverEntry</B> routine. For more information, see <A HREF="k306_5s1e.htm">HW_INITIALIZATION_DATA (SCSI)</A> and <A HREF="k301_9n76.htm"><B>ScsiPortInitialize</B></A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Calling%20ScsiPortInitialize"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

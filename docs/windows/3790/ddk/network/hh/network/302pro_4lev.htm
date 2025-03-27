@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Sending Packets from a Connectionless Protocol Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Sending Packets from a Connectionless Protocol Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_sending_packets_from_a_connectionless_protocol_driver_ng"></A>Sending Packets from a Connectionless Protocol Driver</H2>
+
+<P>A connectionless protocol driver can call <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A> to transmit a single packet. It passes in a pointer to a packet descriptor with chained buffer descriptors, mapping the buffered data to be sent. Alternatively, a connectionless protocol driver can transmit several packets using <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A>. In this case, it passes in a pointer to an array of pointers to one or more packet descriptors. </P>
+
+<P>You can choose to call <B>NdisSend</B> or <B>NdisSendPackets</B> based upon the driver’s requirements and on the characteristics of the underlying miniport driver. </P>
+
+<P>A connectionless protocol driver should call <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A> with an <A HREF="22genoid_9roy.htm">OID_GEN_MAXIMUM_SEND_PACKETS</A> query request when it has bound itself to an underlying miniport driver. This OID allows the protocol driver to determine the maximum number of send packets that the underlying driver will accept in a packet array. </P>
+
+<P>If the miniport driver supports only single-packet send operations, either at its <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A> or its <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A> function, the value returned from an OID_GEN_MAXIMUM_SEND_PACKETS will be one or, possibly, NDIS_STATUS_NOT_SUPPORTED. Either of these return values implies the protocol driver is likely to call <B>NdisSend</B> rather than <B>NdisSendPackets</B>. If the underlying driver returns a value greater than one, both drivers' performance will be better if the protocol driver sends an array of packets with <B>NdisSendPackets</B>. </P>
+
+<P>If OOB information is passed between the protocol driver and the miniport driver, either <B>NdisSend</B> or <B>NdisSendPackets</B> can be called. In either case, the underlying driver can read the OOB data using NDIS-supplied macros </P>
+
+<P>Whenever a protocol driver calls <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A>, it relinquishes ownership of the given packet resources until the send completes, either synchronously or asynchronously. If the status returned by <B>NdisSend</B> is something other than NDIS_STATUS_PENDING, the send completes synchronously and ownership of the protocol-allocated packet resources reverts to the protocol driver. If the status returned by <B>NdisSend</B> is NDIS_STATUS_PENDING, when the send subsequently completes, NDIS passes the final status of the send and the protocol-allocated packet descriptor to the <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A> function.</P>
+
+<P>When a protocol driver calls <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A> to transmit one or more packets, send operations are always asynchronous. The protocol driver relinquishes ownership of the packet resources that it allocated until NDIS returns each packet descriptor and the final status of the send operation to <I>ProtocolSendComplete</I>. </P>
+
+<P>As a consequence, a protocol driver never reads the <B>Status</B> member in the OOB block associated with a packet descriptor on return from <B>NdisSend</B> (or <B>NdisSendPackets)</B>. The protocol driver cannot learn the status of its send request in this manner because this member is in use by NDIS to track the progress of an in-transition send request and is volatile until the packet descriptor is returned to <I>ProtocolSendComplete</I>. A protocol driver always obtains the status of a transmit request either by examining the value returned by <B>NdisSend</B> or from the <I>Status</I> parameter passed to <I>ProtocolSendComplete</I>.</P>
+
+<P>A protocol driver can request the transmission of an array of packets of different priorities by arranging the packets it receives from clients. The protocol driver should place the highest priority packets at the beginning of the array. NDIS always preserves the order of packets in any array passed to <B>NdisSendPackets</B>, even if NDIS queues some of the packets internally. </P>
+
+<P>NDIS does not attempt to examine and make queuing decisions based on any of the OOB data associated with the packet descriptors given to <B>NdisSendPackets</B> (or to <B>NdisSend</B>). Unless a protocol driver has special knowledge of the manner in which the underlying miniport driver handles packet priorities or the <B>TimeToSend</B> time stamps, the protocol should assume that the underlying miniport driver transmits all packets in the order in which they are received. Consequently, a protocol should order the packet arrays it sends according to the order in which those packets should be transmitted over the network. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Sending%20Packets%20from%20a%20Connectionless%20Protocol%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

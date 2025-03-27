@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Streaming Data Transfer</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_2284"></A>Streaming Data Transfer</H3>
+
+<P>Waveform and video streams involve the continuous flow of real-time audio and video data. Typically, these streams involve a high data-transfer rate and require significant processor time. </P>
+
+<P>The data-transfer model for streaming audio and video input is similar. If you have worked with waveform or video-capture device drivers, many of the concepts you already understand apply to the other type of driver. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>The following sequence of operations occurs when streaming waveform or video data between a device driver and a client application</B>
+
+<OL>
+	<LI>The client allocates the memory buffers for the audio or video data. </LI>
+
+	<LI>If required, the client initializes the data stream. </LI>
+
+	<LI>The client requests that the driver prepare the data buffers. </LI>
+
+	<LI>The client sends the empty data buffers to the driver. </LI>
+
+	<LI>The driver puts the data buffers in its input queue. </LI>
+
+	<LI>When the streaming operation begins, the driver fills a data buffer and sets the done bit for the data buffer. The driver then releases the buffer from its queue and proceeds to fill the next buffer. </LI>
+
+	<LI>When the client is ready for data, it uses the done bit or a callback to see if the data in the buffer is ready. </LI>
+
+	<LI>After the client empties the buffer, it resets the done bit and sends the empty buffer back to the driver for it to add to its queue. </LI>
+</OL>
+
+<P>Once the stream starts, the client application and the audio and video device driver do not communicate directly. The device driver fills the data buffers at the data rate specified by the client application. It fills the buffers without waiting for any synchronization signal from the application, as long as buffers are available and it is not paused or stopped by the application. The buffers are filled in the order that the driver receives them from the application. (If the device driver runs out of buffers, it should set an error flag. A client video application can use the DVM_STREAM_GETERROR message to test for this condition.) </P>
+
+<P>The client application expects the buffers back in the order that it sends them to the device driver. When it is ready for more data, it checks the done bit of the next buffer it expects to receive from the device driver. If the done bit is set, the application continues operation with that buffer. If the done bit is not set, the application periodically checks the done bit while it waits for the buffer. </P>
+
+<P>Streaming continues until it is stopped by the application. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>The following sequence of operations occurs when the application has finished capturing data</B>
+
+<OL>
+	<LI>When the client stops the streaming operation, the driver stops filling buffers. </LI>
+
+	<LI>If the client wants to restart streaming, it sends a message to restart streaming. If the client is finished streaming, it requests that the driver unprepare the data buffers. </LI>
+
+	<LI>The client releases the data stream and frees the memory allocated for the data. </LI>
+</OL>
+
+<H4>Preparing Data Buffers</H4>
+
+<P>Because audio and video data buffers must be accessed at interrupt time, the memory allocated for them is subject to the requirements mentioned in . Rather than have the client application prepare the memory before sending data blocks to the driver, the client requests that the driver make the preparations. </P>
+
+<P>This request involves two messages, in the form of _PREPARE and _UNPREPARE. Most drivers can respond to these messages by returning a MMSYSERR_NOTSUPPORTED error. Then, MMSYSTEM prepares the data block by page-locking it so the driver can access it at interrupt time. For example, most drivers can respond to the DVM_STREAM_PREPAREHEADER and DVM_STREAM_UNPREPAREHEADER messages by returning a DV_ERR_UNSUPPORTED error. When a driver returns the DV_ERR_UNSUPPORTED error, MMSYSTEM prepares the data block by page-locking the header and data sections so the driver can access them at interrupt time. </P>
+
+<P>If a device driver does not need page-locked data (for example, if the application immediately copies the data to an on-card buffer) or if the buffer requires additional preparation, the application can respond to these messages directly instead of letting MMSYSTEM handle them. An application should respond to both messages, or to neither. </P>
+
+<P>The following table identifies the drivers that use these messages, and the name of the prepare and unprepare messages. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=37%>Driver type </TH>
+<TH align=left width=63%>Prepare/unprepare message </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>MIDI input </TD>
+<TD width=63%>MIDM_PREPARE 
+<P>MIDM_UNPREPARE </P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>MIDI output </TD>
+<TD width=63%>MODM_PREPARE 
+<P>MODM_UNPREPARE </P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>Waveform audio input </TD>
+<TD width=63%>WIDM_PREPARE 
+<P>WIDM_UNPREPARE </P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>Waveform audio output </TD>
+<TD width=63%>WODM_PREPARE 
+<P>WODM_UNPREPARE </P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>Video capture </TD>
+<TD width=63%>DVM_STREAM_PREPAREHEADER 
+<P>DVM_STREAM_UNPREPAREHEADER </P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=37%>Audio compression and decompression </TD>
+<TD width=63%>ACMDM_STREAMPREPARE 
+<P>ACMDM_STREAMUNPREPARE </P>
+</TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Streaming%20Data%20Transfer"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

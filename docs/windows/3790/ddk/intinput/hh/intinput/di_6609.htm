@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Polling Callback</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Polling Callback">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Interactive&nbsp;Input&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_polling_callback_di"></A>Polling Callback</H3>
+
+<PRE>int stdcall PollRoutine( int type, LPJOYOEMPOLLDATA pojd );
+</PRE>
+
+<P>The polling routine is called either in direct response to an application calling <B>joyGetPos</B> or <B>joyGetPosEx</B>, or when Windows&nbsp;95/98/Me periodically calls  <B>joyGetPos</B> for an application that has called <B>joySetCapture</B>. It is only when a minidriver is first called on its poll callback that it can be certain that an application requires data from it. All the other callbacks are called for all devices that are currently in the list of 16 available joysticks, whether or not any application has requested data. </P>
+
+<P>The possible return values are JOY_OEMPOLLRC_YOUPOLL, JOY_OEMPOLLRC_FAIL, and JOY_OEMPOLLRC_OK. With the exception of a button-only poll, the return value is interpreted into either JOYERR_NOERROR or JOYERR_UNPLUGGED before being returned to an application. A button poll is always assumed to succeed. </P>
+
+<P>JOY_OEMPOLLRC_FAIL is  returned if the device being polled is not responding, or if VJoyD has requested a poll that the minidriver cannot process. In the former case, care should be taken not to fail a device unless it really has failed, because the application is likely to stop everything and request that the user check the connections to the device. For example, a call to <B>joySetCapture</B> fails if the first poll fails. Minor device failures should not cause a failure to be reported until user intervention is required or an unrecoverable device error is detected. For instance, a device that communicates using a packet-based protocol should attempt a retry before failing the poll if one packet is not valid. </P>
+
+<P>It is important to recognize genuine device failure and return an error eventually, otherwise an application cannot determine that user intervention is required at all. If old or false data is returned while error recovery is performed, the meaning of data returned, the number of polls allowed, or the time allowed from the initial error should be restricted so the driver does not delay for an inordinate amount of time. When a minidriver is requested to perform a poll on a device that it does not control, or to perform a poll type or sub-type that it cannot service, a failure is always the correct response. </P>
+
+<P>JOY_OEMPOLLRC_YOUPOLL can be used if the standard analog poll yields the correct results. </P>
+
+<P>JOY_OEMPOLLRC_OK should be returned in the normal case when the JOYINFOEX structure has been filled with the requested data. </P>
+
+<P>Care must be taken if the first poll is used to perform initialization on the device. Applications can do an initial poll to check for the availability of the device by checking the return code. They can then make subsequent polls with no error checking. This is essentially what <B>joySetCapture</B> does. Ideally, all initialization and the first poll should be performed. For those cases in which the time required to set up the device lasts up to a second, it is normally sufficient to verify that the device is present and working and to return inert data for the first poll. </P>
+
+<P>The API and system drivers perform validation on the request made by the application and copy the required data into the application structure upon completion. The minidriver should not replicate this functionality. However, nothing prevents one process from polling a device while another is still in the middle of a poll. The consequences of this unlikely event are usually no worse than two axes being reported from different samples. If necessary, a minidriver can perform its own process synchronization. </P>
+
+<P>Return values depend upon the "type" parameter and what the device supports. The buttons and button number should always be returned. Because there is no way to specify to the minidriver that a POV poll is required, this value should also be returned if any axes are requested, setting POV_UNDEFINED if the device does not support one. For a single axis poll, the value is returned in the <B>dwX</B> member of the JOYPOLLDATA structure (the <A HREF="di_ref_463t.htm">VJPOLLDATA</A> structure in DirectX 5.0 and later). If multiple axes are requested and the number of axes requested is odd, the <B>do_other</B> member of the <A HREF="di_ref_04x5.htm">JOYOEMPOLLDATA</A> structure specifies whether the last axis is returned in place or for the following axis. In a three-axis poll, for example, the member specifies whether the axes returned are X, Y, Z or X, Y, R. </P>
+
+<P>The following is a list of other possible return values, broken down by type (filling in extra data does no harm, but note that all polls of an odd number of axes must decode the <B>do_other</B> member to decide what is returned): 
+
+<UL>
+	<LI>JOY_OEMPOLL_GETBUTTONS: Nothing extra. </LI>
+
+	<LI>JOY_OEMPOLL_POLL1: The axis specified in the <B>do_other </B>member is returned in the <B>dwX </B>member. </LI>
+
+	<LI>JOY_OEMPOLL_POLL2: The X and Y axes are returned in<I> </I>the <B>dwX</B> and <B>dwY</B> members. </LI>
+
+	<LI>JOY_OEMPOLL_POLL3: The X and Y axes are returned in<I> </I>the <B>dwX</B> and <B>dwY</B> members. 
+<P>If the <B>do_other</B> member is nonzero, the R axis is returned in<I> </I>the <B>dwR</B> member. Otherwise, the Z axis is returned in the <B>dwZ </B>member.
+</LI>
+
+	<LI>JOY_OEMPOLL_POLL4: The X, Y, Z and R axes are returned in the <B>dwX, dwY, dwZ,</B> and <B>dwR</B> members. </LI>
+
+	<LI>JOY_OEMPOLL_POLL5: The X, Y, Z and R axes are returned in the <B>dwX, dwY, dwZ,</B> and <B>dwR</B> members. 
+<P>If  the <B>do_other</B> member<I> </I>is nonzero, the V axis is returned in the <B>dwR</B> member. Otherwise, the U axis is returned in the <B>dwZ</B> member.
+</LI>
+
+	<LI>JOY_OEMPOLL_POLL6: The X, Y, Z, R, U and V axes are returned in the <B>dwX, dwY, dwZ, dwR, dwU,</B> and <B>dwV</B> members.  </LI>
+</UL>
+
+<P>DirectX 3.0 added the nonpoll type of JOY_OEMPASSDRIVERDATA, in which case the <B>do_other</B> member contains a <B>DWORD</B> passed from an application. This <B>DWORD</B> can be used for any minidriver-defined function, but is intended in particular to enable custom setup applications that have fully identified the minidriver to send device-specific commands and configuration information. </P>
+
+<P>A minidriver should return JOY_OEMPOLLRC_FAIL for all types it does not support. </P>
+
+<P>Although the axis data is returned in doublewords, the range of axis values should be restricted to approximately 10-bit values if the standard joystick control panel configuration is used as the sole configuration mechanism. Because the user cannot easily see what is happening, this helps to avoid confusion. To aid compatibility with existing applications, the axes returned by a minidriver should be the same as those returned by an analog joystick (where applicable). For example, X would be a left-to-right movement minimized at the left, and so on. </P>
+
+<P>When a POV hat is activated, the direction should be represented as the angle, in degrees, multiplied by 100, with 0 being forward, 9000 right, 18000 backwards, and 27000 left. </P>
+
+<P>Because the poll routine call is the only positive indication that the device is still in use, minidrivers that use shared resources such as communications ports should keep track of the last time they were used. If usage time becomes significant , the minidrivers should stop sampling the device and free the resources in case the user has finished using the device and is now trying to use the resource for another purpose. This is particularly important if communications errors are occurring, because this could be an indication that the device has been unplugged. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Polling%20Callback"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

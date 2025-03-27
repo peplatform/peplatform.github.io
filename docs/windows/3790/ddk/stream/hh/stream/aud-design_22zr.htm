@@ -1,0 +1,24 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>KS Topology Considerations</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="KS Topology Considerations">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_ks_topology_considerations_ksg"></A>KS Topology Considerations</H3>
+
+<P>The <A HREF="aud-design_789z.htm#ddk_wdmaud_system_driver_ksg">WDMAud system driver</A> (<I>wdmaud.sys</I>) translates the KS-filter topology into the legacy mixer lines that are exposed through the <B>mixer</B> API. A non-PCM pin corresponds to a SRC line (MIXERLINE_COMPONENTTYPE_SRC_<I>XXX</I>) in the mixer API. If this pin is in a data path that eventually flows into a bridge pin (the physical connection at the endpoint of a graph) that is dedicated to non-PCM data, the <B>mixer</B> API exposes the bridge pin as an additional DST line (MIXERLINE_COMPONENTTYPE_DST_<I>XXX</I>), separate from the DST line for PCM data. This can add unnecessary complexity to the controls that are visible through a <B>mixer</B>-API client such as a replacement for the SndVol32 utility.</P>
+
+<P>If you prefer not to expose a non-PCM pin in this manner, one approach is to make sure that the data path that contains the pin eventually feeds into a SUM node that is shared by the PCM data path. That is, join the non-PCM DST line to the main DST line. Unfortunately, this workaround misrepresents the true hardware topology and might lead to future problems with clients that attempt to control the non-PCM data stream through nodes downstream from the SUM node. A better approach is to modify the mixer-API client to simply ignore SRC and DST lines that have no controls.</P>
+
+<P>If you use the <A HREF="aud-design_1spz.htm">KsStudio utility</A> to view your wave filter in KSCATEGORY_AUDIO, you should expect to see a separate pin for non-PCM data. When viewing the composite system audio graph under KSCATEGORY_AUDIO_DEVICE, you should see your non-PCM data ranges on the main wave-output pin, alongside any PCM data ranges. Note that SysAudio (<I>sysaudio.sys</I>), the system audio device, generates KSCATEGORY_AUDIO_DEVICE automatically—a driver should not register itself manually in this category.</P>
+
+<P>You are not required to connect a non-PCM data path to the topology miniport driver. This connection is of benefit only if the non-PCM data path interacts with the rest of the device's topology; for instance, if it feeds into a common mixer or sample-rate converter. Connecting a streaming pin to a bridge pin, where both pins are on the wave miniport driver, forms a valid, complete topology for a non-PCM data stream that flows directly to an S/PDIF port, for example.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: KS%20Topology%20Considerations"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

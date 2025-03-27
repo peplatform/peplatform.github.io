@@ -1,0 +1,126 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Receiver Synchronization</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Receiver Synchronization">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_receiver_synchronization_ng"></A>Receiver Synchronization</H2>
+
+<P>Some infrared transceivers use information in the infrared signal itself to synchronize with that signal so that they can receive incoming frames. Depending on hardware that some infrared transceivers use, different amounts of time are required for those infrared transceivers to synchronize to the point that they can reliably receive data. Typically, infrared transceivers synchronize with the infrared signal while they receive Beginning of Frame (BOF) flags at the beginning of each incoming frame. Due to the requirements of some hardware, infrared transceivers might require one or more BOF flags to achieve receiver synchronization. </P>
+
+<P>The IrDA miniport driver must always have information about the extra number of BOF flags that its transceiver requires to synchronize on the incoming infrared signal. The IrDA miniport driver uses <A HREF="214irdaoid_3h0y.htm#ddk_oid_irda_extra_rcv_bofs_nr">OID_IRDA_EXTRA_RCV_BOFS</A> to specify the required extra BOF flags. IrLAP can send an OID_IRDA_EXTRA_RCV_BOFS query to the IrDA miniport driver at any time to retrieve the local transceiver's number of extra BOF flags. The IrDA miniport driver must also be informed of the extra BOF flags that the remote receiving station requires. After IrLAP negotiates link speed with the remote receiving station and sets the IrDA miniport driver's link speed, the IrDA miniport driver must determine the required number of extra BOF flags using the scaling table that follows. </P>
+
+<P>The value specified in OID_IRDA_EXTRA_RCV_BOFS applies to a Serial Infrared (SIR) link speed of 115.2 kilobits per second (Kbps). The values for all other SIR link speeds are scaled from that value. IrDA miniport drivers use the following scaling table to determine the required extra BOF flags from link speeds for those drivers. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=18%>Speed</TH>
+<TH align=left colspan=8 width=82%>Required Extra BOF Flags</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>2400</TD>
+<TD width=10%>1</TD>
+<TD width=10%>0</TD>
+<TD width=11%>0</TD>
+<TD width=10%>0</TD>
+<TD width=10%>0</TD>
+<TD width=10%>0</TD>
+<TD width=10%>0</TD>
+<TD width=11%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>9600</TD>
+<TD width=10%>4</TD>
+<TD width=10%>2</TD>
+<TD width=11%>1</TD>
+<TD width=10%>0</TD>
+<TD width=10%>0</TD>
+<TD width=10%>0</TD>
+<TD width=10%>0</TD>
+<TD width=11%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>19200</TD>
+<TD width=10%>8</TD>
+<TD width=10%>4</TD>
+<TD width=11%>2</TD>
+<TD width=10%>1</TD>
+<TD width=10%>0</TD>
+<TD width=10%>0</TD>
+<TD width=10%>0</TD>
+<TD width=11%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>38400</TD>
+<TD width=10%>16</TD>
+<TD width=10%>8</TD>
+<TD width=11%>4</TD>
+<TD width=10%>2</TD>
+<TD width=10%>1</TD>
+<TD width=10%>0</TD>
+<TD width=10%>0</TD>
+<TD width=11%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>57600</TD>
+<TD width=10%>24</TD>
+<TD width=10%>12</TD>
+<TD width=11%>6</TD>
+<TD width=10%>3</TD>
+<TD width=10%>1</TD>
+<TD width=10%>1</TD>
+<TD width=10%>0</TD>
+<TD width=11%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>115200</TD>
+<TD width=10%>48</TD>
+<TD width=10%>24</TD>
+<TD width=11%>12</TD>
+<TD width=10%>6</TD>
+<TD width=10%>3</TD>
+<TD width=10%>2</TD>
+<TD width=10%>1</TD>
+<TD width=11%>0</TD>
+</TR>
+</TABLE><BR>
+
+<P>To determine the OID_IRDA_EXTRA_RCV_BOFS value that an IrDA miniport driver should indicate to the IrDA protocol driver:
+
+<OL>
+	<LI>Find the link speed to which the NIC's transceiver is set in the left-most column.</LI>
+
+	<LI>In that row, find the required number of extra BOF flags for the transceiver at that speed.</LI>
+
+	<LI>Go down that column to the row for 115.2 Kbps. The number of extra BOF flags that the scaling table specifies for 115.2 Kbps is the number of extra BOF flags that the miniport driver should indicate to the IrDA protocol driver.</LI>
+</OL>
+
+<P>The following examples show how an IrDA miniport driver uses the preceding scaling table to determine the appropriate OID_IRDA_EXTRA_RCV_BOFS value to specify: 
+
+<UL>
+	<LI>At 2,400 bps, if the NIC's transceiver requires one extra BOF flag for synchronization, the IrDA miniport driver must specify 48 for the OID_IRDA_EXTRA_RCV_BOFS value. </LI>
+
+	<LI>At 57.6 Kbps, if the NIC's transceiver requires eight extra BOFs for synchronization, the IrDA miniport driver must specify 24 for the OID_IRDA_EXTRA_RCV_BOFS value. Because eight is between values 6 and 12 in the table, the IrDA miniport driver uses the higher number 12 to determine the OID_IRDA_EXTRA_RCV_BOFS value to specify. </LI>
+
+	<LI>At 115.2 Kbps, if the NIC's transceiver requires one extra BOF flag for synchronization, the IrDA miniport driver must specify one for the OID_IRDA_EXTRA_RCV_BOFS value. </LI>
+</UL>
+
+<P>Note that an infrared transceiver for the MIR, FIR, and VFIR link speeds must work with the exact number of BOF flags for that speed. </P>
+
+<P>To honor the number of extra BOF flags that are required by the remote station, IrLAP must specify the number of extra BOF flags along with every packet that it sends to the IrDA miniport driver for transmission. This value is always the number of extra BOF flags required at the current link speed. Because IrLAP specifies the number of extra BOF flags along with every packet, the IrDA miniport driver is not required to use the preceding scaling table each time the IrDA miniport driver prepares a packet for transmission. The IrLAP protocol specifies the number of extra BOF flags for a packet in the media-specific member of the packet's associated out-of-band (OOB) data block. For more information, see <A HREF="210irda_10iv.htm">Sending and Receiving Packet Arrays</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Receiver%20Synchronization"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

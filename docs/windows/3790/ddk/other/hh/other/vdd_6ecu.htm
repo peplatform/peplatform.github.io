@@ -1,0 +1,49 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Interrupt Simulation</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Interrupt Simulation">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Other&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_interrupt_simulation"></A>Interrupt Simulation</H2>
+
+<P>The <B>VDDSimulateInterrupt</B> function allows a VDD to simulate a hardware interrupt to the VDM. Call this function if the application depends on an interrupt to tell it that some particular operation has been completed. For example, the application using a fax board might expect to get a particular interrupt when the board is done sending a fax. Because the VDD is notified when the fax board is done, the VDD can simulate the interrupt to the application.</P>
+
+<P>When the VDD calls <B>VDDSimulateInterrupt,</B> the address pointed to by the interrupt vector starts running in 16-bit mode. For an asynchronous interrupt, the VDD should create another thread and call <B>VDDSimulateInterrupt</B> from that thread.</P>
+
+<P>The<B> VDDSimulate16</B> function is similar to <B>VDDSimulateInterrupt</B>, except it does not require a hardware interrupt to be supported by the 16-bit stub driver. <B>VDDSimulate16</B> allows the VDD to execute a routine in its 16-bit driver and return when it has finished. Before calling <B>VDDSimulate16</B>, a VDD should preserve all the 16-bit registers its routine might destroy; minimally, it should preserve CS and IP. Then, set the CS and IP for the 16-bit routine. A VDD can also use registers such as AX or BX to pass parameters to its 16-bit routines. At the end of the 16-bit routine, <B>VDDUnSimulate16</B> sends control back to the VDD. Because this simulation is synchronous, the VDD is blocked in <B>VDDSimulate16</B> and returns only when the stub driver calls <B>VDDUnSimulate16</B>. The following code shows an example of how these calls are used:</P>
+
+<PRE>vdd (Win32 Code):
+    SaveCS = getCS( );
+    SaveIP = getIP( );
+    SaveAX = getAX( );
+    setCS (16BitRoutineCS);
+    setIP (16BitRoutineIP);
+    setAX (DO_X_OPERATION);
+    VDDSimulate16( );
+    setCS (SaveCS);
+    setIP (SaveIP);
+    setAX (SaveAX);
+    . .
+    . .
+Stub Driver (Initialization):
+    RegisterModule        ;Loads VDD
+    push cs
+    pop ax
+    mov bx,offset Simulate16
+    DispatchCall          ;passes the address of worker
+                          ;routine to VDD in ax:bx
+Stub Driver (Run Time)
+ 
+Simulate16:
+    . .
+    . .                   ;do the operation index passed in ax
+VDDUnSimulate16</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Interrupt%20Simulation"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,94 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>BugCheckSecondaryDumpDataCallback</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="BugCheckSecondaryDumpDataCallback">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_debugging_tools_for_nt_based_operating_systems_tools">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_bugchecksecondarydumpdatacallback_kr"></A><I>BugCheckSecondaryDumpDataCallback</I></H1>
+
+<P>The <I>BugCheckSecondaryDumpDataCallback</I> routine provides data to the system to append to the crash dump file when the system issues a bug check.</P>
+
+<PRE class=syntax><B>VOID
+</B>  <I>BugCheckSecondaryDumpDataCallback</I> <B>(</B>
+<B>    IN KBUGCHECK_CALLBACK_REASON </B><I>Reason</I><B>,</B>
+<B>    IN PKBUGCHECK_REASON_CALLBACK_RECORD </B><I>Record</I><B>,</B>
+<B>    IN OUT PVOID </B><I>ReasonSpecificData</I><B>,</B>
+<B>    IN ULONG </B><I>ReasonSpecificDataLength</I> 
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Reason</I></DT>
+
+<DD>Specifies the situation in which the callback is executed. For <I>BugCheckSecondaryDumpDataCallback</I>, this parameter is always <B>KbCallbackSecondaryDumpData</B>.</DD>
+
+<DT><I>Record</I></DT>
+
+<DD>Pointer to the <A HREF="k112_34j6.htm">KBUGCHECK_REASON_CALLBACK_RECORD</A> structure that the driver passed when registering this callback.</DD>
+
+<DT><I>ReasonSpecificData</I></DT>
+
+<DD>Pointer to a <A HREF="k112_9vea.htm">KBUGCHECK_SECONDARY_DUMP_DATA</A> structure. Certain members of this structure are populated by the system, and others must be supplied by the callback.</DD>
+
+<DT><I>ReasonSpecificDataLength</I></DT>
+
+<DD>Specifies the size, in bytes, of the buffer supplied by the <I>ReasonSpecificData</I> parameter. For <I>BugCheckSecondaryDumpDataCallback</I>, this parameter is always <B>sizeof(</B>KBUGCHECK_SECONDARY_DUMP_DATA<B>)</B>. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>None</P>
+
+<H4>Comments</H4>
+
+<P>Drivers can only implement <I>BugCheckSecondaryDumpDataCallback</I> routines on Windows&nbsp;XP&nbsp;SP1, Windows Server 2003, and later operating systems.</P>
+
+<P>The system uses <I>BugCheckSecondaryDumpDataCallback</I> routines to poll drivers for crash dump data.</P>
+
+<P>The system sets the <B>InBuffer</B>, <B>InBufferLength</B>, <B>OutBuffer</B>, and <B>MaximumAllowed</B> members of the <A HREF="k112_9vea.htm">KBUGCHECK_SECONDARY_DUMP_DATA</A> structure that<I> ReasonSpecificData</I> points to.  The <B>MaximumAllowed</B> member specifies the maximum amount of dump data the routine can provide.</P>
+
+<P>The value of the <B>OutBuffer</B> member determines whether the system is requesting the size of the driver's dump data, or the data itself, as follows:
+
+<UL>
+	<LI>If the <B>OutBuffer</B> member of KBUGCHECK_SECONDARY_DUMP_DATA is NULL, the system is only requesting size information.  The <I>BugCheckSecondaryDumpDataCallback</I> routine fills in the <B>OutBuffer</B> and <B>OutBufferLength</B> members. </LI>
+
+	<LI>If the <B>OutBuffer</B> member of KBUGCHECK_SECONDARY_DUMP_DATA equals the <B>InBuffer</B> member, the system is requesting the driver's secondary dump data.  The <I>BugCheckSecondaryDumpDataCallback</I> routine fills in the <B>OutBuffer</B> and <B>OutBufferLength</B> members, and writes the data to the buffer specified by <B>OutBuffer</B>.</LI>
+</UL>
+
+<P>The <B>InBuffer</B> member of KBUGCHECK_SECONDARY_DUMP_DATA points  to a small buffer for the routine's use. The <B>InBufferLength</B> member specifies the size of the buffer.  If the amount of data to be written is less than <B>InBufferLength</B>, the callback routine can use this buffer to supply the crash dump data to the system. The callback routine then sets <B>OutBuffer</B> to <B>InBuffer</B> and <B>OutBufferLength</B> to the actual amount of data written to the buffer.</P>
+
+<P>A driver that must write an amount of data that is larger than <B>InBufferLength</B> can use its own buffer to provide the data. This buffer must have been allocated before the callback routine is executed, and must reside in resident memory (such as nonpaged pool). The buffer must be page-aligned.  The callback routine then sets <B>OutBuffer</B> to point to the driver's buffer, and <B>OutBufferLength</B> to the amount of data in the buffer to be written to the crash dump file.</P>
+
+<P>Each block of data to be written to the crash dump file is tagged with the value of the <B>Guid</B> member of <A HREF="k112_9vea.htm">KBUGCHECK_SECONDARY_DUMP_DATA</A>. The GUID used must be unique to the driver. To display the secondary dump data corresponding to this GUID, you can use the <B>.enumtag</B> command or the <B>IDebugDataSpaces3::ReadTagged</B> method in a debugger extension. For information about debuggers and debugger extensions, see <A HREF="JavaScript:hhobj_1.Click()">Debugging Tools for NT-Based Operating Systems</A>.</P>
+
+<P>A driver can write multiple blocks with the same GUID to the crash dump file, but this is very poor practice, because only the first block will be accessible to the debugger. Drivers that register multiple <I>BugCheckSecondaryDumpDataCallback</I> routines should allocate a unique GUID for each callback.</P>
+
+<P>Use <A HREF="k105_8ecy.htm"><B>KeRegisterBugCheckReasonCallback</B></A> to register a <I>BugCheckSecondaryDumpDataCallback</I> routine. A driver can subsequently remove the callback routine by using the <A HREF="k105_0pma.htm"><B>KeDeregisterBugCheckReasonCallback</B></A> routine. If the driver can be unloaded, then it must remove any registered callback routines in its <A HREF="drvrrtns_7d82.htm"><I>Unload</I></A> routine.</P>
+
+<P>A <I>BugCheckSecondaryDumpDataCallback</I> is very restricted in the actions it can take.  For more information, see <A HREF="other_1anb.htm">Writing a Bug Check Callback Routine</A>.</P>
+
+<P><I>BugCheckSecondaryDumpDataCallback</I> routines execute at IRQL&nbsp;= HIGH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k112_34j6.htm">KBUGCHECK_REASON_CALLBACK_RECORD</A><A HREF="k112_9vea.htm">, KBUGCHECK_SECONDARY_DUMP_DATA</A>, <A HREF="k105_2d6a.htm"><B>KeDeregisterBugCheckCallback</B></A>, <A HREF="k105_29wy.htm"><B>KeRegisterBugCheckCallback</B></A>, <A HREF="drvrrtns_85gy.htm"><I>BugCheckDumpIoCallback</I></A>, <A HREF="#ddk_bugchecksecondarydumpdatacallback_kr"><I>BugCheckSecondaryDumpDataCallback</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: BugCheckSecondaryDumpDataCallback"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

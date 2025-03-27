@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SCSI (NT 4) Miniport Driver Topics</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="SCSI (NT 4) Miniport Driver Topics">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_scsi_nt_4_miniport_driver_topics_si"></A>SCSI (NT 4) Miniport Driver Topics</H1>
+
+<P>This section contains assorted topics of interest to developers of SCSI miniport drivers using the Windows NT 4 Miniport model, targeting the Windows 95/98 or Windows Me platforms.</P>
+
+<P>The miniport interface is the same for Windows NT and Windows 95; hence the Windows NT DDK’s ATAPI miniport sample, when compiled under an NT-based operating system, works under Windows 95. There is a strict miniport protocol, designed to be portable (binary code compatible) between systems. This protocol is violated, however, if there are embedded Windows 95 VxDCall(s) or embedded Windows NT system calls within the SCSI miniport driver. Unfortunately, there are a few cases under Windows 95 where VxDCall(s) are necessary, thus breaking binary compatibility. For example, Windows 95’s ScsiPortGetDeviceBase function fails to return a linear address (as described in Knowledge Base article Q169584). This means that the miniport must use a Windows 95 VMM function _MapPhysToLinear to map the physical address to a linear address.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>A brief summary of the SCSI Miniport initialization sequence</B>
+
+<OL>
+	<LI>IOS calls the miniport's DriverEntry routine as a result of Configuration Manager devnode enumeration.</LI>
+
+	<LI>The miniport calls ScsiPortInitialize (for each supported bus).</LI>
+
+	<LI>SCSIPORT.PDR calls IOS_Register as a result of each call to ScsiPortInitialize.</LI>
+
+	<LI>IOS_Register presents an AEP_initialize message to SCSIPORT. SCSIPORT creates a DDB, reads miniport ASCII configuration information from registry, and then calls the miniport's HwFindAdapter routine (e.g. FindController). This should occur for each bus.</LI>
+
+	<LI>IOS_Register creates a temporary "inquiry" DCB and issues an AER_Device_Inquiry for each supported LUN number, and so on.</LI>
+
+	<LI>Each instance of step 5 causes SCSIPORT to create an IOP, for a SCSI_PASS_THROUGH inquiry command, and sends it to the miniport’s StartIo  routine.</LI>
+
+	<LI>For each inquiry, the miniport either succeeds or fails. If it succeeds, SCSIPORT sets up the DCB_product_id, DCB_vendor_id and DCB_rev_level into the  DCB and returns AEP_success. to IOS.</LI>
+</OL>
+
+<P>Steps 2-7 occur for each bus type supported.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: SCSI%20(NT%204)%20Miniport%20Driver%20Topics"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

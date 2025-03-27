@@ -1,0 +1,67 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Failure to Check the Size of Buffers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Failure to Check the Size of Buffers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_failure_to_check_the_size_of_buffers_kg"></A>Failure to Check the Size of Buffers</H3>
+
+<P>When handling IOCTLs and FSCTLs that implement buffered I/O, a driver should always check the sizes of the input and output buffers to ensure that the buffers can hold all the requested data. If the request specifies FILE_ANY_ACCESS, as most driver IOCTLs and FSCTLs do, any caller that has a handle to the device has access to buffered IOCTL or FSCTL requests for that device, and could read or write data beyond the end of the buffer. </P>
+
+<H4>Input Buffer Size</H4>
+
+<P>For example, assume that the following code appears in a routine that is called from a <I>Dispatch</I> routine, and that the driver has not validated the buffer sizes passed in the IRP:</P>
+
+<PRE>   switch (ControlCode)
+      …
+      …
+      case IOCTL_NEW_ADDRESS:{
+         tNEW_ADDRESS *pNewAddress = 
+           pIrp-&gt;AssociatedIrp.SystemBuffer;
+
+         <span style="color:#ff0000"><B>pDeviceContext-&gt;Addr = ntohl (pNewAddress-&gt;Address)</B></span>;</PRE>
+
+<P>The example does not check the buffer sizes before the assignment statement (highlighted). As a result, the <B>pNewAddress-&gt;Address </B>reference in the next line<B> </B>can fault if the input buffer is not big enough to contain a tNEW_ADDRESS structure.</P>
+
+<P>The following code checks the buffer sizes, avoiding the potential problem:</P>
+
+<PRE>   case IOCTL_NEW_ADDRESS: {
+      tNEW_ADDRESS *pNewAddress =
+        pIrp-&gt;AssociatedIrp.SystemBuffer;
+
+     <span style="color:#ff0000"><B>if (pIrpSp-&gt;Parameters.DeviceIoControl.InputBufferLength &gt;=
+         sizeof(tNEW_ADDRESS))</B></span>{
+         pDeviceContext-&gt;Addr = ntohl (pNewAddress-&gt;Address);</PRE>
+
+<P>Code to handle other buffered I/O, such as WMI requests that use variable size buffers, can have similar errors.</P>
+
+<H4>Output Buffer Size</H4>
+
+<P>Output buffer problems are similar to input buffer problems. They can easily corrupt pool, and user-mode callers may be unaware that any error has occurred. </P>
+
+<P>In the following example, the driver fails to check the size of the <B>SystemBuffer</B>: </P>
+
+<PRE>   case IOCTL_GET_INFO: {
+
+       Info = Irp-&gt;AssociatedIrp.SystemBuffer;
+
+       Info-&gt;NumIF = NumIF;
+       …
+       …
+       Irp-&gt;IoStatus.Information =
+             <span style="color:#ff0000"><B>NumIF*sizeof(GET_INFO_ITEM)</B></span>+sizeof(ULONG);
+       Irp-&gt;IoStatus.Status = ntStatus;
+   }</PRE>
+
+<P>Assuming that the <B>NumIF</B> field of the system buffer specifies the number of input items, this example can set <B>IoStatus.Information </B>to a value larger than the output buffer and thus return too much information to the user-mode code. If an application is improperly coded, and calls with too small an output buffer, the preceding code could corrupt the pool by writing beyond the end of the system buffer.</P>
+
+<P>Keep in mind that the I/O Manager assumes that the value in the <B>Information</B> field is valid. If a caller passes in a valid kernel-mode address for the output buffer and a size of zero bytes, serious problems can occur if the driver does not check the output buffer size and thus find the error. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Failure%20to%20Check%20the%20Size%20of%20Buffers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

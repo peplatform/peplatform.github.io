@@ -1,0 +1,56 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Setting up and Using Device Queues</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Setting up and Using Device Queues">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_setting_up_and_using_device_queues_kg"></A>Setting up and Using Device Queues</H3>
+
+<P>A driver sets up a device queue object by calling <A HREF="k105_09te.htm"><B>KeInitializeDeviceQueue</B></A> at driver or device initialization. After starting its device(s), the driver inserts IRPs into this queue by calling <B>KeInsertDeviceQueue</B> or <B>KeInsertByKeyDeviceQueue</B>. The following figure illustrates these calls.</P>
+
+
+
+<P><A NAME="ddk__bmc_3devqobj.wmf__kg"></A><B><IMG SRC="images/3devqobj.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Using a Device Queue Object</B></P>
+
+<P>As the previous figure shows, the driver must provide the storage for a device queue object, which must be resident. Drivers that set up a device queue object usually provide the necessary storage in the <A HREF="devobjts_1gdj.htm">device extension</A> of a driver-created device object, but the storage can be in a controller extension if the driver uses a <A HREF="iputoput_5xd3.htm">controller object</A> or in nonpaged pool allocated by the driver.</P>
+
+<P>If the driver provides storage for the device queue object in a device extension, it calls <B>KeInitializeDeviceQueue</B> after creating the device object and before starting the device. In other words, the driver can initialize the queue from its AddDevice routine or when it handles a PnP IRP_MN_START_DEVICE request. In the call to <B>KeInitializeDeviceQueue</B>, the driver<B> </B>passes a pointer to the storage it provides for the device queue object.</P>
+
+<P>After starting its device(s), the driver can insert an IRP into its device queue by calling <B>KeInsertDeviceQueue</B>, which places the IRP at the tail of the queue, or <B>KeInsertByKeyDeviceQueue</B>, which places the IRP into the queue according to a driver-determined <I>SortKey</I> value, as shown in the previous figure.</P>
+
+<P>Each of these support routines returns a Boolean value indicating whether the IRP was inserted into the queue. Each of these calls also sets the state of the device queue object to Busy if the queue is currently empty (Not-Busy). However, if the queue is empty (Not-Busy), neither <B>KeInsert..DeviceQueue</B> routine inserts the IRP into the queue. Instead, it sets the state of the device queue object to Busy and returns FALSE. Because the IRP has not been queued, the driver must pass it on to another driver routine for further processing.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>When setting up supplemental device queues, follow this implementation guideline: </B></P>
+
+<P class=indent1>When a call to <B>KeInsert..DeviceQueue</B> returns FALSE, the caller <I>must</I> pass the IRP it attempted to queue on for further processing to another driver routine.</P>
+
+<P>However, the call to <B>KeInsert..DeviceQueue</B> changes the state of the device queue object to Busy, so the next IRP to come in is inserted in the queue unless the driver calls <B>KeRemove..DeviceQueue</B> first.</P>
+
+<P>When the device queue object's state is set to Busy, the driver can dequeue an IRP for further processing or reset the state to Not-Busy by calling one of the following support routines:
+
+<UL>
+	<LI><B>KeRemoveDeviceQueue</B> to remove the IRP at the head of the queue</LI>
+
+	<LI><B>KeRemoveByKeyDeviceQueue</B> to remove an IRP chosen according to a driver-determined <I>SortKey</I> value</LI>
+
+	<LI><B>KeRemoveEntryDeviceQueue</B> to remove a particular IRP in the queue or to determine whether a particular IRP is in the queue
+<P><B>KeRemoveEntryDeviceQueue</B> returns a Boolean indicating whether the IRP was in the device queue.
+</LI>
+</UL>
+
+<P>Calling any of these routines to remove an entry from a device queue that is empty but Busy changes the queue state to Not-Busy.</P>
+
+<P>Each device queue object is protected by a built-in executive spin lock (not shown in the <A HREF="#ddk__bmc_3devqobj.wmf__kg">previous</A> figure). As a result, a driver can insert IRPs into the queue and remove them in a multiprocessor-safe manner from any driver routine running at less than or equal to IRQL&nbsp;= DISPATCH_LEVEL. Because of this IRQL restriction, a driver cannot call any <B>Ke..DeviceQueue</B> routine from its ISR or <I>SynchCritSection</I> routines, which run at DIRQL.</P>
+
+<P>See <A HREF="intrupts_0kh3.htm">Managing Hardware Priorities</A> and <A HREF="synchro_8unb.htm">Spin Locks</A> for more information. For IRQL requirements for a specific support routine, see the routine's reference page.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Setting%20up%20and%20Using%20Device%20Queues"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,71 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Writing Server Status to the NVRAM Device</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Writing Server Status to the NVRAM Device">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ioallocateworkitem_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ioqueueworkitem_kr">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iofreeworkitem_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Server&nbsp;Appliance&nbsp;High&nbsp;Availability&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_writing_server_status_to_the_nvram_device_sa"></A>Writing Server Status to the NVRAM Device</H2>
+
+<P>The NVRAM miniport driver writes the server status to the NVRAM device when the operating system shuts down. The following figure shows an overview of how the miniport driver can write the server status received from an application. </P>
+
+<P><IMG SRC="images/nvrmwrit.gif" ALT="" BORDER=0></P>
+
+<P><B>Server availability status write</B></P>
+
+<P>The following sequence of steps describe the actions in the preceding figure:
+
+<OL>
+	<LI>An application makes a write request. </LI>
+
+	<LI>The SA port driver calls the miniport driver's <A HREF="samini_8za9.htm"><I>SaWrite</I></A> function. In this call, the port driver passes an external buffer that contains the server status. </LI>
+
+	<LI>The miniport driver's <I>SaWrite</I> function can call the <A HREF="saport_14ip.htm"><B>SaPortAllocatePool</B></A> function to allocate memory for a work-item context and the <A HREF="JavaScript:hhobj_1.Click()"><B>IoAllocateWorkItem</B></A> and <A HREF="JavaScript:hhobj_2.Click()"><B>IoQueueWorkItem</B></A> functions to allocate and queue the work item. A system worker thread subsequently removes the item and gives control to the callback function that is specified in the <I>Routine</I> parameter of <B>IoQueueWorkItem</B>. This callback function processes the write operation at a lower IRQL level. In the <B>IoQueueWorkItem</B> call, the miniport driver also passes the context, which is passed through to the callback function. This context is a pointer to a structure that includes the following members:
+<UL>
+	<LI>Pointer to the device extension</LI>
+
+	<LI>Pointer to the allocated work item</LI>
+
+	<LI>Pointer to the server status</LI>
+</UL>
+
+<P>The miniport driver's <I>SaWrite</I> function then returns STATUS_PENDING to indicate that the request is pending until the driver writes the status to the device. 
+</LI>
+
+	<LI>Before accessing members of the <A HREF="saintro_5fkx.htm">device extension</A> structure, the work item's callback function acquires the device extension's synchronization object to prevent other threads from accessing these members at the same time. The miniport driver then copies the server status into the device extension's internal buffer and releases the synchronization object. The miniport driver then sends the server status to the NVRAM device.</LI>
+
+	<LI>The miniport driver calls the <A HREF="JavaScript:hhobj_3.Click()"><B>IoFreeWorkItem</B></A> and <A HREF="saport_21lt.htm"><B>SaPortFreePool</B></A> functions to release the work item and memory for the work-item context respectively. The miniport driver then calls the <A HREF="saport_4ntt.htm"><B>SaPortCompleteRequest</B></A> function to complete this write I/O request.</LI>
+
+	<LI>The requesting application receives notice that the write operation is complete.</LI>
+</OL>
+
+<P>Note that if the NVRAM device must generate an interrupt for more data, then the NVRAM miniport driver must implement <A HREF="samini_9vkx.htm"><I>SaInterruptServiceRoutine</I></A> and <A HREF="samini_3jfl.htm"><I>SaIsrForDpcRoutine</I></A> functions to handle the interrupt. See <A HREF="saintro_4wf5.htm">Transferring Local Display Information</A> for a similar interrupt-handling operation.  </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Writing%20Server%20Status%20to%20the%20NVRAM%20Device"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

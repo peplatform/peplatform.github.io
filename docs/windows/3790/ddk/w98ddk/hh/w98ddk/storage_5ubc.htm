@@ -1,0 +1,80 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ScsiPortGetPhysicalAddress</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_4328"></A>ScsiPortGetPhysicalAddress</H3>
+
+<PRE>SCSI_PHYSICAL_ADDRESS ScsiPortGetPhysicalAddress(HwDeviceExtension, Srb,
+    VirtualAddress, Length)
+IN PVOID  HwDeviceExtension;
+IN PSCSI_REQUEST_BLOCK  Srb;    /* optional    */
+IN PVOID  VirtualAddress;
+OUT ULONG  *Length;
+ </PRE>
+
+<P>Translates a virtual address range to a physical address range for a DMA operation. 
+
+<UL>
+	<LI>Returns the physical address of <B>VirtualAddress</B> which is used by a master host adapter to access memory. </LI>
+</UL>
+
+<DL>
+<DT><I>HwDeviceExtension</I> </DT>
+
+<DD>Points to the miniport driver's storage for per-adapter data. </DD>
+
+<DT><I>Srb</I> </DT>
+
+<DD>Points to a SCSI request block, if the <I>VirtualAddress</I> to be translated comes from an SRB's <B>DataBuffer</B> field; otherwise, this pointer is NULL. </DD>
+
+<DT><I>VirtualAddress</I> </DT>
+
+<DD>Specifies the virtual address to be translated. The <I>Srb</I> pointer is required if the address came from the <B>DataBuffer</B> field of an SRB. </DD>
+
+<DT><I>Length</I> </DT>
+
+<DD>See the following.
+</DD>
+</DL>
+
+<P>An <I>Srb</I> parameter is not required if the <I>VirtualAddress</I> is in an <B>UncachedExtension</B>, <B>SenseInfoBuffer</B> or the <B>SrbExtension</B>. If an <I>Srb</I> is provided, the <I>VirtualAddress</I> must be within the range of <B>DataBuffer</B> or must be the pointer from <B>SenseInfoBuffer</B> field specified by the <I>Srb</I>. This function can be called to translate an extension address only if <B>NeedPhysicalAddresses</B> was specified in the HW_INITIALIZATION_DATA structure. </P>
+
+<P><B>ScsiPortGetPhysicalAddress</B> can be used to build a scatter/gather list for data transfers that span pages. Note that the <I>Length</I> returned can be greater than the length of the <B>DataBuffer</B> specified in the <I>Srb</I> parameter. </P>
+
+<P>The general function performed by <B>ScsiPortGetPhysicalAddress</B> follows:
+
+<OL>
+	<LI>1. If (Srb != NULL) &amp;&amp; (VirtualAddress lies within the Srb's DataBuffer) scan the corresponding IOP's IOR_sgd_lin_phys field to obtain the desired SG element and physical offset within that element.  The returned length is the number of bytes from the offset within the SG element, to the end of the SG element.
+<P>(else)
+</LI>
+
+	<LI>2. If (VirtualAddress lies within the IOP Memory Pool)
+<P>The physical address is obtained by finding the offset within the memory pool and adding IDA_ios_mem_phys to the offset value.  The returned Length is  ALWAYS 4096.
+
+<P>(else)
+</LI>
+
+	<LI>3. _Obtain the physical address using _CopyPageTable(VirtualAddress/4096, 1, Pte, 0).
+<P>PhysAddr = (Pte &amp; 0xFFFFF000) + (VirtualAddress &amp; 0xFFF).
+
+<P>Pte is the Page Table Entry as described in the Pentium Processor Users Manual Volume 3.
+
+<P>The returned Length is ALWAYS 4096.
+</LI>
+</OL>
+
+<P>Based on the above info, one cannot always rely on the returned Length containing the correct length; it may be longer than the actual buffers.</P>
+
+<H4>See Also</H4>
+
+<P>HW_INITIALIZATION_DATA, SCSI_REQUEST_BLOCK, <B>ScsiPortGetUncachedExtension</B>, <B>ScsiPortGetVirtualAddress</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ScsiPortGetPhysicalAddress"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

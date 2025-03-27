@@ -1,0 +1,38 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Setting up ConfigInfo in HwScsiFindAdapter</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Setting up ConfigInfo in HwScsiFindAdapter">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_setting_up_configinfo_in_hwscsifindadapter_kg"></A>Setting up ConfigInfo in HwScsiFindAdapter</H2>
+
+<P>An <I>HwScsiFindAdapter</I> routine can call <B>ScsiPortGetBusData</B> and examine the returned bus-type-specific configuration information, such as POS data or EISA configuration data, for a supported HBA. </P>
+
+<P>If the <B>AccessRanges</B> elements in the input PORT_CONFIGURATION_INFORMATION (the <I>ConfigInfo</I> buffer) have been filled in by the port driver, the <I>HwScsiFindAdapter</I> routine should map the bus-relative access ranges with <B>ScsiPortGetDeviceBase</B> and use the returned logical access range addresses to communicate with the HBA. If access range addresses are supplied by the port driver, <I>HwScsiFindAdapter</I> must not scan for HBAs at other locations on that I/O bus. </P>
+
+<P>In addition, if the port driver supplies access range values, <I>HwScsiFindAdapter</I> must not use the <I>HwContext</I> parameter. Such access range values are usually accompanied by additional configuration information, which indicates a Plug and Play environment. In such an environment, <I>HwScsiFindAdapter</I> is being called after the miniport’s <B>DriverEntry</B> routine has returned and thus the <I>HwContext</I> pointer is no longer valid. Only drivers that receive zero access range values from the port driver and that do their own scanning for supported HBAs can safely use the <I>HwContext</I> pointer.</P>
+
+<P>If the input PORT_CONFIGURATION_INFORMATION contains no configuration information other than that previously supplied by the miniport in the HW_INITIALIZATION_DATA, <I>HwScsiFindAdapter</I> can use values returned by <B>ScsiPortGetBusData</B> or, if necessary, set miniport-driver-defined default values for <B>AccessRanges</B> elements, <B>BusInterruptLevel</B> or <B>BusInterruptVector</B>, <B>DmaChannel</B> or <B>DmaPort</B> if the HBA uses system DMA, and <B>InitiatorBusId</B>. </P>
+
+<P><I>HwScsiFindAdapter</I> must call <B>ScsiPortValidateRange</B> to check whether such miniport-driver-supplied access ranges can be used safely <I>before</I> it accesses an HBA on the bus. If <B>ScsiPortValidateRange</B> returns TRUE, the miniport can call <B>ScsiPortGetDeviceBase</B> to map the range and use the returned logical addresses in calls to <B>ScsiPortRead</B><I>Xxx</I> and/or <B>ScsiPortWrite</B><I>Xxx</I> to determine whether it supports an HBA on the I/O bus. If <B>ScsiPortValidateRange</B> returns FALSE, the miniport driver must not attempt to map and use those bus-relative access range values. </P>
+
+<P>Similarly, if the port driver calls a Plug and Play miniport to detect devices on a nonenumerable bus, the miniport driver must validate access ranges before calling <B>ScsiPortGetDeviceBase</B>. </P>
+
+<P>If the port driver provides interrupt configuration information, the miniport must accept it and, if its HBA supports programmable interrupt configuration, should program its HBA to use the supplied interrupt value. If no interrupt configuration is supplied, as indicated either by the value zero or the value SP_UNINITIALIZED_VALUE, the miniport should either query its HBA if the HBA supports interrupt selection using jumpers or it should supply a nonzero default interrupt configuration, unless the HBA does not use interrupts. The interrupt configuration value zero indicates that the miniport controls its HBA in a polled mode.</P>
+
+<P>When <I>HwScsiFindAdapter</I> finds an HBA it can support, this routine must fill in pertinent members, as appropriate for its HBA and the given <B>AdapterInterfaceType</B>, in the PORT_CONFIGURATION_INFORMATION. A miniport driver that supplies access ranges must fill in the <B>AccessRanges</B> information, converting each <B>AccessRanges</B> element’s bus-relative <B>RangeStart</B> value with <B>ScsiPortConvertUlongToPhysicalAddress </B>before setting the bus-relative base address for a range in the PORT_CONFIGURATION_INFORMATION. </P>
+
+<P>For a supported HBA, <I>HwScsiFindAdapter</I> also should save the mapped logical range addresses returned by <B>ScsiPortGetDeviceBase</B> in the miniport’s device extension. Every miniport driver must call the <B>ScsiPortRead</B><I>Xxx</I> and <B>ScsiPortWrite</B><I>Xxx</I> with these mapped system addresses to communicate with its HBA(s). </P>
+
+<P>For each successfully validated and mapped range in I/O space, the miniport driver calls the <B>ScsiPortRead/WritePort</B><I>Xxx</I>  routines to communicate with its HBA. For each such range in memory space, the miniport driver calls the <B>ScsiPortRead/WriteRegister</B><I>Xxx</I>. </P>
+
+<P>For an “AT-compatible” HBA, <I>HwScsiFindAdapter</I> should check the input <B>Atdisk..Claimed</B> members and attempt to claim an “AT” range by resetting the value to TRUE. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Setting%20up%20ConfigInfo%20in%20HwScsiFindAdapter"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

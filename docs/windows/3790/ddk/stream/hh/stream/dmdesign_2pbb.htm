@@ -1,0 +1,107 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Voice Allocation</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Voice Allocation">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_voice_allocation_ksg"></A>Voice Allocation</H3>
+
+<P>Most adapter drivers that contain a synthesizer miniport driver also contain DirectSound hardware acceleration. This brings up the question of voice allocation between synthesizer voices and hardware-accelerated DirectSound buffers.</P>
+
+<P>DirectMusic synths—both hardware and software—should support multiple instances in order to maximize the number of concurrent clients. A synth writer might be tempted to statically allocate voices to synths, but should probably consider all available instances of synths as drawing from a common, dynamic voice pool. Each instance then reports the available number of voices as the total number available in the pool.</P>
+
+<P>When implemented this way, even a hardware synth with a limited number of physical voices can support numerous synth instances. In real time, the STATS call informs the client of how many voices each instance is currently using. If the dynamic pool is depleted and a synth instance requires a new voice, then that synth instance must implement a voice-stealing scheme to free a voice from within that instance.</P>
+
+<P>The following allocation scheme is based on the idea that voices used by a synthesizer are more easily shared than DirectSound buffers because the driver has control over what data goes in what voice and can make decisions about voice stealing (outlined in the DLS Level 1 specification).</P>
+
+<P>All of the voices available to the miniport driver (hardware, software, or some combination of hardware and software) are divided into two pools. The first pool, the free pool, consists of voices that are not committed anywhere. The second pool, the dynamic pool, consists of voices that are committed to use by synthesizer instances. These voices may or may not currently be in use by a synthesizer instance. The dynamic pool is sized as the maximum number of voices requested by any synthesizer instance, subject to the current contents of the free pool. DirectSound buffers are removed from the free pool upon allocation and returned on deallocation.</P>
+
+<P>The following table contains an example sequence of voice allocations that illustrate the scheme in practice.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=10%>Time</TH>
+<TH align=left width=18%>Request</TH>
+<TH align=left width=13%>Free Pool</TH>
+<TH align=left width=15%>Dynamic Pool</TH>
+<TH align=left width=44%>Miniport Driver Action</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>0</TD>
+<TD width=18%>Power Up</TD>
+<TD width=13%>64</TD>
+<TD width=15%>0</TD>
+<TD width=44%>Initialize.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>1</TD>
+<TD width=18%>DSound(4)</TD>
+<TD width=13%>60</TD>
+<TD width=15%>0</TD>
+<TD width=44%>Statically allocate four voices to DirectSound buffers.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>2</TD>
+<TD width=18%>Synth(32)</TD>
+<TD width=13%>28</TD>
+<TD width=15%>32</TD>
+<TD width=44%>Increase dynamic pool to 32 voices.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>3</TD>
+<TD width=18%>Synth(24)</TD>
+<TD width=13%>28</TD>
+<TD width=15%>32</TD>
+<TD width=44%>No action. There are already more than 24 voices in the dynamic pool.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>4</TD>
+<TD width=18%>DSound(24)</TD>
+<TD width=13%>4</TD>
+<TD width=15%>32</TD>
+<TD width=44%>Statically allocate 24 voices to DirectSound buffers.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>5</TD>
+<TD width=18%>Synth(48)</TD>
+<TD width=13%>0</TD>
+<TD width=15%>36</TD>
+<TD width=44%>Increase dynamic pool to 36 voices. (The method that creates the port returns S_FALSE and sets DMUS_PORTPARAMS.<B>dwVoices</B> = 36.)</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>6</TD>
+<TD width=18%>DSound(10)</TD>
+<TD width=13%>0</TD>
+<TD width=15%>36</TD>
+<TD width=44%>Fail. No voices in free pool.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>7</TD>
+<TD width=18%>DSound(-5)</TD>
+<TD width=13%>5</TD>
+<TD width=15%>36</TD>
+<TD width=44%>Free five voices. Note that these do <I>not</I> go back into the dynamic pool, even though the last request (at time 5) was for more than were granted.</TD>
+</TR>
+</TABLE><BR>
+
+<P>Note that DirectSound buffers are actually allocated one by one, and are grouped together in the table for the purpose of readability. </P>
+
+<P>Immediately after a synthesizer pin instance is created, no voices should be allocated based on it. Shortly after creation, a <A HREF="aud-prop_4hbn.htm">KSPROPERTY_SYNTH_PORTPARAMETERS</A> property item is received. This property item indicates, among other things, the number of voices that are to be associated with this instance. This item also gives the miniport driver the chance to report back the actual new size of the dynamic pool in case all requested voices could not be allocated.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Voice%20Allocation"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

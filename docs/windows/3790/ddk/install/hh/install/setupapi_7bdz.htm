@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using SetupAPI To Verify Driver Authenticode Signatures</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using SetupAPI To Verify Driver Authenticode Signatures">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_vendor_supplied_authenticode_signatures_pg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_using_setupapi_to_verify_driver_authenticode_signatures_dg"></A>Using SetupAPI To Verify Driver Authenticode Signatures</H2>
+
+<P>You can use the following procedures to verify that a driver has a valid <A HREF="JavaScript:hhobj_1.Click()">vendor-supplied Authenticode signature</A>. These procedures are only supported by Microsoft® Windows®&nbsp;Server&nbsp;2003 and later versions.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To determine if a driver has a valid Authenticode™ signature</B>
+
+<UL>
+	<LI>Check the DNF_AUTHENTICODE_SIGNED flag.
+<P>If a driver has a valid Authenticode signature, Setup sets this flag in the <B>Flags</B> member of the driver node's <A HREF="di-struct_8fea.htm">SP_DRVINSTALL_PARAMS</A> structure. (Also note that Setup sets the DNF_INF_IS_SIGNED flag if the driver has a WHQL digital signature, if it is a system-supplied driver, or if it has an Authenticode signature.)
+</LI>
+</UL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To verify that an INF file has a valid Authenticode signature</B>
+
+<OL>
+	<LI>Call the <A HREF="setup-ref_1r3m.htm">general setup function</A> <B>SetupVerifyInfFile</B>.</LI>
+
+	<LI>Check the function's return error code.
+<P>If the INF file is not system-supplied and does not have a valid WHQL digital signature, but it does have a valid Authenticode signature, <B>SetupVerifyInfFile</B> returns FALSE and <B>GetLastError</B> returns one of the following error codes:
+
+<DL>
+<DT>ERROR_AUTHENTICODE_TRUSTED_PUBLISHER</DT>
+
+<DD>Indicates that the publisher is trusted because the publisher's certificate is installed in the trusted publisher certificates store (see <A HREF="install-over_1crr.htm">Using Vendor-Supplied Authenticode Signatures To Authenticate Drivers</A>).</DD>
+
+<DT>ERROR_AUTHENTICODE_TRUST_NOT_ESTABLISHED</DT>
+
+<DD>Indicates that trust cannot be automatically established because the publisher's signing certificate is not installed in the trusted publisher certificates store. However, this does not necessarily indicate an error. Instead it indicates that the caller must apply a caller-specific policy to establish trust in the publisher.
+</DD>
+</DL>
+
+<P>If the INF file has a valid Authenticode signature, <B>SetupVerifyInfFile</B> also returns the following information in the SP_INF_SIGNER_INFO output structure:
+
+<UL>
+	<LI>The <B>DigitalSigner</B> member is set to the name of the signer.</LI>
+
+	<LI>The <B>CatalogFile</B> member is set to the full path of the corresponding signed catalog file.</LI>
+</UL>
+
+<P>Note, however, that <B>SetupVerifyInfFile</B> does not return the version in the <B>DigitalSignerVersion</B> member.
+</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To verify that a file has a valid Authenticode signature</B>
+
+<UL>
+	<LI>Call the general setup function <B>SetupScanFileQueue</B> using the SPQ_SCAN_USE_CALLBACK_SIGNERINFO flag.
+<P><B>SetupScanFileQueue</B> sends an SPFILENOTIFY_QUEUESCAN_SIGNERINFO request to the caller's callback routine and passes a pointer to a FILEPATHS_SIGNERINFO structure. If a file is signed with a valid Authenticode signature, the function sets the error code to the appropriate ERROR_AUTHENTICODE_Xxx value before calling the callback for a file. The function also sets the following information in the FILEPATHS_SIGNERINFO structure:
+
+<UL>
+	<LI>The <B>DigitalSigner</B> member is set to the name of the signer.</LI>
+
+	<LI>The <B>CatalogFile</B> member is set to the full path of the corresponding signed catalog file.</LI>
+</UL>
+
+<P>Note, however, that the version is not set in the <B>Version</B> member.
+
+<P><B>SetupScanFileQueue</B> sets the ERROR_AUTHENTICODE_Xxx error code in the same way as described earlier in this topic for <B>SetupVerifyInfFile</B>.
+</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20SetupAPI%20To%20Verify%20Driver%20Authenticode%20Signatures"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,32 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Supporting GetDriverInfo2</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Supporting GetDriverInfo2">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_supporting_getdriverinfo2_gg"></A>Supporting GetDriverInfo2</H2>
+
+<P>The DirectX 8.0 DDI introduces a new mechanism for querying the driver for information. This mechanism extends the existing <A HREF="ddfncs_0yhz.htm"><I>DdGetDriverInfo</I></A> entry point to query for additional information from the driver. Currently, this mechanism is only used for querying for DX8 style D3D caps.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;As you read the following you may question why the <B>GetDriverInfo2</B> mechanism is necessary. It would seem preferable to simply define a new <B>GetDriverInfo</B> GUID that the driver would handle by returning a D3DCAP8 structure. <B>GetDriverInfo2</B>, introduced in the following paragraphs, is a mechanism to minimize the changes required to the Windows Operating Systems to enable DirectX 8.0 level functionality and thus make redistributing the DirectX 8.0 runtime practical.</P>
+
+<P>This extension to <B>GetDriverInfo</B> takes the form of a <I>DdGetDriverInfo</I> call with GUID_GetDriverInfo2. When a <I>DdGetDriverInfo</I> call with that GUID is received by the driver, it must examine the data structure passed in the <B>lpvData</B> field of the <A HREF="ddstrcts_3ijr.htm">DD_GETDRIVERINFODATA</A> data structure to see what information is being requested. As described below, <B>lpvData</B> can point to either a <A HREF="d3dstrct_2ucn.htm">DD_GETDRIVERINFO2DATA</A> or <A HREF="ddstrcts_7487.htm">DD_STEREOMODE</A> structure.</P>
+
+<P>The GUID_GetDriverInfo2 is the same GUID value as GUID_DDStereoMode. If your driver does not handle GUID_DDStereoMode, this is not an issue. However, if your DirectX 8.0 driver handles GUID_DDStereoMode, note that when a call to <I>DdGetDriverInfo</I> with the GUID_GetDriverInfo2(GUID_DDStereoMode) is made, the runtime sets the <B>dwHeight</B> field of the DD_STEREOMODE structure to the special value D3DGDI2_MAGIC. This field corresponds to the <B>dwMagic</B> field of the DD_GETDRIVERINFO2DATA structure. Therefore, by casting the <B>lpvData</B> pointer to either a pointer to a DD_STEREOMODE structure or a pointer to a DD_GETDRIVERINFO2DATA structure and checking the value of the corresponding field (<B>dwHeight</B> or <B>dwMagic</B>) for the value D3DGDI2_MAGIC, you can distinguish between a call to determine stereo mode capabilities or a request of Direct3D 8.0 capabilities.</P>
+
+<P>Once the driver has determined that this is a call to <B>GetDriverInfo2</B> it must then determine the type of information being requested by the runtime. This type is contained in the <B>dwType</B> field of the DD_GETDRIVERINFO2DATA data structure.</P>
+
+<P>Finally, the driver copies the requested data into the supplied buffer. It is important to note that the <B>lpvData</B> field of the DD_GETDRIVERINFODATA data structure points to the buffer to which to copy the requested data. <B>lpvData</B> also points to the DD_GETDRIVERINFO2DATA structure. This means that the data returned by the driver overwrites the DD_GETDRIVERINFO2DATA structure (and, therefore, that the DD_GETDRIVERINFO2DATA structure occupies the first few DWORDs of the buffer).</P>
+
+<P>In order to be called with <B>GetDriverInfo2</B>, and report DirectX 8.0 capabilities, it is necessary for the driver to set the new flag DDHALINFO_GETDRIVERINFO2 in the <B>dwFlags</B> field of the <A HREF="ddstrcts_17s7.htm">DD_HALINFO</A> structure returned by the driver. If this flag is not set, the runtime does not send <B>GetDriverInfo2</B> calls to the driver and the driver is not recognized as a DirectX 8.0 level driver.</P>
+
+<P>The runtime uses <B>GetDriverInfo2</B> with type D3DGDI2_TYPE_DXVERSION to notify the driver of the current DX runtime version being used by the application. The runtime provides a pointer to a <A HREF="d3dstrct_9z53.htm">DD_DXVERSION</A> structure in the <B>lpvData</B> field of DD_GETDRIVERINFODATA.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Supporting%20GetDriverInfo2"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IInterruptSync</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IInterruptSync">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_iinterruptsync_ks"></A>IInterruptSync</H1>
+
+<P>The <B>IInterruptSync</B> interface represents an interrupt-sync object that synchronizes the execution of a list of ISRs (interrupt-service routines) with non-ISR routines. A miniport driver obtains a reference to an <B>IInterruptSync</B> object by calling the PortCls function <A HREF="audpc-routines_32gj.htm"><B>PcNewInterruptSync</B></A>, which creates a new <B>IInterruptSync</B> object that connects to an interrupt resource. <B>IInterruptSync</B> inherits from the <B>IUnknown</B> interface.</P>
+
+<P>The <A HREF="audmp-routines_4wtv.htm"><B>IInterruptSync::RegisterServiceRoutine</B></A> method associates an ISR with a sync object. More than one ISR can be associated with a single sync object.</P>
+
+<P>PINTERRUPTSYNCROUTINE is a function pointer type for routines that are synchronized by a sync object:</P>
+
+<PRE>  typedef NTSTATUS (*PINTERRUPTSYNCROUTINE)
+  (
+      IN  struct IInterruptSync *InterruptSync,
+      IN  PVOID                  DynamicContext
+  );</PRE>
+
+<P>The <I>InterruptSync</I> member is a pointer to the sync object. The <I>DynamicContext</I> member contains a context value that is passed to the routine when it is called.</P>
+
+<P>Both ISRs and non-ISR routines that are synchronized with ISRs use the PINTERRUPTSYNCROUTINE function-pointer type. Any non-ISR routine that that is defined to be of type PINTERRUPTSYNCROUTINE can be synchronized with all of the ISRs that are registered with the sync object. This means that once the non-ISR routine begins executing, none of the ISRs in the list execute until the non-ISR routine finishes executing.</P>
+
+<P>The <B>IInterruptSync</B> interface deals is flexible in dealing with multiple ISRs. The ISRs are kept in a linked list that is walked at interrupt time. When an ISR registers itself with a sync object, it specifies whether it should be added to the beginning or end of this list. When the sync object is created, the call to <B>PcNewInterruptSync</B> specifies the manner in which this list of ISRs is to be traversed when an interrupt occurs. The call supports the three options that are specified by the INTERRUPTSYNCMODE enumeration constants in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=41%>Constant</TH>
+<TH align=left width=59%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%><B>InterruptSyncModeNormal</B></TD>
+<TD width=59%>Call each ISR in the list until one of them returns STATUS_SUCCESS.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%><B>InterruptSyncModeAll</B></TD>
+<TD width=59%>Call each ISR in the list exactly once, regardless of the return codes of the preceding ISRs.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%><B>InterruptSyncModeRepeat</B></TD>
+<TD width=59%>Traverse the entire list of ISRs until a trip through the list occurs in which no ISR in the list returns STATUS_SUCCESS.</TD>
+</TR>
+</TABLE><BR>
+
+<PRE></PRE>
+
+<P>In the <B>InterruptSyncModeNormal</B> mode, the sync object calls each ISR in the list until one of them returns STATUS_SUCCESS. Any ISRs in the list that follow this routine are not called. This mode emulates the way that the operating system normally handles ISRs. If none of the ISRs return STATUS_SUCCESS, the behavior is the same as <B>InterruptSyncModeAll</B>.</P>
+
+<P>In the <B>InterruptSyncModeAll</B> mode, each ISR in the list is called exactly once, regardless of the return codes of the preceding ISRs. This is intended for more primitive hardware where the source of the interrupt is not deterministic, although it might be useful in other situations as well. For example, two interrupt sources might be tightly synchronized on every interrupt, regardless of which of the two sources a particular interrupt comes from.</P>
+
+<P>In the <B>InterruptSyncModeRepeat</B> mode, the sync object repeatedly traverses the entire list of ISRs until a trip through the list occurs in which no routine in the list returns STATUS_SUCCESS. This is intended to handle situations in which interrupts from multiple sources might fire on the same interrupt line at the same time, or a second interrupt might fire during ISR processing. Every interrupt source must be able to determine if it needs processing. The system will stop responding if an ISR that always returns STATUS_SUCCESS is registered with a sync object in this mode.</P>
+
+<P>In any of these modes, the sync object will acknowledge the interrupt to the operating system if any of the registered ISRs return STATUS_SUCCESS. In all three modes, if all interrupt sources indicate that they did not successfully handle the interrupt, the sync object will return an unsuccessful result to the operating system.</P>
+
+<P>Another facet of <B>IInterruptSync</B> is its ability to synchronize execution of ISRs with other routines that are not ISRs. Once a non-ISR routine is passed to <A HREF="audmp-routines_5eb7.htm"><B>IInterruptSync::CallSynchronizedRoutine</B></A> and begins running, execution of any ISRs that are registered with the sync object is guaranteed to be held off until that routine has finished running.</P>
+
+<P>In addition to the methods that <B>IInterruptSync</B> inherits from the <B>IUnknown</B> interface, <B>IInterruptSync</B> supports the following methods:</P>
+
+<P class=indent1><A HREF="audmp-routines_5eb7.htm"><B>IInterruptSync::CallSynchronizedRoutine</B></A></P>
+
+<P class=indent1><A HREF="audmp-routines_1ooj.htm"><B>IInterruptSync::Connect</B></A></P>
+
+<P class=indent1><A HREF="audmp-routines_85df.htm"><B>IInterruptSync::Disconnect</B></A></P>
+
+<P class=indent1><A HREF="audmp-routines_53g3.htm"><B>IInterruptSync::GetKInterrupt</B></A></P>
+
+<P class=indent1><A HREF="audmp-routines_4wtv.htm"><B>IInterruptSync::RegisterServiceRoutine</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IInterruptSync"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Stopping a Device to Disable It (Windows 98/Me)</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Stopping a Device to Disable It (Windows 98/Me)">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_stopping_a_device_to_disable_it_windows_98_me_kg"></A>Stopping a Device to Disable It (Windows 98/Me) </H2>
+
+<P>On Windows 98/Me, the PnP Manager issues stop IRPs when the Device Manager disables the device. (Windows&nbsp;2000 and later systems issue <A HREF="plugplay_3fon.htm">remove IRPS</A> in this situation). </P>
+
+<P>The PnP Manager sends the stop IRPs in the following sequence:
+
+<OL>
+	<LI>The PnP Manager issues an <A HREF="pnp-irps_6d4i.htm">IRP_MN_QUERY_STOP_DEVICE</A> to ask whether the drivers for a device can stop the device.
+<P>If all the drivers in the device stack return STATUS_SUCCESS, the drivers have put the device into a state (stop-pending) from which the device can be quickly stopped.
+
+<P>The PnP Manager queries as many device stacks as necessary to disable the device.
+</LI>
+
+	<LI>If the IRP_MN_QUERY_STOP_DEVICE succeeds, the PnP Manager issues an IRP_MN_STOP_DEVICE to stop the device.
+<P>The PnP Manager sends the stop IRP only if the previous query-stop IRP for the device completed successfully. In response to the stop IRP, drivers release the device's hardware resources (such as its I/O ports) and fail any IRPs that require access to the device. 
+</LI>
+
+	<LI>If the IRP_MN_QUERY_STOP_DEVICE fails, the PnP Manager sends an <A HREF="pnp-irps_4tpu.htm">IRP_MN_CANCEL_STOP_DEVICE</A> to cancel the query.
+<P>In response to an IRP_MN_CANCEL_STOP_DEVICE, the drivers for a device return the device to the started state and resume processing I/O requests for the device.
+
+<P>The PnP Manager cancels the query-stop for a device stack if one driver in the stack failed the request. When the PnP Manager cancels the query-stop on just one device stack, it sends the IRP_MN_CANCEL_STOP_DEVICE request because any drivers attached above the driver that failed the query have the device in the stop-pending state. When the IRP_MN_CANCEL_STOP_DEVICE succeeds, drivers have returned the device to the started state.
+</LI>
+</OL>
+
+<P>When a device is being disabled, its drivers cannot queue incoming IRPs because there is no guarantee when the device might be re-enabled. Consequently, data might be lost. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Stopping%20a%20Device%20to%20Disable%20It%20(Windows%2098%2FMe)"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

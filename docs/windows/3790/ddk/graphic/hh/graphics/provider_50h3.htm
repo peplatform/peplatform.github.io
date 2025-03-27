@@ -1,0 +1,156 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Installing a Print Processor</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Installing a Print Processor">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_installing_a_print_processor_gg"></A>Installing a Print Processor</H2>
+
+<P>To install a print processor, an installation application must call the spooler's <B>AddPrintProcessor</B> function. To associate a print processor with a print queue, list its file name in an INF file in a <B>PrintProcessor</B> entry. This entry must be included for every print queue to which the print processor is to be associated. For more information, see <A HREF="prtinst_0xbb.htm">Printer INF Files</A>.</P>
+
+<P>When an installation application calls the spooler’s <B>AddPrinter</B> function, using a PRINTER_INFO_2 structure as an input argument, it specifies the print processor name (obtained from the INF file) as a structure member. (The <B>AddPrintProcessor</B> and <B>AddPrinter</B> functions and the PRINTER_INFO_2 structure are described in the Platform SDK documentation.)</P>
+
+<H4>Associating a Print Processor with a PnP-installed Print Queue</H4>
+
+<P>If the PnP Manager detects and installs a print queue on a system running either Windows&nbsp;2000 or Windows&nbsp;XP, and if the INF file used to install the print queue contains a <B>PrintProcessor</B> entry other than the default Windows print processor, WinPrint, the print processor will not be associated with the print queue. However, the print processor will be installed. (Note that if you install the print queue using the Add Printer wizard, the print processor <I>is</I> correctly associated with the print queue. Note also that the PnP Manager in Windows&nbsp;Server 2003 and later correctly associates a print processor with the print queue.) </P>
+
+<P>To associate the print processor with the print queue for Plug and Play installations on Windows&nbsp;2000 and Windows&nbsp;XP, include a PRINTER_EVENT_INITIALIZE case in the printer interface DLL's <A HREF="drvrfnc_7xuv.htm"><B>DrvPrinterEvent</B></A> function. For Windows&nbsp;Server 2003 and later, it is not necessary to add a PRINTER_EVENT_INITIALIZE case in the <B>DrvPrinterEvent</B> function.</P>
+
+<P>The following code example sets the <B>pPrintProcessor</B> member of the PRINTER_INFO_2 structure to the name of your print processor, and then calls the <B>SetPrinter</B> function (described in the Platform SDK documentation) to update the printer's settings. Note that the name of the print processor in <I>gszPrintProc</I> must be the same as that in the <B>PrintProcessor</B> entry in your INF file.</P>
+
+<PRE>BOOL
+DrvPrinterEvent(
+               LPWSTR  pPrinterName,
+               INT     Event,
+               DWORD   Flags,
+               LPARAM  lParam
+               )
+
+{
+  PRINTER_DEFAULTS    PrinterDef = {NULL, NULL, PRINTER_ALL_ACCESS};
+  HANDLE              hPrinter;
+  LPPRINTER_INFO_2    pInfo = NULL;
+  DWORD               cbNeeded;
+  TCHAR               gszPrintProc[] = TEXT("&lt;<I>Print processor name</I>&gt;");
+  BOOL                bRet = TRUE;
+
+  switch (Event)
+  {
+    case PRINTER_EVENT_INITIALIZE:
+      if (OpenPrinter(pPrinterName, &amp;hPrinter, &amp;PrinterDef))
+      {
+        if ( !GetPrinter( hPrinter, 2, (LPBYTE) pInfo, 0, &amp;cbNeeded ) &amp;&amp;
+           (GetLastError() != ERROR_INSUFFICIENT_BUFFER) )
+           {
+              bRet = FALSE;
+           }
+        if (bRet == TRUE)
+        {
+          pInfo = (LPPRINTER_INFO_2) LocalAlloc(LPTR, cbNeeded);
+          bRet = pInfo ? TRUE : FALSE;
+        }
+        if (bRet == TRUE)
+        {
+          if (GetPrinter(hPrinter, 2, (LPBYTE) pInfo, cbNeeded, &amp;cbNeeded))
+          {
+            pInfo-&gt;pPrintProcessor = gszPrintProc;
+            SetPrinter(hPrinter, 2, (LPBYTE) pInfo, 0);
+          }
+          else 
+          {
+            bRet = FALSE;
+          }
+          if (pInfo)
+          {
+            LocalFree(pInfo);
+          }
+        }
+        ClosePrinter(hPrinter);
+      } 
+      else // OpenPrinter failed
+      {
+        bRet = FALSE;
+      }
+    break;
+    // <I>cases for other events</I>
+
+    default:
+      break;
+  } // end switch
+  return bRet;
+}
+</PRE>
+
+<H4>Associating a Print Processor with a Print Queue During Printer Driver Upgrade</H4>
+
+<P>When a printer driver is updated, the print processor of the updated print queue is not changed. If the new printer driver requires a particular print processor, the printer interface DLL's <A HREF="drvrfnc_9eav.htm"><B>DrvUpgradePrinter</B></A> function must set the <B>pPrintProcessor</B> member of the PRINTER_INFO_2 structure to the name of the new print processor. After this occurs, this function calls <B>SetPrinter</B> to update the printer's settings. The spooler calls the <B>DrvUpgradePrinter</B> function once for each printer, which ensures that all printers using that driver also use the required print processor. The following code example demonstrates these points.</P>
+
+<PRE>BOOL
+DrvUpgradePrinter(
+                 DWORD   Level,
+                 LPBYTE  pDriverUpgradeInfo
+                 )
+{
+  HANDLE                  hPrinter;
+  PRINTER_DEFAULTS        PrinterDef = {NULL, NULL, PRINTER_ALL_ACCESS};
+  PDRIVER_UPGRADE_INFO_2  pDUI2;
+  LPPRINTER_INFO_2        pInfo = NULL;
+  DWORD                   cbNeeded;
+  TCHAR                   gszPrintProc[]   = TEXT("&lt;<I>Print processor name</I>&gt;");
+  TCHAR                   gszPrintDriver[] = TEXT("&lt;<I>Printer driver name</I>&gt;");
+  BOOL                    bRet = TRUE;
+
+  if ((Level == 2)                                            &amp;&amp;
+      (pDUI2 = (PDRIVER_UPGRADE_INFO_2)pDriverUpgradeInfo)    &amp;&amp;
+      (OpenPrinter(pDUI2-&gt;pPrinterName, &amp;hPrinter, &amp;PrinterDef)))
+  {
+    if ( !GetPrinter( hPrinter, 2, (LPBYTE) pInfo, 0, &amp;cbNeeded )  &amp;&amp;
+         (GetLastError() != ERROR_INSUFFICIENT_BUFFER) )
+    {
+       bRet = FALSE;
+    }
+    if (bRet == TRUE)
+    {
+      pInfo = (LPPRINTER_INFO_2) LocalAlloc(LPTR, cbNeeded);
+      bRet = pInfo ? TRUE : FALSE;
+    }
+    if (bRet == TRUE)
+    {
+      if (GetPrinter(hPrinter, 2, (LPBYTE) pInfo, cbNeeded, &amp;cbNeeded))
+      {
+      //
+      // This function is called for every printer queue that uses a driver
+      // for which one or more files were updated. However, we only want to
+      // update the printer queue's "driver" by a particular driver.
+      //
+      if ( !lstrcmpi(pInfo-&gt;pDriverName, gszPrintDriver) )
+      {
+        pInfo-&gt;pPrintProcessor =  gszPrintProc;
+        SetPrinter(hPrinter, 2, (LPBYTE) pInfo, 0);
+      }
+    else  // GetPrinter 
+    {
+      bRet = FALSE;
+    }
+    if (pInfo)
+    {
+      LocalFree(pInfo);
+    }
+    ClosePrinter(hPrinter);
+  }
+  else  // Level != 2 or pDUI2 == NULL or OpenPrinter failed
+  {
+    bRet = FALSE;
+  }
+  return bRet;
+}
+</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Installing%20a%20Print%20Processor"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

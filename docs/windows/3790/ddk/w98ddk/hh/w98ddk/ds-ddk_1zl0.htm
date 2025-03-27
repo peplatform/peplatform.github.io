@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IDsDriver::CreateSoundBuffer</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IDsDriver::CreateSoundBuffer">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_dxddk_idsdriver_createsoundbuffer_dsound"></A>IDsDriver::CreateSoundBuffer</H1>
+
+<P>The <B>IDsDriver::CreateSoundBuffer </B>method is called only when the device has been opened by DirectSound through a call to <A HREF="ds-ddk_209w.htm"><B>IDsDriver::Open</B></A>. DirectSound calls this method to request the driver to create a hardware sound buffer with specific attributes. If the driver is able to create the sound buffer and allocate the required resources, it returns a pointer to an <A HREF="ds-ddk_304k.htm"><B>IDsDriverBuffer</B></A> interface that DirectSound uses to control the sound buffer. Otherwise the driver fails the request by returning an error code. </P>
+
+<PRE class=syntax><B>HRESULT CreateSoundBuffer( 
+  LPWAVEFORMATEX</B> <I>pwfx</I><B>,
+  DWORD </B><I>dwFlags</I><B>,
+  DWORD </B><I>dwCardAddress</I><B>,
+  LPDWORD </B><I>pdwcbBufferSize</I><B>,</B> <B>
+  LPBYTE </B><I>*ppbBuffer</I><B>, 
+  LPVOID </B><I>*ppvObj</I><B> 
+ );
+</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>pwfx</I> </DT>
+
+<DD>Pointer to a <B>WAVEFORMATEX</B> structure that contains a description of the desired wave format for the sound buffer. If the device cannot create a sound buffer with that format, it should fail the call by returning <A HREF="ds-ddk_7gf8.htm#_dxddk_dserr_badformat_dsound">DSERR_BADFORMAT</A>. </DD>
+
+<DT><I>dwFlags</I> </DT>
+
+<DD>The creation flags for this sound buffer. Note that these flags are a subset of those used by the <B>IDirectSound::CreateSoundBuffer</B> method; DirectSound intercepts and uses some of the flags so the driver does not have to worry about them. 
+
+<DL>
+<DT>DSBCAPS_PRIMARYBUFFER </DT>
+
+<DD>Primary buffer requested. If this flag is not specified, the application should attempt to create a secondary buffer. DirectSound only attempts to create secondary buffers if the driver has indicated (through the <A HREF="ds-ddk_5gis.htm"><B>DSDRIVERCAPS</B></A> structure returned by <A HREF="ds-ddk_4sf8.htm"><B>IDsDriver::GetCaps</B></A>) that it supports secondary hardware buffers. </DD>
+
+<DT>DSBCAPS_CTRLFREQUENCY</DT>
+
+<DT>DSBCAPS_CTRLPAN</DT>
+
+<DT>DSBCAPS_CTRLVOLUME</DT>
+
+<DD>These flags specify the controls required for the buffer. If these controls are not available, the driver should fail by returning <A HREF="ds-ddk_7gf8.htm#_dxddk_dserr_controlunavail_dsound">DSERR_CONTROLUNAVAIL</A>. Note that drivers should fail to create primary buffers if volume or pan control is requested; in the current release this doesn't work because of conflicts with the Windows 95 mixer controls. </DD>
+
+<DT>DSBCAPS_CTRL3D </DT>
+
+<DD>Specified only for secondary buffers. Specifies that the secondary buffer requires 3-D audio acceleration. </DD>
+</DL>
+</DD>
+
+<DT><I>dwCardAddress</I> </DT>
+
+<DD>If the device has onboard sound memory and the driver requests that DirectSound or DirectDraw manage the heap (that is, the driver specifies <A HREF="ds-ddk_9mck.htm#_dxddk_dsdheap_createheap_dsound">DSDHEAP_CREATEHEAP</A> or <A HREF="ds-ddk_9mck.htm#_dxddk_dsdheap_usedirectdrawheap_dsound">DSDHEAP_USEDIRECTDRAWHEAP</A>), this method points to the card address of the sound memory to be used by this buffer. DirectSound guarantees that this memory is free and is large enough to contain the buffer. </DD>
+
+<DT><I>pdwcbBufferSize</I> </DT>
+
+<DD>Pointer to a doubleword containing the requested size of the sound buffer. As an input parameter, it contains the buffer size requested by the calling application. For primary buffers, it may also be an output parameter if the hardware imposes restrictions on the size of the buffer. For example, for DMA-based cards, the driver should fill in this value with the size of the DMA buffer allocated on startup. </DD>
+
+<DT><I>ppbBuffer</I> </DT>
+
+<DD>Pointer to a value containing the start address (that is, a pointer to a pointer) of the buffer memory. If this is a secondary buffer and the driver specified the DSDDESC_USESYSTEMMEMORY flag in the <A HREF="ds-ddk_9mck.htm"><B>DSDRIVERDESC</B></A> structure returned by the <A HREF="ds-ddk_3g84.htm"><B>IDsDriver::GetDriverDesc</B></A> call, <I>*ppbBuffer</I> is initialized with a pointer to the system memory allocated by DirectSound. </DD>
+
+<DT><I>ppvObj</I> </DT>
+
+<DD>Pointer to an interface pointer that receives the <B>IDsDriverBuffer </B>interface to the buffer object created by the driver. If no buffer object and interface are created (that is, if the creation request fails), the driver should set the interface pointer to NULL. 
+</DD>
+</DL>
+
+<H4>Return Values</H4>
+
+<P>Returns DS_OK if successful, or one of the following error values otherwise: </P>
+
+<P><A HREF="ds-ddk_7gf8.htm#_dxddk_dserr_allocated_dsound">DSERR_ALLOCATED</A> </P>
+
+<P><A HREF="ds-ddk_7gf8.htm#_dxddk_dserr_invalidparam_dsound">DSERR_INVALIDPARAM</A> </P>
+
+<P><A HREF="ds-ddk_7gf8.htm#_dxddk_dserr_outofmemory_dsound">DSERR_OUTOFMEMORY</A> </P>
+
+<P><A HREF="ds-ddk_7gf8.htm#_dxddk_dserr_badformat_dsound">DSERR_BADFORMAT</A> </P>
+
+<H4>Remarks</H4>
+
+<P>The requested size of the buffer is passed in a lpdword pointed to by the <I>pdwcbBufferSize</I> parameter. When creating a primary buffer (that is, the DSBCAPS_PRIMARYBUFFER flag is specified), the driver may change this value to conform to hardware limitations (such as DMA buffer size). For secondary buffers, this value must not be changed. </P>
+
+<P>If a secondary buffer is requested and the driver specifies the DSDDESC_USESYSTEMMEMORY flag in the <A HREF="ds-ddk_9mck.htm"><B>DSDRIVERDESC</B></A> structure returned by the <A HREF="ds-ddk_3g84.htm"><B>IDsDriver::GetDriverDesc</B></A> method, DirectSound allocates system memory for the buffer and passes a pointer to this memory in the location pointed to by <I>ppbBuffer</I>. The buffer will be large enough to contain the number of bytes specified in <I>*pdwcbBufferSize</I>. The driver must use this memory or fail the call. If the driver needs to allocate its own memory, it should do so for all buffers and not use the DSDDESC_USESYSTEMMEMORY flag. </P>
+
+<P>If a primary buffer is requested or the driver does not specify the DSDDESC_USESYSTEMMEMORY flag, no memory is allocated and the <I>ppbBuffer</I> parameter points to a NULL pointer. The driver should allocate the required buffer memory and return a pointer to this memory in the value pointed to by <I>ppbBuffer</I>. </P>
+
+<P>The driver should always check the DSBCAPS_CTRLxxx flags passed in the <I>dwFlags</I> parameter. If the driver cannot create a buffer with the requested control attributes, it should fail the creation request. If the driver succeeds the creation request, it is required to succeed the control requests (<A HREF="ds-ddk_0in8.htm"><B>IDsDriverBuffer::SetVolumePan</B></A>, and so on) when called on this buffer. </P>
+
+<P>If the device has onboard sound memory and the driver requests that DirectSound or DirectDraw manage the heap (that is, the driver fills in the <B>dwMemStartAddress</B> and <B>dwMemEndAddress</B> members and specifies the DSDHEAP_CREATEHEAP or DSDHEAP_USEDIRECTDRAWHEAP flags in the <A HREF="ds-ddk_9mck.htm"><B>DSDRIVERDESC</B></A> structure), this method points to the card address of the sound memory to be used by this buffer. DirectSound guarantees that this memory is free and is large enough to contain the buffer. Otherwise this parameter is set to zero. </P>
+
+<P>Due to internal contention-management code in DirectSound, drivers should always make sure that the buffer memory for primary buffers is page-locked. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IDsDriver::CreateSoundBuffer"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

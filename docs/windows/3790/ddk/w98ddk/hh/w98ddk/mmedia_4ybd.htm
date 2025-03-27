@@ -1,0 +1,97 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ACMDM_STREAM_CONVERT</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_2709"></A>ACMDM_STREAM_CONVERT</H1>
+
+<PRE>lParam1 = (LPARAM) pacmDSI  // see below
+lParam2 = (LPARAM) pacmDSH  // see below
+ </PRE>
+
+<P>Sent to an Audio Compression Manager (ACM) driver to request a conversion on a previously opened conversion stream. This message is usually sent to an ACM driver in response to an <B>acmStreamConvert</B> call. 
+
+<UL>
+	<LI>Return MMSYSERR_NOERROR if the operation is successful or an error value otherwise. The following errors are possible: </LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%>MMSYSERR_NOMEM </TD>
+<TD width=66%>Unable to allocate resources to perform the conversion request. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>MMSYSERR_NOTENABLED </TD>
+<TD width=66%>The driver failed to load or initialize. </TD>
+</TR>
+</TABLE><BR>
+
+<DL>
+<DT><I>lParam1</I> </DT>
+
+<DD>Address of the <B>ACMDRVSTREAMINSTANCE</B> structure for the conversion stream that the convert request is for. </DD>
+
+<DT><I>lParam2</I> </DT>
+
+<DD>Address of the <B>ACMDRVSTREAMHEADER</B> structure identifying the source and destination data blocks that should be used for the conversion. 
+</DD>
+</DL>
+
+<P>An ACM driver must support the ACMDM_STREAM_CONVERT message if it supports the ACMDM_STREAM_OPEN message. </P>
+
+<P>If the specified conversion stream was opened for asynchronous conversions, the driver should queue the <B>ACMDRVSTREAMHEADER</B> structure and immediately return successfully. If the stream header cannot be queued for asynchronous conversions (due to resource limitations, for example), the driver should return an error code. </P>
+
+<P>If the <B>ACMDRVSTREAMHEADER</B> for an asynchronous conversion was successfully queued, but the driver later determines that the conversion is not possible, the driver must set the <B>cbDstLengthUsed</B> member of the <B>ACMDRVSTREAMHEADER</B> to zero and perform the <B>DriverCallback</B>. </P>
+
+<P>Note that the following parameters for the ACMDM_STREAM_CONVERT message will be validated before calling the driver:
+
+<UL>
+	<LI>The <I>lParam1</I> parameter will contain a valid pointer to an <B>ACMDRVSTREAMINSTANCE</B> structure with the same information as the corresponding ACMDM_STREAM_OPEN message. </LI>
+
+	<LI>The <I>lParam2</I> parameter will contain a valid pointer to an <B>ACMDRVSTREAMHEADER</B> structure with the proper members initialized for the conversion request. This structure will be at least the size of the base <B>ACMDRVSTREAMHEADER</B> structure. </LI>
+
+	<LI>The <B>cbStruct</B> member of the <B>ACMDRVSTREAMHEADER</B> structure will be set to at least the size, in bytes, of the base <B>ACMDRVSTREAMHEADER</B> structure. </LI>
+
+	<LI>The remaining members of the <B>ACMDRVSTREAMHEADER</B> structure will be within the bounds described in the documentation for the <B>ACMDRVSTREAMHEADER</B> structure. </LI>
+
+	<LI>The <B>ACMDRVSTREAMHEADER</B> structure will be properly prepared. The ACMSTREAMHEADER_STATUSF_PREPARED flag in the <B>fdwStatus</B> member of the <B>ACMDRVSTREAMHEADER</B> structure will be set. </LI>
+
+	<LI>No invalid flag combinations will be specified in the <B>fdwConvert</B> member. </LI>
+</UL>
+
+<P>The driver does not need to check for these conditions. </P>
+
+<P>The <B>fdwConvert</B> member of the <B>ACMDRVSTREAMHEADER</B> structure will contain flags defining how the conversion should be performed on this conversion request: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%>ACM_STREAMCONVERTF_BLOCKALIGN </TD>
+<TD width=57%>Specifies that only integral numbers of blocks should be converted. Converted data must end on block aligned boundaries. An application uses this flag for all conversions on a stream until there is not enough source data to convert to a block-aligned destination; in which case, the last conversion will be specified without this flag. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>ACM_STREAMCONVERTF_END </TD>
+<TD width=57%>Specifies that the conversion stream should begin returning pending instance data. For example, if a conversion stream maintains instance data, such as the tail end of an echo filter operation, this flag should tell the driver to start returning this remaining data with optional source data. Note that this flag can be specified with the ACM_STREAMCONVERTF_START flag. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>ACM_STREAMCONVERTF_START </TD>
+<TD width=57%>Specifies that the conversion stream should reinitialize its instance data. For example, if a conversion stream maintains instance data, such as delta or predictor information, this flag should reset the stream to starting defaults. Note that this flag can be specified with the ACM_STREAMCONVERTF_END flag. </TD>
+</TR>
+</TABLE><BR>
+
+<H4>See Also</H4>
+
+<P>ACMDM_STREAM_CLOSE, ACMDM_STREAM_OPEN, ACMDM_STREAM_PREPARE, ACMDM_STREAM_RESET, ACMDM_STREAM_SIZE, ACMDM_STREAM_UNPREPARE, ACMDRVOPENDESC, ACMDRVSTREAMHEADER, ACMDRVSTREAMINSTANCE, ACMDRVSTREAMSIZE </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ACMDM_STREAM_CONVERT"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

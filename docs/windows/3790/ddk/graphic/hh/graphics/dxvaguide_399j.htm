@@ -1,0 +1,126 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProcAmpControlBlt</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProcAmpControlBlt">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_procampcontrolblt_gg"></A><I>ProcAmpControlBlt</I></H1>
+
+<P>The<B> </B>sample <I>ProcAmpControlBlt</I> function performs the ProcAmp adjustment operation by writing the output to the destination surface.</P>
+
+<PRE class=syntax><B>HRESULT
+</B>  <I>ProcAmpControlBlt</I><B>(</B>
+    [<B>in</B>] <B>HDXVA_ProcAmpStream</B>  <I>hCcStrm</I>,
+    [<B>in</B>] <B>LPDDSURFACE</B>  <I>lpDDSDstSurface</I>,
+    [<B>in</B>] <B>LPDDSURFACE</B>  <I>lpDDSSrcSurface</I>,
+    [<B>in</B>] <B>DXVA_ProcAmpControlBlt</B>*  <I>ccBlt</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>hCcStrm</I></DT>
+
+<DD>Handle to the ProcAmpStream object.</DD>
+
+<DT><I>lpDDSDstSurface</I></DT>
+
+<DD>Pointer to the destination surface.</DD>
+
+<DT><I>lpDDSSrcSurface</I></DT>
+
+<DD>Pointer to the source surface.</DD>
+
+<DT><I>ccBlt</I></DT>
+
+<DD>Pointer to a <A HREF="dxvaref_963r.htm">DXVA_ProcAmpControlBlt</A> structure that specifies the ProcAmp adjustment data output to the destination surface.</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>S_OK</P>
+
+<H4>Comments</H4>
+
+<P>The source and destination rectangles are required for either subrectangle ProcAmp adjustment or stretching. Support for stretching is optional and is reported by the <B>VideoProcessingCaps</B> member of the <A HREF="dxvaref_2vjb.htm">DXVA_ProcAmpControlCaps</A> structure. Support for subrectangles is not mandatory.</P>
+
+<P>The destination surface can be an off-screen plane, D3D render target, a D3D texture, or a D3D texture that is also a render target. The destination surface will always be allocated in local video memory. The pixel format of the destination surface will be the one indicated in the DXVA_ProcAmpControlCaps structure, unless a YUV-to-RGB color space conversion is being performed as part of the ProcAmp adjustment procedure. In this case, the destination surface format will be an RGB format with at least 8 bits of precision for each color component.</P>
+
+<P>The<B> </B>sample <B>ProcAmpControlBlt</B> function maps directly to a call to the <B>RenderMoComp</B> member of the <A HREF="ddstrcts_0qav.htm">DD_MOTIONCOMPCALLBACKS</A> structure in the deinterlace container device. <B>RenderMoComp</B> points to the driver-supplied <I>DdMoCompRender</I> callback that references the <A HREF="ddstrcts_5jtz.htm">DD_RENDERMOCOMPDATA</A> structure. The DD_RENDERMOCOMPDATA structure is completed as follows.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=45%>Member</TH>
+<TH align=left width=55%>Value</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%><B>dwNumBuffers</B></TD>
+<TD width=55%>Indicates the number of buffers. This must be the value 2.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%><B>lpBufferInfo</B></TD>
+<TD width=55%>Pointer to an array of two surfaces.  The first element of the array is the destination surface; the second element of the array is the source surface.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%><B>dwFunction</B></TD>
+<TD width=55%>DXVA_ProcAmpControlBltFnCode constant (defined in <I>dxva.h</I>).</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%><B>lpInputData</B></TD>
+<TD width=55%>Pointer to a <A HREF="dxvaref_963r.htm">DXVA_ProcAmpControlBlt</A> structure.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%><B>lpOutputData</B></TD>
+<TD width=55%>NULL</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Mapping RenderMoComp to <I>ProcAmpControlBlt</I></H4>
+
+<P>For the DirectX VA device used for ProcAmp control, <B>RenderMoComp</B> is called without calling <B>BeginMoCompFrame</B> or <B>EndMoCompFrame</B>.</P>
+
+<P>The following sample code shows how a driver should map the <B>RenderMoComp</B> DDI call into calls to the <I>ProcAmpControlBlt</I> function. The sample code only shows how the driver-supplied callback pointed to by <B>RenderMoComp</B> is used for ProcAmp adjustment. If a driver supports other DirectX VA functions, such as decoding MPEG-2 video streams, extend the sample code to include processing of additional DirectX VA GUIDs.</P>
+
+<PRE>DWORD APIENTRY
+RenderMoComp(
+    LPDDHAL_RENDERMOCOMPDATA lpData
+    )
+{
+    if (lpData-&gt;dwFunction == DXVA_ProcAmpControlBltFnCode)
+    {
+        DXVA_ProcAmpControlDeviceClass* pDXVADev =
+                (DXVA_ProcAmpControlDeviceClass*)pDXVABase;
+
+        DXVA_ProcAmpControlBlt* lpBlt =
+                (DXVA_ProcAmpControlBlt*)lpData-&gt;lpInputData;
+
+        LPDDMCBUFFERINFO lpBuffInfo = lpData-&gt;lpBufferInfo;
+
+        lpData-&gt;ddRVal = pDXVADev-&gt;ProcAmpControlBlt(
+                 lpBuffInfo[0].lpCompSurface,
+                 lpBuffInfo[1].lpCompSurface,
+                 lpBlt);
+        return DDHAL_DRIVER_HANDLED;
+    }
+    lpData-&gt;ddRVal = E_INVALIDARG;
+    return DDHAL_DRIVER_HANDLED;
+}</PRE>
+
+<H4>See Also</H4>
+
+<P><A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A>, <A HREF="dxvaref_2vjb.htm">DXVA_ProcAmpControlCaps</A>, <A HREF="dxvaref_963r.htm">DXVA_ProcAmpControlBlt</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProcAmpControlBlt"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

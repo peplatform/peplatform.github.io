@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Synchronizing Cancellation in Driver Routines that Process IRPs</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Synchronizing Cancellation in Driver Routines that Process IRPs">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_synchronizing_cancellation_in_driver_routines_that_process_irps_kg"></A>Synchronizing Cancellation in Driver Routines that Process IRPs</H3>
+
+<P>Any driver routine that dequeues or is called with an IRP that is held in a cancelable state, including a driver's <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A> routine, must do the following:
+
+<OL>
+	<LI>Call <A HREF="k104_9fw2.htm"><B>IoAcquireCancelSpinLock</B></A>.</LI>
+
+	<LI>Check to make sure that <B>Irp</B> equals <B>DeviceObject-&gt;CurrentIrp</B>. If not, call <A HREF="k104_5po2.htm"><B>IoReleaseCancelSpinLock</B></A> and return control.
+<P>If the two are not the same, the <B>CurrentIrp</B> might have been canceled between the time that <A HREF="k104_1nsi.htm"><B>IoStartPacket</B></A> released the cancel spin lock and this routine acquired it.
+</LI>
+
+	<LI>Call <A HREF="k104_6hiq.htm"><B>IoSetCancelRoutine</B></A> with a NULL <I>CancelRoutine</I> pointer to remove the IRP from the cancelable state.</LI>
+
+	<LI>Check the <B>Irp-&gt;Cancel</B> field to determine whether to cancel the IRP or to begin processing the I/O request.
+<P>If <B>Irp-&gt;Cancel</B> is set to TRUE, do the following:
+
+<UL>
+	<LI>Call <B>IoReleaseCancelSpinLock</B>.</LI>
+
+	<LI>Set <B>Irp-&gt;IoStatus.Status</B> to STATUS_CANCELLED.</LI>
+
+	<LI>Set <B>Irp-&gt;IoStatus.Information</B> to 0.</LI>
+
+	<LI>Call <A HREF="k104_7eb6.htm"><B>IoStartNextPacket</B></A> (in a <I>StartIo </I>routine) to start the next packet.</LI>
+
+	<LI>Call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with a priority boost of IO_NO_INCREMENT to complete the IRP.</LI>
+</UL>
+
+<P>If <B>Irp-&gt;Cancel</B> is set to FALSE, call <B>IoReleaseCancelSpinLock</B> and start the requested processing the I/O request or pass the IRP to the next lower driver, as appropriate.
+</LI>
+</OL>
+
+<P>Drivers that manage their own queues of IRPs, rather than using the I/O Manager-supplied device queue, do not need to acquire the cancel spin lock when calling <B>IoSetCancelRoutine</B>. However, these drivers should check the <I>Cancel </I>routine pointer that <B>IoSetCancelRoutine</B> returns to determine whether the cancel routine has already started.</P>
+
+<P>In any driver that handles cancelable IRPs, every driver routine that processes an IRP before the underlying device has been programmed for the requested I/O operation should check the cancelable state of all incoming IRPs. Specifically, a highest-level device driver with both <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A><I> </I>and <A HREF="drvrrtns_2ype.htm"><I>ControllerControl</I></A> routines should process incoming IRPs in both these driver routines as already described.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Synchronizing%20Cancellation%20in%20Driver%20Routines%20that%20Process%20IRPs"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

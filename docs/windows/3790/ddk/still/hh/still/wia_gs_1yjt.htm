@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Installing Scanning Functionality in an MFP with a Single PDO</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Installing Scanning Functionality in an MFP with a Single PDO">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_setupdiopendeviceinterfaceregkey_dr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_inf_ddinstall.coinstallers_section_dr">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_inf_ddinstall_section_dr">
+</OBJECT>
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_inf_ddinstall_section_dr">
+</OBJECT>
+<OBJECT ID="hhobj_5" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_inf_ddinstall_section_dr">
+</OBJECT>
+<OBJECT ID="hhobj_6" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iosetdeviceinterfacestate_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_installing_scanning_functionality_in_an_mfp_with_a_single_pdo_si"></A>Installing Scanning Functionality in an MFP with a Single PDO</H1>
+
+<P>A special procedure is required to install scanning functionality in multifunction printers having only a single physical device object (PDO). If the device identifies itself as a printer, the printer's INF file can call the WIA coinstaller in order to install the scanning functionality.</P>
+
+<P>Microsoft recommends that each logical function of a multifunction printer should have its own PDO, if at all possible. Associating multiple functions of a device with a single PDO should be avoided.</P>
+
+<P>If you register the WIA coinstaller as the coinstaller of your device, Setup always calls the WIA coinstaller to process the installation before and after the Printer class installer. The WIA coinstaller creates an Image class device interface on the printer's PDO and stores all required information in the device interface registry key. The current location in the registry of this key is:</P>
+
+<P><B>HKLM\SYSTEM\CurrentControlSet\Control\DeviceClasses\{6bdd1fc6-810f-11d0-bec7-08002be2092f}\&lt;<I>device symbolic link</I>&gt;</B></P>
+
+<P>This key is not guaranteed to remain in this location In future operating system versions. To open this key, call <A HREF="JavaScript:hhobj_1.Click()"><B>SetupDiOpenDeviceInterfaceRegKey</B></A>. </P>
+
+<P>The WIA service enumerates all Image class PDOs and device interfaces. Therefore, the newly created device interface will be enumerated as a WIA device.</P>
+
+<P>The Windows DDK ships with an example INF that installs scanning functionality in a multifunction printer with only a single PDO. The name of this file is <I>mfpoemprn.inf</I>, and it is located in the <I>\src\print\infs</I> directory.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To install scanning functionality in an MFP</B>
+
+<OL>
+	<LI>Specify <I>sti_ci.dll</I> as the entry value for the <B>CoInstallerEntry</B> entry.
+<P>The INF for your device must have an <A HREF="JavaScript:hhobj_2.Click()">INF <I>DDInstall</I>.CoInstallers section</A> to be able to register the coinstaller for device installation. This section should appear similar to the following:
+
+<PRE>[OEMMFP.GPD.CoInstallers]
+AddReg=WIA.CoInstallers.AddReg
+
+[WIA.CoInstallers.AddReg]
+HKR,,CoInstallers32,0x00010000,"sti_ci.dll, CoInstallerEntry"
+</PRE>
+</LI>
+
+	<LI>Include a <B>WIASection</B> entry in the <A HREF="JavaScript:hhobj_3.Click()">INF <I>DDInstall</I> section</A> that refers to the section containing all of the WIA-related settings. The section containing the WIA-related settings must appear in the same INF file. 
+<PRE>[OEMMFP.GPD]
+CopyFiles=@OEMMFP.DLL,@OEMPRT1.DLL,@OEMUI.DLL,OEMMFP.GPD.WIA.CopyFiles
+WIASection=OEMMFP.GPD.WIA
+
+[OEMMFP.GPD.WIA]
+Description=%OEM_MFP_SCANNER%
+SubClass=StillImage
+DeviceType=1
+Capabilities=0x00000011
+AddReg=OEMMFP.GPD.WIA.AddReg
+DeviceData=OEMMFP.GPD.WIA.DeviceData
+ICMProfiles="sRGB Color Space Profile.icm"
+USDClass="{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}"
+</PRE>
+
+<P>By including a <B>WIASection</B> entry, the Image class installer does not create a devnode for the device, but instead creates an additional device interface. Accordingly, it uses the previously mentioned device interface registry key to store STI-/WIA-related information.
+</LI>
+
+	<LI>Make sure that the <A HREF="JavaScript:hhobj_4.Click()">INF <I>DDInstall</I> section</A> copies all required files.
+<P>Alternatively, you can list the files to copy in the <B>WIASection</B>, but they will not be listed in the Device Manager.
+</LI>
+</OL>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The <B>Include</B> and <B>Needs</B> entries cannot be used in the <B>WIASection</B> section.</P>
+
+<P class=note>All kernel-mode portions must be installed by the original <A HREF="JavaScript:hhobj_5.Click()">INF <I>DDInstall</I> section</A>.</P>
+
+<P class=note>If the device is hot-pluggable, and requires its own kernel-mode component, it must create and enable an Image class device interface (in addition to any other class device interfaces, such as the Print class device interface). The kernel-mode component enables an Image class device interface on the device's devnode by means of a call to the <A HREF="JavaScript:hhobj_6.Click()"><B>IoSetDeviceInterfaceState</B></A> function. When the Image class device interface is enabled, a Plug and Play event is fired, notifying the WIA service that the device is connected. </P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Installing%20Scanning%20Functionality%20in%20an%20MFP%20with%20a%20Single%20PDO"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

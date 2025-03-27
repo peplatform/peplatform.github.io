@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IStiUSD::Initialize</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IStiUSD::Initialize">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_istiusd_initialize_si"></A>IStiUSD::Initialize</H1>
+
+<P>A still image minidriver's <B>IStiUSD::Initialize</B> method initializes an instance of the COM object that defines the <B>IStiUSD</B> interface.</P>
+
+<PRE class=syntax><B>STDMETHODIMP
+  Initialize(</B>
+    <B>PSTIDEVICECONTROL </B> <I>pDcb</I><B>,</B>
+    <B>DWORD</B>  <I>dwStiVersion</I><B>,</B>
+    <B>HKEY</B>  <I>hParametersKey</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>pDcb</I></DT>
+
+<DD>Caller-supplied pointer to the <A HREF="stillimg_6lk9.htm"><B>IStiDeviceControl</B> COM interface</A>.</DD>
+
+<DT><I>dwStiVersion</I></DT>
+
+<DD>Caller-supplied STI version number. This value is defined by STI_VERSION in <I>sti.h</I>.</DD>
+
+<DT><I>hParametersKey</I></DT>
+
+<DD>Caller-supplied handle to the registry key under which device-specific information is to be stored.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>If the operation succeeds, the method should return S_OK. Otherwise, it should return one of the STIERR-prefixed error codes defined in <I>stierr.h</I>.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>stiusd.h</I>. Include <I>stiusd.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The <B>IStiUSD::Initialize</B> method, which is exported by still image minidrivers, is the first <B>IStiUSD</B> method called after a minidriver has been loaded. The method must initialize the driver and device.</P>
+
+<P>The method should store the received <A HREF="stillimg_6lk9.htm"><B>IStiDeviceControl</B> COM interface</A> pointer, and it should call that interface's <A HREF="stifnc_2y3t.htm"><B>IStiDeviceControl::AddRef</B></A> method.</P>
+
+<P>For devices connected to dedicated ports (such as SCSI devices), the method typically creates a read/write path to the device by calling <B>CreateFile</B> (described in the Platform SDK documentation), using a device port name obtained by calling <A HREF="stifnc_9oa1.htm"><B>IStiDeviceControl::GetMyDevicePortName</B></A>.</P>
+
+<P>For devices on shared ports (such as serial port devices), opening the port in the <B>IStiUSD::Initialize</B> method is not recommended, because access to other devices on the port will be locked out. For such devices, it is better to call <B>CreateFile</B> from within the <A HREF="stifnc_5wyx.htm"><B>IStiUSD::LockDevice</B></A> method.</P>
+
+<P>If the device being opened is one for which multiple calls to <B>CreateFile</B> are not allowed (such as devices connected to a serial port), the driver typically does not call <B>CreateFile</B> unless the caller has opened the device for data transfers, as illustrated in the following <B>Code</B> <B>Example</B>.</P>
+
+<P>The <B>IStiUSD::Initialize</B> method should validate the received STI version number and return an error if the received version does not match the driver's version.</P>
+
+<H4>Code Example</H4>
+
+<P>The following example opens a device port only if a call to <A HREF="stifnc_5nzd.htm"><B>IStiDeviceControl::GetMyDeviceOpenMode</B></A> indicates an application has opened the device for data transfers. Such code might be used for a device that cannot support multiple <B>CreateFile</B> calls, such as a serial port device.</P>
+
+<PRE>STDMETHODIMP MyUSDDevice::Initialize(
+    PSTIDEVICECONTROL pDcb,
+    DWORD             dwStiVersion,
+    HKEY              hParametersKey)
+{
+    HRESULT hres = STI_OK;
+    DWORD   dwMode = 0;
+    if (!pDcb) 
+    {
+        hres = STIERR_INVALID_PARAM;
+    }
+    else 
+    {
+        // Store IStiDeviceControl object pointer
+        m_pDcb = pDcb;
+        m_pDcb-&gt;AddRef();
+        // If we opened in data mode - should open device right now,
+        // otherwise postpone open till lock
+        m_pDcb-&gt;GetMyDeviceOpenMode(&amp;dwMode);
+        if (dwMode &amp; STI_DEVICE_CREATE_DATA)
+            hres = OpenMyPort();
+    }
+    return hres;
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IStiUSD::Initialize"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,67 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IPreFetchOffset::SetPreFetchOffset</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IPreFetchOffset::SetPreFetchOffset">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_iprefetchoffset_setprefetchoffset_ks"></A>IPreFetchOffset::SetPreFetchOffset</H1>
+
+<P>The <B>SetPreFetchOffset</B> method sets the prefetch offset, which is the number of bytes of data separating the write cursor from the play cursor in a DirectSound output stream.</P>
+
+<PRE class=syntax><B>VOID
+  SetPreFetchOffset</B> <B>(</B>
+    <B>IN ULONG</B> <I>PreFetchOffset</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>PreFetchOffset</I></DT>
+
+<DD>Specifies the prefetch offset size in bytes.</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>None</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>portcls.h</I>. Include <I>portcls.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A WavePci miniport driver calls the <B>SetPreFetchOffset</B> method to specify the prefetch offset of a DirectSound output stream. This offset is the number of bytes of data separating the write cursor from the play cursor in the audio device's hardware buffer. The write cursor specifies the buffer position into which a DirectSound application can safely write the next sound sample. The play cursor specifies the buffer position of the sound sample that is currently being played by the audio device.</P>
+
+<P>DirectSound queries the WavePci port driver for the current positions of the play and write cursors by sending a <A HREF="aud-prop_8aer.htm">KSPROPERTY_AUDIO_POSITION</A> property request. In response to this request, the port driver obtains the current play position from the miniport driver by calling <A HREF="audmp-routines_938z.htm"><B>IMiniportWavePciStream::GetPosition</B></A>. How the port driver determines the write position depends on whether <B>SetPreFetchOffset</B> has been called.</P>
+
+<P>By default, the port driver positions the write cursor in the last mapping requested by the miniport driver. With each call to <A HREF="audmp-routines_0pir.htm"><B>IPortWavePciStream::GetMapping</B></A>, the default prefetch offset grows larger. If the WavePci miniport driver acquires a large number of mappings, the default offset can grow very large.</P>
+
+<P>Calling <B>SetPreFetchOffset</B> overrides the default. Following this call, the port driver calculates the write position by adding the specified prefetch offset to the play position (taking into account the wraparound at the end of the DirectSound buffer).</P>
+
+<P>A miniport driver might allocate a large number of mappings for a couple of reasons. One is to reduce the overhead of audio operations on the system processor. With more mappings, the driver requires fewer interrupts to keep the audio device continuously supplied with data. Another reason is that allocating more mappings decreases the likelihood that audio playback will suffer glitches when badly behaved device drivers tie up the system for short periods.</P>
+
+<P>One problem with a large prefetch offset is that some DirectSound applications can become confused about the relative positions of the play and write cursors. In Windows 95/98, audio VxDs maintain a relatively small prefetch offset, and DirectSound applications written for these operating systems might not run correctly if the offset is larger than they expect.</P>
+
+<P>For example, an application might divide the DirectSound buffer into an upper half and a lower half and then "ping pong" the two halves between the application and the device. When the write cursor first enters the upper or lower half of the buffer, it writes a half buffer's worth of data to that half of the buffer. This scheme assumes that the play cursor is always positioned in the <I>other</I> half of the buffer—the half that is not being written to. Note that this assumption is incorrect if the prefetch offset exceeds half the buffer size. In that case, when the write cursor reaches the end of the DirectSound buffer and wraps around to the beginning of the buffer, it will be in the same half of the buffer as the play cursor. When the application writes a half buffer's worth of data to the new write cursor position, it ends up overwriting the play cursor position and destroying data that has not been played yet.</P>
+
+<P>Although the application itself can certainly be blamed for this type of failure, a WavePci miniport driver can eliminate the failure mode simply by calling <B>SetPreFetchOffset</B> to set the prefetch offset to a smaller value.</P>
+
+<P>Setting the prefetch offset to a smaller value moves the resulting write cursor closer to the play cursor. You should set the prefetch offset to the FIFO size of your hardware. A typical prefetch offset is about 64 samples, depending on the DMA engine's hardware design.</P>
+
+<P>DirectSound currently pads the write cursors of hardware-accelerated pins by 10 milliseconds. (Note that the amount of padding might change in the future.) The purpose of this padding is to compensate for the delay inherent in the <B>IDirectSound3DBuffer::GetPosition</B> call: by the time the call returns to the client application, the write cursor position returned would already be invalid without the padding. For more information on the <B>IDirectSound3DBuffer</B> interface, see the Platform SDK documentation.</P>
+
+<P>For more information on managing write cursors and play cursors at the driver level, see <A HREF="aud-prop_0303.htm">KSAUDIO_POSITION</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="aud-prop_8aer.htm">KSPROPERTY_AUDIO_POSITION</A>, <A HREF="aud-prop_0303.htm">KSAUDIO_POSITION</A>, <A HREF="audmp-routines_938z.htm"><B>IMiniportWavePciStream::GetPosition</B></A>, <A HREF="audmp-routines_0pir.htm"><B>IPortWavePciStream::GetMapping</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IPreFetchOffset::SetPreFetchOffset"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

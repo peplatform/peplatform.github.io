@@ -1,0 +1,32 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TDI Requests Versus Events</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TDI Requests Versus Events">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdi_requests_versus_events_ng"></A>TDI Requests Versus Events</H1>
+
+<P>Many low-level network interfaces, such as NetBIOS and Windows Sockets, are primarily one-way. A client can call the underlying transport driver whenever it wants, but the transport driver cannot call the client. The only way such a transport driver can “say anything” to its client is by returning a specific error code on return from a client-initiated request. In the NetBIOS interface, for example, a transport informs its clients of a connection “hangup” by returning pending <B>NCB_Receives</B> (or an <B>NCB_Receive_Any</B>) with a specific error code (0x0A for a session being closed, for example). </P>
+
+<P>TDI provides an <I>event-notification</I> mechanism that allows a TDI transport to call its affected kernel-mode clients whenever a specific network event occurs (receipt of a datagram, for example) if each such client has registered its ClientEvent<I>Xxx</I> handler with the transport for that type of event. The TDI client-supplied callback then takes appropriate action and returns control to the transport driver.</P>
+
+<P>TDI also defines a means for PnP-aware transports for Windows&nbsp;2000 and later to notify their clients whenever such a transport binds itself to or unbinds itself from an underlying NIC, whenever the transport establishes or breaks a connection to a remote node on any particular binding, and whenever a system power-state change is proposed (or effected) by the Power Manager. The clients of such a transport register a set of ClientPnP<I>Xxx</I> handlers with TDI to receive these types of notifications, as described in <A HREF="303tdi_2spz.htm">TDI Device Objects</A>. </P>
+
+<P>When a TDI transport driver calls a client's registered ClientEvent<I>Xxx</I> handler, it can pass a limited amount of data as a parameter of that call. This feature allows the client to receive messages from the transport without having to allocate a buffer. </P>
+
+<P>For example, the redirector takes advantage of this TDI feature. Many of the SMB requests that the redirector sends to the server (such as write SMBs) require little more than the standard SMB header to be present in the corresponding SMB response. The length of this header, which includes status indicators, multiplex ID, and so on, is quite small, typically less than 100 bytes. </P>
+
+<P>When the underlying TDI transport driver calls the redirector’s registered ClientEventReceive handler with such an SMB response message to a preceding send, the redirector need only view (not necessarily copy) the indicated message, note the SMB response status indicator, and return to the transport driver. In such a transaction, the redirector receives the SMB response message without having to allocate a buffer.</P>
+
+<P></P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TDI%20Requests%20Versus%20Events"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

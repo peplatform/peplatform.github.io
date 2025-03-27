@@ -1,0 +1,128 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>VIDEOMEMORY</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="VIDEOMEMORY">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_videomemory_gg"></A>VIDEOMEMORY</H1>
+
+<P>The VIDEOMEMORY structure allows the driver to manage its display memory into heaps.</P>
+
+<PRE class=syntax>typedef struct _VIDEOMEMORY {
+  DWORD  dwFlags;
+  FLATPTR  fpStart;
+  union {
+  FLATPTR  fpEnd;
+  DWORD  dwWidth;
+  };
+  DDSCAPS  ddsCaps;
+  DDSCAPS  ddsCapsAlt;
+  union {
+    struct _VMEMHEAP  *lpHeap;
+    DWORD  dwHeight;
+  };
+} VIDEOMEMORY, *LPVIDEOMEMORY;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>dwFlags</B></DT>
+
+<DD>Specifies a set of flags that describe this particular section of display memory. This member can be a bitwise OR of any of the following values:
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Flag</TH>
+<TH align=left width=52%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>VIDMEM_ISLINEAR</TD>
+<TD width=52%>The display memory is a contiguous block of memory.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>VIDMEM_ISRECTANGULAR</TD>
+<TD width=52%>The display memory is rectangular.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>VIDMEM_ISHEAP</TD>
+<TD width=52%>This flagais reserved for system use and should be ignored by the driver.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>VIDMEM_ISNONLOCAL</TD>
+<TD width=52%>The heap resides in nonlocal (AGP) memory.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>VIDMEM_ISWC</TD>
+<TD width=52%>The driver has enabled write-combining on the display memory in this heap. Write-combining is a special caching mode in Pentium™ Pro-class processors that batches writes to the same cache line so they can be transferred in a single bus clock. Write-combining does not preserve ordering of the writes, a tradeoff that is usually acceptable for frame buffers. Refer to Intel® documentation for more information on write-combining. This flag cannot be used unless the VIDMEM_ISNONLOCAL flag is also set.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>VIDMEM_HEAPDISABLED</TD>
+<TD width=52%>The DirectDraw run-time uses this flag to turn off a heap when the heap's initialization has failed. This most likely occurs with an AGP heap. The driver should not set this bit.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>fpStart</B></DT>
+
+<DD>Points to the starting address of a memory range in the heap.</DD>
+
+<DT><B>fpEnd</B></DT>
+
+<DD>Points to the ending address of a memory range if the heap is linear. This address is inclusive, that is, it specifies the last valid address in the range. Thus, the number of bytes specified by <B>fpStart</B> and <B>fpEnd</B> is (<B>fpEnd</B> - <B>fpStart </B>+ 1).</DD>
+
+<DT><B>dwWidth</B></DT>
+
+<DD>Specifies the width in bytes of the section of memory pointed to by <B>fpStart</B>. This member should only be used to describe rectangular memory regions.</DD>
+
+<DT><B>ddsCaps</B></DT>
+
+<DD>Specifies a <A HREF="ddstrcts_6zhj.htm">DDSCAPS</A> structure in which the driver returns the capabilities for which this section of memory cannot be used.</DD>
+
+<DT><B>ddsCapsAlt</B></DT>
+
+<DD>Specifies a DDSCAPS structure in which the driver returns the capabilities for which this chunk of memory cannot be used when no other memory is found on the first pass.</DD>
+
+<DT><B>lpHeap</B></DT>
+
+<DD>Reserved for system use and should be ignored by the driver.</DD>
+
+<DT><B>dwHeight</B></DT>
+
+<DD>Specifies the height of the chunk of memory to which <B>fpStart</B> points. This member should only be used to describe rectangular memory regions. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>ddrawint.h</I>. Include <I>winddi.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>On Windows&nbsp;2000 and later the data structure is called VIDEOMEMORY and on Windows&nbsp;98/Me the data structure is called VIDMEM.</P>
+
+<P>GDI allocates and passes an array of VIDEOMEMORY structures to the second call of the driver's <A HREF="ddfncs_4yav.htm"><I>DrvGetDirectDrawInfo</I></A> function. The driver should fill in the appropriate members of each structure to describe each particular section of memory. The list provides a complete description of the driver's offscreen memory.</P>
+
+<P>DirectDraw scans through to allocate its surfaces in the order the display memory heaps are listed. Heaps are managed in an array of VIDEOMEMORY structures. The memory allocated first will be the memory that is accessed first. The VIDEOMEMORY structure sets up certain starting points, and determines the amount of memory on the surface and what cannot be done with the surface. DirectDraw manages it by suballocating and deallocating memory, that is, creating and destroying surfaces under each heap's jurisdiction. Physical limits determine how to set up these attributes.</P>
+
+<P>DirectDraw's heap manager makes two passes through the VIDEOMEMORY structures. The <B>ddsCaps</B> member indicates to DirectDraw what the memory in the heap cannot be used for on the first pass. For example, if the heap was just big enough for a back buffer, sprites could be excluded from being allocated on the first pass by setting the DSCAPS_OFFSCREENPLAIN flag in the <A HREF="ddstrcts_6zhj.htm">DDSCAPS</A> structure. That way, other surfaces would fill up with sprites, while preserving the back buffer for page flipping. The <B>ddsCapsAlt</B> member could be set to allow sprites on the second pass (by removing the DSCAPS_OFFSCREENPLAIN flag). This allows heaps to be used preferentially for their highest and best use, without ruling out alternative uses. By choosing the order of allocation carefully (for example, by listing the back buffer last), the need to sort by <B>ddsCaps</B> and <B>ddsCapsAlt</B> can sometimes be eliminated.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddstrcts_6zhj.htm">DDSCAPS</A>, <A HREF="ddfncs_4yav.htm"><I>DrvGetDirectDrawInfo</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: VIDEOMEMORY"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

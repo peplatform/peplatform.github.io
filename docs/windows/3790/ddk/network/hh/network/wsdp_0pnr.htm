@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Initiating a Connection</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Initiating a Connection">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_initiating_a_connection_ng"></A>Initiating a Connection</H3>
+
+<P>After the Windows Sockets switch receives a <B>WSPConnect</B> call that was initiated by an application, the switch compares the destination address of the connect request with addresses in the switch's table of IP subnets that SAN service providers serve. If one of those subnets includes this destination address, the switch calls the <A HREF="wsdpref_6ir6.htm"><B>WSPSocket</B></A> and <A HREF="wsdpref_5wfm.htm"><B>WSPBind</B></A> functions of the corresponding SAN service provider to create and bind a socket, as described in <A HREF="wsdp_8zfr.htm">Creating and Binding SAN Sockets</A>. The switch processes the application’s connect request using the SAN socket. If the destination address of the connect request is not on a SAN subnet, or if the SAN service provider fails to create and bind a socket, the switch uses the TCP/IP provider to establish the connection. </P>
+
+<P>The following figure shows an overview of how the Windows Sockets switch requests a connection with a remote peer. The sequence and sections that follow describe the connection request in more detail.</P>
+
+<P><IMG SRC="images/apiflow3.gif" ALT="" BORDER=0></P>
+
+<P><B>Connection Request Flow Diagram</B></P>
+
+<P>After creating and binding the SAN socket, the switch executes a connect request, using the SAN socket in <I>nonblocking mode</I>, as described in the following procedure.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To execute a connect request</B>
+
+<OL>
+	<LI>The switch calls the SAN service provider’s <A HREF="wsdpref_5f1u.htm"><B>WSPEventSelect</B></A> function. In this call, the switch passes the FD_CONNECT code and the event object to be associated with that code. The call to <B>WSPEventSelect</B> requests notification of connection events and informs the SAN service provider that any subsequent <A HREF="wsdpref_7enm.htm"><B>WSPConnect</B></A> call executes in nonblocking mode.</LI>
+
+	<LI>After the <B>WSPEventSelect</B> function returns, the switch calls the SAN service provider's <B>WSPConnect</B> function. In this call, the switch passes the destination address in AF_INET format. The SAN service provider's proxy driver maps this destination address to a native address and attempts to establish the connection.</LI>
+
+	<LI>If the SAN service provider's <B>WSPConnect</B> function can complete or fail the connection operation immediately, it returns the appropriate success or failure code. If the SAN service provider's <B>WSPConnect</B> function cannot complete a connection request immediately, the SAN service provider's connection operation proceeds asynchronously in another thread. The SAN service provider's <B>WSPConnect</B> function returns with the error WSAEWOULDBLOCK to indicate that the socket is marked as nonblocking and that the connection operation cannot be completed immediately.</LI>
+
+	<LI>After the connection operation completes, the SAN service provider calls the Win32® <B>SetEvent</B> function to signal the event object that was previously registered in the <B>WSPEventSelect</B> call. </LI>
+
+	<LI>After the event object is signaled, the switch calls the SAN service provider's <A HREF="wsdpref_9lki.htm"><B>WSPEnumNetworkEvents</B></A> function to obtain the result of the connection operation.</LI>
+</OL>
+
+<P><B>Note</B>&nbsp;&nbsp;After the switch establishes a connection through a SAN service provider, the switch can no longer use the TCP/IP provider for that connection. SAN service providers must fully implement all functionality required to service an established connection. </P>
+
+<H4>Destroying the SAN Socket</H4>
+
+<P>If the SAN service provider's <B>WSPConnect</B> function fails, the switch calls the SAN service provider's <A HREF="wsdpref_4fsi.htm"><B>WSPCloseSocket</B></A> function to destroy the SAN socket. The switch then calls the TCP/IP service provider's <B>WSPConnect</B> function to forward the connection operation to the TCP/IP service provider unless the SAN service provider returned one of the following error codes as the result of its connection operation: 
+
+<DL>
+<DT><B>WSAECONNRESET</B></DT>
+
+<DD>Indicates that no application is listening on the specified port at the destination address </DD>
+
+<DT><B>WSAECONNREFUSED</B></DT>
+
+<DD>Indicates that the remote application actively refused the connection request </DD>
+
+<DT><B>WSAEHOSTUNREACH</B></DT>
+
+<DD>Indicates that the destination address does not exist 
+</DD>
+</DL>
+
+<P>These preceding error codes guarantee that an attempt to establish the connection through TCP/IP will also fail. A SAN service provider must not return one of these error codes if it cannot make that guarantee. For example, if a target computer that does not support Windows Sockets Direct exists on the SAN but can only communicate through NDIS, the SAN service provider cannot return WSAEHOSTUNREACH as the result of a failed SAN connection request to this target because a connection request through the TCP/IP provider might succeed. In this case, the SAN service provider should return WSAETIMEDOUT. </P>
+
+<H4>Session Negotiation</H4>
+
+<P>After the switch establishes a connection through a SAN service provider, the switch calls the SAN service provider's <A HREF="wsdpref_62gi.htm"><B>WSPRegisterMemory</B></A> extension function to preregister the memory for the buffer array that is to receive incoming messages. The switch next calls the SAN service provider's <A HREF="wsdpref_5hte.htm"><B>WSPRecv</B></A> function to post one or more buffers to receive incoming message data from the remote peer. The switch then negotiates a session with its remote peer by exchanging a pair of messages that contain initial flow control information. After the switch negotiates a session, it completes the <B>WSPConnect</B> call that the application initiated. The application can then begin sending and receiving data on the connection. For more information, see <A HREF="wsdp_695z.htm">Accepting Connection Requests</A>.</P>
+
+<P>After a connection is established over a SAN socket, the switch does not call the SAN service provider's <B>WSPConnect</B> function. The switch internally handles applications that initiate a call to the switch's <B>WSPConnect</B> function to poll for connection requests. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Initiating%20a%20Connection"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

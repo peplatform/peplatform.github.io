@@ -1,0 +1,70 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Querying TV Connector and Copy Protection Hardware</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Querying TV Connector and Copy Protection Hardware">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_querying_tv_connector_and_copy_protection_hardware_gg"></A>Querying TV Connector and Copy Protection Hardware</H2>
+
+<P>A video miniport driver for an adapter that has a TV connector must process the <A HREF="virqs_3zfr.htm">IOCTL_VIDEO_HANDLE_VIDEOPARAMETERS</A> request in its <A HREF="vmpfncs_3wo7.htm"><I>HwVidStartIO</I></A> function. When the IOCTL request is IOCTL_VIDEO_HANDLE_VIDEOPARAMETERS, the <B>InputBuffer</B> member of the <A HREF="vstrcts_5gvb.htm">VIDEO_REQUEST_PACKET</A> structure points to a <A HREF="vstrcts_69pj.htm">VIDEOPARAMETERS</A> structure. The <B>dwCommand</B> member of that VIDEOPARAMETERS structure specifies whether the miniport driver must provide information about the TV connector (VP_COMMAND_GET) or apply specified settings to the TV connector (VP_COMMAND_SET).</P>
+
+<P>When the <B>dwCommand</B> member of the VIDEOPARAMETERS structure is VP_COMMAND_GET, the miniport driver must do the following:
+
+<UL>
+	<LI>Verify the <B>Guid</B> member of the VIDEOPARAMETERS structure.</LI>
+
+	<LI>For each capability that the TV connector supports, set the corresponding flag in the <B>dwFlags</B> member of the VIDEOPARAMETERS structure.</LI>
+
+	<LI>For each flag set in the <B>dwFlags</B> member, assign values to the corresponding members of the VIDEOPARAMETERS structure to indicate the capabilities and current settings associated with that flag. See the <A HREF="vstrcts_69pj.htm">VIDEOPARAMETERS</A> reference page for a list of structure members that correspond to a given flag.</LI>
+</UL>
+
+<P>The <B>dwMode</B> member of the VIDEOPARAMETERS structure specifies whether the TV output is optimized for video playback or for displaying the Windows desktop. A value of VIDEO_MODE_TV_PLAYBACK specifies that the TV output is optimized for video playback (that is, flicker filter is disabled and overscan is enabled). A value of VIDEO_MODE_WIN_GRAPHICS specifies that the TV output is optimized for Windows graphics (that is, maximum flicker filter is enabled and overscan is disabled).</P>
+
+<P>In response to VP_COMMAND_GET, the miniport driver must set the VP_FLAGS_TV_MODE flag in <B>dwFlags</B> and must set the VP_MODE_WIN_GRAPHICS bit in <B>dwAvailableModes</B>. Setting the VP_MODE_TV_PLAYBACK bit in <B>dwAvailableModes</B> is optional. In addition, the miniport driver must set the VP_FLAGS_MAX_UNSCALED flag in <B>dwFlags</B> and must assign values to the corresponding members of the VIDEOPARAMETERS structure.</P>
+
+<P>In response to VP_COMMAND_GET, if the TV output is currently disabled, the miniport driver should set <B>dwMode</B> to 0, set <B>dwTVStandard</B> to VP_STANDARD_WIN_VGA, and set <B>dwAvailableTVStandard</B> to VP_STANDARD_WIN_VGA.</P>
+
+<P>Example 1: An adapter supports TV output, which is currently disabled. The miniport driver must do the following in response to VP_COMMAND_GET:
+
+<UL>
+	<LI>In <B>dwFlags</B>, set VP_FLAGS_TV_MODE, VP_FLAGS_TV_STANDARD, and all other flags that represent capabilities supported by the TV connector.</LI>
+
+	<LI>Set <B>dwMode</B> to 0.</LI>
+
+	<LI>In <B>dwAvailableModes</B>, set VP_MODE_WIN_GRAPHICS. If the hardware supports VP_MODE_TV_PLAYBACK, set that bit also.</LI>
+
+	<LI>Set <B>dwTVStandard</B> to VP_TV_STANDARD_WIN_VGA.</LI>
+
+	<LI>In <B>dwAvailableTVStandard</B>, set all bits that represent TV standards supported by the TV connector.</LI>
+
+	<LI>For all flags set in <B>dwFlags</B> (other than VP_FLAGS_TV_MODE and VP_FLAGS_TV_STANDARD, which have already been discussed), assign values to the corresponding members of the VIDEOPARAMETERS structure.</LI>
+</UL>
+
+<P>Example 2: To enable TV output, the caller (not the miniport driver) should do the following:
+
+<UL>
+	<LI>In <B>dwFlags</B>, set VP_FLAGS_TV_MODE and VP_FLAGS_TV_STANDARD. Clear all other flags.</LI>
+
+	<LI>Set <B>dwMode</B> to either VP_MODE_WIN_GRAPHICS or VP_MODE_TV_PLAYBACK. Do not set both bits.</LI>
+
+	<LI>Set <B>dwTvStandard</B> to the desired standard (for example VP_TV_STANDARD_NTSC_M). Do not set any other bits in <B>dwTvStandard</B>.</LI>
+</UL>
+
+<P>Example 3: To disable TV output, the caller (not the miniport driver) should do the following:
+
+<UL>
+	<LI>In <B>dwFlags</B>, set VP_FLAGS_TV_MODE and VP_FLAGS_TV_STANDARD. Clear all other flags.</LI>
+
+	<LI>Set <B>dwMode</B> to 0.</LI>
+
+	<LI>In <B>dwTvStandard</B>, set VP_TV_STANDARD_WIN_VGA. Clear all other bits in <B>dwTvStandard</B>.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Querying%20TV%20Connector%20and%20Copy%20Protection%20Hardware"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

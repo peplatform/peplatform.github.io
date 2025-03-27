@@ -1,0 +1,114 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>MiniportReset</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="MiniportReset">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_miniportreset_nr"></A>MiniportReset</H1>
+
+<P><I>MiniportReset</I> is a required function that issues a hardware reset to the NIC and/or resets the driver’s software state. </P>
+
+<PRE class=syntax><B>NDIS_STATUS</B> <B>
+</B>  <B>MiniportReset(
+    OUT</B> <B>PBOOLEAN</B>  <I>AddressingReset</I><B>,</B><I>
+    </I><B>IN</B> <B>NDIS_HANDLE</B>  <I>MiniportAdapterContext</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>AddressingReset</I></DT>
+
+<DD>Pointer to a variable that <I>MiniportReset</I> sets to TRUE if the NDIS library should call <A HREF="101mini_7ng2.htm"><I>MiniportSetInformation</I></A> after the reset has completed to restore multicast addresses and registered address filters. <I>MiniportReset</I> should set this variable to FALSE if the miniport will restore this information after the reset has completed.</DD>
+
+<DT><I>MiniportAdapterContext</I></DT>
+
+<DD>Specifies the handle to a miniport driver-allocated context area in which the driver maintains per-NIC state, set up by <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>MiniportReset</I> can return one of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD><I>MiniportReset</I> successfully reset the NIC to an operational state. </DD>
+
+<DT>NDIS_STATUS_PENDING</DT>
+
+<DD>The driver will complete the reset operation asynchronously by calling <A HREF="103ndisx_4m0j.htm"><B>NdisMResetComplete</B></A> when the operation is done. </DD>
+
+<DT>NDIS_STATUS_NOT_RESETTABLE</DT>
+
+<DD>The NIC does not provide reset capabilities under software control. </DD>
+
+<DT>NDIS_STATUS_RESET_IN_PROGRESS</DT>
+
+<DD><I>MiniportReset</I> determined that the NIC was currently being reset, so this call is superfluous. </DD>
+
+<DT>NDIS_STATUS_SOFT_ERRORS</DT>
+
+<DD><I>MiniportReset</I> successfully reset the NIC but a recoverable error occurred during the operation. <I>MiniportReset</I> has called <A HREF="103ndisx_71pu.htm"><B>NdisWriteErrorLogEntry</B></A> with more information about the error. </DD>
+
+<DT>NDIS_STATUS_HARD_ERRORS</DT>
+
+<DD><I>MiniportReset</I> attempted to reset the NIC but an unrecoverable error occurred during the operation. <I>MiniportReset</I> has called <B>NdisWriteErrorLogEntry</B> with more information about the error. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h.</I></P>
+
+<H4>Comments</H4>
+
+<P>If <I>MiniportReset</I>  changes NIC’s station address, the miniport driver automatically restores the station address to its prior value following the reset. </P>
+
+<P><I>MiniportReset</I> can also reset other information, such as multicast or functional addressing information or the lookahead size. If <I>MiniportReset</I> sets the variable at <I>AddressingReset</I> to TRUE before it returns control, NDIS subsequently calls the <A HREF="101mini_7ng2.htm"><I>MiniportSetInformation</I></A> function to restore this information. However, if <I>MiniportReset</I> sets the variable at <I>AddressingReset</I> to FALSE, the miniport must restore such information after the reset has completed. </P>
+
+<P>Intermediate drivers must have a <I>MiniportReset</I> function. Such a <I>MiniportReset</I> function must handle reset requests initiated by protocol drivers’ calls to <A HREF="103ndisx_9ib6.htm"><B>NdisReset</B></A>. If the intermediate driver also has a <A HREF="101mini_2zua.htm"><I>MiniportCheckForHang</I></A> function, its <I>MiniportReset</I> function will be called whenever <I>MiniportCheckForHang</I> returns TRUE.</P>
+
+<P>As a general rule, an intermediate driver's <I>MiniportReset</I> function should always set <I>AddressingReset</I> to TRUE. Until the underlying NIC driver resets its NIC, an intermediate driver cannot determine whether it must restore addressing information for its virtual NIC. An intermediate driver, when calling <A HREF="103ndisx_1pmb.htm"><B>NdisMSetAttributesEx</B></A>, sets the NDIS_ATTRIBUTE_IGNORE_PACKET_TIMEOUT and NDIS_ATTRIBUTE_IGNORE_REQUEST_TIMEOUT flags to prevent NDIS from timing out send packets and OID requests that NDIS has sent to the driver. .As a result, an intermediate driver’s <I>MiniportReset</I> function is called only when a reset request is directed to the underlying NIC driver. </P>
+
+<P>Before <I>MiniportReset</I> begins resetting the NIC or updating the NIC's software state:
+
+<UL>
+	<LI>The miniport driver can optionally complete any pending OID requests. NDIS will submit no further OID requests to the miniport driver for the NIC being reset until the reset operation has finished. After the reset, NDIS will resubmit to the miniport driver any OID requests that were pending but not completed by the miniport driver before the reset.</LI>
+
+	<LI>A serialized miniport driver should complete any pending send operations. If the miniport driver does not complete all pending send operations before completing the reset, NDIS will complete those operations with a failure status after the reset operation has finished.</LI>
+
+	<LI>A deserialized miniport driver must complete any pending send operations. NDIS will not requeue pending send packets for a deserialized driver since NDIS does not maintain the send queue for such a driver.</LI>
+</UL>
+
+<P>After the reset operation has finished, a miniport driver must not attempt to complete any send operations that were pending but not completed before the reset.</P>
+
+<P>A miniport driver need not call <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A> or <A HREF="103ndisx_0qgi.htm"><B>NdisMCoIndicateStatus</B></A> to signal the start and finish of each reset operation because NDIS notifies bound protocols when a reset begins and ends.</P>
+
+<P>If <I>MiniportReset</I> must wait for state changes in the NIC during reset operations, it can call <A HREF="103ndisx_0xo2.htm"><B>NdisStallExecution</B></A>. However, a <I>MiniportReset</I> function should <I>never</I> call <B>NdisStallExecution</B> with an interval greater than 50 microseconds. </P>
+
+<P>If <I>MiniportReset</I> returns NDIS_STATUS_PENDING, the driver must complete the original request subsequently with a call to <A HREF="103ndisx_4m0j.htm"><B>NdisMResetComplete</B></A>.</P>
+
+<P><I>MiniportReset</I> can be preempted by an interrupt. </P>
+
+<P>If a NIC driver supplies a <A HREF="101mini_2zua.htm"><I>MiniportCheckForHang</I></A> function, the NDIS library calls it periodically to determine whether to call the driver’s <I>MiniportReset</I> function. Otherwise, the NDIS library calls a NIC driver’s <I>MiniportReset</I> function whenever requests that NDIS submitted to the <A HREF="101mini_2vw2.htm"><I>MiniportQueryInformation</I></A>, <A HREF="101mini_7ng2.htm"><I>MiniportSetInformation</I></A>, <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A>, <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A>, or <A HREF="101mini_7oj6.htm"><I>MiniportWanSend</I></A> function seem to have timed out. (NDIS does not call a deserialized NIC driver's <I>MiniportReset</I> function if the driver's <I>MiniportSend</I> or <I>MiniportSendPackets</I> function seems to have timed out, nor does NDIS call a connection-oriented NIC driver's <I>MiniportReset</I> function if the driver's <A HREF="101mini_0ycy.htm"><I>MiniportCoSendPackets</I></A> function seems to have timed out.) By default, the NDIS-determined time-out interval for outstanding sends and requests is around four seconds. If this default is too short, a NIC driver can make an initialization-time call to <A HREF="103ndisx_1pmb.htm"><B>NdisMSetAttributesEx</B></A><B>,</B> rather than <A HREF="103ndisx_175e.htm"><B>NdisMSetAttributes</B></A>, to lengthen the time-out interval to suit its NIC. </P>
+
+<P>Every NDIS intermediate driver should call <B>NdisMSetAttributesEx</B> from <I>MiniportInitialize</I> and disable NDIS’s attempts to time out requests and sends in the intermediate driver. NDIS runs an intermediate driver’s <A HREF="101mini_2zua.htm"><I>MiniportCheckForHang</I></A> function, if any, approximately every two seconds. </P>
+
+<P>NDIS cannot determine whether a NIC might be hung on receives, so supplying a <I>MiniportCheckForHang</I> function allows a driver to monitor its NIC for this condition and to force a reset if it occurs. </P>
+
+<P><I>MiniportReset</I> runs at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_2zua.htm"><I>MiniportCheckForHang</I></A>, <A HREF="101mini_0ycy.htm"><I>MiniportCoSendPackets</I></A>, <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, <A HREF="101mini_2vw2.htm"><I>MiniportQueryInformation</I></A>, <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A>, <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A>, <A HREF="101mini_7ng2.htm"><I>MiniportSetInformation</I></A>, <A HREF="101mini_7oj6.htm"><I>MiniportWanSend</I></A>, <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A>, <A HREF="103ndisx_4m0j.htm"><B>NdisMResetComplete</B></A>, <A HREF="103ndisx_1pmb.htm"><B>NdisMSetAttributesEx</B></A>, <A HREF="103ndisx_71pu.htm"><B>NdisWriteErrorLogEntry</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: MiniportReset"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

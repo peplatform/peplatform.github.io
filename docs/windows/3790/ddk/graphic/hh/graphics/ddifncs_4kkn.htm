@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DrvTextOut</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DrvTextOut">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_drvtextout_gg"></A><I>DrvTextOut</I></H1>
+
+<P>The <I>DrvTextOut</I> function is the entry point from GDI that calls for the driver to render a set of glyphs at specified positions.</P>
+
+<PRE class=syntax><B>BOOL
+  </B><I>DrvTextOut</I><B>(</B>
+    <B>IN SURFOBJ</B>  <I>*pso</I><B>,</B>
+    <B>IN STROBJ</B>  <I>*pstro</I><B>,</B>
+    <B>IN FONTOBJ</B>  <I>*pfo</I><B>,</B>
+    <B>IN CLIPOBJ</B>  <I>*pco</I><B>,</B>
+    <B>IN RECTL</B>  <I>*prclExtra</I><B>,</B>
+    <B>IN RECTL</B>  <I>*prclOpaque</I><B>,</B>
+    <B>IN BRUSHOBJ</B>  <I>*pboFore</I><B>,</B>
+    <B>IN BRUSHOBJ</B>  <I>*pboOpaque</I><B>,</B>
+    <B>IN POINTL</B>  <I>*pptlOrg</I><B>,</B>
+    <B>IN MIX</B>  <I>mix</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>pso</I></DT>
+
+<DD>Pointer to a <A HREF="grstrcts_3rtz.htm">SURFOBJ</A> structure that describes the surface on which to write.</DD>
+
+<DT><I>pstro</I></DT>
+
+<DD>Pointer to a <A HREF="grstrcts_96av.htm">STROBJ</A> structure that defines the glyphs to be rendered and the positions in which to place them.</DD>
+
+<DT><I>pfo</I></DT>
+
+<DD>Pointer to a <A HREF="grstrcts_3w9z.htm">FONTOBJ</A> structure from which to retrieve information about the font and its glyphs.</DD>
+
+<DT><I>pco</I></DT>
+
+<DD>Pointer to a <A HREF="grstrcts_77zb.htm">CLIPOBJ</A> structure that defines the clip region through which all rendering must be done. The driver cannot affect any pixels outside the clip region.</DD>
+
+<DT><I>prclExtra </I></DT>
+
+<DD>Pointer to a RECTL structure. GDI always sets this parameter to NULL in calls to this function. It should be ignored by the driver.</DD>
+
+<DT><I>prclOpaque</I></DT>
+
+<DD>Pointer to a <A HREF="grstrcts_2wpz.htm">RECTL</A> structure that represents a single opaque rectangle. This rectangle is bottom-right exclusive. Pixels within this rectangle (those that are not foreground and not clipped) are to be rendered with the opaque brush. This rectangle always bounds the text to be drawn. If this parameter is NULL, no opaque pixels are to be rendered.</DD>
+
+<DT><I>pboFore</I></DT>
+
+<DD>Pointer to a <A HREF="grstrcts_4gbr.htm">BRUSHOBJ</A> structure that represents the brush object to be used for the foreground pixels. This brush will always be a solid color brush.</DD>
+
+<DT><I>pboOpaque</I></DT>
+
+<DD>Pointer to a BRUSHOBJ structure that represents the opaque pixels. Both the foreground and background mix modes for this brush are assumed to be R2_COPYPEN. Unless the driver sets the GCAPS_ARBRUSHOPAQUE capabilities bit in the <B>flGraphicsCaps</B> member of the <A HREF="grstrcts_4ilj.htm">DEVINFO</A> structure, it will always be called with a solid color brush.</DD>
+
+<DT><I>pptlOrg</I></DT>
+
+<DD>Pointer to a <A HREF="grstrcts_0fqf.htm">POINTL</A> structure that defines the brush origin for both brushes.</DD>
+
+<DT><I>mix</I></DT>
+
+<DD>Specifies foreground and background raster operations (mix modes) for <I>pboFore</I>. The driver will only be called with both mix modes equal to COPYPEN unless it sets the GCAPS_ARBMIXTXT capabilities bit in the <B>flGraphicsCaps</B> member of the DEVINFO structure.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>The return value is TRUE if the function is successful; otherwise, it is FALSE.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>winddi.h</I>. Include <I>winddi.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The input parameters to <I>DrvTextOut</I> define two sets of pixels: foreground and opaque. The driver must render the surface so that the result is identical to a process where the opaque pixels are rendered first with the opaque brush, and then the foreground pixels are rendered with the foreground brush. Each of these operations is limited by clipping.</P>
+
+<P></P>
+
+<P>The foreground and opaque pixels are regarded as a screen through which color is brushed onto the surface. The glyphs of the font do not have color in themselves.</P>
+
+<P>The input parameters to <I>DrvTextOut</I> define the set of glyph pixels, the set of extra rectangles, the opaque rectangle, and the clip region. It is the driver's responsibility to calculate and then render the set of foreground and opaque pixels.</P>
+
+<P>GDI guarantees that <I>DrvTextOut</I> and <A HREF="ddifncs_1ynb.htm"><I>DrvDestroyFont</I></A> never overlap; consequently, the driver can rely on cached information while processing a <I>DrvTextOut</I> call.</P>
+
+<P>The mix mode defines how the incoming pattern should be mixed with the data already on the device surface. The MIX data type consists of two ROP2 values packed into a single ULONG. The low-order byte defines the foreground raster operation; the next byte defines the background raster operation. For more information about raster operation codes, see the Platform SDK documentation.</P>
+
+<P>This is a conditionally required function.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="grstrcts_77zb.htm">CLIPOBJ</A>, <A HREF="grstrcts_4ilj.htm">DEVINFO</A>, <A HREF="grstrcts_3w9z.htm">FONTOBJ</A>, <A HREF="grstrcts_96av.htm">STROBJ</A>, <A HREF="grstrcts_3rtz.htm">SURFOBJ</A>, <A HREF="ddifncs_1ynb.htm"><I>DrvDestroyFont</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DrvTextOut"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

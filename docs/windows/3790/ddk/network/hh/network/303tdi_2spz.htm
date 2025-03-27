@@ -1,0 +1,38 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TDI Device Objects</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TDI Device Objects">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdi_device_objects_ng"></A>TDI Device Objects</H1>
+
+<P>Transports for Windows&nbsp;2000 and later versions support Plug and Play and system power management by creating device objects to represent their respective bindings to underlying NICs. Each such transport registers itself with TDI during system startup as a network provider to make the PnP-aware transport available to potential clients when the underlying network hardware comes online. </P>
+
+<P>Potential clients of these PnP-aware transports register their respective ClientPnP<I>Xxx</I> callbacks with TDI to receive notifications of the availablility of active transport-to-NIC bindings and of transport-established network addresses on which these clients can subsequently send and receive data over the network while these network addresses remain valid. </P>
+
+<P>As such a transport establishes a binding to an underlying NIC from the <I>ProtocolBindAdapter</I> function that the lowest module in the transport stack (or monolithic tranport driver) registered with NDIS, the TDI transport driver creates a named device object to represent its binding to the underlying NDIS miniport driver. During system startup, such a PnP-aware transport registers each named device object it creates with TDI and sets up its per-binding state. The transport also registers any known network addresses on each such binding with TDI and sets up its per-registered-address state. When NDIS calls the <I>ProtocolPnPEvent</I> function at the bottom of the transport stack with the PnP event code <B>NetEventBindsComplete</B>, such a transport then notifies TDI if it is ready to transfer data over the network on at least one such transport-to-NIC binding. </P>
+
+<P>TDI gives each network client that has registered its ClientPnP<I>Xxx</I> handlers the opportunity to bind itself to each such transport-created device object by calling <B>ZwCreateFile</B> from the client's registered ClientPnPBindingChange routine. TDI subsequently calls its registered ClientPnPAddNetAddress routine one or more times with each network address that the underlying transport has already registered for its device object. TDI also notifies these clients with calls to their registered ClientPnPBindingChange routines when any particular transport indicates it is ready to carry out network transfers and again when all startup-time transport-to-NIC bindings have been established. </P>
+
+<P>At run time, these PnP-aware transports (or NDIS) continue to call TDI whenever a dynamic binding change occurs, whether because a NIC has been enabled/disabled or because the end user has initiated a binding change, and whenever such a transport makes or breaks a connection to a remote-node network address as follows:
+
+<UL>
+	<LI>If a new NIC is enabled, NDIS calls the <I>ProtocolBindAdapter</I> function at the bottom of each transport stack, thereby giving that transport an opportunity to bind itself to the new NIC, to create another device object to represent its new binding, and to register its new device object with TDI. As each such transport-created device object is registered, TDI calls the set of currently registered ClientPnPBindingChange routines and offers these clients the opportunity to open the new bindings.</LI>
+
+	<LI>After registering a new device object, the transport also registers any known network addresses on its new binding with TDI. TDI calls the set of registered ClientPnPAddNetAddress routines when transports register known network addresses on their new (or existing) bindings. These calls also give clients the opportunity to open a connection to such a registered address (and even to a binding). Whenever such a transport breaks a connection to a remote node, it calls TDI to deregister the corresponding network address. </LI>
+
+	<LI>Before an existing NIC is disabled, NDIS typically calls the <I>ProtocolPnPEvent</I> function at the bottom of the transport stack to ask whether it is safe to remove the NIC. The transport, in turn, notifies TDI of such a request to remove that NIC, and TDI notifies the clients with calls to their registered ClientPnPPowerChange routines. If no client objects to the NIC's removal, NDIS subsequently calls the <I>ProtocolUnbindAdapter</I> function at the bottom of the transport stack and the transport tears down its binding. In this process, the transport calls TDI to deregister all the network addresses it formerly registered on the binding, and it also calls TDI to deregister the device object that it created to represent that binding. In turn, TDI notifies clients of these unbinding operations by making calls to their registered ClientPnPDelAddress and ClientPnPBindingChange routines. </LI>
+
+	<LI>If the end user initiates a binding change in the network connections folder, NDIS calls TDI directly to notify registered network clients of the proposed binding change. If no client objects (and, therefore, the user is not prompted to cancel the binding-change operation), NDIS proceeds to call the appropriate <I>ProtocolPnPEvent</I>, <I>ProtocolBindAdapter</I>, or <I>ProtocolUnbindAdapter</I> functions at the bottom of the transport stacks.</LI>
+</UL>
+
+<P>In a similar manner, TDI notifies the clients of PnP-aware transports about proposed system power-state changes for underlying NICs. When the system Power Manager calls NDIS to power down (or up) a NIC, NDIS calls the <I>ProtocolPnPEvent</I> function at the bottom of each transport stack that is currently bound to the NIC. Each such PnP-aware transport, in turn, notifies TDI of the proposed power-state change and TDI forwards the notification to the transport's clients for their approval or rejection. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TDI%20Device%20Objects"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

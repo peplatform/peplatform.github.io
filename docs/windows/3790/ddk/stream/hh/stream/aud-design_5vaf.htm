@@ -1,0 +1,97 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Forwarding DRM Content IDs</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Forwarding DRM Content IDs">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iocalldriver_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_forwarding_drm_content_ids_ksg"></A>Forwarding DRM Content IDs</H3>
+
+<P>The <A HREF="aud-design_1kiv.htm#ddk_drmk_system_driver_ksg">DRMK system driver</A> unscrambles an audio playback stream containing protected content. DRMK implements a KS filter that takes an input stream containing the scrambled data, unscrambles it, and feeds the unscrambled stream into a data path consisting of some number of kernel-resident modules. These modules can be KS filters or other types of drivers. The data path typically ends in an audio-rendering device that converts the digital content to an analog signal that can be played through speakers.</P>
+
+<P>Before allowing the unscrambled content to enter the data path, DRMK verifies that the data path is secure. To do so, DRMK authenticates each module in the data path, beginning with the module at the upstream end of the data path and moving downstream to the other end of the data path. The following figure illustrates this process.</P>
+
+<P><IMG SRC="images/securepath.gif" ALT="" BORDER=0></P>
+
+<P><B>Secure Data Path</B></P>
+
+<P>In the preceding figure, the solid arrows represent the data path, and the dashed arrows represent the communications necessary to verify that the data path is secure. The unscrambled data enters the path only after DRMK has finished authenticating all of the modules in that path.</P>
+
+<P>After DRMK authenticates each module, that module provides DRMK with information about the next module in the data path so that it can also be authenticated. As each module is authenticated, it receives the DRM content ID that identifies the stream.</P>
+
+<P>Beginning at the upstream end of the secure data path, DRMK forwards the content ID to module A, which in turn forwards the content ID to module B. This process continues until the content ID is forwarded to module Z, the last module in the secure data path.</P>
+
+<P>The following figure shows a pair of adjacent modules in the data path.</P>
+
+<P><IMG SRC="images/forwardid.gif" ALT="" BORDER=0></P>
+
+<P><B>Forwarding a Content ID</B></P>
+
+<P>The module on the upstream side calls one of the following <A HREF="aud-prop_9f77.htm">DRM functions</A> to provide DRMK with information about the downstream module and to forward the content ID to that module:</P>
+
+<P class=indent1><A HREF="aud-prop_10s3.htm"><B>DrmForwardContentToDeviceObject</B></A> </P>
+
+<P class=indent1><A HREF="aud-prop_4p0z.htm"><B>DrmForwardContentToInterface</B></A> </P>
+
+<P class=indent1><A HREF="aud-prop_6ecz.htm"><B>DrmAddContentHandlers</B></A> </P>
+
+<P>Each of these "forwarding" functions provides DRMK with the DRM content ID that identifies the protected stream, and with information that DRMK needs to authenticate the downstream module. The choice of which of these three functions to call depends on the type of interface that the two adjacent modules use to communicate with each other as they manage the transfer of protected content:
+
+<OL>
+	<LI>If the upstream module calls <A HREF="JavaScript:hhobj_1.Click()"><B>IoCallDriver</B></A> to communicate with the downstream module, the downstream module is a part of a WDM driver. In this case, the upstream module calls <B>DrmForwardContentToDeviceObject</B> to provide DRMK with the device object representing the downstream module. DRMK uses the device object to authenticate the downstream module.</LI>
+
+	<LI>If the two modules communicate through a COM interface that the downstream module implements, the upstream module calls <B>DrmForwardContentToInterface</B>. This call provides DRMK with a pointer to the downstream module's COM interface. DRMK calls only the <B>IUnknown</B> methods in this interface and makes no assumptions about the other methods, although the two modules themselves must agree on what these methods do. DRMK verifies that the entry point for each method in the interface belongs to an authenticated module. If the entry points are distributed among several modules, DRMK authenticates all of these modules.</LI>
+
+	<LI>If the two modules use neither a COM interface nor the <B>IoCallDriver</B> function to communicate, the upstream module calls <B>DrmAddContentHandlers</B> to provide DRMK with a list of entry points to "content handlers" that are implemented in the downstream module. DRMK does not call the content handlers and makes no assumptions regarding the functions they perform. DRMK does, however, authenticate the module (or modules) in which the entry points reside.</LI>
+</OL>
+
+<P>After being authenticated, the downstream module requires the following information:
+
+<UL>
+	<LI>The DRM content ID that identifies the stream containing the protected content. The module requires this ID to inform DRMK of any module, further downstream, to which it plans to send the protected content.</LI>
+
+	<LI>The DRM content rights associated with the protected content. The module requires the content rights in order to enforce the appropriate level of security.</LI>
+</UL>
+
+<P>Each of the three forwarding functions provides this information to the module in a slightly different manner:
+
+<OL>
+	<LI>The <B>DrmForwardContentToDeviceObject</B> function sends a <A HREF="aud-prop_01bn.htm">KSPROPERTY_DRMAUDIOSTREAM_CONTENTID</A> <I>set</I>-property request to the downstream module's device object. This request forwards the stream's content ID and content rights to the downstream module.</LI>
+
+	<LI>The <B>DrmForwardContentToInterface</B> function queries the downstream module's COM interface for the <A HREF="audmp-routines_1sj7.htm"><B>IDrmAudioStream</B></A> interface. If the query succeeds, the function calls the <A HREF="audmp-routines_6r77.htm"><B>IDrmAudioStream::SetContentId</B></A> method to forward the content ID and content rights to the downstream module.</LI>
+
+	<LI>In the case of the <B>DrmAddContentHandlers</B> function, the caller (the upstream module) is responsible for forwarding the stream's content ID and content rights to the downstream module. Once <B>DrmAddContentHandlers</B> returns with a success code indicating that the downstream module has been authenticated, the upstream module passes the content ID and content rights to the downstream module by calling one of its content handlers.</LI>
+</OL>
+
+<P>If the upstream module is a WaveCyclic or WavePci miniport driver, it can call the appropriate DRM function indirectly through one of the following methods:</P>
+
+<P class=indent1><A HREF="audmp-routines_81pv.htm"><B>IDrmPort2::ForwardContentToDeviceObject</B></A> </P>
+
+<P class=indent1><A HREF="audmp-routines_331v.htm"><B>IDrmPort::ForwardContentToInterface</B></A> </P>
+
+<P class=indent1><A HREF="audmp-routines_1g6r.htm"><B>IDrmPort2::AddContentHandlers</B></A> </P>
+
+<P>For more information, see <A HREF="aud-prop_9f77.htm">DRM Functions</A>.</P>
+
+<P>For simplicity, the preceding discussion assumes that each module in the data path accepts a stream from a single source and forwards that stream to at most one downstream module. In fact, a module can forward a stream to two or more downstream modules, but it must first authenticate each downstream module by calling one of the three forwarding functions. Similarly, a module can mix together several input streams, but it must respect the content rights of the input streams by providing the appropriate level of protection to the mixed output stream. For more information, see the discussion of the <A HREF="aud-prop_8j77.htm"><B>DrmCreateContentMixed</B></A> function in <A HREF="aud-design_5d47.htm">Content IDs and Content Rights</A>.</P>
+
+<P>A typical secure data path consists of the <A HREF="aud-design_1kiv.htm#ddk_kmixer_system_driver_ksg">KMixer system driver</A> followed by a wave filter that represents the audio rendering device. The filter is implemented as a WaveCyclic or WavePci miniport driver in combination with the corresponding port driver. To verify that the data path is secure, DRMK forwards the content ID to KMixer, which in turn forwards the content ID to the filter. The port driver, which implements the generic filter functionality, receives the content ID and forwards it to the miniport driver. Specifically, the port driver calls the <B>DrmForwardContentToInterface</B> function to forward the content ID to the stream object that the miniport driver has instantiated to represent the wave-output pin on the audio rendering device. One of the parameter values for this call is a pointer to the stream object's <A HREF="audmp-routines_5jxv.htm"><B>IMiniportWaveCyclicStream</B></A> or <A HREF="audmp-routines_6otv.htm"><B>IMiniportWavePciStream</B></A> interface. Through this interface, the function queries the stream object for its <B>IDrmAudioStream</B> interface and calls that interface's <B>SetContentId</B> method.</P>
+
+<P>For more information, see the implementations of the <B>SetContentId</B> method in the <I>sb16</I> and <I>msvad</I> sample drivers in the Windows DDK.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Forwarding%20DRM%20Content%20IDs"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

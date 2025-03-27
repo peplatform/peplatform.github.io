@@ -1,0 +1,41 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Synchronizing Access to Device Data</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Synchronizing Access to Device Data">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_synchronizing_access_to_device_data_kg"></A>Synchronizing Access to Device Data</H2>
+
+<P>Typically, a driver's <A HREF="drvrrtns_29ma.htm"><I>InterruptService</I></A> routines (ISRs) must share access to driver data and hardware resources with other driver routines. Since ISRs execute in an interrupt context at an elevated IRQL, and since a system might have multiple processors, it is important to synchronize access to shared data and resources so that each routine can be guaranteed to temporarily have exclusive access to this shared information, without interruption.</P>
+
+<P>The system supports this synchronization by enabling you to define <I>critical sections </I>of code. These critical sections must be the only places where shared data and resources are accessed. The system guarantees this code exclusive access to shared information by raising the processor's IRQL and acquiring a spin lock before executing the code. Critical sections reside only in ISRs and <A HREF="drvrrtns_4m2a.htm"><I>SynchCritSection</I></A> routines. The system calls an ISR when a device interrupts. Drivers call <I>SynchCritSection</I> routines by using <A HREF="k105_99rm.htm"><B>KeSynchronizeExecution</B></A>.</P>
+
+<P>Raising the processor's IRQL to the device's DIRQL value prevents the current processor from being interrupted, except by a higher-priority device. Acquiring a spin lock prevents other processors from executing any critical section code associated with that spin lock. (This spin lock is sometimes called an <I>interrupt spin lock</I>.)</P>
+
+<P>A driver specifies the DIRQL value and spin lock the system will use by supplying <I>SynchronizeIrql</I> and <I>SpinLock</I> parameters when calling <A HREF="k104_7h9u.htm"><B>IoConnectInterrupt</B></A>. The values specified for these parameters should be determined as follows:
+
+<DL>
+<DT><I>SynchronizeIrql</I></DT>
+
+<DD>If a device uses a single interrupt vector, <I>SynchronizeIrq</I> should be set to the device's DIRQL. If the driver supports multiple interrupt vectors and must access the same set of registers or data for each vector, it must call <B>IoConnectInterrupt</B> for each vector and the <I>SynchronizeIrql</I> value must be the highest DIRQL used with any of the vectors.</DD>
+
+<DT><I>SpinLock</I></DT>
+
+<DD>If a device uses a single interrupt vector, <I>SpinLock</I> should be NULL, which causes the system to allocate a spin lock for the vector. If the driver supports multiple interrupt vectors and must access the same set of registers or data for each vector, the driver must call <A HREF="k105_60xe.htm"><B>KeInitializeSpinLock</B></A> to allocate a spin lock, and then specify that spin lock to each call to <B>IoConnectInterrupt</B>.
+</DD>
+</DL>
+
+<P>For a driver that supports a single vector, critical sections execute at the device's DIRQL, and they use a system-supplied spin lock. For a driver that supports multiple vectors and a single set of resources, all critical sections execute at the highest DIRQL used by any interrupt, and they all use a single, driver-supplied spin lock.</P>
+
+<P>For information about writing and calling critical sections, see <A HREF="intrupts_6g13.htm">Using Critical Sections</A>.</P>
+
+<P>The alternative to using critical sections is to serialize IRP processing. That is, a driver would have to complete each I/O request before starting device I/O operations for the next IRP. While this makes it almost impossible for the ISR and another routine, such as a <I>DpcForIsr</I> or <I>CustomDpc</I> routine, to access shared state concurrently, handling IRPs in this manner severely limits I/O throughput for most devices. Note that a driver that serializes its IRP processing can run no faster on SMP machines than in uniprocessor machines. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Synchronizing%20Access%20to%20Device%20Data"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

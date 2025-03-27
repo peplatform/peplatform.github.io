@@ -1,0 +1,1626 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>1394API.DLL</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="1394API.DLL">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_sample_ieee_1394_device_drivers_kg">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ioctl_1394_class_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Appendix:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_supp_1394api_dll"></A>1394API.DLL</H1>
+
+<P>This application and its source code is provided with the 1394 sample driver, <I>1394diag.sys</I>, in the <I>\src\wdm </I>directory of the Windows DDK. For more information on the sample driver, see <A HREF="JavaScript:hhobj_1.Click()">Sample IEEE 1394 Device Drivers</A>. </P>
+
+<P><I>1394api.dll</I> in conjunction with <I>1394diag.sys</I> or <I>1394vdev.sys</I> provide ring 3 support for all 1394 DDIs. This document will detail all APIs exported by <I>1394api.dll</I> and proper implementation of these APIs. Additional information about using several of these APIs can be found in the definition of the <A HREF="JavaScript:hhobj_2.Click()">IOCTL_1394_CLASS</A> requests.</P>
+
+<H2>Windows Applications</H2>
+
+<P>Windows based clients using 1394API.DLL are required to register during initialization using the <B>RegisterClient</B> API. When the client terminates, it must call the <B>DeRegisterClient</B> API.</P>
+
+<P>After a client registers its hWnd, it can expect to receive messages when a 1394 bus reset or a 1394 device change occurs. It will receive either a NOTIFY_DEVICE_CHANGE message when a 1394 device is added/removed, or a NOTIFY_BUS_RESET when a 1394 bus reset occurs.</P>
+
+<H2>NOTIFY_DEVICE_CHANGE</H2>
+
+<P>The client will receive this message whenever a 1394 device has been added or removed. When the client receives this notification, it is required to call the <B>GetDeviceList</B> API to get an updated list of devices available.</P>
+
+<H2>NOTIFY_BUS_RESET</H2>
+
+<P>The client will receive this message whenever a 1394 bus reset occurs. </P>
+
+<H2>Console Applications</H2>
+
+<P>The use of the <B>RegisterClient </B>and <B>DeRegisterClient</B> API’s is meant for the application to receive notification of bus resets and device changes. It is not possible for a console application to receive these notifications. Instead, the console application will call the <B>GetDeviceList </B>API in order to get a list of devices available. No other action is required by a console application.</P>
+
+<H2>The 1394API.DLL API</H2>
+
+<P>The following routines are exported by 1394api.dll. </P>
+
+<H3>RegisterClient</H3>
+
+<PRE class=syntax><B>DWORD
+WINAPI
+RegisterClient(
+  HWND</B><I>  hWnd</I><B>
+  );</B></PRE>
+
+<P>This API will register the client with 1394API.DLL. The window handle passed into RegisterClient will notify the client of 1394 bus resets and device changes.</P>
+
+<H3>DeRegisterClient</H3>
+
+<PRE class=syntax><B>DWORD
+WINAPI
+DeRegisterClient(
+</B>  <B>HWND</B>    <I>hWnd</I><B>
+ </B> <B>);</B></PRE>
+
+<P>This API will deregister the client with 1394API.DLL. This will stop 1394 bus reset and device change notifications.</P>
+
+<H3>GetDeviceList</H3>
+
+<PRE class=syntax><B>DWORD
+WINAPI
+GetDeviceList(
+  PDEVICE_DATA    </B><I>DeviceData</I><B>
+  );</B>
+typedef struct _DEVICE_LIST {
+    CHAR    DeviceName[255];
+} DEVICE_LIST, *PDEVICE_LIST;
+
+typedef struct _DEVICE_DATA {
+    ULONG        numDevices;
+    DEVICE_LIST  deviceList[10];
+} DEVICE_DATA, *PDEVICE_DATA;</PRE>
+
+<P>This API is called with the DeviceData struct. It is used to obtain the symbolic link names of physical 1394 Diagnostic Devices (1394diag.sys)  1394API.DLL supports a maximum of 10 1394 devices on one PC. This is an arbitrary limit and can be increased. The number of 1394 devices available is returned in numDevices and the symbolic link names of available 1394 devices are stored in DeviceName.</P>
+
+<H3>GetVirtualDeviceList</H3>
+
+<PRE class=syntax><B>DWORD
+WINAPI
+GetVirtualDeviceList(
+  PDEVICE_DATA    </B><I>DeviceData</I><B>
+  );</B>
+typedef struct _DEVICE_LIST {
+    CHAR    DeviceName[255];
+} DEVICE_LIST, *PDEVICE_LIST;
+
+typedef struct _DEVICE_DATA {
+    ULONG        numDevices;
+    DEVICE_LIST  deviceList[10];
+} DEVICE_DATA, *PDEVICE_DATA;</PRE>
+
+<P>This API is called with the DeviceData struct. It is used to obtain the symbolic link names of virtual 1394 Diagnostic Devices (1394vdev.sys)  1394API.DLL supports a maximum of 10 1394 devices on one PC. This is an arbitrary limit and can be increased. The number of 1394 devices available is returned in numDevices and the symbolic link names of available 1394 devices are stored in DeviceName.</P>
+
+<H3>AddVirtualDriver</H3>
+
+<PRE class=syntax><B>DWORD
+WINAPI
+AddVirtualDriver(
+HWND                        </B><I>hWnd</I><B>
+  PVIRT_DEVICE     </B><I>pVirtualDevice</I>
+<B>ULONG</B><I>                    BusNumber</I><B>
+  );</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+</DL>
+
+<PRE>typedef struct _VIRT_DEVICE {
+        ULONG            fulFlags;
+        ULARGE_INTEGER        InstanceID;
+        PSTR            DeviceID;
+} VIRT_DEVICE, *PVIRT_DEVICE</PRE>
+
+<DL>
+<DT><B>fulFlags</B></DT>
+
+<DD>These flags correspond with the values defined in the IEEE1394_API_REQUEST structure.  Valid values are:
+
+<P>IEEE1394_REQUEST_FLAG_UNICODE
+
+
+<P>IEEE1394_REQUEST_FLAG_PERSISTENT
+
+
+<P>IEEE1394_REQUEST_FLAG_USE_LOCAL_HOST_EUI
+
+
+<P><B>InstanceID</B>
+</DD>
+</DL>
+
+<PRE>A 64-bit number used to identify this instance of the virtual device.</PRE>
+
+<P><B>DeviceID</B>
+
+<DL>
+<DT>Supplies a buffer containing a null-terminated string to be used for generating the device ID for this device.</DT>
+</DL>
+
+<PRE></PRE>
+
+<P>This API is used to load a virtual 1394 driver. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>RemoveVirtualDriver</H3>
+
+<PRE class=syntax><B>DWORD
+WINAPI
+RemoveVirtualDriver(
+HWND                        </B><I>hWnd</I><B>
+  PVIRT_DEVICE     </B><I>pVirtualDevice</I>
+<B>ULONG</B><I>                    BusNumber</I><B>
+  );</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+</DL>
+
+<PRE>typedef struct _VIRT_DEVICE {
+        ULONG            fulFlags;
+        ULARGE_INTEGER        InstanceID;
+        PSTR            DeviceID;
+} VIRT_DEVICE, *PVIRT_DEVICE</PRE>
+
+<DL>
+<DT><B>fulFlags</B></DT>
+
+<DD>These flags correspond with the values defined in the IEEE1394_API_REQUEST structure.  Valid values are:
+
+<P>IEEE1394_REQUEST_FLAG_UNICODE
+
+
+<P>IEEE1394_REQUEST_FLAG_PERSISTENT
+
+
+<P>IEEE1394_REQUEST_FLAG_USE_LOCAL_HOST_EUI
+
+
+<P><B>InstanceID</B>
+</DD>
+</DL>
+
+<PRE>A 64-bit number used to identify this instance of the virtual device.</PRE>
+
+<P><B>DeviceID</B>
+
+<DL>
+<DT>Supplies a buffer containing a null-terminated string to be used for generating the device ID for this device.</DT>
+</DL>
+
+<PRE></PRE>
+
+<P>This API is used to remove a virtual 1394 driver that was previously loaded via <B>AddVirtualDevice</B>. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>DiagnosticMode</H3>
+
+<PRE class=syntax><B>void
+WINAPI
+DiagnosticMode(
+  HWND  </B><I>hWnd</I><B>,
+  PSTR  </B><I>szBusName</I><B>,
+  BOOL  </B><I>bMode</I><B>
+  );</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szBusName</I></DT>
+
+<DD>The symbolic link name for the bus driver on which to toggle diagnostic mode. If bAll=TRUE, then this value can be set to NULL.</DD>
+
+<DT><I>bMode</I></DT>
+
+<DD>Set this flag to TRUE to enable diagnostic mode and FALSE to disable diagnostic mode.</DD>
+
+<DT>bAll</DT>
+
+<DD>Set this flag to TRUE to enable diagnostic mode on all available 1394 host controllers.
+</DD>
+</DL>
+
+<P>This API will enabled/disable diagnostic mode on a specified 1394 bus. If enabled, then any device plugged into this 1394 host controller will be enumerated as a 1394 Test Device, loading 1394DIAG.SYS.</P>
+
+<H3>AllocateAddressRange</H3>
+
+<PRE class=syntax><B>ULONG
+WINAPI
+AllocateAddressRange(
+  HWND  </B><I>hWnd</I><B>,
+  PSTR  </B><I>szDeviceName</I><B>,
+  PALLOCATE_ADDRESS_RANGE  </B><I>allocateAddressRange,</I>
+BOOL  <I>bAutoAlloc</I><B>
+);</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _ALLOCATE_ADDRESS_RANGE {
+    ULONG            fulAllocateFlags;
+    ULONG            fulFlags;
+    ULONG            nLength;
+    ULONG            MaxSegmentSize;
+    ULONG            fulAccessType;
+    ULONG            fulNotificationOptions;
+    ADDRESS_OFFSET   Required1394Offset;
+    HANDLE           hAddressRange;
+    UCHAR                  Data[1];
+} ALLOCATE_ADDRESS_RANGE, *PALLOCATE_ADDRESS_RANGE;</PRE>
+
+
+<DL>
+<DT><B>fulAllocateFlags</B></DT>
+
+<DD>This is specific to 1394API.DLL. This value supports the following flags:
+
+<P>ASYNC_ALLOC_USE_MDL
+
+
+
+<P><B>Data</B>
+
+
+<P>This element provides the backing store for the allocated address range.  The 1394 bus driver maps all asynchronous requests to this address space.  When allocating this structure the caller must ensure that this element contains the necessary space for the backing store so that the Data field contains nLength bytes.  If the bAutoAlloc flag is used this is not necessary.
+</DD>
+</DL>
+</DD>
+
+<DT><I>bAutoAlloc</I></DT>
+
+<DD class=indent1>This flags instructs 1394api.dll to allocate the necessary backing store for the allocated address range itself, when set to true.  If this flag is set to false the passed in structure must provide the necessary space for the backing store of the allocated address ranges.
+</DD>
+</DL>
+
+<P>This API is used to allocate an address range. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>FreeAddressRange</H3>
+
+<PRE class=syntax><B>ULONG
+WINAPI
+FreeAddressRange(
+  HWND  </B><I>hWnd</I><B>,
+  PSTR  </B><I>szDeviceName</I><B>,
+  HANDLE  </B><I>hAddressRange</I><B>
+  );</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.</DD>
+
+<DT><I>hAddressRange</I></DT>
+
+<DD>The handle for the address range to be freed.  This value is returned by a prior call to <B>AllocateAddressRange</B>.
+</DD>
+</DL>
+
+<P>This API is used to free an address range. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>GetAddressData</H3>
+
+<PRE class=syntax><B>ULONG
+WINAPI
+GetAddressData(
+  HWND  </B><I>hWnd</I><B>,
+  PSTR  </B><I>szDeviceName</I><B>,
+  PGET_ADDRESS_DATA  </B><I>getAddressData</I><B>, 
+  );</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _GET_ADDRESS_DATA {
+    HANDLE       hAddressRange;
+    ULONG        nLength;
+    ULONG        ulOffset;
+    UCHAR        Data[1];
+} GET_ADDRESS_DATA, *PGET_ADDRESS_DATA;</PRE>
+
+
+<P class=indent1><B>hAddressRange</B></P>
+
+
+<P class=indent1>The handle for the Address range whose data you are interested in.  This is returned by a prior call to <B>AllocateAddressRange</B>.</P>
+
+
+<P class=indent1><B>nLength</B></P>
+
+
+<P class=indent1>The length in bytes of the data you are interested in reading.</P>
+
+
+<P class=indent1><B>ulOffset</B></P>
+
+
+<P class=indent1>The offset in bytes into the allocated address range from which you want to start reading.</P>
+
+
+<P class=indent1><B>Data</B></P>
+</DD>
+</DL>
+
+<P>This data buffer provides the area to read the contents of the 1394 address range into.  The caller of this API must ensure that this element contains enough space to hold nLength bytes of data.This API is used to read the current data contents of a previously allocated 1394 address range.  This is necessary since a node cannot target 1394 Asynchronous Read requests to itself.</P>
+
+<H3>SetAddressData</H3>
+
+<PRE class=syntax><B>ULONG
+WINAPI
+SetAddressData(
+  HWND  </B><I>hWnd</I><B>,
+  PSTR  </B><I>szDeviceName</I><B>,
+  PSET_ADDRESS_DATA  </B><I>setAddressData</I><B>, 
+  );</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _SET_ADDRESS_DATA {
+    HANDLE       hAddressRange;
+    ULONG        nLength;
+    ULONG        ulOffset;
+    UCHAR        Data[1];
+} SET_ADDRESS_DATA, *PSET_ADDRESS_DATA;</PRE>
+
+
+<P class=indent1><B>hAddressRange</B></P>
+
+
+<P class=indent1>The handle for the Address range whose data you are interested in.  This is returned by a prior call to <B>AllocateAddressRange</B>.</P>
+
+
+<P class=indent1><B>nLength</B></P>
+
+
+<P class=indent1>The length in bytes of the data you are interested in writing.</P>
+
+
+<P class=indent1><B>ulOffset</B></P>
+
+
+<P class=indent1>The offset in bytes into the allocated address range from which you want to start writing.</P>
+
+
+<P class=indent1><B>Data</B></P>
+
+
+<P>This data buffer provides the area to write the contents of the 1394 address range into.  The caller of this API must ensure that this element contains enough space to hold nLength bytes of data and should specify the values to write here.
+</DD>
+</DL>
+
+<P>This API is used to write the current data contents of a previously allocated 1394 address range.  This is necessary since a node cannot target 1394 Asynchronous Write requests to itself.</P>
+
+<H3>AsyncRead</H3>
+
+<PRE class=syntax><B>ULONG
+WINAPI
+AsyncRead(
+  HWND  </B><I>hWnd</I><B>,
+  PSTR  </B><I>szDeviceName</I><B>,
+  PASYNC_READ  </B><I>asyncRead</I><B>,
+  BOOL  </B><I>bAutoAlloc</I><B>
+  );</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.</DD>
+
+<DT><I>bAutoAlloc</I></DT>
+
+<DD>If this flag is set to TRUE, then AsyncRead will automatically allocate the necessary buffer to complete the operation. If this flag is set to FALSE, the client will be required to pass in a large enough buffer the complete this request.
+
+<PRE>typedef struct _ASYNC_READ {
+    ULONG        bRawMode;
+    ULONG        bGetGeneration;
+    IO_ADDRESS   DestinationAddress;
+    ULONG        nNumberOfBytesToRead;
+    ULONG        nBlockSize;
+    ULONG        fulFlags;
+    ULONG        ulGeneration;
+    UCHAR        Data[1];
+} ASYNC_READ, *PASYNC_READ;</PRE>
+
+
+<DL>
+<DT><I>bRawMode</I></DT>
+
+<DD>If this value is set to TRUE, then the bus and node number specified in the DestinationAddress will be used. If FALSE, these values are ignored.  This flags must be set to TRUE when sending this request to a virtual diagnostic driver (1394vdev.sys)</DD>
+
+<DT><I>bGetGeneration</I></DT>
+
+<DD>If this value is set to TRUE, then the generation count will automatically be set to the current generation count. If FALSE, then the generation count will be taken from the ulGeneration variable specified in the async read request.</DD>
+
+<DT>Data</DT>
+
+<DD>This buffer provides the area to store the result of the 1394 Asychronous Read operation.  It is the responsibility of the caller of this API to ensure there is sufficient area where to store nNumberOfBytesToRead of data.
+</DD>
+</DL>
+</DD>
+</DL>
+
+<P>This API is used to perform an asynchronous read. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>AsyncWrite</H3>
+
+<PRE class=syntax><B>ULONG
+WINAPI
+AsyncWrite(
+  HWND  </B><I>hWnd</I><B>,
+  PSTR  </B><I>szDeviceName</I><B>,
+  PASYNC_WRITE  </B><I>asyncWrite</I><B>,
+  BOOL  </B><I>bAutoAlloc</I><B>
+  );</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.</DD>
+
+<DT><I>bAutoAlloc</I></DT>
+
+<DD>If this flag is set to TRUE, then AsyncWrite will automatically allocate the necessary buffer to complete the operation. If this flag is set to FALSE, the client will be required to pass in a large enough buffer the complete this request.
+
+<PRE>typedef struct _ASYNC_WRITE {
+    ULONG        bRawMode;
+    ULONG        bGetGeneration;
+    IO_ADDRESS   DestinationAddress;
+    ULONG        nNumberOfBytesToWrite;
+    ULONG        nBlockSize;
+    ULONG        fulFlags;
+    ULONG        ulGeneration;
+    UCHAR        Data[1];
+} ASYNC_WRITE, *PASYNC_WRITE;</PRE>
+</DD>
+
+<DT><I>bRawMode</I></DT>
+
+<DD>If this value is set to TRUE, then the bus and node number specified in the DestinationAddress will be used. If FALSE, these values are ignored.</DD>
+
+<DT><I>bGetGeneration</I></DT>
+
+<DD>If this value is set to TRUE, then the generation count will automatically be set to the current generation count. If FALSE, then the generation count will be taken from the ulGeneration variable specified in the async write request.</DD>
+
+<DT>Data</DT>
+</DL>
+
+<P>This buffer provides the area from which the data portion of the 1394 Asychronous Write operation.  It is the responsibility of the caller of this API to ensure there is sufficient area where to store nNumberOfBytesToWrite of data.</P>
+
+<P>This API is used to perform an asynchronous write. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>AsyncLock</H3>
+
+<PRE class=syntax><B>ULONG
+WINAPI
+AsyncLock(
+  HWND  </B><I>hWnd</I><B>,
+  PSTR  </B><I>szDeviceName</I><B>,
+  PASYNC_LOCK  </B><I>asyncLock</I><B>
+  );</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _ASYNC_LOCK {
+    ULONG        bRawMode;
+    ULONG        bGetGeneration;
+    IO_ADDRESS   DestinationAddress;
+    ULONG        nNumberOfArgBytes;
+    ULONG        nNumberOfDataBytes;
+    ULONG        fulTransactionType;
+    ULONG        fulFlags;
+    ULONG        Arguments[2];
+    ULONG        DataValues[2];
+    ULONG        ulGeneration;
+    ULONG        Buffer[2];
+} ASYNC_LOCK, *PASYNC_LOCK;</PRE>
+</DD>
+
+<DT><I>bRawMode</I></DT>
+
+<DD>If this value is set to TRUE, then the bus and node number specified in the DestinationAddress will be used. If FALSE, these values are ignored.</DD>
+
+<DT><I>bGetGeneration</I></DT>
+
+<DD>If this value is set to TRUE, then the generation count will automatically be set to the current generation count. If FALSE, then the generation count will be taken from the ulGeneration variable specified in the async lock request.
+</DD>
+</DL>
+
+<P>This API is used to perform an asynchronous lock. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>AsyncStream</H3>
+
+<PRE class=syntax><B>ULONG
+WINAPI
+AsyncStream(
+  HWND  </B><I>hWnd</I><B>,
+  PSTR  </B><I>szDeviceName</I><B>,
+  PASYNC_STREAM  </B><I>asyncStream</I><B>,
+  BOOL  </B><I>bAutoAlloc</I><B>
+  );</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.</DD>
+
+<DT><I>bAutoAlloc</I></DT>
+
+<DD>If this flag is set to TRUE, then AsyncStream will automatically allocate the necessary buffer to complete the operation. If this flag is set to FALSE, the client will be required to pass in a large enough buffer the complete this request.
+
+<PRE>typedef struct _ASYNC_STREAM {
+    ULONG        nNumberOfBytesToStream;
+    ULONG        fulFlags;
+    ULONG        ulTag;
+    ULONG        nChannel;
+    ULONG        ulSynch;
+    ULONG        nSpeed;
+    UCHAR        Data[1];
+} ASYNC_STREAM, *PASYNC_STREAM;
+‹ ›</PRE>
+</DD>
+</DL>
+
+<P>This API is used to perform an asynchronous lock. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>AsyncStartLoopbackEx</H3>
+
+<PRE class=syntax><B>void
+WINAPI
+AsyncStartLoopback(
+  HWND  </B><I>hWnd</I><B>,
+  PSTR  </B><I>szDeviceName</I><B>,
+  PASYNC_LOOPBACK_PARAMS_EX  </B><I>asyncLoopbackParamsEx</I><B>
+  );</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _ASYNC_LOOPBACK_PARAMS_EX {
+    HWND            hWnd;
+    PSTR            szDeviceName;
+    BOOLEAN         bKill;
+    BOOLEAN             bRawMode;
+    HANDLE          hThread;
+    UINT            ThreadId;
+    ULONG           ulLoopFlag;
+    ULONG           nIterations;
+    ULONG           ulPass;
+    ULONG           ulFail;
+    ULONG           ulIterations;
+    IO_ADDRESS  Destination;
+    ULONG           nMaxBytes;
+} ASYNC_LOOPBACK_PARAMS, *PASYNC_LOOPBACK_PARAMS;</PRE>
+
+</DD>
+</DL>
+
+<H4>Input</H4>
+
+<P><I>bRawMode</I></P>
+
+<P>If TRUE this flags indicated that the bus and node address specified in the Destination structure shall be used to target all asynchronous transactions.  If FALSE, the bus and node addresses shall be ignored.  Requests aimed at virtual devices must set this flag to TRUE.
+
+<DL>
+<DT><I>ulLoopFlag</I></DT>
+
+<DD>Specified the type of async loopback to issue. Valid flags are:
+
+<P>ASYNC_LOOPBACK_READ
+
+
+<P>ASYNC_LOOPBACK_WRITE
+
+
+<P>ASYNC_LOOPBACK_LOCK
+
+
+<P>ASYNC_LOOPBACK_RANDOM_LENGTH
+</DD>
+
+<DT><I>nIterations</I></DT>
+
+<DD>Number of iterations to run.  If 0 is specified the loopback thread will continue to run until it is stopped with a call to <B>StopAsyncLoopbackEx</B>.</DD>
+
+<DT><I>Destination</I></DT>
+
+<DD>Address to use for async command.  The bus number and node number will be ignored unless bRawMode is set to TRUE.</DD>
+
+<DT><I>nMaxBytes</I></DT>
+
+<DD>Max number of bytes used for any single async command.
+</DD>
+</DL>
+
+<H4>Output</H4>
+
+<DL>
+<DT>ulPass</DT>
+
+<DD>Number of iterations that have passed.</DD>
+
+<DT>ulFail</DT>
+
+<DD>Number of iterations that have failed.</DD>
+
+<DT>ulIterations</DT>
+
+<DD>Total number of iterations.
+</DD>
+</DL>
+
+<P>1394API.DLL automatically fills in the rest of the parameters.</P>
+
+<P>This API is used to start asynchronous loopback. </P>
+
+<H3>AsyncStopLoopbackEx</H3>
+
+<PRE class=syntax><B>void
+WINAPI
+AsyncStopLoopbackEx(
+  PASYNC_LOOPBACK_PARAMS_EX    </B><I>asyncLoopbackParamsEx</I><B>
+  );</B></PRE>
+
+<DL>
+<DT><I>asyncLoopbackParamsEx</I></DT>
+
+<DD>This value is set to a prior asyncLoopbackParams  issued with the <B>AsyncStartLoopback</B> API.
+</DD>
+</DL>
+
+<P>This API is used stop asynchronous loopback.</P>
+
+<H3>IsochAllocateBandwidth</H3>
+
+<PRE class=syntax><B>ULONG
+WINAPI
+IsochAllocateBandwidth(
+  HWND  </B><I>hWnd</I><B>, 
+  PSTR  </B><I>szDeviceName</I><B>,
+  PISOCH_ALLOCATE_BANDWIDTH  </B><I>isochAllocateBandwidth</I><B>
+  );</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _ISOCH_ALLOCATE_BANDWIDTH {
+    ULONG        nMaxBytesPerFrameRequested;
+    ULONG        fulSpeed;
+    HANDLE       hBandwidth;
+    ULONG        BytesPerFrameAvailable;
+    ULONG        SpeedSelected;
+} ISOCH_ALLOCATE_BANDWIDTH, *PISOCH_ALLOCATE_BANDWIDTH;</PRE>
+</DD>
+</DL>
+
+<P>This API is used to allocate isochronous bandwidth. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>IsochAllocateChannel</H3>
+
+<PRE class=syntax><B>ULONG
+WINAPI
+IsochAllocateChannel( 
+  HWND                </B><I>hWnd</I><B>,
+  PSTR                </B><I>szDeviceName</I><B>,
+  PISOCH_ALLOCATE_CHANNEL    </B><I>isochAllocateChannel</I><B>
+  );</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _ISOCH_ALLOCATE_CHANNEL {
+    ULONG            nRequestedChannel;
+    ULONG            Channel;
+    LARGE_INTEGER        ChannelsAvailable;
+} ISOCH_ALLOCATE_CHANNEL, *PISOCH_ALLOCATE_CHANNEL;</PRE>
+</DD>
+</DL>
+
+<P>This API is used to allocate an isochronous channel. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>IsochAllocateResources</H3>
+
+<PRE class=syntax><B>ULONG
+WINAPI
+IsochAllocateResources( 
+  HWND   </B><I>hWnd</I><B>,
+  PSTR  </B><I>szDeviceName</I><B>,
+  PISOCH_ALLOCATE_RESOURCES  </B><I>isochAllocateResources</I><B>
+  );</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _ISOCH_ALLOCATE_RESOURCES {
+    ULONG        fulSpeed;
+    ULONG        fulFlags;
+    ULONG        nChannel;
+    ULONG        nMaxBytesPerFrame;
+    ULONG        nNumberOfBuffers;
+    ULONG        nMaxBufferSize;
+    ULONG        nQuadletsToStrip;
+    HANDLE       hResource;
+} ISOCH_ALLOCATE_RESOURCES, *PISOCH_ALLOCATE_RESOURCES;</PRE>
+</DD>
+</DL>
+
+<P>This API is used to allocate isochronous resources. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>IsochAttachBuffers</H3>
+
+<PRE class=syntax><B>ULONG
+WINAPI
+IsochAttachBuffers(
+  HWND  </B><I>hWnd</I><B>,
+  PSTR   </B><I>szDeviceName</I><B>,
+  PISOCH_ATTACH_BUFFERS  </B><I>isochAttachBuffers,</I>
+<B>BOOL        </B><I>bAutoAlloc,</I>
+<B>BOOL        </B><I>bAutoFill</I><B>
+);</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _RING3_ISOCH_DESCRIPTOR {
+    ULONG        fulFlags;
+    ULONG        ulLength;
+    ULONG        nMaxBytesPerFrame;
+    ULONG        ulSynch;
+    ULONG        ulTag;
+    CYCLE_TIME   CycleTime;
+    ULONG        bUseCallback;
+    ULONG        bAutoDetach;
+    UCHAR        Data[1];
+} RING3_ISOCH_DESCRIPTOR, *PRING3_ISOCH_DESCRIPTOR;
+//
+// struct used to pass in with IOCTL_ISOCH_ATTACH_BUFFERS
+//
+typedef struct _ISOCH_ATTACH_BUFFERS {
+    HANDLE               hResource;
+    ULONG                nNumberOfDescriptors;
+    ULONG                ulBufferSize;
+    ULONG                pIsochDescriptor;
+    RING3_ISOCH_DESCRIPTOR    R3_IsochDescriptor[1];
+} ISOCH_ATTACH_BUFFERS, *PISOCH_ATTACH_BUFFERS;</PRE>
+</DD>
+
+<DT>bAutoAlloc</DT>
+
+<DD>If this flag is set to TRUE all of the necessary buffers will be allocated by 1394, based upon the values set in the first buffer, which must still be passed in.</DD>
+
+<DT>bAutoFill</DT>
+
+<DD>If this flag is set to TRUE each byte of the buffers attached are filled incrementally, beginning with 0.
+</DD>
+</DL>
+
+<P>This API is used to attach isochronous buffers. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>IsochDetachBuffers</H3>
+
+<PRE class=syntax><B>ULONG
+WINAPI
+IsochDetachBuffers(
+  HWND  </B><I>hWnd</I><B>,
+  PSTR  </B><I>szDeviceName</I><B>,
+  PISOCH_DETACH_BUFFERS  </B><I>isochDetachBuffers</I><B>
+  );</B></PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _ISOCH_DETACH_BUFFERS {
+    HANDLE       hResource;
+    ULONG        nNumberOfDescriptors;
+    PVOID        pIsochDescriptor;
+} ISOCH_DETACH_BUFFERS, *PISOCH_DETACH_BUFFERS;</PRE>
+</DD>
+</DL>
+
+<P>This API is used to detach isochronous buffers. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>IsochFreeBandwidth</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+IsochFreeBandwidth(
+  HWND      hWnd,
+  PSTR      szDeviceName,
+  HANDLE    hBandwidth
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.</DD>
+
+<DT><I>hBandwidth</I></DT>
+
+<DD>The handle to the bandwidth resource to be freed.  This was returned from a prior call to <B>IsochAllocateBandwidth</B>.
+</DD>
+</DL>
+
+<P>This API is used to free isochronous bandwidth. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>IsochFreeChannel</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+IsochFreeChannel(
+  HWND      hWnd,
+  PSTR      szDeviceName,
+  ULONG     nChannel
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.</DD>
+
+<DT><I>nChannel</I></DT>
+
+<DD>The isochronous channel to be freed.  This was returned from a prior call to <B>IsochAllocateChannel</B>.
+</DD>
+</DL>
+
+<P>This API is used to free an isochronous channel. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>IsochFreeResources</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+IsochFreeResources(
+  HWND      hWnd,
+  PSTR      szDeviceName,
+  HANDLE    hResource
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.</DD>
+
+<DT><I>hResource</I></DT>
+
+<DD>The handle to the isochronous resource to be freed.  This was returned in a prior call to <B>IsochAllocateResources</B>.
+</DD>
+</DL>
+
+<P>This API is used to free isochronous resources. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>IsochListen</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+IsochListen(
+  HWND      hWnd,
+  PSTR      szDeviceName,
+  PISOCH_LISTEN   isochListen
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _ISOCH_LISTEN {
+    HANDLE       hResource;
+    ULONG        fulFlags;
+    CYCLE_TIME   StartTime;
+} ISOCH_LISTEN, *PISOCH_LISTEN;</PRE>
+</DD>
+</DL>
+
+<P>This API is used to start an isochronous listen. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>IsochQueryCurrentCycleTime</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+IsochQueryCurrentCycleTime(
+  HWND      hWnd,
+  PSTR      szDeviceName,
+  PCYCLE_TIME   CycleTime
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.</DD>
+
+<DT><I>CycleTime</I></DT>
+
+<DD>The current isochronous cycle time.</DD>
+</DL>
+
+<P>This API is used to query current isochronous cycle time. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>IsochQueryResources</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+IsochQueryResources(
+  HWND            hWnd,
+  PSTR            szDeviceName,
+  PISOCH_QUERY_RESOURCES   isochQueryResources
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _ISOCH_QUERY_RESOURCES {
+    ULONG            fulSpeed;
+    ULONG            BytesPerFrameAvailable;
+    LARGE_INTEGER        ChannelsAvailable;
+} ISOCH_QUERY_RESOURCES, *PISOCH_QUERY_RESOURCES;</PRE>
+</DD>
+</DL>
+
+<P>This API is used to query isochronous resources. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>IsochSetChannelBandwidth</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+IsochSetChannelBandwidth(
+  HWND               hWnd,
+  PSTR               szDeviceName,
+  PISOCH_SET_CHANNEL_BANDWIDTH   isochSetChannelBandwidth
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _ISOCH_SET_CHANNEL_BANDWIDTH {
+    HANDLE       hBandwidth;
+    ULONG        nMaxBytesPerFrame;
+} ISOCH_SET_CHANNEL_BANDWIDTH, *PISOCH_SET_CHANNEL_BANDWIDTH;</PRE>
+</DD>
+</DL>
+
+<P>This API is used to set isochronous channel bandwidth. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>IsochStop</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+IsochStop(
+  HWND      hWnd,
+  PSTR      szDeviceName,
+  PISOCH_STOP   isochStop
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _ISOCH_STOP {
+    HANDLE       hResource;
+    ULONG        fulFlags;
+} ISOCH_STOP, *PISOCH_STOP;</PRE>
+</DD>
+</DL>
+
+<P>This API is used to stop isochronous talks/listens. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>IsochTalk</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+IsochTalk(
+  HWND      hWnd,
+  PSTR      szDeviceName,
+  PISOCH_TALK   isochTalk
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList</B> <B>or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _ISOCH_TALK {
+    HANDLE        hResource;
+    ULONG        fulFlags;
+    CYCLE_TIME    StartTime;
+} ISOCH_TALK, *PISOCH_TALK;</PRE>
+</DD>
+</DL>
+
+<P>This API is used to start an isochronous talk. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>IsochStartLoopback</H3>
+
+<PRE class=syntax>void
+WINAPI
+IsochStartLoopback(
+  HWND            hWnd,
+  PSTR            szDeviceName,
+  PISOCH_LOOPBACK_PARAMS   isochLoopbackParams
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _ISOCH_LOOPBACK_PARAMS {
+    HWND                hWnd;
+    PSTR                szDeviceName;
+    BOOLEAN             bKill;
+    BOOLEAN             bLoopback;
+    HANDLE              hThread;
+    UINT                ThreadId;
+    ULONG               ulLoopFlag;
+    ULONG               nIterations;
+    ULONG               ulPass;
+    ULONG               ulFail;
+    ULONG               ulIterations;
+    ISOCH_ATTACH_BUFFERS        isochAttachBuffers;
+} ISOCH_LOOPBACK_PARAMS, *PISOCH_LOOPBACK_PARAMS;</PRE>
+</DD>
+</DL>
+
+<H4>Input</H4>
+
+<DL>
+<DT><I>ulLoopFlag</I></DT>
+
+<DD>Specified the type of async loopback to issue. Valid flags are:</DD>
+
+<DT>RESOURCE_USED_IN_LISTENING</DT>
+
+<DT>RESOURCE_USED_IN_TALKING</DT>
+
+<DT><I>nIterations</I></DT>
+
+<DD>Number of iterations to run.  If 0 is specified the isoch loopback will continue until it is stopped via a call to <B>IsochStopLoopback</B>.</DD>
+
+<DT><I>isochAttachBuffers</I></DT>
+
+<DD>This attach buffer request needs to be filled in correctly in order to start isoch loopback. Refer to the <B>IsochAttachBuffers</B> API.</DD>
+</DL>
+
+<H4>Output</H4>
+
+<DL>
+<DT><I>ulPass</I></DT>
+
+<DD>Number of iterations that have passed.</DD>
+
+<DT><I>ulFail</I></DT>
+
+<DD>Number of iterations that have failed.</DD>
+
+<DT><I>ulIterations</I></DT>
+
+<DD>Total number of iterations.
+</DD>
+</DL>
+
+<P>1394API.DLL automatically fills in the rest of the parameters.</P>
+
+<P>This API is used to start isochronous loopback. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>IsochStopLoopback</H3>
+
+<PRE class=syntax>void
+WINAPI
+IsochStopLoopback(
+  PISOCH_LOOPBACK_PARAMS   isochLoopbackParams
+  );</PRE>
+
+<DL>
+<DT><I>isochLoopbackParams</I></DT>
+
+<DD>This value is set to a prior isochLoopbackParams issued with the
+
+<P><B>IsochStartLoopback </B>API.
+
+</DD>
+</DL>
+
+<P>This API is used to stop isochronous loopback. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>GetLocalHostInformation</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+GetLocalHostInformation(
+  HWND               hWnd,
+  PSTR               szDeviceName,
+  PGET_LOCAL_HOST_INFORMATION   GetLocalHostInfo,
+  BOOL               bAutoAlloc
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.</DD>
+
+<DT><I>bAutoAlloc</I></DT>
+
+<DD>If this flag is set to TRUE, then GetLocalHostInformation will automatically allocate the necessary buffer to complete the operation. This buffer will be freed before the call completes but the information determined will be written to the windows specified by hWnd.  If this flag is set to FALSE, the client will be required to pass in a large enough buffer the complete this request.
+
+<PRE>typedef struct _GET_LOCAL_HOST_INFORMATION {
+    ULONG        Status;
+    ULONG        nLevel;
+    ULONG        ulBufferSize;
+    UCHAR        Information[1];
+} GET_LOCAL_HOST_INFORMATION, *PGET_LOCAL_HOST_INFORMATION;</PRE>
+</DD>
+
+<DT><B>Status</B></DT>
+</DL>
+
+<P>This returns the Status of the requested call. In the case where nLevel = 5 or 6 (retrieve config rom or specified address range), then Status will be equal to ERROR_INSUFFICIENT_BUFFER and the required buffer size will be specified in the Information data struct (GET_LOCAL_HOST_INFO5 or 6).</P>
+
+<P>This API is used to get local host information. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>Get1394AddressFromDeviceObject</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+Get1394AddressFromDeviceObject(
+  HWND         hWnd,
+  PSTR         szDeviceName,
+  PGET_1394_ADDRESS   Get1394Address
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _GET_1394_ADDRESS {
+    ULONG            fulFlags;
+    NODE_ADDRESS     NodeAddress;
+} GET_1394_ADDRESS, *PGET_1394_ADDRESS;</PRE>
+</DD>
+</DL>
+
+<P>This API is used to get a 1394 address from a device object. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>Control</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+Control(
+  HWND         hWnd,
+  PSTR         szDeviceName
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+</DD>
+</DL>
+
+<P>This API is specific to 1394 host controllers. It is not supported and will return an error STATUS_UNSUPPORTED. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>GetMaxSpeedBetweenDevices</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+GetMaxSpeedBetweenDevices(
+  HWND               hWnd,
+  PSTR               szDeviceName,
+  PGET_MAX_SPEED_BETWEEN_DEVICES   GetMaxSpeedBetweenDevices
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _GET_MAX_SPEED_BETWEEN_DEVICES {
+    ULONG        fulFlags;
+    ULONG        ulNumberOfDestinations;
+    ULONG        hDestinationDeviceObjects[64];
+    ULONG        fulSpeed;
+} GET_MAX_SPEED_BETWEEN_DEVICES, *PGET_MAX_SPEED_BETWEEN_DEVICES;</PRE>
+
+</DD>
+</DL>
+
+<P>This API is used to get the max speed between devices. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>SetDeviceXmitProperties</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+SetDeviceXmitProperties(
+  HWND            hWnd,
+  PSTR            szDeviceName,
+  PDEVICE_XMIT_PROPERTIES   DeviceXmitProperties
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _DEVICE_XMIT_PROPERTIES {
+    ULONG        fulSpeed;
+    ULONG        fulPriority;
+} DEVICE_XMIT_PROPERTIES, *PDEVICE_XMIT_PROPERTIES;</PRE>
+
+</DD>
+</DL>
+
+<P>This API is used to set device xmit properties. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>GetConfigurationInformation</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+GetConfigurationInformation(
+  HWND            hWnd,
+  PSTR            szDeviceName
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+</DD>
+</DL>
+
+<P>This API is used to retrieve configuration information. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>BusReset</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+BusReset(
+  HWND      hWnd,
+  PSTR      szDeviceName,
+  ULONG      fulFlags
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.</DD>
+
+<DT><I>fulFlags</I></DT>
+
+<DD>Any flag to be passed in as defined by 1394 DDI spec.
+</DD>
+</DL>
+
+<P>This API is used to generate a 1394 bus reset. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>GetGenerationCount</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+GetGenerationCount(
+  HWND      hWnd,
+  PSTR      szDeviceName,
+  PULONG      GenerationCount
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.</DD>
+
+<DT><I>GenerationCount</I></DT>
+
+<DD>Returns the current generation count.
+</DD>
+</DL>
+
+<P>This API is used to retrieve the current generation count. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>SendPhyConfigurationPacket</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+SendPhyConfigurationPacket(
+  HWND            hWnd,
+  PSTR            szDeviceName,
+  PPHY_CONFIGURATION_PACKET   PhyConfigurationPacket
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _PHY_CONFIGURATION_PACKET {
+    ULONG        PCP_Phys_ID:6;        // Byte 0 - Bits 0-5
+    ULONG        PCP_Packet_ID:2;    // Byte 0 - Bits 6-7
+    ULONG        PCP_Gap_Count:6;    // Byte 1 - Bits 0-5
+    ULONG        PCP_Set_Gap_Count:1;    // Byte 1 - Bit 6
+    ULONG        PCP_Force_Root:1;    // Byte 1 - Bit 7
+    ULONG        PCP_Reserved1:8;    // Byte 2 - Bits 0-7
+    ULONG        PCP_Reserved2:8;    // Byte 3 - Bits 0-7
+    ULONG        PCP_Inverse;        // Inverse quadlet
+} PHY_CONFIGURATION_PACKET, *PPHY_CONFIGURATION_PACKET;</PRE>
+
+</DD>
+</DL>
+
+<P>This API is used to send a phy configuration packet. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>GetSpeedTopologyMaps</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+GetSpeedTopologyMaps(
+  HWND            hWnd,
+  PSTR            szDeviceName,
+  PSPEED_TOPOLOGY_MAP      SpeedTopologyMap,
+  BOOL            bAutoAlloc
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.</DD>
+
+<DT><I>bAutoAlloc</I></DT>
+
+<DD>If this flag is set to TRUE, then GetSpeedTopologyMaps will automatically allocate the necessary buffer to complete the operation. If this flag is set to FALSE, the client will be required to pass in a large enough buffer the complete this request.
+
+<PRE>typedef struct _SPEED_TOPOLOGY_MAP {
+    ULONG            ulBufferSize;
+    SPEED_MAP        SpeedMap;
+    TOPOLOGY_MAP        TopologyMap;
+} SPEED_TOPOLOGY_MAP, *PSPEED_TOPOLOGY_MAP;</PRE>
+</DD>
+
+<DT><I>ulBufferSize</I></DT>
+
+<DD>If bAutoAlloc = TRUE, then this value is ignored. Otherwise, this value must specify the size of the SpeedTopologyMap buffer. If the buffer is not large enough to store the contents of the Speed and Topology map, then this value will represent the buffer size needed to complete this operation and an error equal to ERROR_INSUFFICIENT_BUFFER will be returned.
+</DD>
+</DL>
+
+<P>This API retrieves the 1394 speed and topology maps. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>BusResetNotification</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+BusResetNotification(
+  HWND         hWnd,
+  PSTR         szDeviceName,
+  ULONG         fulFlags
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.</DD>
+
+<DT><I>fulFlags</I></DT>
+
+<DD>Flag to be passed in as defined by 1394 DDI spec.
+</DD>
+</DL>
+
+<P>This API is used to register bus reset notification. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<H3>SetLocalHostInformation</H3>
+
+<PRE class=syntax>ULONG
+WINAPI
+SetLocalHostInformation(
+  HWND               hWnd,
+  PSTR               szDeviceName,
+  PSET_LOCAL_HOST_INFORMATION   SetLocalHostInfo
+  );</PRE>
+
+<DL>
+<DT><I>hWnd</I></DT>
+
+<DD>A handle to an edit control can be passed in for debug output for this API. If no debug output is desired, a NULL value can be passed in.</DD>
+
+<DT><I>szDeviceName</I></DT>
+
+<DD>The symbolic link name for the device to use for this API. A list of available device names can be retried using the <B>GetDeviceList or GetVirtualDeviceList</B> API.
+
+<PRE>typedef struct _SET_LOCAL_HOST_INFORMATION {
+    ULONG        nLevel;
+    ULONG        ulBufferSize;
+    UCHAR        Information[1];
+} SET_LOCAL_HOST_INFORMATION, *PSET_LOCAL_HOST_INFORMATION;</PRE>
+
+</DD>
+</DL>
+
+<P>This API is used to set local host information. Detailed functionality of this API can be found in the 1394 DDI documentation.</P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: 1394API.DLL"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

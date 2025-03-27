@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Optional Dispatch Routines</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Optional Dispatch Routines">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_optional_dispatch_routines_kg"></A>Optional Dispatch Routines</H2>
+
+<P>Drivers might include the following dispatch routines:
+
+<UL>
+	<LI><A HREF="drvrrtns_2xf6.htm"><I>DispatchCleanup</I></A><I> </I>
+<P><A HREF="k113_6vg2.htm">IRP_MJ_CLEANUP</A> indicates that the last handle for a file object that is associated with the target device object is being closed. Outstanding I/O requests for the file object might still exist. If a driver maintains process-specific context information for the file object, the driver must deallocate process-specific resources when IRP_MJ_CLEANUP is received, because the driver is called in the context of the process that closed the file object handle. 
+
+<P>If the driver does not maintain process-specific state information for a file object, it should not implement a <I>DispatchCleanup</I> routine. Resources can be deallocated in the driver's <A HREF="drvrrtns_64du.htm"><I>DispatchClose</I></A> routine.
+</LI>
+
+	<LI><A HREF="drvrrtns_1vea.htm"><I>DispatchQueryInformation</I></A>, <A HREF="drvrrtns_6iia.htm"><I>DispatchSetInformation</I></A><I> </I>
+<P>Some highest-level drivers might have to process <A HREF="k113_59o2.htm">IRP_MJ_QUERY_INFORMATION</A> and <A HREF="k113_1ho2.htm">IRP_MJ_SET_INFORMATION</A> IRPs. Such requests indicate that a user-mode application, kernel-mode component, or driver has requested information about the length of the file object (representing the driver’s device object) for which the user-mode requester has a handle, or that the user-mode requester is attempting to set an end-of-file on that file object. 
+
+<P>Parallel class and serial device drivers handle these requests by setting the <A HREF="k112_9mb6.htm">FILE_STANDARD_INFORMATION</A> or <A HREF="k112_84z6.htm">FILE_POSITION_INFORMATION</A> length or position to zero. Other highest-level device drivers should support these requests, particularly if a user-mode application or kernel-mode driver might call C runtime functions to manipulate the file object. File system drivers must support these requests more fully than these highest-level device drivers. 
+</LI>
+
+	<LI><A HREF="drvrrtns_6yeq.htm"><I>DispatchFlushBuffers</I></A><I> </I>
+<P>A driver that caches data in a device or buffers data internally in driver-allocated memory might receive <A HREF="k113_4a0i.htm">IRP_MJ_FLUSH_BUFFERS</A>. Receipt of this request indicates that the driver should write its buffered data or flush the cached data out to the device, or should discard buffered or cached data that was read from the device. 
+
+<P>For example, the system keyboard and mouse class drivers, which have internal ring buffers for input data from their devices, support the flush request. Drivers of mass-storage devices and drivers layered above them also support this request. 
+</LI>
+
+	<LI><A HREF="drvrrtns_9fea.htm"><I>DispatchShutdown</I></A><I> </I>
+<P>Any driver that is likely to be called before the system shuts down must handle <A HREF="k113_1wz6.htm">IRP_MJ_SHUTDOWN</A>. The <I>DispatchShutdown</I> routine should do whatever driver-determined cleanup is necessary before the Power Manager sends a system set-power IRP to shut down the system. A driver can call <A HREF="k104_1jjm.htm"><B>IoRegisterShutdownNotification</B></A> or <A HREF="k104_36b6.htm"><B>IoRegisterLastChanceShutdownNotification</B></A> to register for showdown notification.
+</LI>
+</UL>
+
+<P>Drivers for mass-storage devices and intermediate drivers layered over them can rely on a highest-level file system driver to send them shutdown IRPs when the system is about to shut down. That is, the FSD is responsible for making sure that any cached file data is written out to peripheral devices, calling underlying drivers to flush data from their device caches or buffers (if any), and so forth before the system is shut down.</P>
+
+<P>The driver of a mass-storage device that caches data internally must provide <I>DispatchShutdown</I> and <I>DispatchFlushBuffers</I> routines. If a mass-storage driver buffers data in memory but its device has no internal cache, it also must provide <I>DispatchShutdown</I> and <I>DispatchFlushBuffers</I> routines. </P>
+
+<P>Any intermediate driver layered above a driver that handles IRP_MJ_FLUSH and IRP_MJ_SHUTDOWN requests also provide <I>DispatchShutdown</I> and <I>DispatchFlushBuffers</I> routines. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Optional%20Dispatch%20Routines"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

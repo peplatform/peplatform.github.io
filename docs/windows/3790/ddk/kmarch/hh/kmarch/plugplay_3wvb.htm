@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling an IRP_MN_STOP_DEVICE Request (Windows 98/Me)</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling an IRP_MN_STOP_DEVICE Request (Windows 98/Me)">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_handling_an_irp_mn_stop_device_request_windows_98_me_kg"></A>Handling an IRP_MN_STOP_DEVICE Request (Windows&nbsp;98/Me)</H3>
+
+<P>On Windows&nbsp;98/Me, the PnP Manager usually sends an IRP_MN_STOP_DEVICE request after a successful query-stop. However, if the device stack previously failed an IRP_MN_START_DEVICE request, the PnP Manager sends an IRP_MN_STOP_DEVICE request without a preceding query.</P>
+
+<P>An <A HREF="pnp-irps_3n5e.htm">IRP_MN_STOP_DEVICE</A> request is handled first by the top driver in the device stack and then by each next lower driver. A driver handles stop IRPs in its <I>DispatchPnP</I> routine.</P>
+
+<P>A driver handles an IRP_MN_STOP_DEVICE request with a procedure such as the following:
+
+<OL>
+	<LI>Ensure that the device is paused.
+<P>If a driver did not completely pause the device in response to an IRP_MN_QUERY_STOP request, it must do so now. 
+
+<P>The device might lose power while it is stopped and thus might lose device state. Drivers for the device should save any device state information and restore it when they receive the subsequent IRP_MN_START_DEVICE request. 
+</LI>
+
+	<LI>Release the hardware resources for the device.
+<P>In a function driver, the exact operations depend on the device and the driver but can include disconnecting an interrupt with <A HREF="k104_51yq.htm"><B>IoDisconnectInterrupt</B></A>, freeing physical address ranges with <A HREF="k106_16sy.htm"><B>MmUnmapIoSpace</B></A>, and freeing I/O ports.
+
+<P>If a filter or bus driver acquired any hardware resources for the device, that driver must release the resources in response to an IRP_MN_STOP_DEVICE request.
+</LI>
+
+	<LI>Set <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS. </LI>
+
+	<LI>Pass the IRP to the next lower driver or complete the IRP.
+<UL>
+	<LI>In a function or filter driver, set up the next stack location with <A HREF="k104_1ohe.htm"><B>IoSkipCurrentIrpStackLocation</B></A>, pass the IRP to the next lower driver with <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A>, and return the status from <B>IoCallDriver</B> as the return status from the <I>DispatchPnP</I> routine. Do not complete the IRP. </LI>
+
+	<LI>In a bus driver, complete the IRP using <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with IO_NO_INCREMENT and return from the <I>DispatchPnP</I> routine.</LI>
+</UL>
+</LI>
+</OL>
+
+<P>A driver cannot start any IRPs that access the device while the device is stopped. A driver must fail such IRPs.  </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20an%20IRP_MN_STOP_DEVICE%20Request%20(Windows%2098%2FMe)"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

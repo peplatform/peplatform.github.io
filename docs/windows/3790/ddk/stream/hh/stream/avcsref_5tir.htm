@@ -1,0 +1,165 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AVCSTRM_OPEN</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="AVCSTRM_OPEN">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mj_internal_device_control_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mj_internal_device_control_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_avcstrm_open_ks"></A>AVCSTRM_OPEN</H1>
+
+<P>The AVCSTRM_OPEN function code opens a stream with a specific stream format.</P>
+
+<H4>I/O Status Block</H4>
+
+<P>If successful, <I>avcstrm.sys</I> sets <B>Irp-&gt;IoStatus.Status </B>to STATUS_SUCCESS.</P>
+
+<P>If successful, a STATUS_SUCCESS is returned along with the stream context in <B>AVCStreamContext</B> member of the <A HREF="avcsref_0h83.htm">AVC_STREAM_REQUEST_BLOCK</A> structure. This context is subsequently used for other <I>avcstrm.sys</I> requests.</P>
+
+<P>Possible error return values include:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Error Status</TH>
+<TH align=left width=52%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>STATUS_DEVICE_REMOVED</TD>
+<TD width=52%>The device corresponding to the AVCSTRM_READ operation no longer exists.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>STATUS_CANCELLED</TD>
+<TD width=52%>The request was unable to be completed.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>STATUS_INVALID_PARAMETER</TD>
+<TD width=52%>A parameter specified in the IRP is incorrect,</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>STATUS_INSUFFICIENT_RESOURCES</TD>
+<TD width=52%>There were not sufficient system resources to complete the request.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>STATUS_PENDING</TD>
+<TD width=52%>The request has been received but requires further processing. The I/O completion routine will handle the final response.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>avcstrm.h</I>. Include <I>avcstrm.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>This function uses the <B>OpenStruct</B> member of the <B>CommandData</B> union in the AVC_STREAM_REQUEST_BLOCK structure as shown below.</P>
+
+<PRE class=syntax>typedef struct _AVC_STREAM_REQUEST_BLOCK {
+  ULONG  SizeOfThisBlock;
+  ULONG  Version;
+  AVCSTRM_FUNCTION  Function;
+  .
+  .
+  PVOID AVCStreamContext;
+  .
+  .
+  union _tagCommandData {
+    .
+    .
+    AVCSTRM_OPEN_STRUCT  OpenStruct;
+    .
+    .
+  } CommandData;
+} AVC_STREAM_REQUEST_BLOCK, *PAVC_STREAM_REQUEST_BLOCK;</PRE>
+
+<H4>AVC_STREAM_REQUEST_BLOCK Input</H4>
+
+<DL>
+<DT><B>SizeOfThisBlock, Version and Function</B></DT>
+
+<DD>Use the <A HREF="avcsref_98s3.htm">INIT_AVCSTRM_HEADER</A> macro to initialize these members. Pass AVCSTRM_OPEN in the Request argument of the macro.</DD>
+
+<DT><B>AVCStreamContext</B></DT>
+
+<DD>Specifies the stream context (handle). This should be NULL on input, and if AVCSTRM_OPEN returns successfully, this member contains a valid stream context for subsequent <I>avcstrm.sys</I> operations.</DD>
+
+<DT><B>OpenStruct</B></DT>
+
+<DD>Specifies the description of the AV/C stream to be created.
+</DD>
+</DL>
+
+<P>The <A HREF="avcsref_4pwz.htm">AVCSTRM_FORMAT</A> enumeration provides the list of supported AV/C streaming formats (from the IEC 61883 specifications) that <I>avcstrm.sys</I> supports, such as SDDV (61883-2) and MPEG2TS (61883-4).</P>
+
+<P>In order to make an isochronous connection, the CIP headers and subunit dependent parameters are required and are defined in the <A HREF="avcsref_1nar.htm">AVCSTRM_FORMAT_INFO</A> structure.</P>
+
+<P>The following is an example of the MPEG2TS format information for receiving data:</P>
+
+<PRE>//
+// MPEG2TS
+//
+    { 
+        sizeof(AVCSTRM_FORMAT_INFO),
+        AVCSTRM_FORMAT_MPEG2TS,
+        {
+            0,0,
+            CIP_SPH_MPEG,
+            CIP_QPC_MPEG,
+            CIP_FN_MPEG,
+            IP_DBS_MPEG,
+            0,0
+        }, // CIP header[0]
+        {
+            0,0,0,
+            CIP_TSF_OFF,
+            CIP_FMT_MPEG,
+            2,
+        },  // CIP header[1]
+        SRC_PACKETS_PER_MPEG2TS_FRAME,   // varies depending on number of source packets
+        BUFFER_SIZE_MPEG2TS_NO_SPH,       // Remove source packet header
+        NUM_OF_XMT_BUFFERS_MPEG2TS,       // Subunit defined
+        0,
+        FALSE, // not striping SPH is the default
+        0,        
+        BLOCK_PERIOD_MPEG2TS, // 192, / number of 1394 cycle offset to send one block
+        0,0,0,0,
+    },</PRE>
+
+<P>A subunit driver must first allocate an IRP and an <A HREF="avcsref_0h83.htm">AVC_STREAM_REQUEST_BLOCK</A> structure. Next, it should use the <A HREF="avcsref_98s3.htm">INIT_AVCSTRM_HEADER</A> macro to initialize the AVC_STREAM_REQUEST_BLOCK structure, passing AVCSTRM_OPEN as the Request argument to the macro. Next, the subunit driver sets the <B>AVCStreamContext</B> member to NULL. On successful operation, this member should contain a valid stream context (a handle) that is used in subsequent <I>avcstrm.sys</I> operations. This member should not be modified thereafter until the stream is closed through <A HREF="avcsref_3hkj.htm">AVCSTRM_CLOSE</A>.. Finally, the subunit driver sets the <B>OpenStruct</B> member of the <B>CommandData</B> union that describes the stream to be opened.</P>
+
+<P>To send this request, a subunit submits an <A HREF="JavaScript:hhobj_1.Click()">IRP_MJ_INTERNAL_DEVICE_CONTROL</A> IRP with the <B>IoControlCode</B> member of the IRP set to <A HREF="avcsref_64vn.htm">IOCTL_AVCSTRM_CLASS</A> and the <B>Argument1</B> member of the IRP set to the AVC_STREAM_REQUEST_BLOCK structure that describes the open operation to take place.</P>
+
+<P>A subunit driver can expect this command to complete synchronously. The result returns immediately without pending operation in <I>avcstrm.sys</I>.</P>
+
+<P>This function code must be called at IRQL = PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="avcsref_0h83.htm">AVC_STREAM_REQUEST_BLOCK</A>, <A HREF="avcsref_98s3.htm">INIT_AVCSTRM_HEADER</A>, <A HREF="JavaScript:hhobj_2.Click()">IRP_MJ_INTERNAL_DEVICE_CONTROL</A>, <A HREF="avcsref_64vn.htm">IOCTL_AVCSTRM_CLASS</A>, <A HREF="avcsref_6xf8.htm">AVCSTRM_OPEN_STRUCT</A>, <A HREF="avcsref_34tv.htm">AVCSTRM_FUNCTION</A>, <A HREF="avcsref_4pwz.htm">AVCSTRM_FORMAT</A>, <A HREF="avcsref_1nar.htm">AVCSTRM_FORMAT_INFO</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: AVCSTRM_OPEN"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling a Wait/Wake IRP in a Function (FDO) or Filter Driver (Filter DO)</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling a Wait/Wake IRP in a Function (FDO) or Filter Driver (Filter DO)">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_handling_a_wait_wake_irp_in_a_function_fdo_or_filter_driver_filter_do__kg"></A>Handling a Wait/Wake IRP in a Function (FDO) or Filter Driver (Filter DO)</H3>
+
+<P>When a driver that creates an FDO or filter DO receives an <A HREF="poirp_44fm.htm">IRP_MN_WAIT_WAKE</A> request for the associated PDO, it can either simply pass the IRP down to the next-lower driver or take certain actions before passing down the IRP. </P>
+
+<H4>For Devices That Support Wake-up</H4>
+
+<P>Upon receiving a wait/wake IRP, a function or filter driver should take the following steps:
+
+<OL>
+	<LI>Call <A HREF="k104_6tde.htm"><B>IoAcquireRemoveLock</B></A>, passing the current IRP, to ensure that the driver does not receive a PnP IRP_MN_REMOVE_DEVICE request while handling the wait/wake IRP. 
+<P>If <B>IoAcquireRemoveLock</B> returns a failure status, the driver should not continue processing the IRP. Instead, it completes the IRP (<B>IoCompleteRequest</B>), and return the failure status. 
+</LI>
+
+	<LI>Inspect the value at <B>Irp-&gt;Parameters.WaitWake.PowerState</B> and compare the current device power state with <B>DeviceState[SystemWake]</B> in the <A HREF="k112_22r6.htm">DEVICE_CAPABILITIES</A> structure.
+<P>If the device supports wake-up, but not from the specified <A HREF="pwrmgmt_4exz.htm"><B>SystemWake</B></A> state or not from the current device power state, the driver should fail the IRP as follows:
+
+<UL>
+	<LI>Set STATUS_INVALID_DEVICE_STATE in <B>Irp-&gt;IoStatus.Status</B>.</LI>
+
+	<LI>Complete the IRP (<B>IoCompleteRequest</B>), specifying a priority boost of IO_NO_INCREMENT. </LI>
+
+	<LI>Return the status set in <B>Irp-&gt;IoStatus.Status</B> from the<I> DispatchPower</I> routine. </LI>
+</UL>
+</LI>
+
+	<LI>Otherwise, set an<I> IoCompletion</I><A HREF="pwrmgmt_3mhz.htm"> routine</A> for the IRP, using <B>IoSetCompletionRoutine</B>. The<I> IoCompletion</I> routine should perform whatever tasks the driver requires to return the device to the working state. 
+<P>The<I> IoCompletion</I> routine will also be called if the IRP is canceled. 
+</LI>
+
+	<LI>Save any information the driver might need in its<I> IoCompletion</I> routine.</LI>
+
+	<LI>Call <A HREF="portn_7tki.htm"><B>PoCallDriver</B></A> to pass the wait/wake IRP to the next-lower driver.</LI>
+
+	<LI>Call <B>IoReleaseRemoveLock</B> to release the previously acquired lock.</LI>
+
+	<LI>Return STATUS_PENDING from the<I> DispatchPower</I> routine. The driver must not change the value in <B>Irp-&gt;IoStatus.Status</B> while it holds the IRP.</LI>
+</OL>
+
+<H4>For Devices That Do Not Support Wake-up</H4>
+
+<P>If a function or filter driver receives a wait/wake IRP for a device that does not support wake-up, the driver should fail the IRP as follows:
+
+<OL>
+	<LI>Complete the IRP (<B>IoCompleteRequest</B>), specifying a priority boost of IO_NO_INCREMENT. </LI>
+
+	<LI>Return the status set in <B>Irp-&gt;IoStatus.Status</B> from the<I> DispatchPower</I> routine. </LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20a%20Wait%2FWake%20IRP%20in%20a%20Function%20(FDO)%20or%20Filter%20Driver%20(Filter%20DO)"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling an IRP_MN_SURPRISE_REMOVAL Request</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling an IRP_MN_SURPRISE_REMOVAL Request">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_handling_an_irp_mn_surprise_removal_request_kg"></A>Handling an IRP_MN_SURPRISE_REMOVAL Request</H2>
+
+<P>The Windows&nbsp;2000 and later PnP Manager sends this IRP to notify drivers that a device is no longer available for I/O operations and has probably been unexpectedly removed from the machine ("surprise removal").</P>
+
+<P>The PnP Manager sends an <A HREF="pnp-irps_8e42.htm">IRP_MN_SURPRISE_REMOVAL</A> request for the following reasons:
+
+<UL>
+	<LI>If the bus has hot-plug notification, it notifies the device's parent bus driver that the device has disappeared. The bus driver calls <A HREF="k104_8t6a.htm"><B>IoInvalidateDeviceRelations</B></A>. In response, the PnP Manager queries the bus driver for its children (<A HREF="pnp-irps_5aia.htm">IRP_MN_QUERY_DEVICE_RELATIONS</A> for <B>BusRelations</B>). The PnP Manager determines that the device is not in the new list of children and initiates its surprise-removal operations for the device.</LI>
+
+	<LI>The bus is enumerated for another reason and the surprise-removed device is not included in the list of children. The PnP Manager initiates its surprise removal operations.</LI>
+
+	<LI>The function driver for the device determines that the device is no longer present (because, for example, its requests repeatedly time out). The bus might be enumerable but it does not have hot-plug notification. In this case, the function driver calls <A HREF="k104_4m2a.htm"><B>IoInvalidateDeviceState</B></A>. In response, the PnP Manager sends an <A HREF="pnp-irps_6acy.htm">IRP_MN_QUERY_PNP_DEVICE_STATE</A> request to the device stack. The function driver sets the PNP_DEVICE_FAILED flag in the <A HREF="k112_1wqa.htm">PNP_DEVICE_STATE</A> bitmask indicating that the device has failed.</LI>
+
+	<LI>The driver stack successfully completes an <A HREF="pnp-irps_3n5e.htm">IRP_MN_STOP_DEVICE</A> request but then fails a subsequent <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> request. In such cases, the device is probably still connected. </LI>
+</UL>
+
+<P>All PnP drivers must handle this IRP and must set <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS. A driver for a PnP device must be prepared to handle IRP_MN_SURPRISE_REMOVAL at any time after the driver's <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine is called. Proper handling of the IRP enables the drivers and the PnP Manager to:
+
+<OL>
+	<LI>Disable the device, in case it is still connected.
+<P>If the driver stack successfully completed an <A HREF="pnp-irps_3n5e.htm">IRP_MN_STOP_DEVICE</A> request but then, for some reason, failed a subsequent <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> request, the device must be disabled.
+</LI>
+
+	<LI>Release hardware resources assigned to the device and make them available to another device.
+<P>As soon as a device is no longer available, its hardware resources should be freed. The PnP Manager can then reassign the resources to another device, including the same device, which a user might hot-plug back into the machine.
+</LI>
+
+	<LI>Minimize the risk of data loss and system disruption.
+<P>When a user removes a hot-plug device without first using the Unplug or Eject Hardware program, the surprise-removal can hang the machine, crash the machine, and/or cause data loss.
+
+<P>The best way to avoid such disruption is for the device vendor to implement a locking mechanism for hot-plug devices. Such a mechanism ensures that the device is removed in a controlled fashion. The PnP Manager alerts components accessing the device that the device is being removed, so that they can perform orderly clean-up and removal. 
+
+<P>In case a device does not have a locking mechanism or is attached to another device that does not lock, its drivers must handle an <A HREF="pnp-irps_8e42.htm">IRP_MN_SURPRISE_REMOVAL</A> request. Handling this IRP does not prevent disruption from a surprise removal, but it minimizes the impact by stopping I/O to the device as soon as the removal is detected and the drivers handle the IRP.
+</LI>
+</OL>
+
+<P>The PnP Manager sends an IRP_MN_SURPRISE_REMOVAL at IRQL = PASSIVE_LEVEL in the context of a system thread. </P>
+
+<P>The PnP Manager sends this IRP to drivers before notifying user-mode applications and other kernel-mode components. After the IRP completes, the PnP Manager sends an <B>EventCategoryTargetDeviceChange</B> notification with GUID_TARGET_DEVICE_REMOVE_COMPLETE to kernel-mode components that registered for such notification on the device. </P>
+
+<P>The IRP_MN_SURPRISE_REMOVAL IRP is handled first by the top driver in the device stack and then by each next lower driver. </P>
+
+<P>In response to IRP_MN_SURPRISE_REMOVAL, a driver must do the following, in the listed order:
+
+<OL>
+	<LI>Determine if the device has been removed.
+<P>The driver must always attempt to determine if the device is still connected. If it is, the driver must attempt to stop the device and disable it. 
+</LI>
+
+	<LI>Release the device's hardware resources (interrupts, I/O ports, memory registers, and DMA channels). </LI>
+
+	<LI>In a parent bus driver, power down the bus slot if the driver is capable of doing so. Call <A HREF="portn_5saa.htm"><B>PoSetPowerState</B></A> to notify the Power Manager. For additional information, see <A HREF="pwrmgmt_48br.htm">Power Management</A>.</LI>
+
+	<LI>Prevent any new I/O operations on the device.
+<P>A driver should process subsequent <A HREF="k113_6vg2.htm">IRP_MJ_CLEANUP</A>, <A HREF="k113_3naq.htm">IRP_MJ_CLOSE</A>, <A HREF="k113_7jjm.htm">IRP_MJ_POWER</A>, and <A HREF="k113_8ur6.htm">IRP_MJ_PNP</A> requests, but the driver must prevent any new I/O operations. A driver must fail any subsequent IRPs that the driver would have handled if the device were present, besides close, clean-up, and PnP IRPs. 
+
+<P>A driver can set a bit in the device extension to indicate that the device has been surprise-removed. The driver's dispatch routines should check this bit. 
+</LI>
+
+	<LI>Fail outstanding I/O requests on the device. </LI>
+
+	<LI>Continue to pass down any IRPs that the driver does not handle for the device.</LI>
+
+	<LI>Disable device interfaces with <A HREF="k104_3epe.htm"><B>IoSetDeviceInterfaceState</B></A>.</LI>
+
+	<LI>Clean up any device-specific allocations, memory, events, or other system resources.
+<P>A driver could postpone such clean-up until it receives the subsequent <A HREF="pnp-irps_4noy.htm">IRP_MN_REMOVE_DEVICE</A> request, but if a legacy component has an open handle that cannot be closed, the remove IRP will never be sent.
+</LI>
+
+	<LI>Leave the device object attached to the device stack. 
+<P>Do not detach and delete the device object until the subsequent IRP_MN_REMOVE_DEVICE request.  
+</LI>
+
+	<LI>Finish the IRP.
+<P>In a function or filter driver:
+
+<UL>
+	<LI>Set <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS.</LI>
+
+	<LI>Set up the next stack location with <A HREF="k104_1ohe.htm"><B>IoSkipCurrentIrpStackLocation</B></A> and pass the IRP to the next lower driver with <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A>.</LI>
+
+	<LI>Propagate the status from <B>IoCallDriver</B> as the return status from the <A HREF="drvrrtns_8uya.htm"><I>DispatchPnP</I></A> routine.</LI>
+
+	<LI>Do not complete the IRP.</LI>
+</UL>
+
+<P>In a bus driver (that is handling this IRP for a child PDO):
+
+<UL>
+	<LI>Set <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS.</LI>
+
+	<LI>Complete the IRP (<A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>) with IO_NO_INCREMENT.</LI>
+
+	<LI>Return from the <I>DispatchPnP</I> routine.</LI>
+</UL>
+</LI>
+</OL>
+
+<P>After this IRP succeeds and all open handles to the device are closed, the PnP Manager sends an <A HREF="pnp-irps_4noy.htm">IRP_MN_REMOVE_DEVICE</A> request to the device stack. In response to the remove IRP, drivers detach their device objects from the stack and delete them. If a legacy component has a handle open to the device and it leaves the handle open despite I/O failures, the PnP Manager never sends the remove IRP.</P>
+
+<P>All drivers should handle this IRP and should note that the device has been physically removed from the machine. Some drivers, however, will not cause adverse results if they do not handle the IRP. For example, a device that consumes no system hardware resources and resides on a protocol-based bus, such as USB or 1394, cannot tie up hardware resources because it does not consume any. There is no risk of drivers attempting to access the device after it has been removed because the function and filter drivers access the device only through the parent bus driver. Because the bus supports removal notification, the parent bus driver is notified when the device disappears and the bus driver fails all subsequent attempts to access the device.</P>
+
+<P>On Windows 98/Me, the PnP Manager does not send this IRP. If a user removes a device without first using the appropriate user interface, the PnP Manager sends only an IRP_MN_REMOVE_DEVICE request to the drivers for the device. All WDM drivers must handle both IRP_MN_SURPRISE_REMOVAL and IRP_MN_REMOVE_DEVICE. The code for IRP_MN_REMOVE_DEVICE should check whether the driver received a prior surprise-remove IRP and should handle both cases. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20an%20IRP_MN_SURPRISE_REMOVAL%20Request"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

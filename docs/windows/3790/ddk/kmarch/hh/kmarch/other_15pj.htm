@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Responding to Check-Verify Requests from the File System</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Responding to Check-Verify Requests from the File System">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_responding_to_check_verify_requests_from_the_file_system_kg"></A>Responding to Check-Verify Requests from the File System</H2>
+
+<P>At its discretion, the file system can send an IRP to the device driver’s Dispatch entry point for IRP_MJ_DEVICE_CONTROL requests with <B>Parameters.DeviceIoControl.IoControlCode</B> in the I/O stack location set to the following: 
+
+<DL>
+<DT>IOCTL_<I>XXX</I>_CHECK_VERIFY</DT>
+
+<DD>where<I> XXX</I>  is the type of device, such as DISK, TAPE, or CDROM. 
+
+<P>The type DISK includes both unpartitionable (floppy) and partitionable removable-media devices. 
+
+</DD>
+</DL>
+
+<P>If the underlying device driver determines that the media has not changed, the driver should complete the IRP, returning the <B>IoStatus</B> block with the following values: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=28%><B>Status</B></TD>
+<TD width=72%>set to STATUS_SUCCESS </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=28%><B>Information</B></TD>
+<TD width=72%>set to zero </TD>
+</TR>
+</TABLE><BR>
+
+<P>In addition, if the device type is DISK or CDROM and the caller specified an output buffer, the driver returns the media change count in the buffer at <BR>
+<B>Irp-&gt;AssociatedSystemBuffer</B> and sets <B>IoStatus.Information</B> to <B>sizeof</B>(ULONG). By returning this count, the driver gives the caller an opportunity to determine whether the media has changed from its perspective.</P>
+
+<P>If the underlying device driver determines that the media has changed, it takes a different action depending on whether the volume is mounted. If the volume is mounted (the VPB_MOUNTED flag is set in the VPB), the driver should do the following:
+
+<OL>
+	<LI>Set the <B>Flags</B> in the <B>DeviceObject</B> by ORing <B>Flags</B> with DO_VERIFY_VOLUME.</LI>
+
+	<LI>Set the <B>IoStatus</B> block in the IRP to the following: 
+<UL>
+	<LI><B>Status</B> set to STATUS_VERIFY_REQUIRED </LI>
+
+	<LI><B>Information</B> set to zero </LI>
+</UL>
+</LI>
+
+	<LI>Call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with the input IRP.</LI>
+</OL>
+
+<P>If the volume is not mounted, the driver must not set the DO_VERIFY_VOLUME bit. The driver should set <B>IoStatus.Status</B> to STATUS_IO_DEVICE_ERROR, set <B>IoStatus.Information</B> to zero, and call <B>IoCompleteRequest</B> with the IRP.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Responding%20to%20Check-Verify%20Requests%20from%20the%20File%20System"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Windows 2000 Driver Initialization</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Windows 2000 Driver Initialization">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_windows_2000_driver_initialization_gg"></A>Windows 2000 Driver Initialization</H2>
+
+<P>On Microsoft® Windows® 98/Me, and on Windows®  2000 and later, driver information is only retrieved when requested by an application. In other words, in response to a DirectDraw® application's request to create an instance of a DirectDraw object, the graphics engine calls the driver functions to initialize a DirectDraw driver.  </P>
+
+<P>Starting with Windows&nbsp;2000, this sequence is done at boot time and after each mode change. This has a side effect. On Windows&nbsp;98/Me, drivers typically have two modes of operation – GDI mode and DirectDraw mode. If DirectDraw is running, it will not let GDI cache bitmaps, instead giving all of the memory to DirectDraw (and vice versa when in GDI mode). This behavior caused windowed applications (such as Web pages that use DirectX) to suffer. Therefore, on Windows&nbsp;2000 and later, GDI and DirectDraw are required to cooperate about how memory is used. The Permedia3 sample driver that ships with the Windows DDK has examples of how to do this.</P>
+
+<P>The driver initialization sequence is achieved by calling the following functions:
+
+<UL>
+	<LI><A HREF="ddfncs_4yav.htm"><I>DrvGetDirectDrawInfo</I></A> to retrieve information about the hardware's capabilities. GDI calls this function twice:
+<UL>
+	<LI>The first call determines the size of the display memory heap and the number of FOURCCs that the driver supports. GDI passes NULL for both <I>pvmList</I> and <I>pdwFourCC</I> parameters. The driver should initialize and return <I>pdwNumHeaps</I> and <I>pdwNumFourCC</I> parameters only.</LI>
+
+	<LI>The second call is made after GDI allocates display memory and FOURCC memory based on the values returned from the first call in <I>pdwNumHeaps</I> and <I>pdwNumFourCC </I>parameters. In the second call, the driver should initialize and return <I>pdwNumHeaps</I>, <I>pvmList</I>, <I>pdwNumFourCC</I>, and <I>pdwFourCC </I>parameters.</LI>
+</UL>
+
+<P>GDI allocates and zero-initializes the <A HREF="ddstrcts_17s7.htm">DD_HALINFO</A> structure to which <I>pHalInfo</I> points. <I>DrvGetDirectDrawInfo</I> function should fill in the pertinent members of the DD_HALINFO structure with driver-specific information:
+
+<UL>
+	<LI>The driver should initialize the appropriate members of the <A HREF="ddstrcts_3uzr.htm">VIDEOMEMORYINFO</A> structures to describe the general format of the display's memory. See <A HREF="ddraw_5mw7.htm">Display Memory</A>.</LI>
+
+	<LI>The driver should initialize the appropriate members of the <A HREF="ddstrcts_5xgn.htm">DDCORECAPS</A> structure to describe the driver's core capabilities to DirectDraw.</LI>
+
+	<LI>If the driver supports any of the DirectX features that are queried by sending a GUID to the driver's <A HREF="ddfncs_0yhz.htm"><I>DdGetDriverInfo</I></A> callback, the driver must initialize the <B>GetDriverInfo</B> member to point to the driver's <I>DdGetDriverInfo</I> callback and set the DDHALINFO_GETDRIVERINFOSET bit in <B>dwFlags</B>.</LI>
+
+	<LI>The driver must set <B>dwSize</B> to the size, in bytes, of the <A HREF="ddstrcts_17s7.htm">DD_HALINFO</A> structure.</LI>
+</UL>
+</LI>
+
+	<LI><A HREF="ddfncs_592f.htm"><I>DrvEnableDirectDraw</I></A> is used by the runtime to enable the DirectDraw hardware and determine some of the driver's callback support. GDI allocates and zero-initializes the <A HREF="ddstrcts_58rr.htm">DD_CALLBACKS</A>, <A HREF="ddstrcts_4h47.htm">DD_SURFACECALLBACKS</A>, and <A HREF="ddstrcts_9aqv.htm">DD_PALETTECALLBACKS</A> parameter structures. The driver should do the following for each of these callbacks that it implements:
+<UL>
+	<LI>Set the corresponding member of the appropriate structure to point to the callback.</LI>
+
+	<LI>Set the corresponding DDHAL_<I>XXX</I>_<I>XXX</I> bit in the <B>dwFlags</B> member of the appropriate structure.</LI>
+</UL>
+
+<P>A driver’s <I>DrvEnableDirectDraw</I> implementation can also dedicate hardware resources such as display memory for use by DirectDraw only.
+
+<P>If it is not NULL, the <B>GetDriverInfo</B> callback is returned in the <A HREF="ddstrcts_17s7.htm">DD_HALINFO</A> structure by the driver's <A HREF="ddfncs_4yav.htm"><I>DrvGetDirectDrawInfo</I></A>. GDI allocates and initializes the <A HREF="ddstrcts_3ijr.htm">DD_GETDRIVERINFODATA</A> structure and calls <I>DdGetDriverInfo</I> for each of the GUIDs described in the <A HREF="ddfncs_0yhz.htm"><I>DdGetDriverInfo</I></A> reference section. All GUIDs are defined in <I>ddrawint.h</I>. 
+</LI>
+</UL>
+
+<P>Locking the surface memory (whether the whole surface or part of a surface) ensures that an application and the hardware cannot obtain access to the surface memory at the same time. This prevents errors from occurring while an application is writing to surface memory. In addition, an application cannot page flip until the surface memory is unlocked. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Windows%202000%20Driver%20Initialization"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

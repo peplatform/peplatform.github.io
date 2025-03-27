@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>KeSetTimerEx</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="KeSetTimerEx">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_kesettimerex_kr"></A>KeSetTimerEx</H1>
+
+<P>The <B>KeSetTimerEx</B> routine sets the absolute or relative interval at which a timer object is to be set to a signaled state, optionally supplies a <A HREF="drvrrtns_0iwi.htm"><I>CustomTimerDpc</I></A> routine to be executed when that interval expires, and optionally supplies a recurring interval for the timer.</P>
+
+<PRE class=syntax><B>BOOLEAN 
+</B>  <B>KeSetTimerEx(</B>
+<B>    IN PKTIMER</B>  <I>Timer</I><B>,</B>
+<B>    IN LARGE_INTEGER</B>  <I>DueTime</I><B>,</B>
+<B>    IN LONG</B>  <I>Period</I>  <B>OPTIONAL,</B>
+<B>    IN PKDPC</B>  <I>Dpc</I>  <B>OPTIONAL</B>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Timer</I></DT>
+
+<DD>Pointer to a timer object that was initialized with <A HREF="k105_6g4y.htm"><B>KeInitializeTimer</B></A> or <A HREF="k105_15pu.htm"><B>KeInitializeTimerEx</B></A>.</DD>
+
+<DT><I>DueTime</I></DT>
+
+<DD>Specifies the absolute or relative time at which the timer is to expire. If the value of the <I>DueTime</I> parameter is negative, the expiration time is relative to the current system time. Otherwise, the expiration time is absolute. The expiration time is expressed in system time units (100-nanosecond intervals). Absolute expiration times track any changes in the system time; relative expiration times are not affected by system time changes.</DD>
+
+<DT><I>Period</I></DT>
+
+<DD>Specifies an optional period for the timer in milliseconds. Must be less than or equal to MAXLONG.</DD>
+
+<DT><I>Dpc</I></DT>
+
+<DD>Pointer to a DPC object that was initialized by <A HREF="k105_9d0y.htm"><B>KeInitializeDpc</B></A>. This parameter is optional.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>If the timer object was already in the system timer queue, <B>KeSetTimerEx</B> returns TRUE.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>KeSetTimerEx</B>:
+
+<UL>
+	<LI>Computes the expiration time.</LI>
+
+	<LI>Sets the timer to a not signaled state.</LI>
+
+	<LI>Sets the recurring interval for the timer, if one was specified.</LI>
+
+	<LI>Inserts the timer object in the system timer queue.</LI>
+</UL>
+
+<P>If the timer object was already in the timer queue, it is implicitly canceled before being set to the new expiration time. A call to <B>KeSetTimerEx</B> before the previously specified <I>DueTime</I> has expired cancels both the timer and the call to the <I>Dpc</I>, if any, associated with the previous call.</P>
+
+<P>The expiration of the timer ultimately depends on the granularity of the system clock. The value specified for <I>DueTime</I> guarantees that the timer object is set to a signaled state on or after the given <I>DueTime. </I>However, <B>KeSetTimerEx</B> cannot override the granularity of the system clock, whatever the value specified for <I>DueTime</I>. </P>
+
+<P>If the <I>Dpc</I> parameter is specified, a DPC object is associated with the timer object. When the timer expires, the timer object is removed from the system timer queue and it is set to a signaled state. If a DPC object was associated with the timer when it was set, the DPC object is inserted in the system DPC queue to be executed as soon as conditions permit after the timer interval expires.</P>
+
+<P>A DPC routine cannot deallocate a periodic timer. A DPC routine can deallocate a nonperiodic timer.</P>
+
+<P>Note that a periodic timer is automatically restarted as soon as it expires.  Thus on a multiprocessor machine, the DPC for a periodic timer can be running on two processors simultaneously.</P>
+
+<P>Only one instantiation of a given DPC object can be queued at any given moment. To avoid potential race conditions, the DPC passed to <B>KeSetTimerEx</B> should <I>not</I> be passed to <A HREF="k105_75iq.htm"><B>KeInsertQueueDpc</B></A>.</P>
+
+<P>Drivers must cancel any active timers in their <A HREF="drvrrtns_7d82.htm"><I>Unload</I></A> routines. Use <A HREF="k105_6xf6.htm"><B>KeCancelTimer</B></A> to cancel any timers.</P>
+
+<P>A caller cannot wait at raised IRQL nor in an arbitrary thread context for a timer to expire by calling <B>KeWait</B><I>Xxx</I>.</P>
+
+<P>Callers of <B>KeSetTimerEx</B> must be running at IRQL&nbsp;&lt;= DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k105_6xf6.htm"><B>KeCancelTimer</B></A>, <A HREF="k105_9d0y.htm"><B>KeInitializeDpc</B></A>, <A HREF="k105_6g4y.htm"><B>KeInitializeTimer</B></A>, <A HREF="k105_15pu.htm"><B>KeInitializeTimerEx</B></A>, <A HREF="k105_6asz.htm"><B>KeReadStateTimer</B></A>, <A HREF="k105_18oi.htm"><B>KeWaitForMultipleObjects</B></A>, <A HREF="k105_40c2.htm"><B>KeWaitForSingleObject</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: KeSetTimerEx"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

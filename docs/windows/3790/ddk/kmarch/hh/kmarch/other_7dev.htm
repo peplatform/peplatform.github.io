@@ -1,0 +1,46 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Notifying the File System of Possible Media Changes</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Notifying the File System of Possible Media Changes">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_notifying_the_file_system_of_possible_media_changes_kg"></A>Notifying the File System of Possible Media Changes</H2>
+
+<P>A removable-media device driver must ensure that the media is not changed for the device represented by the <B>DeviceObject</B> (input to every driver routine that is sent an IRP) whenever the driver processes an IRP that requests a transfer to/from the media or a device I/O control operation that affects the media. The best possible time to check for changed media is just after the transition from a no-media-present state to a media-present state if the physical device always notifies the driver about these state changes. </P>
+
+<P>If its physical device indicates that the state of the media might have changed before the driver begins an I/O operation or during an operation, the driver must do the following: 
+
+<OL>
+	<LI>Ensure that the volume is mounted by checking the VPB_MOUNTED flag in the VPB. (If the volume is not mounted, the driver must not set the DO_VERIFY_VOLUME bit. The driver should set <B>IoStatus.Status</B> to STATUS_IO_DEVICE_ERROR, set <B>IoStatus.Information</B> to zero, and call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with the IRP.)</LI>
+
+	<LI>Set the <B>Flags</B> in the <B>DeviceObject</B> by ORing <B>Flags</B> with DO_VERIFY_VOLUME. </LI>
+
+	<LI>Set the <B>IoStatus</B> block in the IRP to the following: 
+<UL>
+	<LI><B>Status</B> set to STATUS_VERIFY_REQUIRED </LI>
+
+	<LI><B>Information</B> set to zero </LI>
+</UL>
+</LI>
+
+	<LI>Before completing any IRP with an <B>IoStatus</B> block in which the <B>Status</B> field is not set to STATUS_SUCCESS, the driver must call <A HREF="k104_350y.htm"><B>IoIsErrorUserInduced</B></A>, which returns a Boolean TRUE for any of the following <B>Status</B> values: 
+<P class=indent1>STATUS_VERIFY_REQUIRED <BR>
+STATUS_NO_MEDIA_IN_DEVICE <BR>
+STATUS_WRONG_VOLUME <BR>
+STATUS_UNRECOGNIZED_MEDIA <BR>
+STATUS_MEDIA_WRITE_PROTECTED <BR>
+STATUS_IO_TIMEOUT <BR>
+STATUS_DEVICE_NOT_READY </P>
+
+<P>If <B>IoIsErrorUserInduced</B> returns TRUE, the driver must call <A HREF="k104_4aia.htm"><B>IoSetHardErrorOrVerifyDevice</B></A> so the FSD can send a popup to the user, who can then supply the correct media, decide to retry the original request, or decide to cancel the requested operation. 
+</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Notifying%20the%20File%20System%20of%20Possible%20Media%20Changes"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

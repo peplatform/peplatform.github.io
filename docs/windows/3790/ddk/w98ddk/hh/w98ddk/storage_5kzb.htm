@@ -1,0 +1,74 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Device Driver Loading</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_pss_4057"></A>Device Driver Loading</H2>
+
+<P>The IOS loads and initializes port drivers, miniport drivers, and value-added drivers. The IOS requires the files for these drivers to be located in the SYSTEM\IOSUBSYS directory and to have the following file name extensions: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=17%>Extension </TH>
+<TH align=left width=83%>Description </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>PDR </TD>
+<TD width=83%>Port drivers, such as SCSIPORT, ESDI_506, and NEC </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>MPD </TD>
+<TD width=83%>SCSI miniport drivers </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>VXD </TD>
+<TD width=83%>Value-added drivers, such as the volume tracker and vendor-supplied drivers </TD>
+</TR>
+</TABLE><BR>
+
+<P>The SYSTEM\IOSUBSYS directory is reserved for device drivers that are specifically designed for use with the IOS. </P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;All other VxD Clients or virtual devices that use IOS services but are not specifically designed for the IOS should be stored in other directories (typically the SYSTEM directory) and explicitly loaded by the other Windows 95 VxD loading mechanisms:
+
+<UL>
+	<LI>When a DOS TSR or driver requests loading of a static VxD by chaining its request into the INT2F 1605 startup message</LI>
+
+	<LI>By indicating the VxD via “StaticVxD=…” in the Registry under HKLM\SYSTEM\CurrentControlSet\Services\VxD\.</LI>
+
+	<LI>By including <B>device=</B> entries in the SYSTEM.INI file.</LI>
+
+	<LI>By Dynamically loading it.</LI>
+</UL>
+
+<P>The IOS loads a given port or miniport driver only if the configuration manager sends a request to load that driver. The configuration manager sends a request if its hardware detection code locates an adapter. Currently, the configuration manager can detect the IDE and AHA154x SCSI adapters only. To support other adapters, the configuration manager forces the IOS to load all remaining miniport drivers. These drivers remain loaded only if they locate an adapter they can support. In general, any port driver that fails to locate hardware that it can support will be unloaded. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>When the IOS loads a port driver, it carries out these steps</B>
+
+<OL>
+	<LI>Loads and initializes the port driver. The port driver must be present in the SYSTEM\IOSUBSYS directory. </LI>
+
+	<LI>Loads all value-added drivers (files having the .VXD extension) that are not already loaded from the SYSTEM\IOSUBSYS directory. </LI>
+
+	<LI>Initializes and configures the value-added drivers. If a value-added driver has not been previously loaded, the IOS initializes it by sending the SYS_DYNAMIC_DEVICE_INIT message. Otherwise, the IOS sends the driver an AEP_CONFIG_DCB function for each <B>DCB</B> created by the corresponding port driver. </LI>
+</OL>
+
+<P>To load a port or value-added driver, the IOS calls the <B>VXDLDR_LoadDriver</B> service (provided by the VxD loader) to load the driver. The IOS extracts the address of the driver's <B>DRP</B> structure from the <B>DDB_Reference_Data</B> member of the <B>VxD_Desc_Block</B> structure returned by this service. (You set this member when writing the device driver by specifying the <B>DRP</B> structure in the <B>Declare_Virtual_Device</B> statement.) The IOS uses the load group value (in the <B>DRP_LGN</B> member) to prepare for initialization of the driver. The load group identifies the layer at which the driver operates and needs initialization for. For example, the load group number (LGN) specifies the order in which the IOS initializes and configures the value-added drivers. In most cases, a driver sets a single bit in this member, but some drivers operate at several layers and must set multiple bits. </P>
+
+<P>Although the <B>DRP_eyecatch_str</B>, <B>DRP_ascii_name</B>, <B>DRP_create_date</B>, and <B>DRP_create_time</B> members are not used during driver loading, a driver should set these members to valid values. Most drivers set all other members in the structure to zero. </P>
+
+<H4>See Also</H4>
+
+<P><B>DRP</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Device%20Driver%20Loading"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

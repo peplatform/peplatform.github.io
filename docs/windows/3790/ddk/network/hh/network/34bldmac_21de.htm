@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TdiBuildReceive</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TdiBuildReceive">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_zwreadfile_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdibuildreceive_nr"></A>TdiBuildReceive</H1>
+
+<P><B>TdiBuildReceive</B> sets up an internal device control IRP for a TDI_RECEIVE request to the underlying transport in which the local-node client has established an endpoint-to-endpoint connection with a remote-node peer. </P>
+
+<PRE class=syntax><B>VOID 
+</B>  <B>TdiBuildReceive(
+</B>    <B>IN PIRP</B>  <I>Irp</I><B>,
+</B>    <B>IN PDEVICE_OBJECT</B>  <I>DevObj</I><B>,
+</B>    <B>IN PFILE_OBJECT</B>  <I>FileObj</I><B>,
+</B>    <B>IN PVOID</B>  <I>CompRoutine</I><B>,
+</B>    <B>IN PVOID</B>  <I>Contxt</I><B>,
+</B>    <B>IN PMDL</B>  <I>MdlAddr</I><B>,
+</B>    <B>IN ULONG</B>  <I>InFlags</I><B>,
+</B>    <B>IN ULONG</B>  <I>ReceiveLen
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Irp</I></DT>
+
+<DD>Pointer to a client-supplied IRP, either originating in a higher level network component or allocated with <B>TdiBuildInternalDeviceControlIrp</B>. </DD>
+
+<DT><I>DevObj</I></DT>
+
+<DD>Pointer to the device object created by the underlying TDI transport driver.</DD>
+
+<DT><I>FileObj</I></DT>
+
+<DD>Pointer to a file object representing a connection endpoint. 
+
+<P>The caller previously made a successful request, set up with <B>TdiBuildAssociateAddress</B>, to the transport to set up an association between this connection endpoint and a local-node address. When the association was established, the caller also established an endpoint-to-endpoint connection with a remote-node peer, by issuing a successful request set up with <B>TdiBuildConnect</B> or <B>TdiBuildListen</B>, the latter possibly followed by a successful request set up with <B>TdiBuildAccept</B>. 
+</DD>
+
+<DT><I>CompRoutine</I></DT>
+
+<DD>Specifies the entry point of a client-supplied IoCompletion routine or NULL. The I/O Manager calls this routine when the given IRP is completed, unless the client sets this parameter to NULL. </DD>
+
+<DT><I>Contxt</I></DT>
+
+<DD>Pointer to a client-determined context. This client-supplied pointer is passed in to the IoCompletion routine when it is called with the completed IRP. <I>Contxt</I> is NULL if <I>CompRoutine</I> is NULL.</DD>
+
+<DT><I>MdlAddr</I></DT>
+
+<DD>Pointer to an MDL, possibly the initial MDL in a chain of MDLs, mapping a client-supplied buffer into which the transport is to transfer the received TSDU according to the given <I>InFlags</I>.</DD>
+
+<DT><I>InFlags</I></DT>
+
+<DD>Specifies the type of receive to be returned by the transport as one or more (Ored) of the following:
+
+<DL>
+<DT>TDI_RECEIVE_NORMAL</DT>
+
+<DD>Return a normal TSDU to the client-supplied buffer.</DD>
+
+<DT>TDI_RECEIVE_EXPEDITED</DT>
+
+<DD>Return an expedited TSDU to the client-supplied buffer. 
+
+<P>If both TDI_RECEIVE_NORMAL and TDI_RECEIVE_EXPEDITED are set or if neither is set, the underlying transport will indicate either type of TSDU for this receive request.
+</DD>
+
+<DT>TDI_RECEIVE_PEEK</DT>
+
+<DD>Return indicated data as soon as a receive arrives from the remote node, even if it is a partial TSDU, and the client will request another receive for the remainder of the TSDU to be transferred into this buffer if the packet is of interest to this client. 
+
+<P>This flag is valid only if the underlying transport buffers received data internally. In general, clients that go through the system AFD driver, which buffers data internally for nonbuffering transports, can use this flag. 
+</DD>
+</DL>
+</DD>
+
+<DT><I>ReceiveLen</I></DT>
+
+<DD>Specifies the size in bytes of the client-supplied receive buffer.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>TdiKrnl.h</I>. Include <I>TdiKrnl.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>TdiBuildReceive </B>sets IRP_MJ_INTERNAL_DEVICE_CONTROL as the <B>MajorFunction</B> and TDI_RECEIVE as the <B>MinorFunction</B> codes in the transport's I/O stack location of the given IRP.</P>
+
+<P>If the client has registered any of its ClientEvent(Chained)Receive(Expedited) handler(s) for the given connection endpoint, issuing a receive request suppresses calls to ClientEvent(Chained)Receive(Expedited) until the receive IRP is satisfied. Then, the transport resumes indicating receives to the appropriate ClientEvent(Chained)Receive(Expedited) handler(s).</P>
+
+<P>Unless the TDI_RECEIVE_PEEK flag is set, the underlying transport fills the given buffer with received data until the client's buffer is full or the transport receives an end-of-record indication from the remote node. If this flag is set, the client must issue subsequent receive request(s) when this IRP is satisfied to obtain the full TSDU. </P>
+
+<P>If the underlying transport is receiving normal data and expedited data arrives from the remote node, the transport pre-empts its normal receive operation and returns immediately to the client with any normal data it has already transferred into the client-supplied buffer. When this occurs, the client must make as many receive requests as necessary to receive the expedited TSDU. When the client has retrieved all the arriving expedited data, it issues another receive request to resume receiving normal data. </P>
+
+<P>While a client also can receive normal TSDUs on an endpoint-to-endpoint connection by calling <B>ZwReadFile</B>, the client cannot receive expedited data in this manner because the transport has no way to indicate receive flags. In addition, a call to <B>ZwReadFile</B> does not tell the client whether the underlying transport has received an end-of-record indication.</P>
+
+<P>For more information, see <A HREF="JavaScript:hhobj_1.Click()"><B>ZwReadFile</B></A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_4qnm.htm"><B>ClientEventChainedReceive</B></A>, <A HREF="35tdicli_57n6.htm"><B>ClientEventChainedReceiveExpedited</B></A>, <A HREF="35tdicli_7yeq.htm"><B>ClientEventReceive</B></A>, <A HREF="35tdicli_7jea.htm"><B>ClientEventReceiveExpedited</B></A>, <A HREF="34bldmac_2voy.htm"><B>TdiBuildAccept</B></A>, <A HREF="34bldmac_99pu.htm"><B>TdiBuildConnect</B></A>, <A HREF="34bldmac_8df6.htm"><B>TdiBuildInternalDeviceControlIrp</B></A>, <A HREF="34bldmac_6cc2.htm"><B>TdiBuildListen</B></A>, <A HREF="34bldmac_0aya.htm"><B>TdiBuildReceiveDatagram</B></A>, <A HREF="34bldmac_3w4y.htm"><B>TdiBuildSend</B></A>, <A HREF="34bldmac_6sxe.htm"><B>TdiBuildSetEventHandler</B></A>, <A HREF="32ioctl_5drm.htm"><B>TDI_RECEIVE</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TdiBuildReceive"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>I/O Stack Locations</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="I/O Stack Locations">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_mirror_driver_kg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_i_o_stack_locations_kg"></A>I/O Stack Locations</H1>
+
+<P>The I/O Manager gives each driver in a chain of layered drivers an I/O stack location for every IRP that it sets up. Each I/O stack location consists of an <A HREF="k112_49bm.htm">IO_STACK_LOCATION</A> structure.</P>
+
+<P>The I/O manager creates an array of I/O stack locations for each IRP, with an array element corresponding to each driver in a chain of layered drivers. Each driver owns one of the stack locations in the packet and calls <A HREF="k104_89pu.htm"><B>IoGetCurrentIrpStackLocation</B></A> to obtain driver-specific information about the I/O operation.</P>
+
+<P>Each driver in such a chain is responsible for calling <A HREF="k104_6u5u.htm"><B>IoGetNextIrpStacklocation</B></A>, then setting up the next-lower driver’s I/O stack location. Any higher-level driver’s I/O stack location can also be used to store context about an operation so that the driver’s <A HREF="drvrrtns_4rsi.htm"><I>IoCompletion</I></A> routine can perform its cleanup operations.</P>
+
+<P>The <A HREF="irps_1e3r.htm#ddk__bmc_2girpeg.wmf__kg">Processing IRPs in Layered Drivers</A> figure shows two I/O stack locations in the original IRP because it shows two drivers, a file system driver and a mass-storage device driver. The driver-allocated IRPs in the <A HREF="irps_1e3r.htm#ddk__bmc_2girpeg.wmf__kg">Processing IRPs in Layered Drivers</A> figure do not have a stack location for the FSD that created them. Any higher-level driver that allocates IRPs for lower-level drivers also determines how many I/O stack locations the new IRPs should have, according to the <B>StackSize</B> value of the next-lower driver's device object.</P>
+
+<P>The following figure shows the contents of the IRP in more detail.</P>
+
+<P><B><IMG SRC="images/2irpios.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Contents of I/O Stack Location in an IRP</B></P>
+
+<P>As shown in the figure, each driver-specific I/O stack location in an IRP contains the following general information:
+
+<UL>
+	<LI>The major function code (IRP_MJ_<I>XXX</I>), indicating the basic operation the driver should carry out</LI>
+
+	<LI>For some major function codes handled by FSDs, higher-level SCSI drivers, and all PnP drivers, a minor function code (IRP_MN_<I>XXX</I>), indicating which sub-case of the basic operation the driver should carry out  </LI>
+
+	<LI>A set of operation-specific arguments, such as the length and starting location of a buffer into which or from which the driver transfers data</LI>
+
+	<LI>A pointer to the driver-created device object, representing the target (physical, logical, or virtual) device for the requested operation</LI>
+
+	<LI>A pointer to the file object, representing an open file, device, directory, or volume
+<P>A file system driver accesses the file object through its I/O stack location in IRPs. Other drivers usually ignore the file object.
+</LI>
+</UL>
+
+<P>The set of IRP major and minor function codes that a particular driver handles can be device-type-specific. However, lowest-level drivers and intermediate drivers (including PnP function and filter drivers) usually handle the following set of basic requests:
+
+<UL>
+	<LI><A HREF="k113_02lu.htm">IRP_MJ_CREATE</A> — open the target device object, indicating that it is present and available for I/O operations</LI>
+
+	<LI><A HREF="k113_7fhu.htm">IRP_MJ_READ</A> — transfer data from the device</LI>
+
+	<LI><A HREF="k113_45o2.htm">IRP_MJ_WRITE</A> — transfer data to the device</LI>
+
+	<LI><A HREF="k113_0hiq.htm">IRP_MJ_DEVICE_CONTROL</A> — set up (or reset) the device, according to a system-defined, device-type-specific I/O control code (IOCTL)</LI>
+
+	<LI><A HREF="k113_3naq.htm">IRP_MJ_CLOSE</A> — close the target device object </LI>
+
+	<LI><A HREF="k113_8ur6.htm">IRP_MJ_PNP</A> — perform a plug-and-play operation on the device. An IRP_MJ_PNP request is sent by the PnP Manager through the I/O Manager.</LI>
+
+	<LI><A HREF="k113_7jjm.htm">IRP_MJ_POWER</A> — perform a power operation on the device. An IRP_MJ_POWER request is sent by the Power Manager through the I/O Manager.</LI>
+</UL>
+
+<P>For more information about the major IRP function codes that drivers are required to handle, see <A HREF="k113_6egi.htm">IRP Major Function Codes</A>.  </P>
+
+<P>In general, the I/O Manager sends IRPs with at least two I/O stack locations to mass-storage device drivers because a file system is layered over other drivers for mass-storage devices. The I/O Manager sends IRPs with a single stack location to any driver that has no other driver layered above it.</P>
+
+<P>However, the I/O Manager provides support for adding a new driver to any chain of existing drivers in the system. For example, an intermediate <A HREF="JavaScript:hhobj_1.Click()">mirror driver</A> that backs up data on a given disk partition might be inserted between a pair of drivers, such as the file system driver and lowest-level driver shown in the <A HREF="irps_1e3r.htm#ddk__bmc_2girpeg.wmf__kg">Processing IRPs in Layered Drivers</A> figure. When this new driver attaches itself to the device stack, the I/O Manager adjusts the number of I/O stack locations in all IRPs it sends to the file system, mirror, and lowest-level drivers. Every IRP that the file system in the <A HREF="irps_1e3r.htm#ddk__bmc_2girpeg.wmf__kg">Processing IRPs in Layered Drivers</A> figure allocated would also contain another I/O stack location for such a new mirror driver.</P>
+
+<P>Note that this support for adding new drivers to an existing chain implies certain restrictions on any particular driver's access to the I/O stack locations in IRPs:
+
+<UL>
+	<LI>A higher-level driver in a chain of layered drivers can safely access only its own and the next-lower-level driver's I/O stack locations in any IRP. Such a driver must set up the I/O stack location for the next-lower-level driver in IRPs. However, when designing such a higher-level driver, you cannot predict when (or whether) a new driver will be added to the existing chain just below your driver.
+<P>Therefore, you should assume that any subsequently added driver will handle the same IRP major function codes (IRP_MJ_<I>XXX</I>) as the displaced next-lower-level driver did.
+</LI>
+
+	<LI>The lowest-level driver in a chain of layered drivers can safely access only its own I/O stack location in any IRP. When designing such a driver, you cannot predict when (or whether) a new driver will be added to the existing chain above your device driver.
+<P>In designing a lowest-level driver, assume that the driver can continue to process IRPs using the information passed in its own I/O stack location, whatever the originating source of a given IRP and however many drivers are layered above it.
+</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: I%2FO%20Stack%20Locations"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

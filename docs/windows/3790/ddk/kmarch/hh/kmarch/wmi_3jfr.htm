@@ -1,0 +1,78 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Troubleshooting Specific WMI Problems</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Troubleshooting Specific WMI Problems">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_troubleshooting_specific_wmi_problems_kg"></A>Troubleshooting Specific WMI Problems</H2>
+
+<H4>Driver's WMI Classes Do Not Appear in the <I>\root\wmi</I> Namespace</H4>
+
+<OL>
+	<LI>Use <A HREF="wmi_1wo7.htm">Wmimofck</A> <I>driver.bmf</I> to check if the binary MOF file format is correct.  Additional error messages may be found in <I>mofcomp.log</I>.</LI>
+
+	<LI>Check the <A HREF="wmi_63vr.htm#ddk_wmi_irps_and_the_system_event_log_kg">system event log</A> to see if the driver is returning a malformed <A HREF="k112_2j76.htm">WMIREGINFO</A> data structure in response to the registration request.</LI>
+
+	<LI>Check that the driver is returning the correct values for <B>RegistryPath</B> and <B>MofResourceName</B> within the WMIREGINFO structure.</LI>
+
+	<LI>If the driver provides its MOF data in a separate file, check that the <A HREF="wmi_24kn.htm"><B>MofImagePath</B></A> key for the driver is set correctly. </LI>
+
+	<LI>Check the <A HREF="wmi_63vr.htm#ddk_wmi_wdm_provider_log_kg">WMI WDM Provider Log</A> for errors.</LI>
+
+	<LI>Use Mofcomp to recompile and reload your MOF text file.  For example, the command <B>mofcomp -N:root/wmi <I>driver.mof</I></B> will try to recompile and reload any MOF data in the <I>driver.mof</I> file.  Check to see what error messages Mofcomp generates in <I>mofcomp.log</I>.  (Note that if your MOF file uses preprocessor directives such as <B>#define</B>, you will need to use the already-preprocessed MOF file, and not the original source file.
+<P class=note><B>Warning:</B>&nbsp;&nbsp;If this operation succeeds, it actually registers the new WMI class data with the system.&nbsp; You will need to delete these classes (by using Wbemtest, for example) to test if your driver's MOF data is being read correctly.
+</LI>
+
+	<LI>If the previous step succeeds, then the most likely problem is that the members of WMIREGINFO, such as <B>MofResourceName</B>, are specified incorrectly.  Alternatively, the problem could be that your MOF file specifies a class derived from a base class that doesn't exist.</LI>
+
+	<LI>If the driver is using <A HREF="wmi_6ylj.htm">dynamic MOF data</A>, check that the driver is receiving WMI IRP requests for the MSWmi_MofData_GUID GUID and that it is completing the IRP successfully and with no error logged.</LI>
+</OL>
+
+<H4>Driver's WMI Properties or Methods Cannot Be Accessed</H4>
+
+<OL>
+	<LI>Use <A HREF="wmi_1wo7.htm">Wmimofck</A> <I>driver.bmf</I> to check if the binary MOF file format is correct.</LI>
+
+	<LI>Check the <A HREF="wmi_63vr.htm#ddk_wmi_irps_and_the_system_event_log_kg">system event log</A> for errors.</LI>
+
+	<LI>Check the <A HREF="wmi_63vr.htm#ddk_wmi_wdm_provider_log_kg">WMI WDM Provider Log</A> for errors.</LI>
+
+	<LI>Make sure the driver receives a WMI IRP whenever you use Wbemtest to query the driver's classes.  If not, then check that the specified GUID in the MOF file matches the GUID the driver is expecting.  Also check that the driver is receiving the WMI registration request, that it is succeeding, and the driver is registering the right GUIDs.</LI>
+
+	<LI>If the driver receives the IRP, ensure that the IRP is completed successfully, and that the driver is returning the right type of WNODE_<I>XXX</I> structure.</LI>
+
+	<LI>If Wbemtest returns an error, click the <B>More Information</B> button and check the <B>Description</B> property for a description of the error.</LI>
+
+	<LI>For methods, check that your driver supports handling the <A HREF="k901_1nhu.htm">IRP_MN_QUERY_ALL_DATA</A> and <A HREF="k901_1bua.htm">IRP_MN_QUERY_SINGLE_INSTANCE</A> requests for the method's GUID.  WMI will always perform one of those two requests before executing a method.</LI>
+</OL>
+
+<H4>Driver's WMI Events Are Not Being Received</H4>
+
+<OL>
+	<LI>Check the <A HREF="wmi_63vr.htm#ddk_wmi_irps_and_the_system_event_log_kg">system event log</A> for errors.  For example, if the driver specifies a static event name when calling <A HREF="k104_2uya.htm"><B>IoWMIWriteEvent</B></A> but the driver did not register any static event names, this would produce an entry in the system event log.</LI>
+
+	<LI>Check the <A HREF="wmi_63vr.htm#ddk_wmi_wdm_provider_log_kg">WMI WDM Provider Log</A> for errors.</LI>
+
+	<LI>If the driver is sending an event reference, the driver should receive an <A HREF="k901_1bua.htm">IRP_MN_QUERY_SINGLE_INSTANCE</A> request immediately after sending the event reference.  If the driver does not receive the IRP, the <A HREF="k112_17zm.htm">WNODE_EVENT_REFERENCE</A> structure may have been malformed.  If the driver receives the IRP, it should be completing it with status STATUS_SUCCESS.  </LI>
+
+	<LI>If the driver uses <A HREF="k104_2uya.htm"><B>IoWMIWriteEvent</B></A> to send the event or event reference, make sure the event structure (either <A HREF="k112_7a2a.htm">WNODE_SINGLE_INSTANCE</A> or WNODE_EVENT_REFERENCE) is filled out correctly.  In particular, if the event GUID is registered for static instance names, make sure that the correct instance index and provider ID are provided.  If the event GUID is registered for dynamic instance names, make sure the instance name is included when the event is sent.  If using the WNODE_EVENT_REFERENCE structure to specify the event, check that <B>Wnode.Guid</B> matches <B>TargetGuid</B>.</LI>
+
+	<LI>If the driver uses <A HREF="k902_43hu.htm"><B>WmiFireEvent</B></A> to send the event, make sure the correct value is passed for the <I>Guid</I> and <I>InstanceIndex</I> parameters.</LI>
+</OL>
+
+<H4>Changes in Security Settings for WMI Requests Do Not Take Effect</H4>
+
+<OL>
+	<LI>Unload and reload the WMI WDM Provider.  For WMI data blocks registered with the WMIREG_FLAG_EXPENSIVE flag, the provider keeps a handle open to the data block as long as there are consumers for that block.  The new security settings will not take effect until the provider closes the handle.  Unloading and reloading the provider makes sure the handle has been closed.  (For more information on the WMIREG_FLAG_EXPENSIVE flag, see <A HREF="k112_3ulu.htm">WMIREGGUID</A>.)</LI>
+</OL>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Troubleshooting%20Specific%20WMI%20Problems"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

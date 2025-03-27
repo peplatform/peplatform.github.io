@@ -1,0 +1,67 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>VCOMM Device Initialization</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_pss_17"></A>VCOMM Device Initialization</H2>
+
+<P>VCOMM is a static VxD always loaded at boot time in Windows 95. It functions as the Plug and Play "device loader" for installed devices of class "ports" or "modem". This means VCOMM is called to load these devices when they are enumerated by the Plug and Play Configuration Manager. This is usually at boot time for COM ports, LPT ports, and internal and external modems. However, PCMCIA ports and modems can be enumerated "on the fly" when inserted at any time during a Windows 95 session. </P>
+
+<P>When the Plug and Play Configuration Manager calls VCOMM to load an enumerated device, it passes a handle to the "devnode" data structure for the device. The devnode contains information about the device, including its resource allocation and registry key locations. When called to load a device, VCOMM does the following: 
+
+<OL>
+	<LI>Remembers the PortName and FriendlyName strings specified in the device's hardware key. Later, when called to open the device by one of these names, VCOMM will match it to the software key for this device to determine the port driver VxD to load. Note that the port driver is not loaded immediately when the device is enumerated. Rather, it is only loaded when opened by a VCOMM client such as Remote Access or a communications application. This speeds boot time, and prevents unnecessary consumption of system resources until the device is actually opened. </LI>
+
+	<LI>Assigns a "PortName" to the device in its hardware key, if its devnode contains system resources. For COM ports (PortSubClass="01") and PCMCIA modems (PortSubClass="02"), PortName is assigned according to the base I/O port address, as shown in the following. Devices with non-standard base addresses receive port names starting at COM5 and higher. </LI>
+</OL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=13%>03F8 </TD>
+<TD width=87%>COM1 </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=13%>02F8 </TD>
+<TD width=87%>COM2 </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=13%>03E8 </TD>
+<TD width=87%>COM3 </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=13%>02E8 </TD>
+<TD width=87%>COM4 </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=13%>3220 </TD>
+<TD width=87%>COM3 (PS/2) </TD>
+</TR>
+</TABLE><BR>
+
+<P class=indent1>For LPT ports (PortSubClass="00"), PortName is assigned according to the relative location of the base address in the BIOS data table at 40:8. That is, if the base address is the first entry in the table, it is assigned PortName="LPT1", and so on. PortName is not assigned if the base address is not contained in the BIOS data table. </P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Internal and external modems devnodes do not have resources, so are not assigned PortNames. </P>
+
+<P class=indent1>In addition to creating the PortName key, VCOMM writes a new string value for FriendlyName and DeviceDesc, by appending the device's PortName to its DriverDesc (taken from the software key); for example, "Communications Port (COM1)" and "Printer Port (LPT1)". This serves two functions: to make the FriendlyName unique in the system, and to cause the port name to appear in the Device Manager page of the System control panel. </P>
+
+<OL start=3>
+	<LI>Calls the contention handler specified by the Contention value in the software key, if present; for example, "*vcd" for serial ports and PCMCIA modems. This causes the contention handler to begin virtualization of the device, using the I/O ports, IRQ, and so on, passed to it by VCOMM. Note that unlike previous versions of Windows, contention handler VxDs such as VCD and VPD no longer virtualize ports based on entries in the BIOS data table and SYSTEM.INI. This has been made dynamic to accommodate the Plug and Play architecture, especially dynamic insertion and removal of PCMCIA ports and modems. </LI>
+
+	<LI>Loads the Plug and Play enumerator VxD for the device specified by the Enumerator value in the software key, if present. The enumerator VxD subsequently registers with the Configuration Manager, and is called at some later point to detect devices attached to the port, such as modems and printers. </LI>
+</OL>
+
+<P>When a device is removed (for example, a PCMCIA port or modem is removed), the Configuration Manager notifies VCOMM. VCOMM unloads the port driver, if necessary, and calls the device's contention handler VxD, if any, to end virtualization of its resources. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: VCOMM%20Device%20Initialization"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

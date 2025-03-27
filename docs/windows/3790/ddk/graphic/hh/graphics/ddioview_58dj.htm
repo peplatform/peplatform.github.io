@@ -1,0 +1,73 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Floating-Point Operations in Graphics Driver Functions</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Floating-Point Operations in Graphics Driver Functions">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_floating_point_operations_in_graphics_driver_functions_gg"></A>Floating-Point Operations in Graphics Driver Functions</H1>
+
+<P>If a graphics driver function contains code that uses the floating-point unit (FPU), that code must be preceded by a call to <A HREF="gdifncs_9tif.htm"><B>EngSaveFloatingPointState</B></A> and followed by a call to <A HREF="gdifncs_9l0n.htm"><B>EngRestoreFloatingPointState</B></A>. For a list of graphics driver functions, see <A HREF="ddioview_0xev.htm">Graphics Driver Functions</A>.</P>
+
+<P>If an FPU is available, it will be used by any code that assigns a value to a floating-point variable or performs calculations that involve floating-point numbers. For example, each of the following lines of code uses the FPU.</P>
+
+<PRE>double myDouble = 5;
+int myInt = 5 * 4.3;
+int myInt = 50 * cos(2);
+</PRE>
+
+<P>Suppose you are writing a <A HREF="ddifncs_40br.htm"><I>DrvAlphaBlend</I></A> function that uses the FPU. The following example demonstrates how you should save and restore the floating-point state.</P>
+
+<PRE>#define DRIVER_TAG // Put your driver tag here, for example 'zyxD'
+
+BOOL DrvAlphaBlend(...)
+{
+   ...
+   ULONG result;
+   double floatVal;
+   VOID* pBuf;
+   ULONG bufSize;
+
+   // Determine the size of the required buffer.
+   bufSize = EngSaveFloatingPointState(NULL, 0);
+
+   if(bufSize &gt; 0)
+   {
+      // Allocate a zeroed buffer in the non-paged pool.
+      pBuf = EngAllocMem(
+         FL_NONPAGED_MEMORY|FL_ZERO_MEMORY, bufSize, DRIVER_TAG);
+
+      if(pBuf != NULL)
+      {
+         // The buffer was allocated successfully.
+         // Save the floating-point state.
+         result = EngSaveFloatingPointState(pBuf, bufSize);
+
+         if(TRUE == result)
+         {
+            // The floating-point state was saved successfully.
+            // Use the FPU.
+            floatVal = 0.8;
+            ...
+            EngRestoreFloatingPointState(pBuffer);
+         }
+
+         EngFreeMem(pBuf);
+      }
+   }
+   ...
+}</PRE>
+
+<P>GDI automatically saves the floating point state for any calls to a driver's <A HREF="ddifncs_9tev.htm"><I>DrvEscape</I></A> function when the escape is OPENGL_CMD, OPENGL_GETINFO, or MCDFUNCS. In those cases, you can use the FPU in your <I>DrvEscape</I> function without calling <B>EngSaveFloatingPointState</B> and <B>EngRestoreFloatingPointState</B>.</P>
+
+<P>Most DirectDraw and Direct3D callback functions that perform floating-point operations should also save and restore the floating-point state. For more information, see <A HREF="ddraw_6js7.htm">Performing Floating-point Operations in DirectDraw</A> and <A HREF="d3d_7t47.htm">Performing Floating-point Operations in Direct3D</A>.</P>
+
+<P>For information about floating-point services provided by GDI, see <A HREF="gdioview_8hif.htm">GDI Floating Point Services</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Floating-Point%20Operations%20in%20Graphics%20Driver%20Functions"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

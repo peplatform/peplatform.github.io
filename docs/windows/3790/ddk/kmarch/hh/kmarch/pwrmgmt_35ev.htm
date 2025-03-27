@@ -1,0 +1,61 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Sending a Device Set-Power IRP in Response to a System Set-Power IRP</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_sending_a_device_set_power_irp_in_response_to_a_system_set_power_irp_kg"></A>Sending a Device Set-Power IRP in Response to a System Set-Power IRP</H4>
+
+<P>The device power policy owner should take the following steps to respond to a system set-power IRP:
+
+<OL>
+	<LI>Call <A HREF="k104_6tde.htm"><B>IoAcquireRemoveLock</B></A>, passing the current IRP, to ensure that the driver does not receive a PnP IRP_MN_REMOVE_DEVICE request while handling the power IRP. 
+<P>If <B>IoAcquireRemoveLock</B> returns a failure status, the driver should not continue processing the IRP. Instead, it should call <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A>, then complete the IRP (<B>IoCompleteRequest</B>), and return the failure status. 
+</LI>
+
+	<LI>Set up the IRP stack location for the next-lower driver by calling <A HREF="k104_4fqq.htm"><B>IoCopyCurrentIrpStackLocationToNext</B></A>. </LI>
+
+	<LI>Set an<I> IoCompletion</I> routine in the system set-power IRP.</LI>
+
+	<LI>Call <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A>. </LI>
+
+	<LI>Call <A HREF="portn_7tki.htm"><B>PoCallDriver</B></A> to pass the IRP to the next-lower driver. </LI>
+
+	<LI>Return STATUS_PENDING from its<I> DispatchPower</I> routine.</LI>
+</OL>
+
+<P>In the<I> IoCompletion</I> routine, the driver sends a device set-power IRP as follows: 
+
+<OL>
+	<LI>Inspect the IRP to get the requested system power state. Choose an appropriate device power state for that system state. For further information, see <A HREF="pwrmgmt_7fvr.htm">Determining the Correct Device Power State</A>.</LI>
+
+	<LI>Call <A HREF="portn_55gy.htm"><B>PoRequestPowerIrp</B></A> to send an IRP_MN_SET_POWER for the device power state determined in Step 1. The power policy owner must send the device set-power request even if the device is already in that state.</LI>
+
+	<LI>Specify a callback routine (<I>CompletionFunction</I>) in the call to <B>PoRequestPowerIrp</B> and pass the system IRP in the <I>Context</I> area.</LI>
+
+	<LI>Return STATUS_MORE_PROCESSING_REQUIRED from the<I> IoCompletion</I> routine, so that the driver can finish processing the system set-power IRP in the callback routine.</LI>
+</OL>
+
+<P>Remember that the device power policy owner not only sends the device set-power IRP but also must handle it as it travels through the device stack. Consequently, a device power policy owner might have not only a callback routine associated with the device set-power IRP and an<I> IoCompletion</I> routine for the system set-power IRP, but also an<I> IoCompletion</I> routine for the device set-power IRP. For further information, see <A HREF="pwrmgmt_9e07.htm">Handling IRP_MN_SET_POWER for Device Power States</A>. </P>
+
+<P>After the I/O Manager calls all the<I> IoCompletion</I> routines set as the device set-power IRP traveled down the device stack, the I/O Manager calls the callback routine. By this time, all drivers in the stack have completed the device set-power IRP and the device power transition is complete. </P>
+
+<P>The callback routine must do the following:
+
+<OL>
+	<LI>Call <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A> to start the next power IRP.</LI>
+
+	<LI>Complete the system set-power IRP (<A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>) with the status returned for the device set-power IRP.</LI>
+
+	<LI>Call <A HREF="k104_8n5e.htm"><B>IoReleaseRemoveLock</B></A> to free the previously acquired lock.</LI>
+
+	<LI>Return the status with which the set-power IRPs completed.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Sending%20a%20Device%20Set-Power%20IRP%20in%20Response%20to%20a%20System%20Set-Power%20IRP"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

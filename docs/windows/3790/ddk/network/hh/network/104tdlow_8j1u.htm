@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProtocolCmCloseCall</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProtocolCmCloseCall">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocolcmclosecall_nr"></A>ProtocolCmCloseCall</H1>
+
+<P>The <I>ProtocolCmMakeCall</I> function is a required function that terminates an existing call and releases any resources that the call manager allocated for the call.</P>
+
+<PRE class=syntax><B>NDIS_STATUS 
+</B>  <B>ProtocolCmCloseCall(
+</B>    <B>IN NDIS_HANDLE</B>  <I>CallMgrVcContext</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>CallMgrPartyContext</I>  <B>OPTIONAL,</B>
+    <B>IN PVOID</B>  <I>CloseData  </I><B>OPTIONAL,</B>
+    <B>IN UINT</B>  <I>Size</I>  <B>OPTIONAL</B>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>CallMgrVcContext</I></DT>
+
+<DD>Specifies the handle to a call manager-allocated context area in which the call manager maintains its per-VC state. This handle was provided to NDIS from the call managers <A HREF="104tdlow_20oi.htm"><I>ProtocolCmMakeCall</I></A> function.</DD>
+
+<DT><I>CallMgrPartyContext</I></DT>
+
+<DD>Specifies the handle, if any, to a call manager-allocated context area in which the call manager maintain information about a party on a multipoint VC. This handle is NULL if the call being closed is not a multipoint call.</DD>
+
+<DT><I>CloseData</I></DT>
+
+<DD>Pointer to a buffer containing connection-oriented client-specified data that should be sent across the connection before the call is terminated. This parameter is NULL if the underlying network medium does not support transfers of data when closing a connection.</DD>
+
+<DT><I>Size</I></DT>
+
+<DD>Specifies the length, in bytes, of the buffer at <I>CloseData</I>, zero if <I>CloseData</I> is NULL.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>ProtocolCmCloseCall</I> returns the status of its operation(s) as one of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>Indicates that the call manager successfully terminated the call.</DD>
+
+<DT>NDIS_STATUS_PENDING</DT>
+
+<DD>Indicates that the call manager will complete the request to terminate the call asynchronously. When the call manager has completed all operations required to terminate the connection, it must then call <A HREF="103ndisx_18tu.htm"><B>NdisCmCloseCallComplete</B></A> to signal NDIS that the call has been closed.</DD>
+
+<DT>NDIS_STATUS_INVALID_DATA</DT>
+
+<DD>Indicates that <I>CloseData</I> was specified, but the underlying network medium does not support sending data concurrent with terminating a call.</DD>
+
+<DT>NDIS_STATUS_<I>XXX</I></DT>
+
+<DD>Indicates that the call manager could not terminate the call. The actual error returned can be a status propagated from another NDIS library routine.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><I>ProtocolCmCloseCall</I> communicated with network control devices or other media-specific actors, as necessitated by its media, to terminate a connection between the local node and a remote node. If the call manager is required to communicate with network control devices (e.g. a networking switch) it should use a virtual connection to the network control device that it established in its <I>ProtocolBindAdapter</I> function. Stand-alone call managers communicate to such network devices by calling <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>. Miniport drivers with integrated call-management support never call <B>NdisCoSendPackets</B>. Instead, they transmit the data directly across the network. </P>
+
+<P>If <I>CloseData</I> is nonNULL and sending data at connection termination is supported by the media that this call manager handles, the call manager should transmit the data specified at <I>CloseData</I> to the remote node before completing the call termination. If sending data concurrent with a connection being terminated is not supported, call managers should return NDIS_STATUS_INVALID_DATA.</P>
+
+<P>If <I>ProtocolCmCloseCall</I> is passed an explicit <I>CallMgrPartyContext</I>, then the call being terminated is a multipoint VC, and the call manager must perform any necessary network communication with its networking hardware, as appropriate to its media type, to terminate the call as a multipoint call. The call manager must also free the memory that it allocated earlier, in <A HREF="104tdlow_20oi.htm"><I>ProtocolCmMakeCall</I></A>, for its per-party state that is pointed to by <I>CallMgrPartyContext</I>. Failure to properly release, deallocate, or otherwise deactivate those resources causes a memory leak.</P>
+
+<P>After the call has been terminated with the network, any close data has been sent, and any resources at <I>CallMgrPartyContext</I> have been freed, the call manager must call <A HREF="103ndisx_5g4y.htm"><B>NdisCmDeactivateVc</B></A>. This notifies NDIS and the underlying miniport driver, if any, to expect no further transfers on the given VC. </P>
+
+<P>ProtocolCmCloseCall must be written so that it can run at IRQL = DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>, <A HREF="103ndisx_5g4y.htm"><B>NdisCmDeactivateVc</B></A>, <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>, <A HREF="104tdlow_20oi.htm"><I>ProtocolCmMakeCall</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProtocolCmCloseCall"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

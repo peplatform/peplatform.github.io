@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Caching Pin Information for DirectShow</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Caching Pin Information for DirectShow">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_caching_pin_information_for_directshow_ksg"></A>Caching Pin Information for DirectShow</H1>
+
+<P>An application can use the DirectShow <B>IFilterMapper2</B> interface to automatically search for filters that meet certain criteria. This application can use the list of proposed filters that <B>IFilterMapper2</B> returns to automatically build filter graphs with filters that receive and render television signals. To quickly find filters that meet the criteria specified, <B>IFilterMapper2</B> uses information about a filter and its pins that was previously entered into a cache. The discussion in the following paragraphs refers to this cache as the <I>pin data cache</I>.</P>
+
+<P>The information contained in the pin data cache includes a list of mediums and media types for each pin that the filter can expose. <B>IFilterMapper2</B> uses this cache information to determine whether a possible filter can connect to a pin on a filter that is already in the graph. Making this determination eliminates the overhead of creating an instance of a filter only to determine that connecting to the filter is prevented because a medium or media type does not match. If the pin data cache for a filter is not up-to-date, a filter could be wrongly eliminated as a candidate for connection in a filter graph.</P>
+
+<P>Whenever a BDA minidriver determines that its pin data cache that DirectShow uses is not up-to-date, that minidriver must update the pin data cache so that pin information for BDA filter instances of the minidriver's BDA component is accurately exposed in a filter graph. A BDA minidriver updates DirectShow's pin data cache as described in the following scenarios:
+
+<UL>
+	<LI>A BDA minidriver may or may not be required to update DirectShow's pin data cache when the minidriver initially creates BDA filter instances depending on how that minidriver presents BDA filters as DirectShow filters in user mode. A BDA minidriver's information (INF) file specifies the mechanism that the minidriver uses to present its BDA filters as DirectShow filters. 
+<P>BDA minidrivers typically use the <A HREF="ksproxy_5sqb.htm">kernel-streaming (KS) proxy module</A> (<I>Ksproxy.ax</I>) to present their BDA filters as DirectShow filters. KS proxy automatically updates DirectShow's pin data cache to expose pin information for BDA filters whenever instances of those filters are initially created. Therefore, BDA minidrivers that use KS proxy are not required to perform any action to update DirectShow's pin data cache when they initially create instances of filters. If a BDA filter is exposed to user mode through KS proxy, the cached information automatically includes the mediums and media types for the pin factories that exist on the filter instance immediately after the filter's create dispatch routine returns. 
+
+<P>Some BDA minidrivers do not use KS proxy to present their BDA filters as DirectShow filters. For example, BDA receiver minidrivers that implement BDA filters to receive or process analog television signals use either the <I>KSTVTune.ax</I> or <I>KSXBar.ax</I> modules to present these BDA filters as DirectShow filters. Because these modules do not use standard KS proxy interface methods to update DirectShow's pin data cache, BDA minidrivers for these types of BDA filters must update DirectShow's pin data cache when those minidrivers initially create instances of filters. To ensure that DirectShow's pin data cache is updated when instances of these filters are created, a BDA minidriver calls the <A HREF="bdaref_54tv.htm"><B>BdaFilterFactoryUpdateCacheData</B></A> function immediately after calling the <A HREF="bdaref_7foz.htm"><B>BdaInitFilter</B></A> function inside the implementation of the filter's create dispatch routine. In this call, the minidriver passes pin information to update all initial pins on the filter. 
+</LI>
+
+	<LI>Pins can be created on a BDA filter dynamically after the filter's create dispatch routine completes. If the initially created instance of a BDA filter does not expose instances of all the pins that are listed in the BDA filter's template topology (<A HREF="bdaref_6mgj.htm">BDA_FILTER_TEMPLATE</A>), then the BDA minidriver must call <B>BdaFilterFactoryUpdateCacheData</B> to force information about all pins listed in the filter's template topology. </LI>
+</UL>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Updating DirectShow's pin data cache has significant overhead because it touches and modifies the registry. In addition, updating DirectShow's pin data cache impacts the amount of time required for DirectShow to automatically build filter graphs. Therefore, a BDA minidriver should call <B>BdaFilterFactoryUpdateCacheData</B> for all possible pins only when it determines that its pin data cache that DirectShow uses is not up-to-date. </P>
+
+<P>If possible, a BDA minidriver should call <B>BdaFilterFactoryUpdateCacheData</B> whenever a driver, firmware, or hardware update has occurred.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Caching%20Pin%20Information%20for%20DirectShow"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

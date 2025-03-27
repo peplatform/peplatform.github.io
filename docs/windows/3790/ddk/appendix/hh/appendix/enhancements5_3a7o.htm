@@ -1,0 +1,70 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Cache Coherent Non Uniform Memory Access (ccNUMA) Support</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Cache Coherent Non Uniform Memory Access (ccNUMA) Support">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Appendix:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_supp_cache_coherent_non_uniform_memory_access_ccnuma_support"></A>Cache Coherent Non Uniform Memory Access (ccNUMA) Support</H1>
+
+<P>As processor speeds and the number of processors in symmetric multiprocessor (SMP) systems have increased, the processor bus and main memory have become a significant bottleneck. The trend in High Performance Computing (HPC) over the last decade has been to reduce dependence on a single processor bus or system memory by building smaller systems (nodes), which can contain processors and memory, and connecting these nodes together using a high-speed cache coherent system interconnect to create a larger system. Access from a processor to node local memory is fast, as is the case with small SMP systems. Access to memory in other nodes is slower. Earlier systems using this approach could result in as much as a 50 times decrease in performance for remote versus local access. </P>
+
+<P>Today, this difference has been reduced significantly, but is still (usually) in the range of two to three times as long to access remote memory (versus local). These systems are sometimes referred to as NUMA -'lite". Operating systems such as Windows&nbsp;2000, which have been designed for SMP systems, can work acceptably on these newer systems; but significant performance gains are possible if the operating system is aware of the  underlying architecture. Windows&nbsp;Server 2003 contains code to support identification, and flavor allocation, of memory that is local to the current processor.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;For optimal performance with Windows 2000 and later operating systems, it is recommended that system designers who are building platforms that present memories with different access times keep the ration for access to "near" versus "far" memories relative to a given microprocessor at a 1:3 ration or less, as seen by the operating system. This recommendation appears in version 3.0 of the Windows Server Hardware Design Guide.</P>
+
+<H3>Per Node Memory Allocation</H3>
+
+<P>An effective method for improving performance on a ccNUMA machine is to ensure that the processors use the memory closest to them. This guideline includes continuously running threads on the same processor node. Page coloring is used in Windows&nbsp;Server 2003 to achieve good page placement in a ccNUMA system. Each node has its own palette of colors. Page allocation is round-robin within the palette of the node containing the threads ideal processor. If no pages are available in the palette, then we will round-robin from all colors in all palettes.</P>
+
+<H3>Per Node Scheduling</H3>
+
+<P>The thread scheduler has been changed to examine and favor the following processor configurations:
+
+<UL>
+	<LI>A thread’s ideal processor</LI>
+
+	<LI>Any real processor that is in the same node as the threads ideal processor</LI>
+
+	<LI>Any logical processor that is in the same node as the threads ideal processor</LI>
+
+	<LI></LI>
+</UL>
+
+<P>Only if this prioritization fails, will Windows&nbsp;Server 2003 consider scheduling to other processor nodes. Another node is only used if the average processor utilization of that node is lower than the average utilization of the ideal node.</P>
+
+<H3>OEM Support for ccNUMA</H3>
+
+<P>For Windows&nbsp;Server 2003 to utilize these additions for ccNUMA support, original equipment manufacturers (OEMs) must supplyfirmware that describes the system topology in a way that Windows&nbsp;Server 2003 can understand. This is achieved using the Static Resource Affinity Table (SRAT).</P>
+
+<H3>Static Resource Affinity Table </H3>
+
+<P>With the current Enterprise market trend to build large-scale systems out of “nodes”, the best performance is typically achieved when processors use memory that is physically located in the same node as the processor, rather than using memory located in other nodes. </P>
+
+<P>SRAT, as described in the ACPI specification, can be used to describe the physical location of processors and memory in large-scale systems (such as ccNUMA) to Windows, allowing threads and memory to be grouped in an optimal manner.</P>
+
+<P>The SRAT contains topology information for all the processors and memory present in a ccNUMA system at system boot, including memory that can be hot added to the system. The topology information identifies the groups of processors and physical memory ranges in the system, enabling a tight coupling between the processors and memory ranges in a node. </P>
+
+<P>The ACPI 2.0 specification introduces the concept of proximity domains within a system. Devices in a system that belong to a proximity domain are tightly coupled, or “closer,” to each other than to other devices in the system. For example, in a ccNUMA machine consisting of several nodes interconnected through a switch, the latency of memory accesses from a processor to memory on the same node would typically be shorter than the latency of memory accesses on other nodes. The operating system can use this affinity information to determine the allocation of memory resources and the scheduling of software threads, therefore improving performance on large systems. </P>
+
+<P>The SRAT makes the affinity and hot-remove memory information available to the operating system in a static fashion . </P>
+
+<P>The SRAT uses the concept of proximity domains to provide resource affinity information, similar to the domains used in the ACPI 2.0 specification. The SRAT is intended to enable operating system optimizations for the Windows Server 2003, Enterprise Edition and Datacenter Edition, class of machines with multiple processors and ccNUMA characteristics. These machines must also support the APIC/SAPIC interrupt model.</P>
+
+<H3>How the Operating System Can Use SRAT</H3>
+
+<P>The SRAT is provided as an intermediate step to enable features such as ccNUMA optimizations on Windows Server 2003, Enterprise Edition and Datacenter Edition,  class machines until the capabilities of the ACPI 2.0 Namespace are supported in Windows. The operating system will scan and use the information provided in the SRAT at boot time.  </P>
+
+<P>The SRAT provides data for the performance optimization of ccNUMA systems. The use of fine-grained interleaving, in which the memory is interleaved across the nodes at a small granularity, is mutually exclusive with respect to ccNUMA optimizations. The firmware must represent fine-grained interleaved memory as a single memory device in the SRAT where interleaving is enabled. A better solution is to disable fine-grained interleaving  if an SRAT is provided on a ccNUMA machine as it is expected that ccNUMA optimization will provide superior performance over fine-grained interleaving.  </P>
+
+<P>The operating system will scan the SRAT only at boot time. The firmware/system is expected to retain the proximity information used by the operating system at boot time across the lifetime of the operating system instance (until the next boot). This specifically implies that the firmware/system retains the system topology across a system sleep state transition in which processor or memory context is lost (S2–S5), such that the proximity information provided by the SRAT at operating system boot time is valid across the transition. If the system topology is not retained, memory viewed as “local” to a set of processors could potentially become “nonlocal” memory on return from the sleep state and have an adverse impact on system performance. </P>
+
+<P>More details on the structure and content of the SRAT are available at the <a href="http://go.microsoft.com/fwlink/?linkid=10185&clcid=0x409" target="_blank">Static Resource Affinity Table</A> Web site.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Cache%20Coherent%20Non%20Uniform%20Memory%20Access%20(ccNUMA)%20Support"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

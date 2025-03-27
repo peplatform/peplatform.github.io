@@ -1,0 +1,76 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IRP_MN_ENABLE_EVENTS</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IRP_MN_ENABLE_EVENTS">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_irp_mn_enable_events_kr"></A>IRP_MN_ENABLE_EVENTS</H1>
+
+<P>Any WMI driver that registers one or more event blocks must handle this IRP.</P>
+
+<H4>Major Code</H4>
+
+<P><A HREF="k113_8hwy.htm">IRP_MJ_SYSTEM_CONTROL</A> </P>
+
+<H4>When Sent</H4>
+
+<P>WMI sends this IRP to inform the driver that a data consumer has requested notification of an event. </P>
+
+<P>WMI sends this IRP at IRQL = PASSIVE_LEVEL in an arbitrary thread context.</P>
+
+<H4>Input</H4>
+
+<P><B>Parameters.WMI.ProviderId</B> points to the device object of the driver that should respond to the request. This pointer is located in the driver's I/O stack location in the IRP.</P>
+
+<P><B>Parameters.WMI.DataPath</B> points to a GUID that identifies the event block to enable. </P>
+
+<P><B>Parameters.WMI.BufferSize </B>indicates the size of the nonpaged buffer at <B>Parameters.WMI.Buffer</B>, which must be greater than or equal to the <B>sizeof(</B>WNODE_HEADER<B>)</B>. A driver that does not register trace blocks (WMIREG_FLAG_TRACED_GUID) can ignore this parameter.</P>
+
+<P><B>Parameters.WMI.Buffer</B> points to a WNODE_HEADER that indicates whether the event should be traced (WMI_FLAGS_TRACED_GUID) and provides a handle to the system logger. A driver that does not register trace blocks (WMIREG_FLAG_TRACED_GUID) can ignore this parameter. </P>
+
+<H4>Output </H4>
+
+<P>None.</P>
+
+<H4>I/O Status Block</H4>
+
+<P>If the driver handles the IRP by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, WMI sets <B>Irp-&gt;IoStatus.Status</B> and <B>Irp-&gt;IoStatus.Information</B> in the I/O status block.</P>
+
+<P>Otherwise, the driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS or to an appropriate error status such as the following:</P>
+
+<P class=indent1>STATUS_WMI_GUID_NOT_FOUND</P>
+
+<P class=indent1>STATUS_INVALID_DEVICE_REQUEST</P>
+
+<P>On success, a driver sets <B>Irp-&gt;IoStatus.Information</B> to zero.</P>
+
+<H4>Operation</H4>
+
+<P>A driver can handle WMI IRPs either by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A> or by handling the IRP itself, as described in <A HREF="wmi_9d47.htm">Handling WMI Requests</A>.</P>
+
+<P>If a driver handles WMI IRPs by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, that routine calls the driver's <A HREF="k903_11rm.htm"><I>DpWmiFunctionControl</I></A> routine, or returns STATUS_SUCCESS if the driver does not define the routine. </P>
+
+<P>If a driver handles an IRP_MN_ENABLE_EVENTS request itself, it should do so only if <B>Parameters.WMI.ProviderId</B> points to the same device object as the pointer that the driver passed to <A HREF="k104_5dbm.htm"><B>IoWMIRegistrationControl</B></A>. Otherwise, the driver must forward the request to the next-lower driver.</P>
+
+<P>Before the driver handles the request, it should determine whether <B>Parameters.WMI.DataPath</B> points to a GUID that the driver supports. If not, the driver must fail the IRP and return STATUS_WMI_GUID_NOT_FOUND. </P>
+
+<P>If the driver supports the event block, it enables the event for all instances of that data block. </P>
+
+<P>It is unnecessary for the driver to check whether events are already enabled for the event block because WMI sends a single request to enable for the event block when the first data consumer enables the event. WMI will not send another request to enable without an intervening disable request. </P>
+
+<P>A driver that registers trace blocks (WMIREG_FLAG_TRACED_GUID) must also determine whether to send the event to WMI or to the system logger for tracing. If tracing is requested, <B>Parameters.WMI.Buffer</B> points to a <A HREF="k112_26gi.htm">WNODE_HEADER</A> structure in which <B>Flags</B> is set with WNODE_FLAG_TRACED_GUID and <B>HistoricalContext</B> contains a handle to the logger. </P>
+
+<P>For details about defining event blocks, sending events, and tracing, see <A HREF="wmi_2lk7.htm">Windows Management Instrumentation</A>. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k903_11rm.htm"><I>DpWmiFunctionControl</I></A>,<A HREF="k104_5dbm.htm"><B> IoWMIRegistrationControl</B></A>, <A HREF="k901_0drm.htm">IRP_MN_DISABLE_EVENTS</A>, <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A>, <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, <A HREF="k112_45de.htm">WNODE_EVENT_ITEM</A>, <A HREF="k112_26gi.htm">WNODE_HEADER</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IRP_MN_ENABLE_EVENTS"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,83 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Bug Check 0x4D:  NO_PAGES_AVAILABLE</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="bug check 0x4D">
+<META NAME="MS-HKWD" CONTENT="NO_PAGES_AVAILABLE">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Driver&nbsp;Development&nbsp;Tools:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_bug_check_0x4d_bug"></A>Bug Check 0x4D: NO_PAGES_AVAILABLE</H1>
+
+<P>The NO_PAGES_AVAILABLE bug check has a value of 0x0000004D. This indicates that no free pages are available to continue operations. </P>
+
+<H4>Parameters</H4>
+
+<P>The following parameters are displayed on the blue screen.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=21%>Parameter</TH>
+<TH align=left width=79%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>1</TD>
+<TD width=79%>The total number of dirty pages </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>2</TD>
+<TD width=79%>The number of dirty pages destined for the page file </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>3</TD>
+<TD width=79%>The size of the nonpaged pool available at time of bug check (in pages)</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>4</TD>
+<TD width=79%>The number of transition pages that are currently stranded</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Cause</H4>
+
+<P>To see general memory statistics, use the <B>!vm&nbsp;3</B> debugger extension.</P>
+
+<P>This bug check can occur for any of the following reasons: 
+
+<UL>
+	<LI>A driver has blocked, deadlocking the modified or mapped page writers. Examples of this include mutex deadlocks or accesses to paged out memory in file system drivers or filter drivers. This indicates a driver bug. 
+<P>If Parameter 1 or 2 is large, then this is a possibility. Use the <B>!vm&nbsp;3</B> debugger extension.
+</LI>
+
+	<LI>A storage driver is not processing requests. Examples of this are stranded queues and non-responding drives. This indicates a driver bug. 
+<P>If Parameter 1 or 2 is large, then this is a possibility. Use the <B>!process&nbsp;0&nbsp;7</B> debugger extension.
+</LI>
+
+	<LI>Not enough pool is available for the storage stack to write out modified pages. This indicates a driver bug. 
+<P>If Parameter 3 is small, then this is a possibility. Use the <B>!vm</B> and <B>!poolused&nbsp;2</B> debugger extensions.
+</LI>
+
+	<LI>A high-priority realtime thread has starved the balance set manager from trimming pages, or starved the modified writer from writing them out. This indicates a bug in the component that created this thread. 
+<P>This situation is difficult to analyze. Try using the <B>!ready</B> debugger extension.
+</LI>
+
+	<LI>All the processes have been trimmed to their minimums and all modified pages written, but still no memory is available. The freed memory must be stuck in transition pages with non-zero reference counts — thus they cannot be put on the freelist. 
+<P>A driver is neglecting to unlock the pages preventing the reference counts from going to zero which would free the pages. This may be due to transfers that never finish, causing the driver routines to run endlessly, or to other driver bugs. 
+
+<P>If Parameter 4 is large, then this is a possibility. But it is very hard to find the driver. Try the <B>!process&nbsp;0&nbsp;1</B> debugger extension and look for any drivers that have a lot of locked pages. 
+</LI>
+</UL>
+
+<P>If the problem cannot be found, then try booting with a kernel debugger attached from the beginning, and monitor the situation.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Bug%20Check%200x4D:%20%20NO_PAGES_AVAILABLE"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,142 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisMRegisterInterrupt</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisMRegisterInterrupt">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndismregisterinterrupt_nr"></A>NdisMRegisterInterrupt</H1>
+
+<P><B>NdisMRegisterInterrupt</B> sets up a mapping between a NIC driver’s <A HREF="101mini_38c2.htm"><I>MiniportISR</I></A> and <A HREF="101mini_7s36.htm"><I>MiniportHandleInterrupt</I></A> functions, already registered with <A HREF="103ndisx_6tte.htm"><B>NdisMRegisterMiniport</B></A>, and the bus-relative vector and level on which its NIC interrupts.</P>
+
+<PRE class=syntax><B>NDIS_STATUS 
+  NdisMRegisterInterrupt(
+    OUT PNDIS_MINIPORT_INTERRUPT</B>  <I>Interrupt</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>MiniportAdapterHandle</I><B>,</B>
+    <B>IN UINT</B>  <I>InterruptVector</I><B>,</B>
+    <B>IN UINT</B>  <I>InterruptLevel</I><B>,</B>
+    <B>IN BOOLEAN</B>  <I>RequestIsr</I><B>,</B>
+    <B>IN BOOLEAN</B>  <I>SharedInterrupt</I><B>,</B>
+    <B>IN NDIS_INTERRUPT_MODE</B>  <I>InterruptMode
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Interrupt</I></DT>
+
+<DD>Pointer to caller-allocated resident memory containing an opaque interrupt object, which <B>NdisMRegisterInterrupt</B> initializes and for which it returns a handle the miniport driver uses in subsequent calls to <A HREF="103ndisx_0rn6.htm"><B>NdisMSynchronizeWithInterrupt</B></A>. </DD>
+
+<DT><I>MiniportAdapterHandle</I></DT>
+
+<DD>Specifies the handle input to <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>.</DD>
+
+<DT><I>InterruptVector</I></DT>
+
+<DD>Specifies the bus-relative vector number used by the NIC. </DD>
+
+<DT><I>InterruptLevel</I></DT>
+
+<DD>Specifies the bus-relative DIRQL for the interrupt. This value is almost always the same as that of <I>InterruptVector</I>.</DD>
+
+<DT><I>RequestIsr</I></DT>
+
+<DD>Specifies TRUE if the <A HREF="101mini_38c2.htm"><I>MiniportISR</I></A> function should be called each time the NIC interrupts. If the NIC can share an interrupt with other devices on the I/O bus, this parameter must be set to TRUE. </DD>
+
+<DT><I>SharedInterrupt</I></DT>
+
+<DD>Specifies TRUE if other devices on the I/O bus can use this interrupt line. If this parameter is set to FALSE and another device already claimed the given interrupt vector in the registry, <B>NdisMRegisterInterrupt</B> will fail.</DD>
+
+<DT><I>InterruptMode</I></DT>
+
+<DD>Specifies the type of interrupt that the NIC generates as one of the following values:
+
+<DL>
+<DT><B>NdisInterruptLatched</B></DT>
+
+<DD>Interrupts are triggered by a transition from low to high on the interrupt line.</DD>
+
+<DT><B>NdisInterruptLevelSensitive</B></DT>
+
+<DD>Interrupts are active as long as the interrupt line is asserted.
+</DD>
+</DL>
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>NdisMRegisterInterrupt</B> can return one of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>NDIS initialized the interrupt object and returned a valid <I>Interrupt</I> handle, claimed hardware resources in the registry for the NIC, such as the given vector if the NIC does not share an IRQ, and set up the <A HREF="101mini_38c2.htm"><I>MiniportISR</I></A> (or <A HREF="101mini_0jg2.htm"><I>MiniportDisableInterrupt</I></A>) and associated <A HREF="101mini_7s36.htm"><I>MiniportHandleInterrupt</I></A> functions to be called when an interrupt occurs as requested in the call to <B>NdisMRegisterInterrupt</B>. </DD>
+
+<DT>NDIS_STATUS_RESOURCE_CONFLICT</DT>
+
+<DD>An attempt to claim the vector or level in the registry has failed, possibly because another driver already claimed the interrupt for its device. <B>NdisMRegisterInterrupt</B> logs an error if this occurs. </DD>
+
+<DT>NDIS_STATUS_RESOURCES</DT>
+
+<DD>NDIS could not allocate sufficient memory to claim resources in the registry for the NIC. </DD>
+
+<DT>NDIS_STATUS_FAILURE</DT>
+
+<DD>The attempt to initialize the interrupt object failed, possibly due to another driver’s prior claim on the <I>InterruptVector</I> or <I>InterruptLevel</I> in the registry. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A NIC driver must call <B>NdisMRegisterInterrupt</B> from its <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A> function if its NIC generates interrupts. The driver of a NIC that does not generate interrupts calls <A HREF="103ndisx_87aq.htm"><B>NdisMInitializeTimer</B></A> and <A HREF="103ndisx_4lte.htm"><B>NdisMSetPeriodicTimer</B></A> instead of <B>NdisMRegisterInterrupt</B>. </P>
+
+<P><I>MiniportInitialize</I> must call <A HREF="103ndisx_175e.htm"><B>NdisMSetAttributes</B></A> or <A HREF="103ndisx_1pmb.htm"><B>NdisMSetAttributesEx</B></A> before calling <B>NdisMRegisterInterrupt</B>. </P>
+
+<P><I>MiniportInitialize</I> obtained the bus-relative values passed to <B>NdisMRegisterInterrupt</B> either from the registry or by calling a bus-type-specific <B>Ndis</B><I>Xxx</I> configuration function. </P>
+
+<P>If its call to <B>NdisMRegisterInterrupt</B> fails, <I>MiniportInitialize</I> should release all resources it already allocated for its NIC and, then, fail initialization for that NIC. </P>
+
+<P><B>NdisMRegisterInterrupt</B> distinguishes between the <I>InterruptVector</I> (the interrupt line that the card asserts to interrupt the system) and the <I>InterruptLevel</I> (the hardware priority, that is, the DIRQL, of that interrupt assigned by the system). Usually, these values can be assumed to be equal, unless the driver writer knows that they are different for a particular NIC or unless the miniport driver controls more than one NIC that share resources in the current platform. </P>
+
+<P>If its NIC can share an IRQ with other devices on the I/O bus, the caller of <B>NdisMRegisterInterrupt</B> must set both the <I>SharedInterrupt</I> and <I>RequestIsr</I> parameters to TRUE. Such a NIC driver’s <A HREF="101mini_38c2.htm"><I>MiniportISR</I></A> can be called when no interrupt for the NIC is outstanding. In these circumstances, <I>MiniportISR</I> should return FALSE as soon as possible, indicating that the interrupt was not recognized and should leave interrupts enabled on its NIC.</P>
+
+<P>When interrupts are enabled on the NIC, a driver’s <I>MiniportISR </I>can be called at any time following a successful call to <B>NdisMRegisterInterrupt</B>, even during initialization. Such a driver’s <I>MiniportInitialize</I> function should not call <B>NdisMRegisterInterrupt</B> until it has set up all state the driver needs to handle an interrupt. The <A HREF="101mini_7s36.htm"><I>MiniportHandleInterrupt</I></A> function is not queued for subsequent execution if the driver’s <I>MiniportInitialize</I> function is currently executing and an interrupt occurs.</P>
+
+<P>For most drivers of NICs that do not share an IRQ, the <I>MiniportISR</I> function seldom runs except, possibly, during driver initialization. Such a miniport driver sets <I>RequestIsr</I> to FALSE when <I>MiniportInitialize</I> calls <B>NdisMRegisterInterrupt</B>, and such a driver has a <A HREF="101mini_0jg2.htm"><I>MiniportDisableInterrupt</I></A> function and, possibly, a <A HREF="101mini_222a.htm"><I>MiniportEnableInterrupt</I></A> function. The NDIS library then calls the driver’s <I>MiniportDisableInterrupt</I> function when an interrupt occurs on the NIC and the driver’s <I>MiniportHandleInterrupt</I> function does most of the I/O processing for the interrupt. Before <I>MiniportHandleInterrupt</I> returns control, either NDIS calls <I>MiniportEnableInterrupt</I> or <I>MiniportHandleInterrupt</I> reenables interrupts on the NIC itself. </P>
+
+<P>Whether a miniport driver with an ISR sets <I>RequestIsr</I> to TRUE when it calls <B>NdisMRegisterInterrupt</B> or not, NDIS acknowledges the interrupt to the operating system so that interrupts from other devices are not blocked. </P>
+
+<P>If a miniport driver sets <I>RequestIsr</I> to TRUE when it calls <B>NdisMRegisterInterrupt</B>, it must dismiss the interrupt on its NIC by setting the state of the network interface card so that the NIC no longer asserts the interrupt. Interrupts can remain enabled on the NIC following the dismissal of the interrupt, or they can be disabled, depending on the design of the driver. The timing of such a dismissal depends on the <I>InterruptMode</I> specified when the driver called <B>NdisMRegisterInterrupt</B>, as follows:
+
+<UL>
+	<LI>For <B>NdisInterruptLevelSensitive</B> interrupts, <I>MiniportISR</I> must dismiss each interrupt as its NIC generates that interrupt. Otherwise, the interrupt is reasserted on the NIC as soon as <I>MiniportISR</I> returns control. If <I>MiniportISR</I> determines that the NIC did not generate a particular interrupt, it should return control with FALSE as soon as possible so that the ISRs for other devices on the same bus can be called promptly to dismiss the interrupt on the device that actually generated that interrupt. </LI>
+
+	<LI>For <B>NdisInterruptLatched</B> interrupts, dismissing an interrupt on the NIC is not as time-critical as it is for shared interrupts. If the miniport driver is designed such that each call to <I>MiniportISR</I> causes a subsequent call to the associated <I>MiniportHandleInterrupt</I> function, <I>MiniportHandleInterrupt </I>can dismiss the interrupt on the NIC. As an alternative, such a driver can set <I>RequestIsr</I> to FALSE when it calls <B>NdisMRegisterInterrupt</B> and supply a <I>MiniportDisableInterrupt</I> function, which will be called instead of <I>MiniportISR</I> unless <I>MiniportHalt</I> or <I>MiniportInitialize</I> is currently executing. </LI>
+</UL>
+
+<P>When a miniport driver supports full-duplex sends and receives, NDIS serializes calls to its <I>MiniportISR</I> or <I>MiniportDisableInterrup</I>t function for sends. NDIS separately serializes calls to its <I>MiniportISR</I> or <I>MiniportDisableInterrupt</I> function for all other operations that can cause an interrupt. Calls to the <I>MiniportReset</I> function are both synchronized and synchronous; NDIS prevents all other code paths in a full-duplex miniport driver from being entered while a device-reset operation is occurring. </P>
+
+<P>If a miniport driver does not support full-duplex sends and receives, NDIS serializes all calls to the <I>MiniportISR</I> or <I>MiniportDisableInterrupt</I> function for any NIC the miniport driver controls. While such a driver’s MiniportISR or <I>MiniportDisableInterrupt</I> function is processing a particular NIC interrupt, it will not be called to handle a second interrupt from the same NIC on another processor in an SMP machine. </P>
+
+<P>However, the ISR (or <I>MiniportDisableInterrupt</I> function) of any driver that controls more than one device can run concurrently in SMP platforms if two of that driver’s devices happen to generate interrupts almost simultaneously and interrupts are enabled on the NIC. </P>
+
+<P>If it is possible that an interrupt can occur while another driver function is accessing resources that also can be accessed from <I>MiniportISR</I> or <I>MiniportDisableInterrupt</I>, the other function must call <A HREF="103ndisx_0rn6.htm"><B>NdisMSynchronizeWithInterrupt</B></A> to have the driver-supplied <A HREF="101mini_1tyq.htm"><I>MiniportSynchronizeISR</I></A> function access the shared resources at DIRQL.</P>
+
+<P>Callers of <B>NdisMRegisterInterrupt</B> run at IRQL = PASSIVE_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_0jg2.htm"><I>MiniportDisableInterrupt</I></A>, <A HREF="101mini_222a.htm"><I>MiniportEnableInterrupt</I></A>, <A HREF="101mini_7s36.htm"><I>MiniportHandleInterrupt</I></A>, <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, <A HREF="101mini_38c2.htm"><I>MiniportISR</I></A>, <A HREF="101mini_5hiq.htm"><I>MiniportReset</I></A>, <A HREF="101mini_1tyq.htm"><I>MiniportSynchronizeISR</I></A>, <A HREF="101mini_81v6.htm"><I>MiniportTimer</I></A>, <A HREF="103ndisx_7g1e.htm"><B>NdisMDeregisterInterrupt</B></A>, <A HREF="103ndisx_87aq.htm"><B>NdisMInitializeTimer</B></A>, <A HREF="103ndisx_76nm.htm"><B>NdisMPciAssignResources</B></A>, <A HREF="103ndisx_175e.htm"><B>NdisMSetAttributes</B></A>, <A HREF="103ndisx_1pmb.htm"><B>NdisMSetAttributesEx</B></A>, <A HREF="103ndisx_4lte.htm"><B>NdisMSetPeriodicTimer</B></A>, <A HREF="103ndisx_0rn6.htm"><B>NdisMSynchronizeWithInterrupt</B></A>, <A HREF="103ndisx_7b76.htm"><B>NdisOpenConfiguration</B></A>, <A HREF="103ndisx_019v.htm"><B>NdisReadEisaSlotInformation</B></A>, <A HREF="103ndisx_3egi.htm"><B>NdisReadPciSlotInformation</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisMRegisterInterrupt"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

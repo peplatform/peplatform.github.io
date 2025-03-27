@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Headless Support</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Headless Support">
+<META NAME="MS-HKWD" CONTENT="EMS (Emergency Management Services)">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Appendix:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_supp_headless_support"></A>Headless Support</H1>
+
+<P>Windows&nbsp;XP provides native support for "headless server" operation on server platforms — that is, support for operating without a local display or input devices. Microsoft and Intel worked with the computer industry to define firmware and hardware requirements for server operations that include requirements for headless operation under Windows&nbsp;XP as part of Hardware Design Guide Version 3.0 for Microsoft Windows&nbsp;2000 Server, which is available for download at the Microsoft <a href="http://go.microsoft.com/fwlink/?linkid=10188&clcid=0x409" target="_blank">Hardware Design Guide for Windows Server</A> Web site.</P>
+
+<P>Additionally, Microsoft provides detailed documentation on how to design hardware and firmware that integrates well with headless server support included in Windows&nbsp;XP. For additional technical information about Windows support for headless operation, see the Microsoft <a href="http://go.microsoft.com/fwlink/?linkid=8757&clcid=0x409" target="_blank">headless server and EMS design</A> Web site.</P>
+
+<H3>Providing Out-of-Band Management</H3>
+
+<P>Windows provides many mechanisms for remotely managing a system when the operating system is loaded, fully initialized, and the system is functioning. This type of system management is called “in-band” management, and it typically occurs over the network. However, a different solution is required for managing a system when Windows network software is unavailable. For example, when the system has failed, when Windows is not loaded, when the system is in the process of loading, or when Windows is fully loaded, but the Windows network software is not available. Remote management that does not rely on Windows network software is called “out-of-band” management.</P>
+
+<P>The goal for out-of-band management is to always return the system to a fully functioning state where in-band management is available. Making both in-band and out-of-band management available remotely are key components of headless functionality. With the exception of hardware replacement, all administrative functions that can be accomplished locally should be available remotely. For example, the following capabilities should be available for remote management: 
+
+<UL>
+	<LI>Power on a system that is currently off. </LI>
+
+	<LI>Change BIOS settings or view POST results. </LI>
+
+	<LI>Choose the operating system and set operating system options.</LI>
+
+	<LI>Interact with specific diagnostic and recovery tools.</LI>
+
+	<LI>View system blue screens. </LI>
+
+	<LI>Reset a system.</LI>
+</UL>
+
+<P>To accommodate the many possible system operation states, careful thought must be given to hardware, firmware, and operating system functionality to ensure a comprehensive and complementary implementation of out-of-band management capabilities. Each system component must contribute to a coherent, complementary solution in order to avoid expensive, confusing administration.</P>
+
+<H3>Implementing Headless Support in Windows&nbsp;XP</H3>
+
+<P>A headless solution requires that local console I/O dependencies be removed from the operating system. Windows&nbsp;XP supports operating without a keyboard, mouse, or monitor attached to the system. On an ACPI-enabled system, Windows&nbsp;XP supports operating without a legacy 8042 keyboard controller. Windows&nbsp;XP also includes support for systems without VGA/display hardware. </P>
+
+<P>Based on built-in Windows support, a USB-capable system running Windows&nbsp;XP can support hot plugging the mouse and keyboard while the operating system is running, and a system with a VGA card can support hot plugging a monitor. </P>
+
+<P>In Windows&nbsp;XP, out-of-band console I/O support is provided for all Windows kernel components—the loader, setup, recovery console, operating system kernel, and blue screens — and for a text-mode management console available after Windows&nbsp;XP has initialized, which is called the Special Administration Console. This functionality is called the Emergency Management Services (EMS). This I/O conforms to the following by default: </P>
+
+<P class=indent1>9600 baud <BR>
+1 stop bit<BR>
+No parity<BR>
+8 data bits<BR>
+Hardware flow control </P>
+
+<P>Output conventions are defined in <I>Standardizing Out-of-Band Management Console Output and Terminal Emulation (VT-UTF8 and VT100+)</I>, available on Microsoft <a href="http://go.microsoft.com/fwlink/?linkid=8757&clcid=0x409" target="_blank">headless server and EMS design</A> Web site.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;These settings were chosen because they are the current “standard” configuration in UNIX administration and allow interoperability. However, additional settings are supported and may be passed through the Serial Port Console Redirection Table; documentation is available on Microsoft <a href="http://go.microsoft.com/fwlink/?linkid=8757&clcid=0x409" target="_blank">headless server and EMS design</A> Web site.</P>
+
+<H3>Designing Hardware and Firmware </H3>
+
+<P>There are three key areas that must be addressed to provide a high-quality headless platform that is cleanly integrated with Windows&nbsp;XP EMS:
+
+<UL>
+	<LI><B>Management port hardware:</B> Windows&nbsp;XP will support a standard legacy serial port.
+<P>The headless functionality in Windows&nbsp;XP supports a standard 16550 serial port at the legacy address of COM1, COM2, COM3, or COM4, 3F8, 2F8, 3E8, and 2E8, respectively, or a UART at well-known nonlegacy address. A server must provide at least one UART interface capable of being used by Windows&nbsp;XP EMS. See the item "Passing of the out-of-band communication channel configuration information from the firmware to Windows&nbsp;XP" below for more information on making the location of the UART well known. A separate debug port must also be available and may not be the same port as used for EMS.
+
+<P>When using a serial port connection to access Windows EMS support, all serial cables must be null modem cables that support the Carrier Detect (CD) signal. Windows will not provide console I/O if Carrier Detect is not active. 
+
+<P><B>Note:</B> Cables with Carrier Detect shorted to Ready to Send (RTS) will work.
+</LI>
+
+	<LI><B>Standardized firmware and service processor management console user interfaces:</B> It is important the system firmware and out-of-band management service processor user interface be available via the same out-of-band communication channel as the EMS. The firmware must cleanly hand off the communication channel to the EMS during the boot process. The firmware must use the same terminal definition as Windows&nbsp;XP EMS, which includes using the same keystrokes to represent not standardized keystrokes, such as F12.</LI>
+
+	<LI><B>Passing of the out-of-band communication channel configuration information from the firmware to Windows&nbsp;XP:</B> This is achieved via the Serial Port Console Redirection Table or optionally, on 64-bit systems, the EFI Console Device Path.</LI>
+</UL>
+
+<P>For more information, see the Microsoft <a href="http://go.microsoft.com/fwlink/?linkid=8757&clcid=0x409" target="_blank">headless server and EMS design</A> Web site.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Headless%20Support"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

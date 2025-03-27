@@ -1,0 +1,75 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Introduction to Port Class</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Introduction to Port Class">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_driverentry_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_introduction_to_port_class_ksg"></A>Introduction to Port Class</H2>
+
+<P>Most hardware drivers for PCI and ISA/DMA audio devices are based on the Port Class library, which is accessible through the PortCls system driver (<I>portcls.sys</I>). In Windows&nbsp;98/Me, and in Windows&nbsp;2000 and later, PortCls is an audio port-class driver that Microsoft includes as part of the operating system. PortCls simplifies the driver writer's task by supplying a set of port drivers that implement most of the generic KS-filter functionality. The hardware vendor has to supply only a set of miniport drivers to handle the hardware-specific functions of an audio adapter.</P>
+
+<P>Although hardware vendors do have other options for implementing KS filters for their audio devices, these options are both difficult and unnecessary for typical audio devices. A KS filter can be written to conform to either KS 1.0 (stream class driver) or KS 2.0 (AVStream), but a KS-1.0 filter cannot take advantages of improvements available only in AVStream, and an AVStream filter cannot run in Windows&nbsp;98/Me or Windows&nbsp;2000.</P>
+
+<P>In contrast, the Port Class library has remained stable since Windows&nbsp;98&nbsp;Second&nbsp;Edition. The internal implementation of PortCls can evolve to take advantage of kernel streaming improvements in successive Windows releases while maintaining compatibility with existing drivers.</P>
+
+<P>PortCls is implemented in system file <I>portcls.sys </I>as an export driver (a kernel-mode DLL) that provides kernel-streaming functionality for ISA/DMA and PCI audio device drivers. The <I>portcls.sys</I> file contains the following:
+
+<UL>
+	<LI>A set of helper functions that can be called by the adapter driver</LI>
+
+	<LI>A collection of <I>audio port </I>drivers</LI>
+</UL>
+
+<P>The hardware vendor for an audio device is responsible for providing an <I>adapter driver</I>. The adapter driver includes initialization and miniport-management code (including the <A HREF="JavaScript:hhobj_1.Click()"><B>DriverEntry</B></A> function) and a collection of <I>audio miniport </I>drivers.</P>
+
+<P>When the adapter driver loads, it creates a set of miniport driver objects and directs the PortCls system driver to create a corresponding set of port driver objects. (The code example in <A HREF="pcdesign_68mf.htm">Subdevice Creation</A> illustrates this process.) These port drivers are typically a subset of those that are available in the <I>portcls.sys</I> file. Each miniport driver binds itself to a matching port driver from <I>portcls.sys </I>to form a complete <I>subdevice </I>driver.<I> </I>The combination port-and-miniport subdevice driver is a kernel streaming (KS) filter (see <A HREF="aud-design_0m93.htm">Audio Filters</A>). For example, a typical adapter driver might contain three miniport drivers: WavePci, DMusUART, and Topology (with <A HREF="audmp-routines_6ier.htm"><B>IMiniportWavePci</B></A>, <A HREF="audmp-routines_4vjn.htm"><B>IMiniportDMus</B></A>, and <A HREF="audmp-routines_70z7.htm"><B>IMiniportTopology</B></A> interfaces). During initialization, these miniport drivers are bound to the WavePci, DMus, and Topology port drivers (with <A HREF="audmp-routines_8gc3.htm"><B>IPortWavePci</B></A>, <A HREF="audmp-routines_7pgz.htm"><B>IPortDMus</B></A>, and <A HREF="audmp-routines_1c8j.htm"><B>IPortTopology</B></A> interfaces) that are contained in the <I>portcls.sys</I> file. Each of these three subdevice drivers takes the form of a KS filter. The three filters together expose the complete functionality of the audio adapter.</P>
+
+<P>Typically, the port drivers provide the majority of the functionality for each class of audio subdevice. For example, the WaveCyclic port driver does most of the work that is required to stream audio data to a DMA-based audio device, whereas the miniport driver provides device-specific details such as the DMA address and device name.</P>
+
+<P>Audio adapter drivers and miniport drivers are typically written in C++ and make extensive use of COM interfaces. The port/miniport architecture promotes modular design. Miniport driver writers should implement their driver as a C++ class derived from the <A HREF="audmp-routines_64vn.htm"><B>IMiniport</B></A> interface, which is defined in the header file <I>portcls.h</I>. At driver load time, the adapter driver instantiates one or more <B>IMiniport</B>-derived classes, along with corresponding <A HREF="audmp-routines_0tgz.htm"><B>IPort</B></A>-derived classes, and binds them. Hardware initialization also takes place at driver load time—typically in the <B>Init</B> method of the <B>IMiniport</B>-derived class (for example, <A HREF="audmp-routines_12ur.htm"><B>IMiniportWavePci::Init</B></A>). For more information on COM implementations of audio miniport drivers, see <A HREF="pcdesign_3v3b.htm">COM in the Kernel</A>.</P>
+
+<P>The following diagram illustrates the relationship between port and miniport drivers and their position in the audio stack.</P>
+
+<P><IMG SRC="images/kemixer.gif" ALT="" BORDER=0></P>
+
+<P><B>Relationship Between Port and Miniport Drivers</B></P>
+
+<P>In the preceding figure, the shaded boxes represent driver components that the vendor provides. Note that the upper edge of each miniport driver interfaces to the lower edge of each port driver. For example, the WaveCyclic port driver exposes an <A HREF="audmp-routines_3rg3.htm"><B>IPortWaveCyclic</B></A> interface to the WaveCyclic miniport driver, which exposes an <A HREF="audmp-routines_8pir.htm"><B>IMiniportWaveCyclic</B></A> interface to the port driver. This document occasionally refers to these simply as <I>upper-edge </I>and <I>lower-edge </I>interfaces.</P>
+
+<P>The port class and AVStream class drivers are similar in that they are both WDM drivers, they support connection streaming architecture (CSA), and they interact with DirectShow® in the same manner. However, port class drivers differ from AVStream class drivers in the areas of multiprocessor handling and reentrancy. Port class drivers do the following:
+
+<UL>
+	<LI>Use a three-tiered approach that combines the class driver, port drivers, and vendor-supplied miniport drivers.</LI>
+
+	<LI>Have a restricted number of audio functions, allowing miniport drivers to operate closer to the audio hardware.</LI>
+
+	<LI>Allow several port or miniport drivers to be linked for a specific device. This feature allows for better support for multifunction cards.</LI>
+
+	<LI>Do not support external buses (for example, USB). All port drivers support devices that reside on the system buses (ISA, PCMCIA, and PCI).</LI>
+</UL>
+
+<P>The terminology for describing WDM audio ports and miniport drivers differs in some respects from the terms that are used for other classes of Windows® drivers. These differences are explained in <A HREF="aud-design_2m5j.htm">WDM Audio Terminology</A>.</P>
+
+<P>This section discusses the following topics:</P>
+
+<P class=indent1><A HREF="pcdesign_6mcn.htm">Implementation of Function-Specific Interfaces</A> </P>
+
+<P class=indent1><A HREF="pcdesign_78yv.htm">PortCls Support by Operating System</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Introduction%20to%20Port%20Class"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

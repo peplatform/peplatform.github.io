@@ -1,0 +1,49 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Binding with the MS TCP/IP-32 VxD</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_vxdtdi_binding_with_the_ms_tcp_ip_32_vxd"></A>Binding with the MS TCP/IP-32 VxD</H1>
+
+<P>In order to communicate with the TCP/IP VxD, a client must first get a pointer to the <B>TdiDispatchTable</B> for the VxD. This is done by communicating with the VTDI VxD. This VxD provides a service (VTDI_Get_Info) that takes in a protocol name and returns a pointer to a <B>TdiDispatchTable</B>. VTDI is device ID 0x488. A client VxD should call this service during Device_Init time. In order to initialize properly, a client VxD should have an initialization order of at least 0xc000 + VNETBIOS_Init_Order.</P>
+
+<P>VTDI_Get_Info takes the name of the protocol VxD as a parameter on the stack (as a case-sensitive NULL-terminated ASCII string), and returns the pointer to the <B>TdiDispatchTable</B> in EAX. EAX will be zero if the named protocol does not exist. The name of the MS TCP/IP-32 VxD is MSTCP. </P>
+
+<P>The following assembly code illustrates how to get the dispatch table:</P>
+
+<PRE>VTDI_Device_ID    equ    0488h
+include    vtdi.inc
+VxD_IDATA_SEG
+TCPName    db    'MSTCP', 0
+VxD_IDATA_ENDS
+VxD_ICODE_SEG
+BeginProc GetTCPDispatchTable
+ 
+; Make sure VTDI is present
+    VxDcall    VTDI_Get_Version
+    jc short Failure
+ 
+; VTDI is present. Get a pointer to the TCP dispatch table
+    push    OFFSET32 TCPName
+    VxDcall    VTDI_Get_Info
+    add    esp, 4
+ 
+; EAX contains a pointer to the DispatchTable, or 0 if TCP isn't available.
+    ret
+ 
+Failure:
+; VTDI isn't present.
+    sub    eax, eax
+    ret
+ 
+EndProc GetTCPDispatchTable
+VxD_ICODE_END</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Binding%20with%20the%20MS%20TCP%2FIP-32%20VxD"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

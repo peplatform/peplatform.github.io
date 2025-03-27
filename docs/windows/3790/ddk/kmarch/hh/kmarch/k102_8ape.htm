@@ -1,0 +1,79 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ExAcquireSharedWaitForExclusive</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ExAcquireSharedWaitForExclusive">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_exacquiresharedwaitforexclusive_kr"></A>ExAcquireSharedWaitForExclusive</H1>
+
+<P>The <B>ExAcquireSharedWaitForExclusive</B> routine acquires the given resource for shared access if shared access can be granted and there are no exclusive waiters. </P>
+
+<PRE class=syntax><B>BOOLEAN 
+</B>  <B>ExAcquireSharedWaitForExclusive(</B>
+    <B>IN PERESOURCE</B>  <I>Resource</I><B>,</B>
+    <B>IN BOOLEAN</B>  <I>Wait</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Resource</I></DT>
+
+<DD>Pointer to the resource to be acquired for shared access.</DD>
+
+<DT><I>Wait</I></DT>
+
+<DD>Specifies the routine's behavior whenever the resource cannot be acquired immediately. If TRUE, the caller is put into a wait state until the resource can be acquired. If FALSE, the routine immediately returns, whether or not the resource can be acquired.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>ExAcquireSharedWaitForExclusive</B> returns TRUE if the requested access is granted or an exclusive owner releases the resource. This routine returns FALSE if the input <I>Wait</I> is FALSE and shared access cannot be granted immediately. </P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ntddk.h</I>. Include <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Most drivers should use <A HREF="k102_1u0i.htm"><B>ExAcquireResourceSharedLite</B></A> instead of <B>ExAcquireSharedWaitForExclusive</B>.</P>
+
+<P>The caller can release the resource by calling either <A HREF="k102_25yq.htm"><B>ExReleaseResourceLite</B></A> or <A HREF="k102_7rjm.htm"><B>ExReleaseResourceForThreadLite</B></A>.</P>
+
+<P>If shared access cannot be granted immediately, the caller can wait for other threads to acquire and release exclusive ownership of the resource.</P>
+
+<P>Whether or when the caller is given shared access to the given resource depends on the following:
+
+<UL>
+	<LI>If the resource is currently unowned, shared access is granted immediately to the current thread.</LI>
+
+	<LI>If the caller already has exclusive access to the resource, the current thread is granted the same type of access recursively. </LI>
+
+	<LI>If the resource is currently owned as shared and there are no pending attempts to acquire exclusive access, shared access is granted to the caller immediately. </LI>
+
+	<LI>If the resource is currently owned as shared but there is a pending attempt to acquire exclusive access, the caller either is put into a wait state (<I>Wait</I> set to TRUE) or <B>ExAcquireSharedWaitForExclusive</B> returns FALSE. 
+<P>When the current thread waits to acquire the resource until after a pending exclusive ownership has been released, <B>ExAcquireSharedWaitForExclusive</B> returns TRUE when the current thread is granted shared access to the resource and resumes execution. 
+</LI>
+</UL>
+
+<P>The behavior of <B>ExAcquireSharedWaitForExclusive</B> is identical to that of <A HREF="k102_1u0i.htm"><B>ExAcquireResourceSharedLite</B></A> unless the calling thread already owns the resource as shared and there are exclusive waiters. In that case, <B>ExAcquireSharedWaitForExclusive</B> allows the exclusive waiters to acquire exclusive ownership of the resource.</P>
+
+<P>If the caller specifies TRUE for the <I>Wait</I> parameter, the caller blocks until another thread frees the resource on behalf of the caller, using <A HREF="k102_6yb6.htm"><B>ExReleaseResourceForThread</B></A>. Driver writers must be careful to ensure that another thread actually releases the resource; otherwise the caller is deadlocked. <B>ExAcquireResourceSharedLite</B> does not have this property, so drivers should use that routine unless they require the particular behavior of <B>ExAcquireSharedWaitForExclusive</B>.</P>
+
+<P>Normal kernel APC delivery must be disabled before calling this routine. Disable normal kernel APC delivery by calling <A HREF="k105_70du.htm"><B>KeEnterCriticalRegion</B></A>. Delivery must remain disabled until the resource is released, at which point it can be reenabled by calling <A HREF="k105_033m.htm"><B>KeLeaveCriticalRegion</B></A>.</P>
+
+<P>Callers of <B>ExAcquireSharedWaitForExclusive</B> must be running at IRQL&nbsp;&lt; DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k102_1u0i.htm"><B>ExAcquireResourceSharedLite</B></A>, <A HREF="k102_316a.htm"><B>ExAcquireSharedStarveExclusive</B></A>, <A HREF="k102_6b02.htm"><B>ExConvertExclusiveToSharedLite</B></A>, <A HREF="k102_4fua.htm"><B>ExGetExclusiveWaiterCount</B></A>, <A HREF="k102_2g4y.htm"><B>ExIsResourceAcquiredExclusiveLite</B></A>, <A HREF="k102_4pte.htm"><B>ExIsResourceAcquiredSharedLite</B></A>, <A HREF="k102_6yb6.htm"><B>ExReleaseResourceForThread</B></A>, <A HREF="k102_61bm.htm"><B>ExTryToAcquireResourceExclusiveLite</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ExAcquireSharedWaitForExclusive"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

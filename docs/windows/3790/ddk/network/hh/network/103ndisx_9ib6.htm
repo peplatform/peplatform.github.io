@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisReset</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisReset">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndisreset_nr"></A>NdisReset</H1>
+
+<P><B>NdisReset</B> forwards a reset request to an underlying driver. </P>
+
+<PRE class=syntax><B>VOID
+  NdisReset(
+    OUT PNDIS_STATUS</B>  <I>Status</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisBindingHandle</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Status</I></DT>
+
+<DD>Pointer to a caller-supplied variable that is set on return from this function. The underlying driver determines which NDIS_STATUS_<I>XXX</I> is returned, but it is usually one of the following values: 
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>The underlying driver reset its NIC (or virtual NIC) to its initial state. </DD>
+
+<DT>NDIS_STATUS_PENDING</DT>
+
+<DD>The request is being handled asynchronously, and the caller’s <A HREF="104tdlow_0yya.htm"><I>ProtocolResetComplete</I></A> function will be called when it is completed. </DD>
+
+<DT>NDIS_STATUS_RESET_IN_PROGRESS</DT>
+
+<DD>The underlying driver is currently resetting its NIC so this request is superfluous. Moreover, the caller’s <A HREF="104tdlow_6e42.htm"><I>ProtocolStatus</I></A> function was or will be called with NDIS_STATUS_RESET_START to indicate that a reset is in progress. </DD>
+
+<DT>NDIS_STATUS_NOT_RESETTABLE</DT>
+
+<DD>The underlying NIC cannot be reset by software commands. </DD>
+
+<DT>NDIS_STATUS_ADAPTER_REMOVED or NDIS_STATUS_FAILURE</DT>
+
+<DD>The caller’s binding is already closed so no reset will be attempted for this caller. </DD>
+
+<DT>NDIS_STATUS_CLOSING</DT>
+
+<DD>The caller’s binding is currently being closed so no reset will be attempted for this caller. </DD>
+
+<DT>NDIS_STATUS_SOFT_ERRORS</DT>
+
+<DD>The underlying NIC driver reset the netcard but one or more recoverable hardware errors occurred during this operation. The NIC driver has logged the error(s). </DD>
+
+<DT>NDIS_STATUS_HARD_ERRORS</DT>
+
+<DD>The underlying NIC driver attempted to reset the netcard but one or more unrecoverable hardware errors occurred during this operation. The NIC driver has logged the error(s). </DD>
+
+<DT>NDIS_STATUS_NOT_ACCEPTED</DT>
+
+<DD>This value usually is a nonspecific default, returned when none of the more specific NDIS_STATUS_<I>XXX</I> caused NDIS or the underlying NIC driver to fail the request. </DD>
+</DL>
+</DD>
+
+<DT><I>NdisBindingHandle</I></DT>
+
+<DD>Specifies the handle returned by <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A> that identifies the target NIC or the virtual adapter of the next-lower driver to which the caller is bound. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>When a protocol calls <B>NdisReset</B>, the NDIS library does not call the <A HREF="101mini_5hiq.htm"><I>MiniportReset</I></A> function of the underlying NIC driver until NDIS has completed any internally queued send requests back to the initiating protocol(s). Only after NDIS has cleared its send queue for the underlying driver does it call that driver’s <I>MiniportReset</I> function. </P>
+
+<P>If the underlying driver queues send packets internally, it also completes any send packets it is currently holding in its queue before attempting to reset its NIC. </P>
+
+<P>Consequently, all protocol drivers bound above the same NIC should hold on to their outstanding send packets during a reset operation. At the start of a reset, NDIS calls the <A HREF="104tdlow_6e42.htm"><I>ProtocolStatus</I></A> function of each bound protocol with NDIS_STATUS_RESET_START and, then, the corresponding <A HREF="104tdlow_3lrm.htm"><I>ProtocolStatusComplete</I></A> function. When the reset operation is done, NDIS calls the <I>ProtocolStatus</I> function of each bound protocol again with NDIS_STATUS_RESET_END and, then, the corresponding <I>ProtocolStatusComplete</I> function. </P>
+
+<P>Like any other driver bound above the same NIC, the <I>ProtocolStatus</I> and <I>ProtocolStatusComplete</I> functions of the driver that called <B>NdisReset</B> receive these notifications. However, if <B>NdisReset</B> returns STATUS_PENDING, only the <A HREF="104tdlow_0yya.htm"><I>ProtocolResetComplete</I></A> function of the original caller is notified when the reset operation is done. </P>
+
+<P>A protocol bound to NDISWAN should <I>never</I> call <B>NdisReset</B>. </P>
+
+<P>Callers of <B>NdisReset</B> run at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_5hiq.htm"><I>MiniportReset</I></A>, <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A>, <A HREF="104tdlow_0yya.htm"><I>ProtocolResetComplete</I></A>, <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A>, <A HREF="104tdlow_6e42.htm"><I>ProtocolStatus</I></A>, <A HREF="104tdlow_3lrm.htm"><I>ProtocolStatusComplete</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisReset"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

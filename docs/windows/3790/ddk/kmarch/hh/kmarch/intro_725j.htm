@@ -1,0 +1,57 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Multiprocessor-Safe</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Multiprocessor-Safe">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_dispatcher_objects_kg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_multiprocessor_safe_kg"></A>Multiprocessor-Safe</H2>
+
+<P>In any Windows multiprocessor platform, the following conditions hold:
+
+<UL>
+	<LI>All CPUs are identical, and either all have identical coprocessors or none has a coprocessor.</LI>
+
+	<LI>All CPUs share memory and have uniform access to memory.</LI>
+
+	<LI>In a <I>symmetric</I> platform, every CPU can access memory, take an interrupt, and access I/O control registers. (By contrast, in an <I>asymmetric</I> multiprocessor machine, one CPU would take all interrupts for a set of slave CPUs.)</LI>
+</UL>
+
+<P>The NT-based operating system is designed to run uniformly on uniprocessor and symmetric multiprocessor platforms, and kernel-mode drivers should be designed to do likewise.</P>
+
+<P>To run safely on a symmetric multiprocessor (SMP) platform, any operating system must solve this problem: how to guarantee that code executing on one processor does not simultaneously access and modify data that is being accessed and modified from another processor. For example, a lowest-level driver's ISR that is handling a device interrupt on one processor must have exclusive access to critical, driver-defined data (or the device registers) in case its device interrupts simultaneously on another processor.</P>
+
+<P>Furthermore, drivers' I/O operations that are serialized in a uniprocessor machine can be overlapped in an SMP machine. That is, a driver's routine that processes incoming I/O requests can be executing on one processor while another routine that communicates with the device executes concurrently on another processor. Whether they are running on a uniprocessor or symmetric multiprocessor machine, this situation requires all kernel-mode drivers, including WDM drivers, to synchronize access to any driver-defined data or system-provided resources that are shared among driver routines and to synchronize access to the physical device, if any.</P>
+
+<P>The NT Kernel component exports a mechanism, called a <A HREF="synchro_8unb.htm">spin lock</A>, that is used to protect shared data (or device registers) from simultaneous access by one or more routines running concurrently on a symmetric multiprocessor platform. The Kernel enforces two policies regarding the use of spin locks:
+
+<UL>
+	<LI>Only one routine can hold a particular spin lock at any given moment; only the holder of a spin lock can access the data it protects. Another routine must acquire the spin lock in order to access the same data, but the spin lock cannot be acquired until the current holder releases it.</LI>
+
+	<LI>Like a hardware or software interrupt vector, the Kernel assigns each spin lock in the system an associated IRQL value. A kernel-mode routine can acquire a particular spin lock only when the routine is run at the spin lock's assigned IRQL.</LI>
+</UL>
+
+<P>These policies prevent a driver routine that usually runs at a lower IRQL but is currently holding a spin lock from being preempted by a higher priority driver routine that is trying to acquire the same spin lock, thereby causing a deadlock.</P>
+
+<P>The IRQL assigned to a spin lock is generally that of the highest-IRQL routine that can acquire the spin lock. For example, a lowest-level driver's ISR frequently shares a state area with the driver's DPC routine, which calls a driver-supplied critical-section routine to access the shared area. In this case, the spin lock protecting the shared area has an IRQL equal to the DIRQL at which the device interrupts. While the critical-section routine holds the spin lock and accesses the shared area at DIRQL, the ISR cannot be run in a uniprocessor machine because the device interrupt is masked off, as mentioned in <A HREF="intro_525j.htm">Always Preemptible and Always Interruptible</A>. And in a symmetric multiprocessor machine, the ISR still cannot acquire the spin lock protecting the shared data while the critical-section routine holds the spin lock and accesses the shared data at DIRQL.</P>
+
+<P>A set of kernel-mode threads can synchronize access to shared data or resources by waiting on one of the Kernel's <A HREF="JavaScript:hhobj_1.Click()">dispatcher objects</A>: an event, mutex, semaphore, timer, or another thread. However, most drivers do not set up their own threads because they have better performance when they avoid thread-context switches. Time-critical kernel-mode support routines and drivers must use the Kernel's spin locks to synchronize access to shared data or resources whenever they run at IRQL = DISPATCH_LEVEL or at DIRQL.</P>
+
+<P>For more information, see <A HREF="synchro_8unb.htm">Spin Locks</A>, <A HREF="intrupts_0kh3.htm">Managing Hardware Priorities</A>, and <A HREF="synchro_4s9z.htm">Kernel Dispatcher Objects</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Multiprocessor-Safe"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

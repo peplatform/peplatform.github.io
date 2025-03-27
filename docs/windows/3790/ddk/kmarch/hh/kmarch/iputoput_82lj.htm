@@ -1,0 +1,45 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Allocating an Adapter Channel for Common-Buffer System DMA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_allocating_an_adapter_channel_for_common_buffer_system_dma_kg"></A>Allocating an Adapter Channel for Common-Buffer System DMA</H4>
+
+<P>A driver calls <A HREF="kdma_92r6.htm"><B>AllocateAdapterChannel</B></A> after its <A HREF="drvrrtns_7s4y.htm"><I>DispatchRead</I></A> or <A HREF="drvrrtns_6mr6.htm"><I>DispatchWrite</I></A> routine (or any other dispatch routine that handles a DMA transfer) has checked the validity of the IRP's parameters, possibly queued one or more IRPs to another driver routine for further processing, and possibly loaded its common buffer with data to be transferred, if appropriate. </P>
+
+<P>The driver routine that calls <B>AllocateAdapterChannel</B> must be executing at IRQL DISPATCH_LEVEL. The <B>AllocateAdapterChannel</B> routine queues the driver's <A HREF="drvrrtns_7vea.htm"><I>AdapterControl</I></A> routine, which runs after the system DMA controller has been assigned to this driver and a set of <A HREF="memmgmt_5ag7.htm">map registers</A> has been allocated for the driver's DMA operation.</P>
+
+<P>On entry, the <I>AdapterControl</I> routine is given pointers to the device object and context passed in the call to <B>AllocateAdapterChannel</B>, as well as a handle for the allocated map registers. The <I>AdapterControl</I> routine also is given a pointer to the <B>DeviceObject-&gt;CurrentIrp</B> if the driver has a <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A> routine. If the driver manages its own queuing of IRPs instead of having a <I>StartIo</I> routine, the driver should include a pointer to the current IRP as part of the context data it passes when it calls <B>AllocateAdapterChannel</B>.</P>
+
+<P>The <I>AdapterControl</I> routine typically does the following:
+
+<OL>
+	<LI>Saves or initializes whatever context the driver maintains about DMA operations. The context might include the input <I>MapRegisterBase</I> handle the driver must pass to <A HREF="kdma_1hv6.htm"><B>MapTransfer</B></A> and <A HREF="kdma_9cxe.htm"><B>FlushAdapterBuffers</B></A> and, possibly, the <B>Length</B> of the requested transfer from its I/O stack location in the IRP.</LI>
+
+	<LI>Sets up the slave device to start the transfer operation.</LI>
+
+	<LI>Returns the value <B>KeepObject.</B></LI>
+</OL>
+
+<P>For additional information, see <A HREF="iputoput_1msn.htm">Writing <I>AdapterControl</I> Routines</A>.</P>
+
+<P>For drivers that use a system DMA controller's auto-initialize mode, the <I>AdapterControl</I> routine must return the value <B>KeepObject</B>. This allows the driver to retain "ownership" of the system DMA controller and allocated map register(s) until it has transferred all the data.</P>
+
+<P>Because an <I>AdapterControl</I> routine cannot wait for the slave device to carry out the DMA operation, the <I>AdapterControl</I> routine must at least do the following:
+
+<OL>
+	<LI>Save context information, particularly the <I>MapRegisterBase</I> handle, in the driver's device extension, controller extension, or other driver-accessible resident storage area (nonpaged pool allocated by the driver).</LI>
+
+	<LI>Return <B>KeepObject</B>.</LI>
+</OL>
+
+<P>Another driver routine (probably the <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> routine) must call <A HREF="kdma_9cxe.htm"><B>FlushAdapterBuffers</B></A> and <A HREF="kdma_3bua.htm"><B>FreeAdapterChannel</B></A> when the DMA transfer operation is complete.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Allocating%20an%20Adapter%20Channel%20for%20Common-Buffer%20System%20DMA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

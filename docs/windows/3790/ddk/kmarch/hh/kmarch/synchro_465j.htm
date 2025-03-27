@@ -1,0 +1,42 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Providing Storage for Spin Locks and Protected Data</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Providing Storage for Spin Locks and Protected Data">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_providing_storage_for_spin_locks_and_protected_data_kg"></A>Providing Storage for Spin Locks and Protected Data</H2>
+
+<P>As part of device start-up, a driver must allocate resident storage for any spin-lock-protected data or resources and for corresponding spin locks in one of the following places: 
+
+<UL>
+	<LI>The device extension of a device object that the driver sets up by calling <A HREF="k104_8piq.htm"><B>IoCreateDevice</B></A><B> </B></LI>
+
+	<LI>The controller extension of a controller object that the driver sets up by calling <A HREF="k104_7zqq.htm"><B>IoCreateController</B></A><B> </B></LI>
+
+	<LI>Nonpaged, system-space memory that the driver obtains by calling <A HREF="k102_2omq.htm"><B>ExAllocatePoolWithTag</B></A></LI>
+</UL>
+
+<P>Attempting to access pageable data while holding a spin lock causes a fatal page fault if that page is not present. Referencing a spin lock that is invalid (because it was stored in pageable memory and is currently paged-out) also causes a fatal page fault. </P>
+
+<P>A driver must provide the storage for each of the following kinds of executive spin lock it might use: 
+
+<UL>
+	<LI>Any spin lock that the driver explicitly acquires and releases using any of the <B>Ke<I>Xxx</I></B> spin lock routines.  </LI>
+
+	<LI>Any spin lock used as a parameter to any of the <B>ExInterlocked<I>Xxx</I></B> routines.</LI>
+</UL>
+
+<P>While a driver can make calls to the <B>ExInterlocked<I>Xxx</I></B> routines from its ISR or <A HREF="drvrrtns_4m2a.htm"><I>SynchCritSection</I></A> routines, it cannot use any of the Ke<I>Xxx</I> routines to acquire and release spin locks at any IRQL greater than DISPATCH_LEVEL. Consequently, any driver that reuses a spin lock between calls to the <B>Ke<I>Xxx</I>SpinLock</B> and <B>ExInterlocked<I>Xxx</I></B> routines must make every call while running at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<P>A driver can pass the same spin lock to <B>ExInterlockedInsertHeadList</B> as it does to another <B>ExInterlocked<I>Xxx</I></B> routine, as long as both routines use the spin lock at the same IRQL. For more information about how spin lock usage affects performance, see <A HREF="synchro_8f1j.htm">Using Spin Locks: An Example</A>.</P>
+
+<P>In addition to the storage for its executive spin locks, a device driver must provide the storage for another spin lock to be associated with its interrupt objects if it has a multivector ISR or more than one ISR. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Providing%20Storage%20for%20Spin%20Locks%20and%20Protected%20Data"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

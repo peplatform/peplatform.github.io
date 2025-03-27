@@ -1,0 +1,59 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Getting the 16-bit Entry Points</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_getting_the_16_bit_entry_points_gg"></A>Getting the 16-bit Entry Points</H4>
+
+<P><B>This topic applies only to Windows 98/Me.</B></P>
+
+<P>The <B>DDNEWCALLBACKFNS</B> escape is sent next (this name is a misnomer and exists only for historical reasons). This escape gives the driver the addresses of key helper functions for use on the 16-bit side. These include the <A HREF="ddfncs_1naf.htm"><B>DDHAL_SetInfo</B></A>, <A HREF="ddfncs_8aef.htm"><B>DDHAL_VidMemAlloc</B></A>, and <A HREF="ddfncs_7vvr.htm"><B>DDHAL_VidMemFree</B></A> functions. However, <B>DDHAL_SetInfo</B> is usually the only one needed by your Windows 98/Me display GDI driver. </P>
+
+<P>The <B>lpSetInfo</B> member of the DDHALDDRAWFNS structure is the 16-bit entry point to the <B>DDHAL_SetInfo</B> function in <I>ddraw16.dll</I>. Calling the <B>DDHAL_SetInfo</B> function tells DirectDraw that the shared memory region between 16- and 32-bit address space has new data in it regarding a mode change or initialization. Again, the 16-bit code is necessary because of the existing 16-bit display GDI driver. For more information about using <B>DDHAL_SetInfo</B>, see <A HREF="ddraw_01pj.htm">Updating Information About the Driver</A>. </P>
+
+<P><IMG SRC="images/setinfo.gif" ALT="" BORDER=0></P>
+
+<P><B>Calling SetInfo for Initialization or Mode Change</B></P>
+
+<P>The following code shows how to use the <B>DDNEWCALLBACKFNS</B> escape (which is included as a continuation of the <I>Control</I> function in a display GDI driver for Windows&nbsp;98/Me): </P>
+
+<PRE>/*
+* this request gives us our DirectDraw routines to call
+*/
+if (pdci-&gt;dwCommand == DDNEWCALLBACKFNS)
+{
+    DPF("DDNEWCALLBACKFNS");
+    DriverData.HALCallbacks = *((LPDDHALDDRAWFNS)pdci-&gt;dwParam1);
+    return TRUE;
+}</PRE>
+
+<P>The following code from the <I>ddrawi.h</I> header shows the <I>ddraw16.dll</I> entry points and the DDHALDDRAWFNS structure: </P>
+
+<PRE>/*
+ * DDRAW16.DLL entry points
+ */
+typedef BOOL (DDAPI *LPDDHAL_SETINFO)( LPDDHALINFO lpDDHalInfo, BOOL reset );
+typedef FLATPTR (DDAPI *LPDDHAL_VIDMEMALLOC)( LPDDRAWI_DIRECTDRAW_GBL lpDD, int heap, DWORD dwWidth, DWORD dwHeight );
+typedef void (DDAPI *LPDDHAL_VIDMEMFREE)( LPDDRAWI_DIRECTDRAW_GBL lpDD, int heap, FLATPTR fpMem );
+
+extern BOOL DDAPI DDHAL_SetInfo( LPDDHALINFO lpDDHALInfo, BOOL reset );
+extern FLATPTR DDAPI DDHAL_VidMemAlloc( LPDDRAWI_DIRECTDRAW_GBL lpDD, int heap, DWORD dwWidth, DWORD dwHeight );
+extern void DDAPI DDHAL_VidMemFree( LPDDRAWI_DIRECTDRAW_GBL lpDD, int heap, FLATPTR fpMem );
+
+typedef struct
+{
+    DWORD                  dwSize;
+    LPDDHAL_SETINFO        lpSetInfo;
+    LPDDHAL_VIDMEMALLOC    lpVidMemAlloc;
+    LPDDHAL_VIDMEMFREE     lpVidMemFree;
+} DDHALDDRAWFNS;
+typedef DDHALDDRAWFNS FAR *LPDDHALDDRAWFNS;</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Getting%20the%2016-bit%20Entry%20Points"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

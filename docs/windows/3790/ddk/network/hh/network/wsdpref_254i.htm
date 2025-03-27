@@ -1,0 +1,131 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WSPGetOverlappedResult</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WSPGetOverlappedResult">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wspgetoverlappedresult_nr"></A>WSPGetOverlappedResult</H1>
+
+<P><B>WSPGetOverlappedResult</B> returns the results of an asynchronous (overlapped) operation on a socket. This operation previously indicated that it was pending completion. </P>
+
+<PRE class=syntax><B>BOOL 
+  WSPGetOverlappedResult(
+    IN SOCKET </B><I> s</I><B>,</B>
+<B>    IN LPWSAOVERLAPPED </B><I> lpOverlapped</I><B>,</B>
+<B>    OUT LPDWORD </B><I> lpcbTransfer</I><B>,</B>
+<B>    IN BOOL </B><I> fWait</I><B>,</B>
+<B>    OUT LPDWORD</B><I>  lpdwFlags</I><B>,</B>
+<B>    OUT LPINT </B><I> lpErrno</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>s</I></DT>
+
+<DD>Descriptor that identifies the socket. The switch specified this socket when it called the SAN service provider's <B>WSPRecv</B>, <B>WSPSend</B>, <B>WSPRdmaRead</B>, <B>WSPRdmaWrite</B>, or <B>WSPIoctl</B> function to start the overlapped operation. </DD>
+
+<DT><I>lpOverlapped</I></DT>
+
+<DD>Pointer to a <A HREF="wsdpref_4xo2.htm">WSAOVERLAPPED</A> structure that the switch specified when it started the overlapped operation.</DD>
+
+<DT><I>lpcbTransfer</I></DT>
+
+<DD>Pointer to a variable that receives the number of bytes that were actually transferred by a send or receive operation, or by <B>WSPIoctl</B>.</DD>
+
+<DT><I>fWait</I></DT>
+
+<DD>Boolean value that is TRUE to specify that <B>WSPGetOverlappedResult</B> must wait for the pending overlapped operation to complete before returning; and FALSE to specify that if the overlapped operation is still pending, <B>WSPGetOverlappedResult</B> must return FALSE and, at <I>lpErrno</I>, WSA_IO_INCOMPLETE. </DD>
+
+<DT><I>lpdwFlags</I></DT>
+
+<DD>Pointer to a variable that receives one or more flags that supplement the completion status. If the switch called <B>WSPRecv</B> to initiate the overlapped operation, <I>lpdwFlags</I> receives the results value for the flags that were specified in the <B>WSPRecv</B> call.</DD>
+
+<DT><I>lpErrno</I></DT>
+
+<DD>Pointer to a variable that receives the error code.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>Returns TRUE if successful; otherwise, returns FALSE and, at <I>lpErrno</I>, one of the following error codes: 
+
+<DL>
+<DT>WSAENETDOWN</DT>
+
+<DD>Network subsystem failed.</DD>
+
+<DT>WSAENOTSOCK</DT>
+
+<DD>Descriptor is not a socket.</DD>
+
+<DT>WSA_INVALID_HANDLE</DT>
+
+<DD>The <B>hEvent</B> member of the WSAOVERLAPPED structure does not contain a valid handle to an event object.</DD>
+
+<DT>WSA_INVALID_PARAMETER</DT>
+
+<DD>One of the parameters is unacceptable.</DD>
+
+<DT>WSA_IO_INCOMPLETE</DT>
+
+<DD>The I/O operation has not yet completed. The SAN service provider can only return this error if the switch passed FALSE to the <I>fWait</I> parameter.</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>Ws2spi.h</I>. Include <I>Ws2spi.h</I>. Requires Windows Sockets version&nbsp;2.0.</P>
+
+<H4>Comments</H4>
+
+<P>The Windows Sockets switch calls a SAN service provider's <B>WSPGetOverlappedResult</B> function to obtain the results of an overlapped (asynchronous) operation that was previously started on a specific socket, but not completed. The results reported are those of the specified socket's last overlapped operation to which the specified pointer to a WSAOVERLAPPED structure was provided, and for which the operation's results were pending. The switch can call the <B>WSPRecv</B>, <B>WSPRdmaRead</B>, <B>WSPSend</B>, <B>WSPRdmaWrite</B>, or <B>WSPIoctl</B> function to start an overlapped operation on a socket. These functions can return SOCKET_ERROR and the WSA_IO_PENDING error code to indicate that an overlapped operation started and that completion of that operation occurs later. If an I/O operation is pending, the function that started the operation can call the Win32 <B>ResetEvent</B> function to reset the <B>hEvent</B> member of the WSAOVERLAPPED structure to the nonsignaled state. After the pending operation completes, the operating system sets the event object to the signaled state.</P>
+
+<P>If the switch set <I>fWait</I> to TRUE, <B>WSPGetOverlappedResult</B> blocks and waits for the event object to be set to the signaled state to determine whether the pending overlapped operation completed. The switch can set <I>fWait</I> to TRUE only if it also selected event-based completion notification when it requested the I/O operation. If another form of notification was selected, the usage of the <B>hEvent</B> member of the WSAOVERLAPPED structure is different, and setting <I>fWait</I> to TRUE causes unpredictable results. </P>
+
+<P>If <B>WSPGetOverlappedResult</B> returns TRUE, the overlapped operation completed successfully and the SAN service provider updated the value at <I>lpcbTransfer</I>. If <B>WSPGetOverlappedResult</B> returns FALSE, one of the following occurred: 
+
+<UL>
+	<LI>The overlapped operation did not complete. </LI>
+
+	<LI>The overlapped operation completed, but with errors. </LI>
+
+	<LI>Completion status could not be determined due to errors in one or more parameters passed to <B>WSPGetOverlappedResult</B>. </LI>
+</UL>
+
+<P>On failure, the SAN service provider does not update the value at <I>lpcbTransfer</I> and sets the value at <I>lpErrno</I> to indicate the cause of the failure. Either <B>WSPGetOverlappedResult</B> or the associated overlapped operation can be the cause of the failure.</P>
+
+<H4>Interaction with WPUCompleteOverlappedRequest</H4>
+
+<P>The behavior of the <B>WPUCompleteOverlappedRequest</B> function places some constraints on how a SAN service provider implements <B>WSPGetOverlappedResult</B>. This is because only the <B>Offset</B> and <B>OffsetHigh</B> members of the WSAOVERLAPPED structure are exclusively controlled by the SAN service provider, even though the SAN service provider's <B>WSPGetOverlappedResult</B> function must retrieve three values (byte count, flags, and error) from the structure. A SAN service provider can retrieve these three values any way it chooses, as long as it interacts with the behavior of <B>WPUCompleteOverlappedRequest</B> properly. The following sequence presents a typical implementation:
+
+<OL>
+	<LI>At the start of an I/O operation, the SAN service provider sets the <B>Internal</B> member of the WSAOVERLAPPED structure to WSS_OPERATION_IN_PROGRESS. </LI>
+
+	<LI>After the I/O operation is complete, the SAN service provider performs the following actions: 
+<UL>
+	<LI>Sets <B>OffsetHigh</B> to the Windows Sockets error code resulting from the I/O operation. </LI>
+
+	<LI>Sets <B>Offset</B> to the flags resulting from the I/O operation. </LI>
+
+	<LI>Calls <B>WPUCompleteOverlappedRequest</B> and passes the number of bytes transferred. </LI>
+</UL>
+</LI>
+
+	<LI><B>WPUCompleteOverlappedRequest</B> eventually sets the <B>InternalHigh</B> member of the WSAOVERLAPPED structure to the number of bytes transferred and then sets <B>Internal</B> to a value other than WSS_OPERATION_IN_PROGRESS.</LI>
+
+	<LI>After the switch calls the SAN service provider's <B>WSPGetOverlappedResult</B> function, the SAN service provider checks the value in <B>Internal</B>. If the value is WSS_OPERATION_IN_PROGRESS, the SAN service provider waits for the event object (<B>hEvent</B> member) to be set to the signaled state or it returns an error, based on the value that the switch passed to <I>fWait</I>. If the value is not WSS_OPERATION_IN_PROGRESS, or after the operating system signals the event object, the SAN service provider returns the number of bytes transferred, operation result error code, and flags in the <B>InternalHigh</B>, <B>OffsetHigh</B>, and <B>Offset</B> members respectively.</LI>
+</OL>
+
+<H4>See Also</H4>
+
+<P><A HREF="wsdpref_4xo2.htm">WSAOVERLAPPED</A>, <A HREF="wsdpref_5hte.htm"><B>WSPRecv</B></A>, <A HREF="wsdpref_6rqq.htm"><B>WSPSend</B></A>, <A HREF="wsdpref_7enm.htm"><B>WSPConnect</B></A>, <A HREF="wsdpref_0tiq.htm"><B>WSPAccept</B></A>, <A HREF="wsdpref_1b3m.htm"><B>WSPIoctl</B></A>, <A HREF="wsdpref_7soi.htm"><B>WSPRdmaRead</B></A>, <A HREF="wsdpref_7c6q.htm"><B>WSPRdmaWrite</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WSPGetOverlappedResult"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

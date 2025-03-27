@@ -1,0 +1,82 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisMSetMiniportSecondary</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisMSetMiniportSecondary">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndismsetminiportsecondary_nr"></A>NdisMSetMiniportSecondary</H1>
+
+<P><B>NdisMSetMiniportSecondary</B> sets the specified miniport driver adapter to the secondary role in relation to the primary miniport driver adapter. The primary miniport driver adapter handles all packet transfers and requests for information that are made by protocol drivers. However, NDIS can send specific requests to the secondary miniport driver adapter. </P>
+
+<PRE class=syntax><B>NDIS_STATUS
+  NdisMSetMiniportSecondary(</B>
+    <B>IN NDIS_HANDLE</B>  <I>MiniportAdapterHandle</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>PrimaryMiniportAdapterHandle</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>MiniportAdapterHandle</I></DT>
+
+<DD>Specifies the handle to the miniport driver adapter previously input to <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>. </DD>
+
+<DT><I>PrimaryMiniportAdapterHandle</I></DT>
+
+<DD>Specifies the handle to the primary miniport driver adapter that has already been initialized with <I>MiniportInitialize</I>. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>NdisMSetMiniportSecondary</B> can return either of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>The miniport driver adapter has been set to the secondary role in relation to the primary miniport driver adapter. The miniport driver can subsequently promote the secondary miniport driver adapter to the primary role. </DD>
+
+<DT>NDIS_STATUS_FAILURE</DT>
+
+<DD>An attempt to set the miniport driver adapter that is currently being initialized to the secondary role failed. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Protocol drivers can only bind to a miniport driver's primary adapter. All bindings to the miniport driver's secondary adapters are torn down. </P>
+
+<P>A miniport driver can call <B>NdisMSetMiniportSecondary</B> during initialization of the secondary miniport driver adapter, that is from within the miniport driver's <I>MiniportInitializ</I>e function. In this call, the miniport driver passes the handle to the miniport driver adapter being initialized in the <I>MiniportAdapterHandle</I> parameter and the handle to the primary miniport driver adapter that has already been initialized in the <I>PrimaryMiniportAdapterHandle</I> parameter. The primary miniport driver adapter handles all packet transfers and requests for information that are made by protocol drivers. However, NDIS can send specific requests to the secondary miniport driver adapter. For example, NDIS might query all miniport driver adapters for their media connectivity. The secondary miniport driver adapter must process and respond to this query. </P>
+
+<P>After initialization of the secondary miniport driver adapter, the miniport driver can subsequently call the <A HREF="103ndisx_1i0i.htm"><B>NdisMPromoteMiniport</B></A> function to promote the secondary miniport driver adapter to the primary role. </P>
+
+<P>Before the miniport driver calls <B>NdisMSetMiniportSecondary</B>, it must first determine if the miniport driver adapter being initialized is part of the miniport driver's bundle of miniport driver adapters. A miniport driver uses this bundle to balance the work load that each miniport driver adapter carries and to enable a secondary miniport driver adapter to take over packet transfers and information requests if the primary miniport driver adapter fails. This capability is called load balancing and fail over (LBFO). For example, if the miniport driver's primary adapter fails, the miniport driver can call the <A HREF="103ndisx_52b6.htm"><B>NdisMRemoveMiniport</B></A> function to remove the primary adapter from the system and from the miniport driver's bundle. The miniport driver can then call <B>NdisMPromoteMiniport</B> to promote a secondary adapter to the primary role. </P>
+
+<P>To determine if the miniport driver adapter being initialized is part of the miniport driver's bundle, the miniport driver first calls the <A HREF="103ndisx_7b76.htm"><B>NdisOpenConfiguration</B></A> function to obtain the handle for a registry key in which the miniport driver's configuration parameters are stored. Next, the miniport driver calls the <A HREF="103ndisx_5ek2.htm"><B>NdisReadConfiguration</B></A> function to retrieve the string value (REG_SZ) from the <I>BundleIndentifier</I> keyword under the miniport driver's registry key. The miniport driver should copy the string value to the miniport driver's internal structure in which the miniport driver stores information specific to the miniport driver adapter that is currently being initialized. This internal structure is also known as <I>MiniportAdapterContext</I>. The miniport driver's information (INF) file sets <I>BundleIndentifier</I> when the miniport driver is installed. </P>
+
+<P>During initialization, the miniport driver should search through all miniport driver-adapter instances that the driver has already initialized to locate an instance that has an identical bundle-identifier value. To perform this search, the miniport driver inspects each instance's <I>MiniportAdapterContext</I>. If the driver locates a match, it should call <B>NdisMSetMiniportSecondary</B> and pass handles for both primary and secondary miniport driver adapters. </P>
+
+<P>A miniport driver can call <B>NdisMSetMiniportSecondary</B> during the subsequent initialization of several miniport driver adapters to set them all to secondary roles. That is, multiple secondary miniport driver adapters can exist in a bundle. NDIS will only expose the miniport driver's primary adapter to transports. If transports request to send packets to the miniport driver or request to set or query information, NDIS will pass these requests to the miniport driver using the primary adapter. The miniport driver must provide LBFO for these requests as appropriate. The miniport driver only indicates up packets that were received from the network using the handle for the primary adapter.</P>
+
+<P>Only miniport driver-adapter instances that are initialized by the same miniport driver and that belong to the miniport driver's bundle can call <B>NdisMSetMiniportSecondary</B>. </P>
+
+<P>For information on adding LBFO capability to a miniport driver, see the readme for the passthru driver. This miniport driver is a sample intermediate miniport driver in the Windows DDK. </P>
+
+<P>Callers of <B>NdisMSetMiniportSecondary</B> run at IRQL = PASSIVE_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, <A HREF="103ndisx_1i0i.htm"><B>NdisMPromoteMiniport</B></A>, <A HREF="103ndisx_52b6.htm"><B>NdisMRemoveMiniport</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisMSetMiniportSecondary"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

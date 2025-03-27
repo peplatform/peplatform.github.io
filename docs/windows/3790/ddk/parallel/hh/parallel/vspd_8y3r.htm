@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Synchronizing the Use of a Parallel Port</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Synchronizing the Use of a Parallel Port">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Parallel&nbsp;Ports&nbsp;and&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_synchronizing_the_use_of_a_parallel_port_kg"></A>Synchronizing the Use of a Parallel Port</H2>
+
+<P>Clients must synchronize their use of a parallel port by allocating a parallel port before using it and freeing the port after they are done using it.</P>
+
+<P>Alternatively, a client can select and deselect an IEEE 1284.3 device (which automatically allocates and frees a parallel port) – see <A HREF="vspd_8hpj.htm">Selecting and Deselecting an IEEE 1284 Device Attached to a Parallel Port</A>.</P>
+
+<P>A client uses the following device control requests to allocate and free a parallel port:</P>
+
+<P class=indent1><A HREF="cisspd_2ape.htm">IOCTL_INTERNAL_PARALLEL_PORT_ALLOCATE</A></P>
+
+<P class=indent1><A HREF="cisspd_094i.htm">IOCTL_INTERNAL_PARALLEL_PORT_FREE</A></P>
+
+<P>A kernel-mode client can also use the system-supplied <A HREF="cisspd_3wky.htm">parallel port callback routines</A> that are obtained by using an <A HREF="cisspd_9qk2.htm">IOCTL_INTERNAL_GET_PARALLEL_PORT_INFO</A> request. This request returns a <A HREF="cisspd_1waa.htm">PARALLEL_PORT_INFORMATION</A> structure that includes the following pointers to system-supplied callbacks:
+
+<UL>
+	<LI>The <B>TryAllocatePort</B> member is a pointer to a <A HREF="cisspd_01wy.htm">PPARALLEL_TRY_ALLOCATE_ROUTINE</A> callback, which is a non-blocking routine that tries to allocate a parallel port.</LI>
+
+	<LI>The<B> QueryNumWaiters</B> member is a pointer to a <A HREF="cisspd_1cmq.htm">PPARALLEL_QUERY_WAITERS_ROUTINE</A> callback, which returns the number of port allocate and device select requests that are queued on the work queue of a parallel port.</LI>
+
+	<LI>The <B>FreePort</B> member is a pointer to a <A HREF="cisspd_6436.htm">PPARALLEL_FREE_ROUTINE</A> callback, which frees a parallel port.</LI>
+</UL>
+
+<P>The IOCTL_INTERNAL_PARALLEL_PORT_ALLOCATE request requires the least handling by a client because the system-supplied function driver for parallel ports queues the request for the client if the parallel port is already allocated. The function driver completes an allocate request with a status of STATUS_SUCCESS after it allocates the port to a client. A client can cancel a pending allocate request at any time because of an unacceptable time-out delay or some other device-specific condition.</P>
+
+<P class=note><I>The </I>PPARALLEL_TRY_ALLOCATE_ROUTINE<I> callback returns immediately (is non-blocking). If a client uses only the </I>PPARALLEL_TRY_ALLOCATE_ROUTINE<I> callback to attempt to allocate a parallel port for which other clients are contending, the parallel port function driver might never allocate the port to the client. To ensure success, a client must use a parallel port allocate request. (The parallel port function driver queues, and subsequently processes, </I>port allocate<I> and </I>device select<I> requests in the order in which the requests are received.)</I></P>
+
+<P>After the parallel port function driver allocates a parallel port to a client, the client has exclusive access to the port. The client must call the PPARALLEL_FREE_ROUTINE callback to free the port. After the client frees the port, the parallel port function driver removes the next request (a port allocate or device select request), if any, from the port's work queue and completes the request.</P>
+
+<P>A client should use the PPARALLEL_QUERY_WAITERS_ROUTINE callback to determine if there are other clients waiting for a parallel port. A client that needs to allocate a port for an extended period of time should periodically call the PPARALLEL_QUERY_WAITERS_ROUTINE callback to determine if other clients are waiting to acquire the port, and, if clients are waiting, free the port as soon as possible. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Synchronizing%20the%20Use%20of%20a%20Parallel%20Port"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

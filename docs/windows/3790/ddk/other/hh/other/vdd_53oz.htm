@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>I/O Ports</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="I/O Ports">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Other&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_i_o_ports"></A>I/O Ports</H2>
+
+<P>In the MS-DOS environment, a peripheral board typically has a range of I/O ports to which it can respond. These ports are often configured by jumpers on the board or through software setup. Special-purpose application programs control and communicate with the board by performing 80386/80486 assembly IN and OUT instructions to the ports supported by the board.</P>
+
+<P>On NT-based platforms, application programs have insufficient processor privilege to access I/O ports. Therefore, the VDM intercepts IN and OUT instructions from MS-DOS application programs and attempts to find an I/O handler registered by a VDD for the specified port. Each VDD installs I/O handlers (also known as I/O hooks) for one or more ranges of port addresses. For example, a VDD could install I/O handlers for the port range 0x220-0x227 and 0x2F0-0x2F7. The VDM keeps track of all I/O port handlers installed by VDDs in that VDM. When the VDM intercepts an IN or OUT instruction from an MS-DOS application, it looks at all the installed I/O handlers to see if the current port being accessed falls within one of the installed port ranges.</P>
+
+<P>A VDD must install I/O port handlers for the ports used by its application. The handlers are called each time there is an IN or OUT instruction on one of the designated ports. A VDD OUT handler typically gathers several OUT calls into a single complete command and then translates that command into a Win32 <B>DeviceIoControl</B> call to the kernel-mode device driver for the board. Likewise, a single driver call might require a VDD IN handler to be called several times to completely transfer the information back to the application.</P>
+
+<P>A VDD installs its I/O port handlers within the VDD initialization routine, explained in <A HREF="vdd_30rj.htm">Registering the Driver</A>. Initialize a VDD_IO_HANDLERS structure with pointers to the VDD’s I/O port handlers, specifying one or more ranges of I/O ports the VDD responds to, and call the <B>VDDInstallIOHook</B> function. The VDD_IO_HANDLERS structure contains slots for IN and OUT handlers for byte, word, and string operations. The VDD must supply at least byte-in and byte-out handlers. If you supply a NULL function pointer for the word and string operations, the VDM automatically emulates them by calling the byte operation functions the VDD provides, although it is often more efficient to implement word and string operations yourself.</P>
+
+<P>A particular VDD can only have one set of I/O handler functions for all the I/O ports it uses. That is, a VDD cannot install one set of functions for one I/O port range and another set of functions for another port range. Of course, other VDDs can install their own functions for other ranges, although two VDDs in the same VDM cannot use overlapping port ranges.</P>
+
+<P>A VDD’s main entry point function is also called when the VDD is about to be terminated. At that time, the VDD can deinstall its I/O hooks by calling <B>VDDDeinstallIOHook</B>.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;A VDD should never directly hook the I/O ports for DMA or Video. Video is handled by the VDM. See <A HREF="vdd_8f4x.htm">DMA</A> for a discussion of how to facilitate DMA transfers in the VDM environment.</P>
+
+<P>The following functions are used with I/O hooks:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=41%>Function</TH>
+<TH align=left width=59%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%><B>VDDInstallIOHook</B></TD>
+<TD width=59%>Hooks the I/O ports the VDD is responsible for.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%><B>VDDDeinstallIOHook</B></TD>
+<TD width=59%>Unhoooks the I/O ports previously hooked by a VDD.</TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: I%2FO%20Ports"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

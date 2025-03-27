@@ -1,0 +1,72 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Removing a Device in a Function Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Removing a Device in a Function Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_removing_a_device_in_a_function_driver_kg"></A>Removing a Device in a Function Driver</H3>
+
+<P>When removing a device, a function driver must undo any operations it performed to add and start the device. This discussion includes function drivers for peripheral devices and function drivers for bus devices.</P>
+
+<P>A function driver removes a device using a procedure such as the following in its <I>DispatchPnP</I> routine:
+
+<OL>
+	<LI>Is this a function driver for a bus device?
+<P>If so, possibly delete any outstanding child PDOs for devices on the bus. 
+
+<P>If the bus driver handled a previous <A HREF="pnp-irps_8e42.htm">IRP_MN_SURPRISE_REMOVAL</A> request for the child device, but the driver has not yet received the subsequent <A HREF="pnp-irps_4noy.htm">IRP_MN_REMOVE_DEVICE</A> request, the bus driver leaves the child PDO intact. At some later time, when all handles to the child device are closed, the PnP Manager will send the remove IRP for the child device and the bus driver deletes the child PDO at that time.
+
+<P>If the bus driver handled a previous IRP_MN_REMOVE_DEVICE request for the device, and there has been no subsequent IRP_MN_SURPRISE_REMOVAL request, then the bus driver deletes the child PDO. In this case, the PnP Manager ensures that any function and filter drivers have been removed from the child device (FDO and filter DOs have been deleted) before it sends a remove IRP to the parent bus device. The child PDO might still be present, so the bus driver must delete the child PDO before it removes the bus device.
+</LI>
+
+	<LI>Has the driver already handled a previous IRP_MN_SURPRISE_REMOVAL request for this FDO?
+<P>If so, perform any remaining clean-up and skip to step (7), <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A>.
+
+<P>A driver typically maintains a flag in the device extension that indicates whether the driver has handled an IRP_MN_SURPRISE_REMOVAL request for the device.
+</LI>
+
+	<LI>If the driver previously enabled the device for wake-up, cancel the IRP_MN_WAIT_WAKE request. </LI>
+
+	<LI>Ensure that the device is inactive.
+<P>If the device is not already inactive in response to a prior IRP_MN_QUERY_REMOVE_DEVICE, the driver must mark the device as not accepting new requests and must complete any requests queued in this driver. The driver must fail any outstanding requests that require access to the device.
+
+<P>A driver can use the <B>Io<I>Xxx</I>RemoveLock<I>Xxx</I></B> routines to count outstanding I/O and to set an event indicating that remove processing can continue.
+</LI>
+
+	<LI>Perform any power-down operations.
+<P>Each driver for the device performs its power-down operations, if any, when it receives the IRP_MN_REMOVE_DEVICE request. The power policy owner for the device, typically the function driver, does not send a separate <A HREF="poirp_6hde.htm">IRP_MN_SET_POWER</A> request to set the device power state to D3. The parent bus driver typically powers down the slot and notifies the Power Manager with <A HREF="portn_5saa.htm"><B>PoSetPowerState</B></A> when the bus driver gets the remove IRP. For additional information, see <A HREF="pwrmgmt_48br.htm">Power Management</A>.
+</LI>
+
+	<LI>Disable any device interfaces by calling <A HREF="k104_3epe.htm"><B>IoSetDeviceInterfaceState</B></A>.</LI>
+
+	<LI>Free any hardware resources for the device in use by the driver.
+<P>The exact operations depend on the device and the driver but can include disconnecting an interrupt with <A HREF="k104_51yq.htm"><B>IoDisconnectInterrupt</B></A>, freeing physical address ranges with <A HREF="k106_16sy.htm"><B>MmUnmapIoSpace</B></A>, and freeing I/O ports.
+</LI>
+
+	<LI>Pass the IRP_MN_REMOVE_DEVICE request down to the next driver.
+<P>Set up the IRP stack location for the next lower driver with <A HREF="k104_1ohe.htm"><B>IoSkipCurrentIrpStackLocation</B></A> and pass the IRP to the next driver with <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A>.
+
+<P>A driver is not required to wait for underlying drivers to finish their remove operations before continuing with its remove activities.  
+</LI>
+
+	<LI>Remove the device object from the device stack with <A HREF="k104_4s36.htm"><B>IoDetachDevice</B></A>.
+<P>Specify a pointer to the next lower device object as the <I>TargetDevice</I> parameter. The driver receives such a pointer from the call to <A HREF="k104_9tiq.htm"><B>IoAttachDeviceToDeviceStack</B></A> in the driver's <I>AddDevice</I> routine.
+</LI>
+
+	<LI>Clean up any device-specific allocations, memory, events, and so forth.</LI>
+
+	<LI>Free the FDO with <A HREF="k104_3wky.htm"><B>IoDeleteDevice</B></A>.</LI>
+
+	<LI>Return from the <I>DispatchPnP</I> routine, propagating the return status from <B>IoCallDriver</B>.</LI>
+</OL>
+
+<P>A function driver does not specify an <I>IoCompletion</I> routine for a remove IRP, nor does it complete the IRP. Remove IRPs are completed by the parent bus driver.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Removing%20a%20Device%20in%20a%20Function%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

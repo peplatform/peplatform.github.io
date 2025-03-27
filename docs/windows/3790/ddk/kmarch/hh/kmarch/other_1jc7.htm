@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Failure to Initialize Output Buffers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Failure to Initialize Output Buffers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_failure_to_initialize_output_buffers_kg"></A>Failure to Initialize Output Buffers</H3>
+
+<P>Drivers should initialize all output buffers with zeros before returning them to the caller. Failing to initialize a buffer can result in garbage data in any uninitialized bytes. </P>
+
+<P>In the following example, a driver returns garbage in unused bytes.</P>
+
+<PRE>   case IOCTL_GET_NAME: {
+…
+…
+outputBufferLength = 
+   ioStack-&gt;Parameters.DeviceIoControl.OutputBufferLength;
+outputBuffer = (PGET_NAME) Irp-&gt;AssociatedIrp.SystemBuffer;
+  
+if (outputBufferLength &gt;= sizeof(GET_NAME)) {
+        length = outputBufferLength - sizeof(GET_NAME);
+                            
+        ntStatus = IoGetDeviceProperty(
+                  DeviceExtension-&gt;PhysicalDeviceObject,
+                  DevicePropertyDriverKeyName,
+                  length,
+                  outputBuffer-&gt;DriverKeyName,
+                  &amp;length);
+
+        <span style="color:#ff0000"><B>outputBuffer-&gt;ActualLength = 
+                  length + sizeof(GET_NAME);
+                    
+        Irp-&gt;IoStatus.Information = outputBufferLength;</B></span>                        
+                    
+     } else {
+    ntStatus = STATUS_BUFFER_TOO_SMALL;
+     }</PRE>
+
+<P>Setting <B>IoStatus.Information</B> to the output buffer size causes the whole output buffer to be returned to the caller. The I/O Manager does not initialize the data beyond the size of the input buffer—the input and output buffers overlap for a buffered request. Because the system support routine <A HREF="k104_7pgy.htm"><B>IoGetDeviceProperty</B></A> does not write the entire buffer, this IOCTL returns uninitialized data to the caller. </P>
+
+<P>Some drivers use the <B>Information</B> field to return codes that provide extra details about I/O requests. Before doing so, such drivers should check the IRP flags to ensure that IRP_INPUT_OPERATION is not set. When this flag is not set, the IOCTL or FSCTL does not have an output buffer, so the <B>Information</B> field need not supply a buffer size. In this case. the driver can safely use the <B>Information</B> field to return its own code. </P>
+
+<H3></H3>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Failure%20to%20Initialize%20Output%20Buffers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

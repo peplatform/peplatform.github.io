@@ -1,0 +1,46 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using Lookaside Lists</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using Lookaside Lists">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_using_lookaside_lists_kg"></A>Using Lookaside Lists</H1>
+
+<P>Drivers that must allocate fixed-size buffers dynamically to carry out on-demand I/O operations can use the <B>Ex</B><I>Xxx</I><B>LookasideList</B> support routines. After such a driver initializes its lookaside list, the operating system will hold some number of dynamically allocated buffers of the given size in the driver's lookaside list, effectively reserving a set of reusable, fixed-size buffers for the driver. The format and contents of a driver's fixed-size buffers (also called <I>entries</I>) in its lookaside list are driver-determined. </P>
+
+<P>For example, storage class drivers that must set up SCSI request blocks (SRBs) for the underlying SCSI port/miniport drivers use lookaside lists. Such a class driver allocates buffers for SRBs on an as-needed basis from its lookaside list and releases each SRB buffer to be held the lookaside list whenever an SRB is returned to the class driver in a completed IRP. Because a storage class driver cannot predetermine how many SRBs it will need to use at any given moment as I/O demand on the driver rises and falls, a lookaside list is a convenient and economical way to manage the allocation and deallocation of buffers for fixed-size SRBs in such a driver. </P>
+
+<P>The OS maintains state about all paged and nonpaged lookaside lists currently in use, dynamically tracking the demand for allocations and deallocations of entries in all lists, as well as available system pool for new entries. When demand for allocations is high, the OS increases the number of entries it holds in each lookaside list. When demand falls again, it frees surplus lookaside entries back to system pool. </P>
+
+<P>In drivers that use the <B>Ex</B><I>Xxx</I><B>LookasideList</B> routines, follow these design guidelines:
+
+<UL>
+	<LI>Set up a nonpaged lookaside list with <A HREF="k102_1b1u.htm"><B>ExInitializeNPagedLookasideList</B></A> if the driver itself or any underlying driver to which it passes its lookaside list entries might access these entries at IRQL &gt;= DISPATCH_LEVEL. </LI>
+
+	<LI>Set up a lookaside list with paged entries only if accesses to the driver's lookaside list entries always occur at &lt;= APC_LEVEL. </LI>
+
+	<LI>Provide resident storage in nonpaged system space for the lookaside list head, even if the driver sets up a paged lookaside list with <A HREF="k102_4pma.htm"><B>ExInitializePagedLookasideList</B></A>. </LI>
+
+	<LI>For better performance, pass NULL pointers for <I>Allocate</I> and <I>Free</I> when calling <B>ExInitialize(N)PagedLookasideList</B> unless these optional driver-supplied routines do more than merely allocate and release memory for lookaside list entries, such as maintaining state about the driver's own usage of dynamically allocated buffers. </LI>
+
+	<LI>Use the given input parameters (<I>PoolType</I>, <I>Tag</I>, and <I>Size</I>) to the driver-supplied <I>Allocate</I> routine whenever it calls <A HREF="k102_2omq.htm"><B>ExAllocatePoolWithTag</B></A>, if the driver provides such a routine. </LI>
+
+	<LI>For every call to <B>ExAllocateFrom(N)PagedLookasideList</B>, make the reciprocal call to <B>ExFreeTo(N)PagedLookasideList</B> as soon as possible whenever a previously allocated entry is no longer in use. </LI>
+</UL>
+
+<P>For a paged lookaside list, the entries are allocated from paged pool but the head of such a list must be in resident (nonpaged) memory.</P>
+
+<P>Supplying <I>Allocate</I> and <I>Free</I> routines that do nothing more than call <A HREF="k102_2omq.htm"><B>ExAllocatePoolWithTag</B></A> and <A HREF="k102_6uuq.htm"><B>ExFreePool</B></A>, respectively, wastes CPU cycles. <B>ExAllocateFrom(N)PagedLookasideList</B> and <B>ExFreeTo(N)PagedLookasideList</B> make the necessary calls to <B>ExAllocatePoolWithTag</B> and <B>ExFreePool</B> automatically when a driver passes NULL <I>Allocate</I> and <I>Free</I> pointers to <B>ExInitialize(N)PagedLookasideList</B>. </P>
+
+<P>Any driver-supplied <I>Allocate</I> routine must not allocate memory for an entry from paged pool to be held in a nonpaged lookaside list or vice versa. It must allocate fixed-size entries as well, because any subsequent driver call to <B>ExAllocateFrom(N)PagedLookasideList</B> returns the first entry currently held in the lookaside list unless the list is empty. That is, a call to <B>ExAllocateFrom(N)PagedLookasideList</B> causes a call to the driver-supplied <I>Allocate</I> routine only if the given lookaside list is currently empty. Consequently, at each call to <B>ExAllocateFrom(N)PagedLookasideList</B>, the returned entry will be exactly the size that the driver needs only if all entries in the lookaside list are of a fixed size. A driver-supplied <I>Allocate</I> routine also should not change the <I>Tag</I> value that the driver originally passed to <B>ExInitialize(N)PagedLookasideList</B>, because changes in the pool-tag value would make debugging and tracking the driver's memory usage more difficult. </P>
+
+<P>Calls to <B>ExFreeTo(N)PagedLookasideList</B> return previously allocated entries to be held in the lookaside list unless the list already contains the system-determined maximum number of entries. For better performance, a driver should make reciprocal calls to <B>ExFreeTo(N)PagedLookasideList</B> as promptly as it can for every call that it makes to <B>ExAllocateFrom(N)PagedLookasideList</B>. When a driver frees entries back to its lookaside list promptly, that driver's next call to <B>ExAllocateFrom(N)PagedLookasideList</B> is far less likely to incur the performance penalty of explicitly allocating additional memory for another entry.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20Lookaside%20Lists"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,95 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisClCloseCall</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisClCloseCall">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndisclclosecall_nr"></A>NdisClCloseCall</H1>
+
+<P><B>NdisClCloseCall</B> requests that a call on the specified VC be torn down.</P>
+
+<PRE class=syntax><B>NDIS_STATUS 
+  NdisClCloseCall(
+    IN NDIS_HANDLE</B>  <I>NdisVcHandle</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisPartyHandle</I>  <B>OPTIONAL,</B>
+    <B>IN PVOID</B>  <I>Buffer </I> <B>OPTIONAL,</B>
+    <B>IN UINT</B>  <I>Size</I><B>
+    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>NdisVcHandle</I></DT>
+
+<DD>Handle to the VC of the call being closed or disconnected. This handle was supplied by NDIS when the VC was originally created with <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A>, whether by the client in preparation for making an outgoing call or by the call manager in preparation for dispatching an incoming call to the client. </DD>
+
+<DT><I>NdisPartyHandle</I></DT>
+
+<DD>Handle to the last party to be dropped on a multipoint VC or NULL. If this is a multipoint VC, the client obtained this handle either from a preceding call to <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A> or <A HREF="103ndisx_5fua.htm"><B>NdisClAddParty</B></A>. </DD>
+
+<DT><I>Buffer</I></DT>
+
+<DD>Pointer to a caller-allocated buffer containing any data to be transmitted to the party on the remote node when the connection is closed. Depending on the underlying medium, this pointer can be NULL. For example, this parameter is NULL on ATM networks. </DD>
+
+<DT><I>Size</I></DT>
+
+<DD>Specifies the size, in bytes, at <I>Buffer</I>, zero if <I>Buffer</I> is NULL.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>When <B>NdisClCloseCall</B> returns anything other than NDIS_STATUS_PENDING, the client should make an internal call to its <A HREF="104tdlow_3ofm.htm"><I>ProtocolClCloseCallComplete</I></A> function. Otherwise, NDIS calls the client's <I>ProtocolClCloseCallComplete</I> function when this operation is completed.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Clients usually call <B>NdisClCloseCall</B> in any one of the following circumstances:
+
+<UL>
+	<LI>To close an established call, whether the call was initiated by the client with <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A> or was offered by a remote peer and accepted by the client's <A HREF="104tdlow_8a9e.htm"><I>ProtocolClIncomingCall</I></A> function </LI>
+
+	<LI>From the <A HREF="104tdlow_3nqq.htm"><I>ProtocolClIncomingCloseCall</I></A> function to tear down an established call 
+<P>This occurs when the remote party closes an incoming call that the remote party originally initiated and that the client accepted. For client-initiated outgoing calls, this occurs either when the remote party closes the point-to-point connection on the remote node or when the last remaining party on a multipoint VC closes the call on the remote node.
+</LI>
+
+	<LI>From the <A HREF="104tdlow_3qia.htm"><I>ProtocolClMakeCallComplete</I></A> function to tear down a client-initiated attempt to make an outgoing call
+<P>This occurs if the call manager has modified the client-specified call parameters passed to <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A> and the client finds these modifications unacceptable.  
+</LI>
+
+	<LI>From the <I>ProtocolClIncomingQoSChange</I> function to tear down an established call
+<P>This occurs if a QoS change proposed by the other party on the VC is unacceptable to the client. 
+</LI>
+
+	<LI>From the <A HREF="104tdlow_3boy.htm"><I>ProtocolClModifyCallQoSComplete</I></A> function to tear down an established call 
+<P>This occurs if a client-proposed QoS change on the VC is not accepted and the CM-modified QoS returned to <I>ProtocolClModifyCallQoSComplete</I> is unacceptable to the client. 
+</LI>
+</UL>
+
+<P>Before calling <B>NdisClCloseCall</B>, a protocol must ensure that all its outstanding send packets have been returned to its <A HREF="104tdlow_2t4i.htm"><I>ProtocolCoSendComplete</I></A> function. (Packets sent via <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A> are always returned asynchronously to <I>ProtocolCoSendComplete</I>.) After calling <B>NdisClCloseCall</B>, a protocol must not call <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A> to send packets on the VC referenced by <B>NdisClCloseCall</B>.</P>
+
+<P>A client's call to <B>NdisClCloseCall</B> causes NDIS to mark the <I>NdisVcHandle</I> as closing and to call the CM's <A HREF="104tdlow_8j1u.htm"><I>ProtocolCmCloseCall</I></A> function. </P>
+
+<P>To tear down an established call on a client-created multipoint VC, the client must call <A HREF="103ndisx_2tf6.htm"><B>NdisClDropParty</B></A> one or more times to release all but the last party on the VC <I>before</I> it calls <B>NdisClCloseCall</B>. The call manager will fail any client's request to close a multipoint call if the given VC still has more than one party connected. The <I>NdisPartyHandle</I> passed to <B>NdisClCloseCall</B> can be any valid handle that the client obtained from its preceding calls to <A HREF="103ndisx_5fua.htm"><B>NdisClAddParty</B></A> or <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A> with the given <I>NdisVcHandle</I>. </P>
+
+<P>As remote parties to a client-initiated multipoint call request that their connections be closed, NDIS calls that client's <I>ProtocolClDropParty</I> function as long as more than one outstanding party exists on the client-created multipoint VC. When the last remaining remote party closes its connection, NDIS calls the client's <A HREF="104tdlow_3nqq.htm"><I>ProtocolClIncomingCloseCall</I></A> function instead. Consequently, the <I>ProtocolClIncomingCloseCall</I> function of any client that sets up multipoint connections must identify the last remaining party on its multipoint VCs and pass the appropriate <I>NdisPartyHandle</I> to <B>NdisClCloseCall</B>. </P>
+
+<P>After the client releases an <I>NdisPartyHandle</I> with <B>NdisClCloseCall</B>, it can release (or reinitialize for reuse) the resources for the per-party state it was maintaining. However, the client cannot release or reuse its per-VC resources in a similar manner on completion of the operation it initiated with <B>NdisClCloseCall</B> because the <I>NdisVcHandle</I>, which cannot be reused to make another call because it is marked as closing, is still valid until the VC is destroyed. Either the client must call <A HREF="103ndisx_920i.htm"><B>NdisCoDeleteVc</B></A> if it created the VC for an outgoing call before it releases or reinitializes its per-VC resources, or the client must defer the release or reinitialization of these resources until its <A HREF="104tdlow_7ks2.htm"><I>ProtocolCoDeleteVc</I></A> function is called. </P>
+
+<P>Callers of <B>NdisClCloseCall</B> can be running at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="103ndisx_2tf6.htm"><B>NdisClDropParty</B></A>, <A HREF="103ndisx_7jhu.htm"><B>NdisClModifyCallQoS</B></A>, <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>, <A HREF="103ndisx_920i.htm"><B>NdisCoDeleteVc</B></A>, <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>, <A HREF="104tdlow_3ofm.htm"><I>ProtocolClCloseCallComplete</I></A>, <A HREF="104tdlow_3nqq.htm"><I>ProtocolClIncomingCloseCall</I></A>, <A HREF="104tdlow_8pde.htm"><I>ProtocolClIncomingDropParty</I></A>, <A HREF="104tdlow_6vzm.htm"><I>ProtocolClIncomingCallQoSChange</I></A>, <A HREF="104tdlow_3qia.htm"><I>ProtocolClMakeCallComplete</I></A>, <A HREF="104tdlow_3boy.htm"><I>ProtocolClModifyCallQoSComplete</I></A>, <A HREF="104tdlow_8j1u.htm"><I>ProtocolCmCloseCall</I></A> <A HREF="104tdlow_2t4i.htm"><I>ProtocolCoSendComplete</I></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisClCloseCall"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

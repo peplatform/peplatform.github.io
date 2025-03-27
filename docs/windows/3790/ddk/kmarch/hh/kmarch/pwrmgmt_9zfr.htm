@@ -1,0 +1,34 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling a System Set-Power IRP in a Filter Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling a System Set-Power IRP in a Filter Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_handling_a_system_set_power_irp_in_a_filter_driver_kg"></A>Handling a System Set-Power IRP in a Filter Driver</H3>
+
+<P>All filter drivers and any function driver that does not own power policy for its device stack should simply pass the system set-power IRP to the next-lower driver, in the following steps:
+
+<OL>
+	<LI>Call <A HREF="k104_6tde.htm"><B>IoAcquireRemoveLock</B></A>, passing the current IRP, to ensure that the driver does not receive a PnP IRP_MN_REMOVE_DEVICE request while handling the power IRP. 
+<P>If <B>IoAcquireRemoveLock</B> returns a failure status, the driver should not continue processing the IRP. Instead, it should call <B>PoStartNextPowerIrp</B>, then complete the IRP (<B>IoCompleteRequest</B>), and return the failure status.  
+</LI>
+
+	<LI>Call <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A>.</LI>
+
+	<LI>Set the IRP stack location (<A HREF="k104_1ohe.htm"><B>IoSkipCurrentIrpStackLocation</B></A> or <A HREF="k104_4fqq.htm"><B>IoCopyCurrentIrpStackLocationToNext</B></A>). The driver can set an<I> <A HREF="drvrrtns_4rsi.htm">IoCompletion</A></I> routine in the IRP, but doing so is rarely necessary. </LI>
+
+	<LI>Pass the IRP to the next-lower driver (<A HREF="portn_7tki.htm"><B>PoCallDriver</B></A>). </LI>
+
+	<LI>Call <A HREF="k104_8n5e.htm"><B>IoReleaseRemoveLock</B></A>. However, if the driver set an<I> IoCompletion</I> routine for the IRP, make this call from the<I> IoCompletion</I> routine instead.</LI>
+
+	<LI>Return STATUS_PENDING from its<I> DispatchPower</I> routine. </LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20a%20System%20Set-Power%20IRP%20in%20a%20Filter%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

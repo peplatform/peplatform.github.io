@@ -1,0 +1,53 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Guidelines for Writing AddDevice Routines</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Guidelines for Writing AddDevice Routines">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_tightening_file_open_security_in_a_device_inf_file_dg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_guidelines_for_writing_adddevice_routines_kg"></A>Guidelines for Writing <I>AddDevice</I> Routines</H2>
+
+<P>Consider the following design guidelines when writing an <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine:
+
+<UL>
+	<LI>If a filter driver determines its <I>AddDevice</I> routine was called for a device it does not need to service, the filter driver must return STATUS_SUCCESS to allow the rest of the device stack to be loaded for the device. The filter driver does not create a device object nor attach it to the device stack; the filter driver just returns success and allows the rest of the drivers to be added to the stack.</LI>
+
+	<LI>A driver must provide storage, usually in the device extension of a device object, for any Kernel-defined objects and executive spin locks it uses. A driver also must provide storage for pointers to certain objects obtained from the I/O Manager or other system components.
+<P>You might decide to allocate additional system-space memory for the driver's needs, such as for long-term I/O buffers or a lookaside list. If so, an <I>AddDevice</I> routine can call the following routines:
+
+<UL>
+	<LI><A HREF="k102_2omq.htm"><B>ExAllocatePoolWithTag</B></A> for paged or nonpaged system-space memory</LI>
+
+	<LI><A HREF="k102_4pma.htm"><B>ExInitializePagedLookasideList</B></A> or <A HREF="k102_1b1u.htm"><B>ExInitializeNPagedLookasideList</B></A> to initialize a paged or nonpaged lookaside list</LI>
+</UL>
+</LI>
+
+	<LI>If the driver has a device-dedicated thread or waits on any kernel-defined dispatcher objects, the <I>AddDevice</I> routine might initialize <A HREF="synchro_4s9z.htm">kernel dispatcher objects</A>. </LI>
+
+	<LI>If the driver uses any executive spin locks or provides the storage for an interrupt spin lock, the <I>AddDevice</I> routine might initialize these spin locks. See <A HREF="synchro_8unb.htm">Spin Locks</A> for more information.</LI>
+
+	<LI>Tighten file-open security when calling <A HREF="k104_8piq.htm"><B>IoCreateDevice</B></A>.
+<P>Specify the FILE_DEVICE_SECURE_OPEN characteristic on the call to <B>IoCreateDevice</B>. This characteristic is supported on Windows NT® 4.0 SP5 and later. It directs the I/O Manager to perform security checks against the device object for all open requests. Vendors should specify this characteristic on calls to <B>IoCreateDevice</B> if the FILE_DEVICE_SECURE_OPEN characteristic is not set in the device's class-installer INF or the device's INF and the drivers do not perform their own security checks on opens. (For more information, see <A HREF="JavaScript:hhobj_1.Click()">Tightening File-Open Security in a Device INF File</A>.)
+
+<P>If a driver sets the FILE_DEVICE_SECURE_OPEN characteristic when it calls <B>IoCreateDevice</B>, the I/O Manager applies the security descriptor of the device object to any relative opens or trailing-filename opens. For example, if FILE_DEVICE_SECURE_OPEN is set for <I>\Device\foo</I>, and if <I>\Device\foo</I> can only be opened by the administrator, then <I>\Device\foo\abc</I> can also be opened by the administrator. The I/O Manager, however, prevents a normal user from opening <I>\Device\foo</I> and <I>\Device\foo\abc</I>.
+
+<P>If one driver for a device sets this characteristic, the PnP Manager propagates it to all the device objects for the device.
+</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Guidelines%20for%20Writing%20AddDevice%20Routines"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

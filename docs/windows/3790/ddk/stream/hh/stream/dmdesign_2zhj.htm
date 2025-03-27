@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Time-Stamped Events</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Time-Stamped Events">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_time_stamped_events_ksg"></A>Time-Stamped Events</H4>
+
+<P>The big picture of the synthesizer timing is that instead of sending a note exactly when it needs to play, each note is time stamped and placed in a buffer. This buffer is then processed and played within two milliseconds of the time that is specified by the time stamp. (Although the timing resolution is in hundreds of nanoseconds, we will talk in terms of milliseconds, which are more convenient time units for this discussion.)</P>
+
+<P>Because the latency is known to the system through the latency clock, time-stamped events can be waiting in a buffer to play at their proper time, rather than just dropping events into a queue and hoping the latency is low.</P>
+
+<P>A master clock implements a COM <B>IReferenceClock</B> interface (described in the Platform SDK documentation). All of the devices on the system use this reference time.</P>
+
+<P>Microsoft's synth sink implementation builds a thread that wakes up every 20 milliseconds. The thread's job is to create another buffer and hand it to DirectSound. To create that buffer, it calls into the synthesizer and asks it to render a specified amount of music data. The amount it asks for is determined by the actual time the thread wakes up, which is unlikely to be <I>exactly</I> 20 milliseconds.</P>
+
+<P>What is actually passed into the synthesizer is simply a pointer to the location in memory at which to start writing data into the PCM buffer, and a length parameter that specifies how much data to write. The synth can then write PCM data into this buffer and fill it in up to the specified amount. That is, it renders from the start address until it reaches the specified length. That block of memory can be a DirectSoundBuffer (which is the default case), but it could also be a DirectShow® graph or some other target defined by the synth sink.</P>
+
+<P>The PCM buffer is conceptually cyclical (that is, it is constantly looping). The synthesizer renders the 16-bit numbers that describe the sound into successive slices of the buffer. The slice size is slightly different every time the thread awakens, because the sink cannot wake up <I>exactly</I> every 20 milliseconds. So every time the thread does wake up, it plays catch up to determine how far it should progress through the buffer before going back to sleep.</P>
+
+<P>From the application's perspective, the synth port driver itself has a <A HREF="audmp-routines_0u5v.htm"><B>IDirectMusicSynth::GetLatencyClock</B></A> function that gets the clock from the synth sink. So there are two clocks:
+
+<UL>
+	<LI>The master clock that everyone, including the synth sink, listens to.</LI>
+
+	<LI>The latency clock that is implemented by the synth sink, which is seen by the application as a port providing the latency clock.</LI>
+</UL>
+
+<P>In other words, the application asks for the latency clock, but sees the clock as coming from the DirectMusic port abstraction rather than from the synth sink.</P>
+
+<P>The time returned by this latency clock is the earliest time that the buffer can be rendered to, because the synth has already rendered up to that point in the buffer. If the synth had rendered a smaller buffer on its last write, the latency would also be smaller.</P>
+
+<P>Therefore, the synth sink calls <A HREF="audmp-routines_3y2b.htm"><B>IDirectMusicSynth::Render</B></A> on the synth, presenting the buffer and requesting that it be filled with rendered data.</P>
+
+<P><IMG SRC="images/dmevents.gif" ALT="" BORDER=0></P>
+
+<P><B>Queueing of Time-Stamped Messages</B></P>
+
+<P>As shown in the preceding figure, the synth takes all the time-stamped events that come in as a result of <A HREF="audmp-routines_5a2b.htm"><B>PlayBuffer</B></A> function calls. Each input buffer contains time-stamped messages. Each of these messages is put in a queue to be rendered into a buffer at the time specified by its time stamp. </P>
+
+<P>One of the important things about this model is that there is no particular order other than the time stamp. These events are streamed in, so they can be added into the queue at any time before rendering. Everything is event-based with regard to time. For example, if the reference time is currently at 400 time units, then everything time-stamped to happen at time 400 is happening now. Events time-stamped to happen 10 units from now will happen at time 410.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Time-Stamped%20Events"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

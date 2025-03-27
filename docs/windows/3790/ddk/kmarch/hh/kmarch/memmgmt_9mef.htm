@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Allocating System-Space Memory</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Allocating System-Space Memory">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_allocating_system_space_memory_kg"></A>Allocating System-Space Memory</H1>
+
+<P>To allocate I/O buffer space, the best memory allocation routines to use are <A HREF="k106_5j1u.htm"><B>MmAllocateNonCachedMemory</B></A>,<B> <A HREF="k106_70oi.htm">MmAllocateContiguousMemorySpecifyCache</A></B>,<B> <A HREF="kdma_6otu.htm">AllocateCommonBuffer</A></B> (if the driver’s device uses bus-master DMA or a system DMA controller’s auto-initialize mode), or <A HREF="k102_2omq.htm"><B>ExAllocatePoolWithTag</B></A>. </P>
+
+<P>Nonpaged pool tends to become fragmented as the system runs, so a driver’s <B>DriverEntry</B> routine should call these routines to set up any long-term I/O buffers the driver needs. Each of these routines, except <A HREF="k102_2omq.htm"><B>ExAllocatePoolWithTag</B></A>, allocates memory that is aligned on a processor-specific boundary (determined by the processor’s data-cache-line size) to provide best performance. </P>
+
+<P>Drivers should allocate I/O buffers as economically as possible, because nonpaged pool memory is a limited system resource. In general, a driver should avoid calling these support routines repeatedly to request allocations of less than PAGE_SIZE. </P>
+
+<H4>Allocating Driver Buffer Space Economically</H4>
+
+<P>To allocate I/O buffer memory economically, keep in mind the following:
+
+<UL>
+	<LI>Each call to <A HREF="k106_5j1u.htm"><B>MmAllocateNonCachedMemory</B></A> or <A HREF="k106_70oi.htm"><B>MmAllocateContiguousMemorySpecifyCache</B></A> always returns a full multiple of the system's page size, of nonpaged system-space memory, whatever the size of the requested allocation. Therefore, requests for less than a page are rounded up to a full page and any remainder bytes on the page are wasted; they are inaccessible by the driver that called the function and are unusable by other kernel-mode code. </LI>
+
+	<LI>Each call to <A HREF="kdma_6otu.htm"><B>AllocateCommonBuffer</B></A> uses at least one adapter object map register, which maps at least one byte and at most one page. For more information about map registers and using common buffers, see <A HREF="iputoput_2wtj.htm">Adapter Objects and DMA</A>. </LI>
+</UL>
+
+<H4>Allocating Memory with ExAllocatePoolWithTag</H4>
+
+<P>Drivers also can call <A HREF="k102_2omq.htm"><B>ExAllocatePoolWithTag</B></A>, specifying one of the following system-defined <A HREF="k112_00fm.htm">POOL_TYPE</A> values for the <I>PoolType</I> parameter: 
+
+<UL>
+	<LI><B>NonPagedPool</B> for any objects or resources not stored in a device extension or controller extension that the driver might access while running at IRQL &gt; APC_LEVEL 
+<P>For this <I>PoolType</I> value, <A HREF="k102_2omq.htm"><B>ExAllocatePoolWithTag</B></A> allocates exactly the amount of memory requested if the specified <I>NumberOfBytes</I> is less than or equal to PAGE_SIZE. Otherwise, any remainder bytes on the last-allocated page are wasted: inaccessible to the caller and unusable by other kernel-mode code.
+
+<P>For example, on an x86, an allocation request of 5K returns two 4K pages. The last 3K of the second page is unavailable to the caller or another caller. To avoid wasting nonpaged pool, the driver should allocate multiple pages efficiently. In this case, for example, the driver could make two allocations, one for PAGE_SIZE and the other for 1K, to allocate a total of 5K.
+</LI>
+
+	<LI><B>PagedPool</B> for memory that is always accessed at IRQL &lt;= APC_LEVEL and is not in the file system's write path.</LI>
+</UL>
+
+<P><B>ExAllocatePoolWithTag</B> returns a NULL pointer if it cannot allocate the requested number of bytes. Drivers should always check the returned pointer. If its value is NULL, the <B>DriverEntry</B> routine (or any other driver routine that returns NTSTATUS values) should return STATUS_INSUFFICIENT_RESOURCES or handle the error condition if possible.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Allocating%20System-Space%20Memory"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Subdevice Creation</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Subdevice Creation">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_subdevice_creation_ksg"></A>Subdevice Creation</H3>
+
+<P>The term <I>subdevice</I> is used to describe the binding of the four components that are listed in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=26%>Component</TH>
+<TH align=left width=74%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=26%>Miniport</TD>
+<TD width=74%>An object that exposes the miniport interface</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=26%>Port</TD>
+<TD width=74%>An object that exposes the port interface</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=26%>List of resources</TD>
+<TD width=74%>Adapter driver resources that are assigned to the subdevice</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=26%>Reference string</TD>
+<TD width=74%>A name added to the device path name to specify a subdevice during filter creation</TD>
+</TR>
+</TABLE><BR>
+
+<P>The PortCls system driver does not distinguish between the port driver and the miniport driver—it simply requires an object, such as the port-driver object, with an interface that can handle system-generated requests. Similarly, PortCls is not directly involved in managing resources—it only needs to bind the request handler (the port driver) to a resource list. The adapter driver is responsible for binding the port, miniport, and resource-list objects.</P>
+
+<P>The following code example shows how the adapter driver performs these actions:</P>
+
+<PRE>  //
+  // Instantiate the port by calling a function supplied by PortCls.
+  //
+  PPORT    port;
+  NTSTATUS ntStatus = PcNewPort(&amp;port, PortClassId);
+
+  if (NT_SUCCESS(ntStatus))
+  {
+      PUNKNOWN miniport;
+      //
+      // Create the miniport object.
+      //
+      if (MiniportCreate)   // a function to create a proprietary miniport
+      {
+          ntStatus = MiniportCreate(&amp;miniport,
+                                    MiniportClassId, NULL, NonPagedPool);
+      }
+      else   // Ask PortCls for one of its built-in miniports.
+      {
+          ntStatus = PcNewMiniport((PMINIPORT*)&amp;miniport,
+                                   MiniportClassId);
+      }
+
+      if (NT_SUCCESS(ntStatus))
+      {
+          //
+          // Bind the port, miniport, and resources.
+          //
+          ntStatus = port-&gt;Init(DeviceObject,
+                                Irp, miniport, UnknownAdapter, ResourceList);
+          if (NT_SUCCESS(ntStatus))
+          {
+              //
+              // Hand the port driver and the reference
+              // string to PortCls.
+              //
+              ntStatus = PcRegisterSubdevice(DeviceObject,
+                                             Name, port);
+          }
+
+          //
+          // We no longer need to reference the miniport driver.
+          // Either the port driver now references it,
+          // or binding failed and it should be deleted.
+          //
+          miniport-&gt;Release();
+      }
+
+      //
+      // Release the reference that existed when PcNewPort() gave us
+      // the pointer in the first place. This reference must be released
+      // regardless of whether the binding of the port and miniport
+      // drivers succeeded.
+      //
+      port-&gt;Release();
+  }</PRE>
+
+<P>For information on the PortCls function calls in the preceding code example, see <A HREF="audpc-routines_58s3.htm"><B>PcNewPort</B></A>, <A HREF="audpc-routines_4dyr.htm"><B>PcNewMiniport</B></A>, and <A HREF="audpc-routines_4n8z.htm"><B>PcRegisterSubdevice</B></A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Subdevice%20Creation"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

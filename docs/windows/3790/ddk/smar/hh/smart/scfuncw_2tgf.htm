@@ -1,0 +1,108 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SmartcardT0Request (WDM)</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="SmartcardT0Request (WDM)">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Smart&nbsp;Card&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_ntfunc_smartcardt0request_wdm_"></A>SmartcardT0Request (WDM)</H1>
+
+<P>The <B>SmartcardT0Request</B> routine copies request data from the caller's buffer to the buffer that is managed by the smartcard library routines, from which it is transmitted to the card reader. </P>
+
+<PRE class=syntax><B>NTSTATUS 
+  SmartcardT0Request(
+    PSMARTCARD_EXTENSION  </B><I>SmartcardExtension</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>SmartcardExtension</I></DT>
+
+<DD>Pointer to a structure of type  <A HREF="scstruct_50a6.htm">SMARTCARD_EXTENSION</A> that contains the device extension of the smart card device. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>SmartcardT0Request</B> returns an NTSTATUS value. Possible values are the following.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=46%>Value</TH>
+<TH align=left width=54%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=46%>STATUS_SUCCESS</TD>
+<TD width=54%>Buffer is successfully set up.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=46%>STATUS_BUFFER_OVERFLOW</TD>
+<TD width=54%>The internal buffer is too small to hold the data to send to the smart card. To fix this error, allocate a larger send buffer. See <A HREF="scfuncw_2xsv.htm"><B>SmartcardInitialize</B> (WDM)</A> for details.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=46%>STATUS_BUFFER_TOO_SMALL</TD>
+<TD width=54%>The user buffer is too small to hold the data.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>smclib.h</I>. Include <I>smclib.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The caller must allocate a <A HREF="scstruct_50a6.htm">SMARTCARD_EXTENSION</A> structure and pass a pointer to this structure to the the <A HREF="scfuncw_2xsv.htm"><B>SmartcardInitialize</B> (WDM)</A> routine. <B>SmartcardInitialize</B> allocates two internal buffers that are managed by the smartcard library routines and initializes the <B>SmartcardRequest</B> and <B>SmartcardReply</B> members of the SMARTCARD_EXTENSION structure to point to these two internal buffers. <B>SmartcardT0Request</B> uses one of these buffers, therefore <B>SmartcardInitialize</B> must be called before <B>SmartcardT0Request</B>.</P>
+
+<P>A caller of the <B>SmartcardT0Request</B> routine must copy the request data to the location pointed to by the <B>IoRequest.RequestBuffer</B> member of the previously allocated and initialized SMARTCARD_EXTENSION structure, and then pass a pointer to this structure to <B>SmartcardT0Request</B> in the <I>SmartcardExtension </I>parameter.</P>
+
+<P>This <B>SmartcardT0Request</B> routine copies the data in the caller's buffer at <B>IoRequest.RequestBuffer</B> to the smartcard library buffer at <I>SmartcardExtension-&gt;SmartcardRequest.Buffer</I>. <B>SmartcardT0Request</B> then sets <I>SmartcardExtension-&gt;SmartcardRequest.BufferLength</I> to the number of bytes to be transmitted to the smart card. </P>
+
+<P>If your driver must send header data to the reader before the T=0 data, you should set <I>SmartcardExtension-&gt;SmartcardRequest.BufferLength </I>to the number of bytes you need for your header before you call this function. The packet will look like this:</P>
+
+<P><IMG SRC="images/scfunc1.gif" ALT="" BORDER=0></P>
+
+<P>Here is an example of a T=0 transmission.</P>
+
+<PRE>// Copy data from user buffer to 
+// <I>SmartcardExtension-&gt;SmartcardRequest.Buffer</I>
+status = SmartcardT0Request(
+        SmartcardExtension
+        );
+if (status != STATUS_SUCCESS)
+    return status;
+
+// Transmit <I>SmartcardExtension-&gt;SmartcardRequest.Buffer </I>to smart card
+status = DriverSendDataToSmartcard(…);
+if (status != STATUS_SUCCESS)
+return status;
+
+// Receive data from smart card into 
+<I>SmartcardExtension-&gt;SmartcardReply.Buffer</I>
+status = DriverReceiveDataFromSmartcard(…);
+if (status != STATUS_SUCCESS)
+    return status;
+
+// Copy data from <I>SmartcardExtension-&gt;SmartcardReply.Buffer </I>back to user buffer
+// and return to caller
+return SmartcardT0Reply(
+SmartcardExtension
+);</PRE>
+
+<P>For information on the <B>SmartcardT0Request</B> function for VxD drivers, see <A HREF="scfunc_8xy7.htm"><B>SmartcardT0Request</B> (VxD)</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="scfuncw_5bfj.htm"><B>SmartcardT0Reply</B> (WDM)</A>, <A HREF="scfunc_8xy7.htm"><B>SmartcardT0Request</B> (VxD)</A>, <A HREF="scfuncw_2xsv.htm"><B>SmartcardInitialize</B> (WDM)</A>, <A HREF="scstruct_50a6.htm">SMARTCARD_EXTENSION</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: SmartcardT0Request%20(WDM)"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

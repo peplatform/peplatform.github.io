@@ -1,0 +1,42 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Selective Suspension of USB Devices</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Selective Suspension of USB Devices">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_selective_suspension_of_usb_devices_kg"></A>Selective Suspension of USB Devices</H1>
+
+<P>In Microsoft® Windows® XP and later operating systems, the USB core stack supports a feature known as "Selective Suspend." This feature allows a driver to turn off the USB device it controls when the device becomes idle, even while the system itself remains in a fully operational power state (S0). This feature is primarily intended to conserve battery power in laptops. The USB controller, in particular, often uses a lot of battery power, even when there are no devices attached to the system. The Selective Suspend feature allows drivers to idle the host controller, empty USB hubs, including the Root Hub, and the full range of USB devices supported by the operating system.</P>
+
+<P>Selective Suspend is implemented by means of the <A HREF="usbirp_5rua.htm"><B>IOCTL_INTERNAL_USB_SUBMIT_IDLE_NOTIFICATION</B></A> IOCTL, also known as an "idle request." A function driver whose device is idle must send this IOCTL to notify the USB core stack that its device is ready to be turned off. The USB Root Hub driver, or the USB Generic Parent driver in the case of a composite device, receives the idle request and holds it pending. However, the hub driver does not actually turn off the device. The device's function driver must furnish a callback routine that does this. The callback routine is passed down the stack with the idle request, and either the USB hub driver or the USB Generic Parent driver calls the callback routine once it is safe to turn off the device. The idle request IRP continues to pend until the hub driver receives a request to turn on the device.</P>
+
+<P>If the device supports remote wake up and has no <B>IRP_MN_WAIT_WAKE</B> request pending, the callback routine should submit an <B>IRP_MN_WAIT_WAKE</B> request to the USB core stack before turning off the device. Ideally, however, the function driver should submit a Wait/Wake IRP to the USB driver stack once it becomes clear that this IRP is required, rather than waiting to do this in the callback routine. </P>
+
+<P>Once suspended, a device can be awakened in one of two ways: 
+
+<OL>
+	<LI>Resumption of signaling occurs for remote wake-capable devices (that is, the Wait/Wake IRP completes successfully). Typically, the device is set to a fully operational power state (D0) by the function driver's Wait/Wake IRP completion routine.</LI>
+
+	<LI>A new open request is initiated by client software.</LI>
+</OL>
+
+<P>If the device can be set to a fully operational power state (D0), the hub driver completes the idle request with a status code indicating success. This informs higher-level drivers that the device is no longer idle. If, however, the device is in a nonwake-capable power state, such as D3, or it has been removed or stopped, the hub driver completes the idle request IRP with an appropriate error code.</P>
+
+<P>A function driver may cancel the idle request after it has been made, but must do so before the hub driver calls the callback routine. If the function driver cancels the idle request IRP, the hub driver completes the IRP with an error code. When a function driver's completion routine detects that the hub driver completed the idle request IRP with an error code other than STATUS_POWER_STATE_INVALID, it should attempt to turn on the device. This should be done because the hub driver does not guarantee that the device is in a powered state whenever it completes an idle request IRP with an error. </P>
+
+<P>When the system is not in the working state, the ACPI bus driver completes all Wait/Wake IRPs; whereas if the system is turned on, the USB controller driver must handle Wait/Wake IRPs for USB devices. For this reason, support for Selective Suspend in the USB core stack is disabled by default in upgrade installations of the operating system. The Selective Suspend feature is enabled for clean installations. Selective Suspend is disabled for upgrade installations, because some USB host controller<B> </B>hardware does not support selective suspension of its ports and, therefore, cannot indicate a resumption of signaling unless the entire controller is suspended.</P>
+
+<P>To enable Selective Suspend support for a given Root Hub and its child devices, a user must select the checkbox under the <B>Power Management</B> tab for the USB Root Hub in the Device Manager. However, function drivers should not try to determine whether selective suspend is enabled before sending idle requests. They should send the requests whenever the device is idle. If Selective Suspend support is not enabled, the hub driver completes the idle request with an error. </P>
+
+<P></P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Selective%20Suspension%20of%20USB%20Devices"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

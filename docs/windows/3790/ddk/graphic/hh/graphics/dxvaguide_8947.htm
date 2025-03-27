@@ -1,0 +1,242 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DeinterlaceQueryAvailableModes</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DeinterlaceQueryAvailableModes">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_deinterlacequeryavailablemodes_gg"></A><I>DeinterlaceQueryAvailableModes</I></H1>
+
+<P>The sample <I>DeinterlaceQueryAvailableModes</I> function is used to query for the available deinterlacing or frame-rate conversion modes for a particular input video format.</P>
+
+<PRE class=syntax><B>HRESULT
+</B>  <I>DeinterlaceQueryAvailableModes</I><B>(</B>
+    <B>IN LPDXVA_VideoDesc</B>  <I>lpVideoDescription</I>,
+    <B>IN OUT LPDWORD</B>  <I>lpdwNumModesSupported</I>,
+    <B>IN OUT LPGUID</B>  <I>pGuidsDeinterlaceModes</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>lpVideoDescription</I></DT>
+
+<DD>Pointer to a <A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A> structure that defines the deinterlace parameters for the video to be deinterlaced or frame-rate converted.</DD>
+
+<DT><I>lpdwNumModesSupported</I></DT>
+
+<DD>Pointer to the number of deinterlace or frame-rate conversion modes supported.</DD>
+
+<DT><I>pGuidsDeinterlaceModes</I></DT>
+
+<DD>Pointer to the GUID returned by the driver for each deinterlace or frame-rate conversion mode supported. There is a GUID for each deinterlace and frame conversion mode returned by the driver.</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>The <I>lpVideoDescription </I>parameter is a pointer to a <A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A> structure that contains a description of the video stream for the deinterlacing or frame-rate conversion to be performed. This pointer is passed to the driver so the driver can support the resolution and format of the source video. For example, the driver might be able to perform a three-field adaptive deinterlace of 480i content, but it might only be able to bob 1080i content.</P>
+
+<P>The GUIDs returned by <I>pGuidsDeinterlaceModes</I> should be returned in order of descending quality (that is, the highest quality mode should occupy the first element of the GUID array returned). The <A HREF="dxvaref_9lif.htm">DXVA_DeinterlaceQueryAvailableModes</A> structure contains the available modes. All drivers should be able to support bob using the existing blt hardware. See the <A HREF="dxvaguide_0bzb.htm">Deinterlace Modes</A> and <A HREF="dxvaguide_0h0n.htm">Frame-Rate Conversion Modes</A> topics for more information on these modes.</P>
+
+<P>After the VMR has determined the deinterlace or frame conversion modes available for a particular video format, the VMR queries the driver to obtain detailed information about the input requirements of a particular deinterlace mode and any additional video processing that might be supported on that mode.</P>
+
+<H4>Mapping RenderMoComp to <I>DeinterlaceQueryAvailableModes</I></H4>
+
+<P>The sample <I>DeinterlaceQueryAvailableModes</I> function maps directly to a call from the <B>RenderMoComp</B> member of the <A HREF="ddstrcts_0qav.htm">DD_MOTIONCOMPCALLBACKS</A> structure of the deinterlace container device. <B>RenderMoComp</B> points to a driver-supplied function that references the <A HREF="ddstrcts_5jtz.htm">DD_RENDERMOCOMPDATA</A> structure.</P>
+
+<P>The DirectX VA container device’s <B>RenderMoComp</B> callback is called without <B>BeginMoCompFrame</B> or <B>EndMoCompFrame</B> being called first. </P>
+
+<P>The <A HREF="ddstrcts_0qav.htm">DD_MOTIONCOMPCALLBACKS</A> structure is completed as follows.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=45%>Member</TH>
+<TH align=left width=55%>Value</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%><B>dwNumBuffers</B> </TD>
+<TD width=55%>Zero</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%><B>lpBufferInfo</B></TD>
+<TD width=55%>NULL</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%><B>dwFunction</B> </TD>
+<TD width=55%>DXVA_DeinterlaceQueryAvailableModesFnCode constant (defined in <I>dxva.h</I>)</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%><B>lpInputData</B> </TD>
+<TD width=55%>Pointer to a completed <A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A> structure.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%><B>lpOutputData</B> </TD>
+<TD width=55%>Pointer to a <A HREF="dxvaref_9lif.htm">DXVA_DeinterlaceQueryAvailableModes</A> structure.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Deinterlacing 720x480i Content Example</H4>
+
+<P>To deinterlace 720x480i content that is sourced as two fields per sample at a frequency of 29.97Hz, the <A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A> structure is used to pass to the driver the deinterlacing to be performed. The DXVA_VideoDesc structure is completed as follows.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=55%>Member</TH>
+<TH align=left width=45%>Value</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=55%><B>SampleWidth</B></TD>
+<TD width=45%>720</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=55%><B>SampleHeight</B></TD>
+<TD width=45%>480</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=55%><B>SampleFormat</B></TD>
+<TD width=45%><B>DXVA_SampleFieldInterleavedOddFirst</B> enumerator in <A HREF="dxvaref_5uav.htm">DXVA_SampleFormat</A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=55%><B>d3dFormat</B></TD>
+<TD width=45%>D3DFMT_YUY2 defined in the <I>d3d8types.h</I> and <I>d3d9types.h</I> header files</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=55%><B>InputSampleFreq.Numerator</B></TD>
+<TD width=45%>30000 (29.97 Hz monitor frequency)</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=55%><B>InputSampleFreq.Denominator</B></TD>
+<TD width=45%>1001</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=55%><B>OutputFrameFreq.Numerator</B></TD>
+<TD width=45%>60000 (59.94 Hz monitor frequency)</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=55%><B>OutputFrameFreq.Denominator</B></TD>
+<TD width=45%>1001</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Deinterlacing and Frame-Rate Conversion of 720x480i Content Example</H4>
+
+<P>To perform deinterlacing and frame-rate conversion of 720x480i content, the <B>OutputFrameFreq</B> member of the <A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A> structure is completed as shown in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=47%>Member</TH>
+<TH align=left width=53%>Value</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%><B>OutputFrameFreq.Numerator</B></TD>
+<TD width=53%>85 (85 Hz monitor frequency)</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%><B>OutputFrameFreq.Denominator</B></TD>
+<TD width=53%>1</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Deinterlacing a Single Field to a Progressive Frame Example</H4>
+
+<P>To perform deinterlacing of a single field to a progressive frame for later MPEG encoding, the <B>OutputFrameFreq</B> member of the <A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A> structure is completed as follows.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=47%>Member</TH>
+<TH align=left width=53%>Value</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%><B>OutputFrameFreq.Numerator</B></TD>
+<TD width=53%>30000 (29.97 Hz monitor frequency)</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%><B>OutputFrameFreq.Denominator</B></TD>
+<TD width=53%>1001</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Frame-Rate Converting 480p Content Example</H4>
+
+<P>The <A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A> structure is used to perform frame-rate conversion on 480p content and to match the monitor display frequency. This structure passes the deinterlacing or frame-rate conversion to be performed to the driver. The DXVA_VideoDesc structure is completed as follows. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=47%>Member</TH>
+<TH align=left width=53%>Value</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%><B>SampleWidth</B></TD>
+<TD width=53%>720</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%><B>SampleHeight</B></TD>
+<TD width=53%>480</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%><B>SampleFormat</B></TD>
+<TD width=53%><B>DXVA_SampleProgressiveFrame</B> enumerator in the <A HREF="dxvaref_5uav.htm">DXVA_SampleFormat</A> enumeration</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%><B>d3dFormat</B></TD>
+<TD width=53%>D3DFMT_YUY2 defined in the d3d8types.h and d3d9types.h header files</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%><B>InputSampleFreq.Numerator</B></TD>
+<TD width=53%>60 (60 Hz monitor frequency)</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%><B>InputSampleFreq.Denominator</B></TD>
+<TD width=53%>1</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%><B>OutputFrameFreq.Numerator</B></TD>
+<TD width=53%>85 (85 Hz monitor frequency)</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%><B>OutputFrameFreq.Denominator</B></TD>
+<TD width=53%>1</TD>
+</TR>
+</TABLE><BR>
+
+<H4>See Also</H4>
+
+<P><A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A>, <A HREF="dxvaref_5uav.htm">DXVA_SampleFormat</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DeinterlaceQueryAvailableModes"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

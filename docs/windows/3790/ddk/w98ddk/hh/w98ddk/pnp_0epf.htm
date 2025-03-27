@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Dynamic Driver Loading During System Boot</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_3593"></A>Dynamic Driver Loading During System Boot</H3>
+
+<P>Many Windows 95 driver models, such as IOS and the network driver models, support dynamically loaded device drivers. These VxDs are not loaded by the MS-DOS real mode loader. In the case of IOS, some drivers are true dynamically loaded VxDs, and others are mini-port SCSI drivers that are Windows NT/Windows 2000-binary compatible. IOS loads all drivers dynamically. The process used to load these drivers is identical to the process used to dynamically load the same drivers at run-time, except that the sequence of events that starts the load process is slightly different. </P>
+
+<P>Dynamically loaded drivers are required to have a device loader. A device loader is responsible for loading the drivers at the correct time and in the correct order, and for making the proper initialization calls. In the case of SCSI adapter miniport drivers this device loader is IOS. A typical registry driver section for a SCSI adapter looks something like this: </P>
+
+<PRE>Enum\ISAPNP\*ABC0507\0A35BF46
+     DeviceDesc=ABC SCSI Vendor ISA Adapter
+     Class="SCSIAdapter"
+     Driver="SCSIAdapter\0000"
+ System\CurrentControlSet\Services\Class\ScsiAdapter\0000
+     DevLoader=*IOS
+     MiniPortDriver=ABC.MPD
+ </PRE>
+
+<P>Since there is no StaticVxD=xxx line in this registry entry, the VMM32 real mode loader will do nothing when the ISAPNP enumerator identifies this device. IOS is a statically loaded base driver; it receives a <B>Device_Init</B> system control message. During this message, IOS calls Configuration Manager to load any drivers that have a DevLoader=IOS entry by calling <B>CONFIGMG_Register_DevLoader</B> with the following parameters: </P>
+
+<PRE>CM_Register_DevLoader(IOS_DDB, 0);
+ </PRE>
+
+<P>From within this function, Configuration Manager walks the devnode tree and attempts to find any device node that has a DevLoader=IOS entry in the registry. In this example, it would find the ABC adapter. This causes Configuration Manager to call back to IOS with a system control call to load the driver. </P>
+
+<PRE>DirectedSysControl("IOS", PNP_NEW_DEVNODE, DLVXD_LOAD_DEVLOADER, LoadDevNode)
+ </PRE>
+
+<P>IOS then examines the registry and finds the MiniPortDriver=ABC.MPT, loads the driver and any associated support drivers, initializes the adapter, and returns from the function. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Dynamic%20Driver%20Loading%20During%20System%20Boot"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

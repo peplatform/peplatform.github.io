@@ -1,0 +1,128 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Driver Information in the Registry</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Driver Information in the Registry">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iogetdeviceproperty_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ioopendeviceregistrykey_kr">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_driverentry_kr">
+</OBJECT>
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iogetdeviceproperty_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_driver_information_in_the_registry_dg"></A>Driver Information in the Registry</H1>
+
+<P>The operating system, drivers, and device installation components store information about drivers and devices in the registry. In general, drivers and device installation components should use the registry to store data that must be maintained across reboots of the system. Drivers can access the registry to obtain this information. </P>
+
+<P>Registry contents should always be treated as untrusted, modifiable information. If one of your driver components writes information to the registry and another component reads it later, do not assume that the information has not been modified in the meantime. After reading information from the registry, your driver components should always validate the information before using it.</P>
+
+<P>For more information about the registry in general, see the Platform SDK documentation.</P>
+
+<P>The following trees in the registry are of particular interest to driver writers (where <B>HKLM</B> represents <B>HKEY_LOCAL_MACHINE</B>):
+
+<UL>
+	<LI><A HREF="#ddk_the_hklm_system_currentcontrolset_services_tree_dg">The <B>HKLM\SYSTEM\CurrentControlSet\Services </B>Tree</A> </LI>
+
+	<LI><A HREF="#ddk_the_hklm_system_currentcontrolset_control_tree_dg">The <B>HKLM\SYSTEM\CurrentControlSet\Control </B>Tree</A> </LI>
+
+	<LI><A HREF="#ddk_the_hklm_system_currentcontrolset_enum_tree_dg">The <B>HKLM\SYSTEM\CurrentControlSet\Enum </B>Tree</A> </LI>
+
+	<LI><A HREF="#ddk_the_hklm_system_currentcontrolset_hardwareprofiles_tree_dg">The <B>HKLM\SYSTEM\CurrentControlSet\HardwareProfiles </B>Tree</A> </LI>
+</UL>
+
+<P>Drivers must access Plug and Play (PnP) keys in the registry using system routines such as <A HREF="JavaScript:hhobj_1.Click()"><B>IoGetDeviceProperty</B></A> or <A HREF="JavaScript:hhobj_2.Click()"><B>IoOpenDeviceRegistryKey</B></A>. User-mode setup components should use device installation functions such as <A HREF="di-rtns_4x2q.htm"><B>SetupDiGetDeviceRegistryProperty</B></A> or <A HREF="di-rtns_8g36.htm"><B>SetupDiOpenDevRegKey</B></A>. The registry can be accessed from INF files using <A HREF="inf-format_2v02.htm">INF <B>AddReg</B> directives</A>.</P>
+
+<P><I>Drivers must not access these keys directly. </I>This discussion of registry information is solely for debugging a device installation or configuration problem.</P>
+
+<P>The keys under <B>HKLM\SYSTEM\CurrentControlSet</B> are a safe place to preserve data that is vital to your driver because the data is stored in the system hive. The system takes extra precautions to protect the system hive (for example, keeping multiple copies). </P>
+
+
+
+<H4><A NAME="ddk_the_hklm_system_currentcontrolset_services_tree_dg"></A>The HKLM\SYSTEM\CurrentControlSet\Services Tree </H4>
+
+<P>The <B>HKLM\SYSTEM\CurrentControlSet\Services</B> registry tree stores information about each service on the system. Each driver has a key of the form <B>HKLM\SYSTEM\CurrentControlSet\Services\</B><I>DriverName</I>. The PnP Manager passes this path to a driver in the <I>RegistryPath</I> parameter when it calls the driver's <A HREF="JavaScript:hhobj_3.Click()"><B>DriverEntry</B></A> routine. A driver can store global driver-defined data under its key in the <B>Services</B> tree. Information stored under this key is available to the driver during its initialization. </P>
+
+<P>The following keys and value entries are of particular interest:
+
+<DL>
+<DT><B>ImagePath</B></DT>
+
+<DD>A value entry that specifies the fully qualified path of the driver’s image file. Setup creates this value using the required <B>ServiceBinary</B> entry in the driver's INF file. This entry is in the <I>service-install-section</I> referenced by the driver's <A HREF="inf-format_79te.htm">INF <B>AddService</B> directive</A>. A typical value for this path is <I>%windir%</I>\<I>system32\Drivers\DriverName</I>.sys, where <I>DriverName</I> is the name of the driver’s <B>Services</B> key. </DD>
+
+<DT><B>Parameters</B></DT>
+
+<DD>A key used to store driver-specific data. For some types of drivers, the system expects to find specific value entries. You can add value entries to this subkey using <B>AddReg</B> entries in the driver's INF file.</DD>
+
+<DT><B>Performance</B></DT>
+
+<DD>A key that specifies information for optional performance monitoring. The values under this key specify the name of the driver’s performance DLL and the names of certain exported functions in that DLL. You can add value entries to this subkey using <B>AddReg</B> entries in the driver's INF file. 
+</DD>
+</DL>
+
+
+
+<H4><A NAME="ddk_the_hklm_system_currentcontrolset_control_tree_dg"></A>The HKLM\SYSTEM\CurrentControlSet\Control Tree</H4>
+
+<P>The <B>HKLM\SYSTEM\CurrentControlSet\Control</B> registry tree contains information for controlling system startup and some aspects of device configuration. The following subkeys are of particular interest:
+
+<DL>
+<DT><B>Class</B></DT>
+
+<DD>Contains information about the device setup classes on the system. There is a subkey for each class, named using the GUID of the setup class. Each subkey contains information about a setup class, such as the class installer (if there is one), registered class upper-filter drivers, registered class lower-filter drivers, and so forth.
+
+<P>Each class subkey contains other subkeys known as <I>software keys</I> (or, <I>driver keys</I>) for each device instance of that class installed in the system. Each of these software keys is named by using a device instance ID, which is a base-10, four-digit ordinal value.
+</DD>
+
+<DT><B>CoDeviceInstallers</B></DT>
+
+<DD>Contains information about the class-specific co-installers that are registered on the system.</DD>
+
+<DT><B>DeviceClasses</B></DT>
+
+<DD>Contains information about the device interfaces on the system. There is a subkey for each <A HREF="setup-cls_54kn.htm">device interface class</A> and entries under those subkeys for each instance of an interface that is registered for the device interface class.
+</DD>
+</DL>
+
+
+
+<H4><A NAME="ddk_the_hklm_system_currentcontrolset_enum_tree_dg"></A>The HKLM\SYSTEM\CurrentControlSet\Enum Tree</H4>
+
+<P>The <B>HKLM\SYSTEM\CurrentControlSet\Enum</B> registry tree contains information about the devices on the system. The PnP Manager creates a subkey for each device, with a name in  the form of <B>HKLM\SYSTEM\CurrentControlSet\Enum\</B><I>enumerator</I><B>\</B><I>deviceID</I>. Under each of these keys is a subkey for each device instance present on the system. This subkey, which is known as the device's <I>hardware key </I>(or, <I>device key</I>), has information such as the device description, hardware IDs, compatible IDs, resource requirements, and so forth. </P>
+
+<P>The <B>Enum</B> tree is reserved for use by operating system components, and its layout is subject to change. Drivers and user-mode Setup components must use system-supplied functions, such as <A HREF="JavaScript:hhobj_4.Click()"><B>IoGetDeviceProperty</B></A> and <A HREF="di-rtns_4x2q.htm"><B>SetupDiGetDeviceRegistryProperty</B></A>, to extract information from this tree.<I> Drivers and Setup applications must not access the <B>Enum</B> tree directly.</I> You can view the <B>Enum</B> tree directly using the registry editor when debugging drivers.</P>
+
+
+
+<H4><A NAME="ddk_the_hklm_system_currentcontrolset_hardwareprofiles_tree_dg"></A>The HKLM\SYSTEM\CurrentControlSet\HardwareProfiles Tree</H4>
+
+<P>The <B>HKLM\SYSTEM\CurrentControlSet\HardwareProfiles</B> registry tree contains information about the hardware profiles on the system. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Driver%20Information%20in%20the%20Registry"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

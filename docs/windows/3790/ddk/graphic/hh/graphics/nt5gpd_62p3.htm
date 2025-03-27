@@ -1,0 +1,95 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>HP-GL/2 Caveats</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="HP-GL/2 Caveats">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_hp_gl_2_caveats_gg"></A>HP-GL/2 Caveats</H3>
+
+<OL>
+	<LI>HP-GL/2 works only for the version of Unidrv that ships with Windows&nbsp;XP and later operating system releases (Windows&nbsp;XP Unidrv refers to the set of driver files that ship with Windows&nbsp;XP — <I>unidrv.dll</I>, <I>unidrvui.dll</I>, <I>unires.dll</I>, and <I>stdnames.gpd</I>). It does not work on Windows&nbsp;2000 Unidrv. If a Windows&nbsp;XP version of Unidrv is present on a machine running Windows&nbsp;2000 (for example, when a Windows&nbsp;2000 machine makes a point and print connection to a machine running Windows&nbsp;Server 2003 or later), then the driver uses HP-GL/2.</LI>
+
+	<LI>Some of the rendering commands in the GPD are ignored when HP-GL/2 mode is activated. Instead, hard coded commands in the driver are used. However, those commands must be present in the GPD for the following reasons:
+<OL>
+	<LI>In later versions of the operating system, the hard coding of rendering commands might be removed. </LI>
+
+	<LI>An HP-GL/2 driver offers an option to switch to raster mode (that is, to not use the HP-GL/2 driver). For raster mode, all of the commands must be present in the GPD.
+<P>A good rule of thumb is that any PCL-XL/HP-GL/2 command that is used to actually draw something (for example, <B>CmdDownloadPattern </B>or<B> CmdSelectBlackBrush</B>) is ignored. Commands such as Page setup, Document setup, and others that are not drawing commands are not ignored. For more information on these commands, see <A HREF="nt5gpd_8b6v.htm">Color Commands</A>.
+
+<P>Additionally, all HP-GL/2 commands are hard-coded in the driver. 
+</LI>
+</OL>
+</LI>
+
+	<LI>Masks received in calls to <A HREF="ddifncs_8z3b.htm"><I>DrvBitBlt</I></A> and other bit-block transfer functions may not work correctly.</LI>
+
+	<LI>When Windows&nbsp;XP Unidrv is used on Windows&nbsp;2000 and HP-GL/2 is activated, some graphics rendering functions may not work correctly. For example, the output from <A HREF="ddifncs_6bvr.htm"><I>DrvGradientFill</I></A> calls has red and blue reversed. </LI>
+
+	<LI>Unidrv assumes that printer hardware supports ROP commands. If a printer does not support ROP, some documents might not print correctly. </LI>
+
+	<LI>Support for hatch brushes is required. If the printer does not support hatch brushes, then the output depends on how the printer hardware handles the hatch brush selection command (FT21,x SV21,x).</LI>
+
+	<LI>The color of a hatch brush is ignored for monochrome printers. It is always printed as black.</LI>
+
+	<LI>For color printers, HP-GL/2 supports only 24 bpp/600 dpi. For monochrome printers, HP-GL/2 supports only 600 dpi. If your printer supports other values, constrain HP-GL/2 mode to be chosen only when color depth is 24 bpp and resolution is 600 dpi. The following example shows how the <B>GraphicsMode</B> feature can be modified to accomplish this. In this example, the first <B>*Constraints</B> entry causes Unidrv to reject a mode change to HPGL2MODE if the <B>Resolution</B> feature's <B>Option2</B> value is not 600x600 dpi. (In the example, it is assumed that the <B>Option2</B> value is some lower resolution, such as 300x300 dpi.) The second <B>*Constraints</B> entry causes Unidrv to reject the mode change if the <B>ColorMode</B> feature's options are Color or 8bpp.
+<PRE>*Feature: GraphicsMode
+{
+  *rcNameID: =GRAPHICSMODE_DISPLAY
+  *FeatureType: DOC_PROPERTY
+  *HelpIndex: 12000
+  *DefaultOption: HPGL2MODE
+  *Option: HPGL2MODE
+   {
+     *rcNameID: =GRAPHICSMODE_HPGL2_DISPLAY
+     *Constraints: Resolution.Option2
+     *Constraints: LIST(ColorMode.Color, ColorMode.8bpp)
+   }
+  *Option: RASTERMODE
+   {
+     *rcNameID: =GRAPHICSMODE_RASTER_DISPLAY
+   }
+}
+</PRE>
+</LI>
+
+	<LI>Color printers must be able to scale images on the hardware. This requirement does not exist for monochrome printers.</LI>
+
+	<LI>For monochrome printers, it is assumed that:
+<UL>
+	<LI>The printer accepts only 1bpp information. </LI>
+
+	<LI>A bit set to 1 indicates a black pixel, and a bit set to 0 indicates a white pixel. </LI>
+
+	<LI>The printer cannot gray scale any color. (This arises naturally from the 1 bpp limitation.)</LI>
+</UL>
+</LI>
+
+	<LI>The following compression methods must be supported:
+<UL>
+	<LI>No compression</LI>
+
+	<LI>TIFF</LI>
+
+	<LI>Delta Row</LI>
+</UL>
+</LI>
+
+	<LI>HP-GL/2 does not perform system landscape rotation. When HP-GL/2 is enabled, the printer is assumed to handle the rotation of rasters, fonts, and coordinates for pages printed in landscape mode. To counter this problem, make sure that all GPD rotation parameters (the <A HREF="nt5gpd_5hrb.htm#ddk__rotatecoordinate__gg"><B>*RotateCoordinate?</B></A>, <A HREF="nt5gpd_5hrb.htm#ddk__rotatefont__gg"><B>*RotateFont?</B></A>, and <A HREF="nt5gpd_5hrb.htm#ddk__rotateraster__gg"><B>*RotateRaster?</B></A> attributes) are set to TRUE. If your printer has memory overflow problems with rotation, you should consider not activating HP-GL/2, or placing constraints on memory (that is, HP-GL/2 should be activated only if memory is 4 MB or more.
+<P>On low-memory devices (for example, a 600 dpi monochrome laser printer with 2 MB of RAM), certain pages that generate out-of-memory errors when the device is in HP-GL/2 mode might print correctly in raster mode. One solution for devices with less than a full bitmap of memory is to write the GPD so that raster mode is the default, and to let the system handle landscape rotation, rather than HP-GL/2. In addition, certain complex portrait print jobs might print correctly in raster mode, but not in HP-GL/2 mode. If that is the case, you should consider making raster mode the default.
+</LI>
+
+	<LI>Print optimization functionality on the <B>Advanced</B><I> </I>tab of the printer property pages is currently ignored in HP-GL/2 mode.</LI>
+
+	<LI><A HREF="nt5gpd_5ig7.htm#ddk__mirrorrasterpage__gg"><B>*MirrorRasterPage?</B></A> is not supported in HP-GL/2 mode.</LI>
+
+	<LI>It is possible for TrueType outline fonts to be downloaded as raster fonts even when the GPD file specifies that the device supports outline fonts. This can occur for a variety of reasons (for example, insufficient memory on the printer). </LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: HP-GL%2F2%20Caveats"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

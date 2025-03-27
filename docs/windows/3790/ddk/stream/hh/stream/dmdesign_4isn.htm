@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DirectMusic Miniport Driver Interface</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DirectMusic Miniport Driver Interface">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_directmusic_miniport_driver_interface_ksg"></A>DirectMusic Miniport Driver Interface</H3>
+
+<P>The DirectMusic miniport driver interface is based on the WDM MIDI miniport driver interface, but it adds extensions to support advanced synthesizers:
+
+<UL>
+	<LI>DLS downloads greater than 16 channels per instance</LI>
+
+	<LI>Sequencing of note events in hardware</LI>
+</UL>
+
+<P>The DirectMusic miniport driver interface differs from the MIDI miniport driver interface in several ways. A DirectMusic miniport driver implements the interface <A HREF="audmp-routines_4vjn.htm"><B>IMiniportDMus</B></A> as opposed to <A HREF="audmp-routines_1fsj.htm"><B>IMiniportMidi</B></A>. This interface is similar to <B>IMiniportMidi</B>, but the <A HREF="audmp-routines_8oqb.htm"><B>IMiniportDMus::NewStream</B></A> method creates an <A HREF="audmp-routines_9fw3.htm"><B>IMXF</B></A> (MIDI transform filter) interface and connects to an <A HREF="audmp-routines_4tkj.htm"><B>IAllocatorMXF</B></A> interface in the DirectMusic port driver, as opposed to implementing an <A HREF="audmp-routines_6svn.htm"><B>IMiniportMidiStream</B></A> interface. <B>IAllocatorMXF</B> and <B>IMXF</B> wrap the standard <B>GetMessage</B> and <B>PutMessage</B> calls (see <A HREF="audmp-routines_5n3n.htm"><B>IAllocatorMXF::GetMessage</B></A> and <A HREF="audmp-routines_38vn.htm"><B>IMXF::PutMessage</B></A>). These calls deal with packaged events rather than with raw MIDI bytes.</P>
+
+<P>The DirectMusic miniport driver for a synthesizer can implement some or all of the DirectMusic properties. These properties allow the system to manage DLS downloads and channel allocations for the device. The <I>dmusprop.h</I> header file defines DirectMusic-specific property items. For a list of these properties, see <A HREF="aud-prop_72nn.htm">KSPROPSETID_Synth</A> and <A HREF="aud-prop_3eer.htm">KSPROPSETID_Synth_Dls</A>.</P>
+
+<P>DirectMusic miniport drivers are expected to allow the creation of multiple pin instances. Each pin instance acts as one virtual synthesizer and contains a set of channels and DLS downloads independent of the other pin instances.</P>
+
+<P>Some of the synth properties described in <A HREF="aud-prop_0ylv.htm">Audio Drivers Property Sets</A> act on a pin instance, and others are global. To process the global properties, the synthesizer must have a synthesizer node in its topology. The description of each property item indicates whether that item is sent to the synthesizer node or to a pin instance.</P>
+
+<P><IMG SRC="images/dmkmport.gif" ALT="" BORDER=0></P>
+
+<P><B>Port and Miniport Drivers for a DirectMusic Synthesizer</B></P>
+
+<P>For each piece of hardware supporting synthesis, there exists a port driver object and a miniport driver object, as shown in the preceding figure. The port driver object exposes one instance of an <A HREF="audmp-routines_7pgz.htm"><B>IPortDMus</B></A> interface, which is held by the miniport driver object. The miniport driver exports one instance of an <B>IMiniportDMus</B> interface, which is held by the port driver. For every instantiated pin, the port driver requests a matching <B>IMXF</B> interface. Communication between the system and this instance is the combination of property requests addressed to the pin and events flowing to or from the <B>IMXF</B> stream interface.</P>
+
+<P>Two objects must be passed to the miniport driver when it is created:
+
+<UL>
+	<LI>Clock</LI>
+
+	<LI>Allocator object</LI>
+</UL>
+
+<P>The clock is very important for render and capture operations. The miniport driver needs to render notes at their specified times; when the miniport driver reads in MIDI data, it needs to know the time so it can time-stamp the kernel event. For more information, see <A HREF="dmdesign_9yqv.htm">Latency Clocks</A>.</P>
+
+<P>The <A HREF="dmdesign_0u5j.htm">allocator</A> object, which has an <B>IAllocatorMXF</B> interface, is used as a memory pool to recycle memory. All MIDI messages in the system are allocated from this common pool. The allocator object should be used to create or destroy the individual messages.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DirectMusic%20Miniport%20Driver%20Interface"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,107 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Receiving 802.1Q-Marked Packets</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Receiving 802.1Q-Marked Packets">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_receiving_802.1q_marked_packets_ng"></A>Receiving 802.1Q-Marked Packets</H4>
+
+<P>A miniport driver that supports 802.1Q can receive packets that contain priority and VLAN identifier (VLAN ID) values in their <A HREF="204_802p_5cdj.htm">tag headers </A>. Before indicating up such packets, the miniport driver should:
+
+<OL>
+	<LI>Remove the priority and VLAN ID values from such packets.</LI>
+
+	<LI>Set the priority and VLAN ID values in the per-packet information. 
+<P>The miniport driver should set these values to the values of the priority and VLAN ID that it removed from the original packet.
+</LI>
+</OL>
+
+<P>The following table summarizes the actions that a miniport driver should perform on an 802.1Q receive packet:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=18%>Configured VLAN ID for the NIC</TH>
+<TH align=left width=21%>Packet Contains a Tag Header?</TH>
+<TH align=left width=21%>VLAN ID in the Tag Header</TH>
+<TH align=left width=40%>Miniport Driver Action</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>Zero</TD>
+<TD width=21%>Yes</TD>
+<TD width=21%>Any value</TD>
+<TD width=40%>Remove priority and VLAN ID from the packet.
+<P>Insert removed priority and VLAN ID into per-packet information.</P>
+
+<P>Indicate the packet.</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>Zero</TD>
+<TD width=21%>No</TD>
+<TD width=21%>Not applicable</TD>
+<TD width=40%>Set the priority and VLAN ID in per-packet information to zero.
+<P>Indicate the packet.</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>Nonzero</TD>
+<TD width=21%>Yes</TD>
+<TD width=21%>Matches the configured VLAN ID</TD>
+<TD width=40%>Remove priority and VLAN ID from the packet.
+<P>Insert removed priority and VLAN ID into per-packet information.</P>
+
+<P>Indicate the packet.</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>Nonzero</TD>
+<TD width=21%>Yes</TD>
+<TD width=21%>Does not match the configured VLAN ID</TD>
+<TD width=40%>Do not indicate the packet.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>Nonzero</TD>
+<TD width=21%>No</TD>
+<TD width=21%>Not applicable</TD>
+<TD width=40%>Do not indicate the packet.</TD>
+</TR>
+</TABLE><BR>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;If a receive packet's Ethernet header specifies a protocol type (EtherType) of 802.3ad or GARP VLAN Registration Protocol (GVRP), the miniport driver should indicate the packet without modifying it.</P>
+
+<P>To insert priority and VLAN-identifier values into a packet descriptor, a miniport driver calls the <A HREF="103ndisx_0bjm.htm">NDIS_PER_PACKET_INFO_FROM_PACKET</A> macro. In this call, the miniport driver passes:
+
+<UL>
+	<LI>A pointer to the <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A> structure that describes the packet.</LI>
+
+	<LI>The <B>Ieee8021QInfo</B> NDIS_PER_PACKET_INFO value. This indicates that NDIS should insert the priority and VLAN identifier values into the packet. </LI>
+</UL>
+
+<P>In the following code sample, the <I>pPacketDesc</I> variable points to a packet, and the <I>UserPriority</I> and <I>VlanID</I> variables hold the priority and VLAN identifier values, respectively, to insert into the packet. </P>
+
+<PRE><A HREF="105nstru_45bm.htm">NDIS_PACKET_8021Q_INFO</A> VlanPriInfo;
+UINT32 UserPriority = 1;
+UINT32 VlanID = 777;         // Change this to correct value.
+VlanPriInfo.Value =          // Get current value.
+      NDIS_PER_PACKET_INFO_FROM_PACKET(Packet, Ieee8021QInfo); 
+VlanPriInfo.TagHeader.UserPriority = UserPriority; // Set priority.
+VlanPriInfo.TagHeader.VlanId = VlanID; // Set VLAN identifier.
+VlanPriInfo.TagHeader.CanonicalFormatId = 0; // Should be zero.
+VlanPriInfo.TagHeader.Reserved = 0; // Should be zero.
+NDIS_PER_PACKET_INFO_FROM_PACKET(pPacketDesc, Ieee8021QInfo) = 
+                                            VlanPriInfo.Value; </PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Receiving%20802.1Q-Marked%20Packets"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

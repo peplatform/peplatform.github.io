@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Queuing and Dequeuing IRPs</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Queuing and Dequeuing IRPs">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_queuing_and_dequeuing_irps_kg"></A>Queuing and Dequeuing IRPs</H1>
+
+<P>Because the I/O Manager supports asynchronous I/O within a multitasking and multithreaded system, I/O requests to a device can come in faster than its driver can process them to completion, particularly in multiprocessor machines. Consequently, IRPs bound to any particular device must be queued in the driver when its device is already busy processing another IRP. </P>
+
+<P>Therefore, a lowest-level driver requires one of the following:
+
+<UL>
+	<LI>A <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A> routine, which the I/O Manager calls to start I/O operations for IRPs the driver has queued to a system-supplied IRP queue (see <A HREF="k104_1nsi.htm"><B>IoStartPacket</B></A>).</LI>
+
+	<LI>An internal IRP-queuing and de-queuing mechanism, which the driver uses to manage IRPs that come in faster than it can satisfy them. Drivers can use device queues, interlocked queues, or cancel-safe queues. For more information, see <A HREF="irps_5kpz.htm">Driver-Managed IRP Queues</A>.</LI>
+</UL>
+
+<P>Only a lowest-level device driver that can satisfy and complete every possible IRP in its dispatch routines needs no <I>StartIo</I> routine and no driver-managed queues for IRPs. </P>
+
+<P>Higher-level drivers almost never have <I>StartIo</I> routines. Most intermediate drivers have neither <I>StartIo</I> routines nor internal queues; an intermediate driver can usually pass IRPs with valid parameters on from its dispatch routines and do whatever post-processing is required for any IRP in its <I>IoCompletion</I> routine.</P>
+
+<P>The following describes, in general, some of the design considerations for determining whether to implement a <I>StartIo</I> routine with or without internal, driver-managed queues for IRPs. </P>
+
+<H4><I>StartIo </I>Routines in Drivers</H4>
+
+<P>For PC peripheral devices capable of handling only one device I/O operation at a time, device drivers can implement <I>StartIo </I>routines. For these drivers, the I/O Manager provides <A HREF="k104_1nsi.htm"><B>IoStartPacket</B></A> and <A HREF="k104_7eb6.htm"><B>IoStartNextPacket</B></A> routines to queue and dequeue IRPs to and from a system-supplied IRP queue.</P>
+
+<P>For more information about <I>StartIo</I> routines, see <A HREF="irps_6i07.htm">Writing a <I>StartIo</I> Routine</A>.</P>
+
+<H4>Internal Queues for IRPs in Drivers</H4>
+
+<P>If an device can support more than one concurrent I/O operation, its lowest-level device driver must set up internal request queues and manage its own queuing of IRPs. For example, the system serial driver maintains separate queues for read, write, purge, and wait operations on its devices because it supports full-duplex serial devices. </P>
+
+<P>A higher-level driver that sends requests to some number of underlying device drivers also might maintain internal queues of IRPs. For example, file system drivers almost always have internal queues for IRPs. </P>
+
+<P>For more information, see <A HREF="irps_5kpz.htm">Driver-Managed IRP Queues</A>.</P>
+
+<H4>Internal Queue Synchronization</H4>
+
+<P>Drivers with device-dedicated threads and highest-level drivers that use executive worker threads (including most file system drivers) usually set up their own queue for IRPs. The queue is shared by the driver thread or driver-supplied worker thread callback and by other driver routines that process IRPs. </P>
+
+<P>A driver that implements its own queue structure must ensure that access to the queue is synchronized, and that canceled IRPs are removed from the queue. To make this task simpler for driver writers, cancel-safe IRP queues provide a standard framework you can use when implementing an IRP queue. See <A HREF="irps_4sdj.htm">Cancel-Safe IRP Queues</A> for more information. This is the preferred method for implementing an IRP queue.</P>
+
+<P>Drivers can also implement all IRP queue synchronization and cancel logic explicitly. For example, a driver could use an interlocked queue. The driver’s dispatch routines insert IRPs into the interlocked queue and a driver-created thread or the driver’s worker-thread callback removes them by calling the <B>ExInterlocked<I>Xxx</I>List</B> support routines.</P>
+
+<P>For example, the system floppy controller driver uses an interlocked queue. Its device-dedicated thread handles the same processing of IRPs that is done by other device drivers’ <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A><I> </I>routines and some of the same processing of IRPs that is done by other device drivers’ <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> routines.</P>
+
+<H4>Internal Queues with <I>StartIo </I>Routines in Drivers</H4>
+
+<P>A driver that manages its own internal queues can also have a <I>StartIo </I>routine, but need not. Most lowest-level device drivers either have a <I>StartIo </I>routine or manage their own queuing of IRPs, but not both.</P>
+
+<P>An exception to this is the SCSI port driver, which has a <I>StartIo </I>routine and manages internal queues of IRPs. The I/O Manager queues IRPs to the port driver's <I>StartIo </I>routine in the device queue associated with the driver-created device object that represents a SCSI HBA. The SCSI port driver also sets up and manages device queues for IRPs to each target device (corresponding to a SCSI logical unit) on any HBA-driven SCSI bus in the machine. </P>
+
+<P>The SCSI port driver uses its supplemental device queues to hold IRPs sent down from the SCSI class drivers in LU-specific queues whenever any device on a SCSI bus is particularly busy. In effect, this driver’s supplemental, LU-specific device queues allow the SCSI port driver to serialize operations for heterogeneous SCSI devices through an HBA while keeping each device on that HBA’s SCSI buses as busy as possible. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Queuing%20and%20Dequeuing%20IRPs"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

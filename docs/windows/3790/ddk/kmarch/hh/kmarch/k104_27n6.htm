@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IoRegisterDeviceInterface</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IoRegisterDeviceInterface">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_interface_classes_dg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ioregisterdeviceinterface_kr"></A>IoRegisterDeviceInterface</H1>
+
+<P>The <B>IoRegisterDeviceInterface</B> routine registers a <A HREF="JavaScript:hhobj_1.Click()">device interface class</A>, if it has not been previously registered, and creates a new instance of the interface class, which a driver can subsequently enable for use by applications or other system components.</P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>IoRegisterDeviceInterface(</B>
+    <B>IN PDEVICE_OBJECT</B>  <I>PhysicalDeviceObject</I><B>,</B>
+    <B>IN CONST GUID </B> *<I>InterfaceClassGuid</I><B>,</B>
+    <B>IN PUNICODE_STRING</B>  <I>ReferenceString</I>  <B>OPTIONAL,</B>
+    <B>OUT PUNICODE_STRING</B>  <I>SymbolicLinkName</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>PhysicalDeviceObject</I></DT>
+
+<DD>Pointer to the PDO for the device.</DD>
+
+<DT><I>InterfaceClassGuid</I></DT>
+
+<DD>Pointer to the class GUID that identifies the functionality (the device interface class) being registered.</DD>
+
+<DT><I>ReferenceString</I></DT>
+
+<DD>Optionally points to a reference string. Function drivers typically specify NULL for this parameter. Filter drivers must specify NULL.
+
+<P>Reference strings are only used by a few bus drivers, such as <I>swenum</I>, which is a bus driver that uses device interface instances as placeholders for software devices created on demand. When an instance of an interface is opened, the I/O Manager passes the instance's reference string to the driver. The string becomes part of the interface instance's name (as an appended path component). The driver can then use the reference string to differentiate between two interface instances of the same class for a single device.
+
+
+<P>On Microsoft® Windows® 98/Me systems, the <I>ReferenceString</I> value can be no longer than MAX_PATH characters. There is no length limit on Windows&nbsp;2000 and later systems.
+</DD>
+
+<DT><I>SymbolicLinkName</I></DT>
+
+<DD>Pointer to a Unicode string structure allocated by the caller. If this routine is successful, it initializes the Unicode string and allocates the string buffer containing the kernel-mode path to the symbolic link for an instance of the specified device interface class. 
+
+<P>The caller must treat <I>SymbolicLinkName</I> as opaque and must not disassemble it.
+
+
+<P>The caller is responsible for freeing <I>SymbolicLinkName</I> with <A HREF="k109_0koi.htm"><B>RtlFreeUnicodeString</B></A> when it is no longer needed.
+
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>IoRegisterDeviceInterface</B> returns STATUS_SUCCESS if the call was successful. Possible error return values include the following.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=56%>Error Status</TH>
+<TH align=left width=44%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=56%>STATUS_INVALID_DEVICE_REQUEST</TD>
+<TD width=44%>Possibly indicates that the <I>PhysicalDeviceObject</I> is not a valid PDO pointer.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>IoRegisterDeviceInterface</B> registers a device interface class, if it as not been previously registered, and creates a new instances of the interface class. A driver can call this routine several times for a given device to register several interface classes and create instances of the classes. A function or filter driver typically registers device interfaces in its <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine. For example, a fault-tolerant volume driver might register an instance of a fault-tolerant-volume interface and an instance of a volume interface for a particular volume.</P>
+
+<P>If the device interface class has not been registered previously, the I/O Manager creates a registry key for it, along with instance-specific persistent storage under the key. Drivers can access this persistent storage using <A HREF="k104_8kz6.htm"><B>IoOpenDeviceInterfaceRegistryKey</B></A>.</P>
+
+<P>A driver registers an interface instance once and then calls <A HREF="k104_3epe.htm"><B>IoSetDeviceinterfaceState</B></A> to enable and disable the interface.</P>
+
+<P>Registered interfaces persist across operating system reboots. If the specified interface is already registered, the I/O Manager passes its name in <I>SymbolicLinkName </I>and returns the informational success status STATUS_OBJECT_NAME_EXISTS. </P>
+
+<P>Most drivers use a NULL reference string for a device interface instance. If a driver uses a non-NULL reference string, it must do additional work, including possibly managing its own namespace and security. A filter driver that exposes a device interface must use a NULL <I>ReferenceString</I> to avoid conflicts with other drivers in the device stack.</P>
+
+<P>Callers of this routine are not required to remove the registration for a device interface when it is no longer needed. Device interface registrations can be removed from user mode, if necessary.</P>
+
+<P>Callers of <B>IoRegisterDeviceInterface</B> must be running at IRQL&nbsp;= PASSIVE_LEVEL in the context of a system thread.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k104_24vm.htm"><B>IoGetDeviceInterfaces</B></A>, <A HREF="k104_8kz6.htm"><B>IoOpenDeviceInterfaceRegistryKey</B></A>, <A HREF="k104_3epe.htm"><B>IoSetDeviceinterfaceState</B></A>, <A HREF="k109_0koi.htm"><B>RtlFreeUnicodeString</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IoRegisterDeviceInterface"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

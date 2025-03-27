@@ -1,0 +1,76 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisAllocateSpinLock</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisAllocateSpinLock">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndisallocatespinlock_nr"></A>NdisAllocateSpinLock</H1>
+
+<P><B>NdisAllocateSpinLock</B> initializes a variable of type NDIS_SPIN_LOCK, used to synchronize access to resources shared among non-ISR driver functions. </P>
+
+<PRE class=syntax><B>VOID
+  NdisAllocateSpinLock(</B>
+    <B>IN PNDIS_SPIN_LOCK</B>  <I>SpinLock</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>SpinLock</I></DT>
+
+<DD>Pointer to an opaque variable that represents a spin lock.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Before a driver calls <A HREF="103ndisx_896a.htm"><B>NdisAcquireSpinLock</B></A>, <A HREF="103ndisx_8z1u.htm"><B>NdisDprAcquireSpinLock</B></A>, or any of the <B>NdisInterlocked</B><I>Xxx</I> functions, it must call <B>NdisAllocateSpinLock</B> to initialize the spin lock passed as a required parameter to these <B>Ndis</B><I>Xxx</I> functions. The caller must provide nonpaged storage for the variable at <I>SpinLock</I>. </P>
+
+<P>After calling <B>NdisAllocateSpinLock</B>, the driver can call <B>NdisAcquireSpinLock</B> to obtain exclusive use of the resource(s) the spin lock protects. When resource access is complete, the driver calls <A HREF="103ndisx_7uya.htm"><B>NdisReleaseSpinLock</B></A> so that other driver functions can access the resource(s) protected by that spin lock. </P>
+
+<P>As a general rule, to improve performance a driver should use different locks to protect different critical sections. Thus, a driver might initialize more than one spin lock with <B>NdisAllocateSpinLock</B>. </P>
+
+<P>Each spin lock that a driver allocates protects a discrete set of shared resources from simultanous access by driver functions that run at IRQL &lt;= DISPATCH_LEVEL. For example, a driver that maintains an internal queue of packets might initialize one spin lock to protect its queue and another to protect a set of state variables that several driver functions, not including the <A HREF="101mini_38c2.htm"><I>MiniportISR</I></A> or <A HREF="101mini_0jg2.htm"><I>MiniportDisableInterrupt</I></A> function, access while the driver is processing packets. </P>
+
+<P><B>NdisAcquireSpinLock</B> raises the IRQL to DISPATCH_LEVEL and stores the old IRQL in the spin lock. Releasing the spin lock sets the IRQL to the value stored in the spin lock. Because NDIS sometimes enters drivers at PASSIVE_LEVEL, problems can arise with the following code:</P>
+
+<PRE class=syntax>NdisAcquireSpinLock(A);
+NdisAcquireSpinLock(B);
+NdisReleaseSpinLock(A);
+NdisReleaseSpinLock(B);
+</PRE>
+
+<P>A driver should not access spin locks in this sequence for the following reasons:
+
+<UL>
+	<LI>Between <B>NdisReleaseSpinLock</B>(A) and <B>NdisReleaseSpinLock</B>(B) the code is running at PASSIVE_LEVEL instead of DISPATCH_LEVEL and is subject to inappropriate interruption.</LI>
+
+	<LI>After <B>NdisReleaseSpinLock</B>(B) the code is running at DISPATCH_LEVEL which could cause the caller to fault at much later time with an IRQL_NOT_LESS_OR_EQUAL stop error.</LI>
+</UL>
+
+<P>A driver should <I>never</I> use two spin locks to protect the same (sub)set of resources because nested spin lock acquisitions so frequently cause deadlocks. Even if a driver could be designed to prevent deadlocks, nested spin lock acquisitions have an adverse effect on driver performance and I/O throughput. </P>
+
+<P>A miniport driver cannot use a spin lock to protect resources that its nonISR functions share with its <A HREF="101mini_38c2.htm"><I>MiniportISR</I></A> or <A HREF="101mini_0jg2.htm"><I>MiniportDisableInterrupt</I></A> function. To access resources shared with a <I>MiniportISR</I> or <I>MiniportDisableInterrupt</I> function, a miniport driver must call <A HREF="103ndisx_0rn6.htm"><B>NdisMSynchronizeWithInterrupt</B></A> to have its <A HREF="101mini_1tyq.htm"><I>MiniportSynchronizeISR</I></A> function access those resources at DIRQL. </P>
+
+<P>When a driver no longer requires resource protection, for example, when a NIC is being removed and the driver is releasing the resources it allocated for that NIC, the driver calls <A HREF="103ndisx_4pv6.htm"><B>NdisFreeSpinLock</B></A>.</P>
+
+<P>Freeing a spin lock and releasing a spin lock are potentially confusing. <B>NdisFreeSpinLock</B> clears the memory at <I>SpinLock</I> so it no longer represents a spin lock. Releasing an acquired spin lock with <A HREF="103ndisx_7uya.htm"><B>NdisReleaseSpinLock</B></A> simply allows another thread of execution to acquire that spin lock.</P>
+
+<P>Callers of <B>NdisAllocateSpinLock</B> can run at any IRQL. Usually a caller is running at IRQL = PASSIVE_LEVEL during initialization. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="104tdlow_9raq.htm"><B>DriverEntry of NDIS Protocol Drivers</B></A>, <A HREF="101mini_0jg2.htm"><I>MiniportDisableInterrupt</I></A>, <A HREF="101mini_6stu.htm"><I>MiniportHalt</I></A>, <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, <A HREF="101mini_38c2.htm"><I>MiniportISR</I></A>, <A HREF="101mini_81v6.htm"><I>MiniportTimer</I></A>, <A HREF="103ndisx_896a.htm"><B>NdisAcquireSpinLock</B></A>, <A HREF="103ndisx_8z1u.htm"><B>NdisDprAcquireSpinLock</B></A>, <A HREF="103ndisx_8ktu.htm"><B>NdisDprReleaseSpinLock</B></A>, <A HREF="103ndisx_4pv6.htm"><B>NdisFreeSpinLock</B></A>, <A HREF="103ndisx_76ya.htm"><B>NdisInterlockedAddUlong</B></A>, <A HREF="103ndisx_9pte.htm"><B>NdisInterlockedInsertHeadList</B></A>, <A HREF="103ndisx_7j02.htm"><B>NdisInterlockedInsertTailList</B></A>, <A HREF="103ndisx_02cy.htm"><B>NdisInterlockedRemoveHeadList</B></A>, <A HREF="103ndisx_0rn6.htm"><B>NdisMSynchronizeWithInterrupt</B></A>, <A HREF="103ndisx_7uya.htm"><B>NdisReleaseSpinLock</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisAllocateSpinLock"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

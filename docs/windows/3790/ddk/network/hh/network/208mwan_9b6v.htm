@@ -1,0 +1,38 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Sending Packets From a CoNDIS WAN Miniport Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Sending Packets From a CoNDIS WAN Miniport Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_sending_packets_from_a_condis_wan_miniport_driver_ng"></A>Sending Packets From a CoNDIS WAN Miniport Driver</H2>
+
+<P>An upper-layer driver calls <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A> to send packets to an underlying CoNDIS WAN miniport driver. The NDISWAN intermediate driver forwards those packets from the upper-layer driver. NDISWAN repackages the packets before sending them. NDISWAN forwards packets as new <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A> structures. </P>
+
+<P>The NDISWAN intermediate driver calls NDIS to forward packets, NDIS calls the WAN miniport driver's <A HREF="101mini_0ycy.htm"><I>MiniportCoSendPackets</I></A> function. For more information about how a CoNDIS WAN miniport driver sends packets, see <A HREF="401condis_3z3b.htm">Sending Packets on a VC</A>. </P>
+
+<P>The CoNDIS WAN miniport driver owns both the packet descriptor and the packet data until the send completes, regardless of whether the send completes synchronously or asynchronously. If the miniport driver does not immediately complete the send request, it returns NDIS_STATUS_PENDING from <I>MiniportCoSendPackets </I>and must later call <A HREF="103ndisx_5t2q.htm"><B>NdisMCoSendComplete</B></A> to complete the send request. </P>
+
+<P>A completion call does not necessarily indicate that a packet has been transmitted; however with the exception of intelligent NICs, the packet usually has been transmitted. A completion call does however, indicate that the miniport driver is ready to release ownership of the packet. </P>
+
+<P>If the CoNDIS WAN miniport driver returns a status other than NDIS_STATUS_PENDING, the send operation is considered to be complete, and ownership of the packet immediately reverts to the caller.</P>
+
+<P>After the CoNDIS WAN miniport driver receives a packet, it should send the packet out on an active virtual connection (VC). </P>
+
+<P>Unlike non-WAN connectionless miniport drivers, a WAN miniport driver <I>cannot</I> return a status of NDIS_STATUS_RESOURCES to indicate that it does not have enough resources currently available to process the transmission of packets. Instead, the WAN miniport driver should queue the send internally for a later time and perhaps lower the send-window value on the connection. The send-window value is the number of outstanding packets that the WAN miniport driver can handle per connection. The miniport driver specifies the send-window value to an upper-layer driver. </P>
+
+<P>A CoNDIS WAN miniport driver specifies the number of outstanding packets that it can have per VC in the <B>MaxSendWindow</B> member of the NDIS_WAN_CO_INFO structure. The miniport driver provides this structure when the miniport driver responds to the <A HREF="28wanoid_3pma.htm">OID_WAN_CO_GET_INFO</A> request from the protocol driver. However, the miniport driver can adjust this number dynamically and on a per-VC basis using the <B>SendWindow</B> member in the <A HREF="105nstru_5hma.htm">WAN_CO_LINKPARAMS</A> structure. The miniport driver passes this structure to the <A HREF="103ndisx_0qgi.htm"><B>NdisMCoIndicateStatus</B></A> function. NDISWAN uses the current <B>SendWindow</B> value as its limit on outstanding sends. The miniport driver can set the value of the <B>SendWindow</B> member to zero to specify that it cannot handle any outstanding packets. That is, if the <B>SendWindow</B> member is set to zero, the send window is shut down and NDISWAN stops sending packets for the particular VC. </P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;CoNDIS WAN miniport drivers never call the <A HREF="103ndisx_58c2.htm"><B>NdisMSendResourcesAvailable</B></A> function.</P>
+
+<P>Packets that a WAN miniport driver sends contain simple HDLC PPP framing if PPP framing is set. For SLIP or RAS framing, packets contain only the data portion with no framing whatsoever. For more information about WAN packet framing, see <A HREF="208mwan_0auf.htm">WAN Packet Framing</A>.</P>
+
+<P>A WAN miniport driver must <I>not</I> attempt to provide software loopback or promiscuous-mode loopback. Both of these loopback types are fully supported by the NDISWAN driver.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Sending%20Packets%20From%20a%20CoNDIS%20WAN%20Miniport%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

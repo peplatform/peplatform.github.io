@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Kernel Streaming Topology to Audio Mixer API Translation</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Kernel Streaming Topology to Audio Mixer API Translation">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_kernel_streaming_topology_to_audio_mixer_api_translation_ksg"></A>Kernel Streaming Topology to Audio Mixer API Translation</H2>
+
+<P>The <B>mixer</B> API is a set of Windows multimedia functions that are used to retrieve information about audio-mixer devices. The <B>mixer</B> API classifies audio-mixer lines as source and destination lines. <I>Source lines</I> are inputs into the audio card (for example, CD, microphone, line-in, and wave). <I>Destination lines</I> are outputs from the card (for example, speakers, headphones, phone line, and wave in). For a source line to be valid, it should have a unique path from the source to a destination. A single source line might map to more than one destination, but no more than a single path can connect a source line to a destination line. For more information on the <B>mixer</B> API, see the Platform SDK documentation.</P>
+
+<P>The WDM driver for an audio adapter exposes a KS-filter topology that represents the data paths through the hardware and the functions that are available on those paths. The <A HREF="aud-design_789z.htm#ddk_wdmaud_system_driver_ksg">WDMAud system driver</A> (in the <I>wdmaud.sys</I> and <I>wdmaud.drv</I> files) should interpret the KS-filter topology and generate the corresponding source and destination mixer lines that are exposed through the <B>mixer</B> API. WDMAud also handles the <B>mixer</B> API calls and translates them into the equivalent property calls on the filter pins and nodes that are managed by the adapter driver.</P>
+
+<P>The <A HREF="aud-design_1kiv.htm#ddk_kmixer_system_driver_ksg">KMixer system driver</A> (<I>kmixer.sys</I>) and <A HREF="aud-design_1kiv.htm#ddk_swmidi_system_driver_ksg">SWMidi system driver</A> (<I>swmidi.sys</I>) are integral components of the kernel audio stack. KMixer provides system-wide audio mixing, bit-depth conversion, sample-rate conversion, and channel-to-speaker configuration (supermix) translation for PCM audio streams. SWMidi provides high-quality software synthesis of MIDI streams. The system audio driver, SysAudio (<I>sysaudio.sys</I>; see <A HREF="aud-design_1kiv.htm#ddk_sysaudio_system_driver_ksg">SysAudio System Driver</A>), combines the capabilities of KMixer and SWMidi with the installed audio adapter drivers to form functionally enhanced <A HREF="aud-design_9icn.htm">virtual audio devices</A>.</P>
+
+<P>WDMAud manages the interface between the KS portion and the legacy (see <A HREF="aud-design_789z.htm#ddk_winmm_system_component_ksg">WinMM System Component</A>) portion of the audio stack. WDMAud translates the pins on the<I> </I>SysAudio<I>-</I>virtualized filters into the legacy mixer lines that are presented in applications such as SndVol32. The translation from KS topology to mixer lines is performed as follows:
+
+<OL>
+	<LI>Source pins (KSPIN_DATAFLOW_OUT) in the KS topology are exposed as destination mixer lines (MIXERLINE_COMPONENTTYPE_DST_<I>XXX</I>).</LI>
+
+	<LI>Sink pins (KSPIN_DATAFLOW_IN) in the KS topology are exposed as source mixer lines (MIXERLINE_COMPONENTTYPE_SRC_<I>XXX</I>).</LI>
+
+	<LI>WDMAud walks the KS filter graph beginning at the source pin that lies at the endpoint of the filter graph and traverses the graph in the direction opposite to data flow until a sink pin is reached.</LI>
+
+	<LI>The properties that are supported on each KS node that is encountered during the traversal are exposed as controls on the source mixer line.</LI>
+</OL>
+
+<P>In steps 1 and 2 above, the mapping of KS source and sink pins to destination and source mixer lines is potentially confusing because of the differences in terminology. In KS, a device is wrapped in a filter that has sink (input) pins and source (output) pins. The terms "sink" and "source" refer not to the filter but rather to the (typically buffered) connection between two filters:
+
+<UL>
+	<LI>The upstream filter's source pin is the source of the data stream that enters the connection.</LI>
+
+	<LI>The data stream exits the connection through the downstream filter's sink pin.</LI>
+</UL>
+
+<P>In contrast, the mixer-line terminology is device-centric:
+
+<UL>
+	<LI>A source mixer line is the source of a stream that enters the device.</LI>
+
+	<LI>A destination mixer line is the destination of a stream that exits the device.</LI>
+</UL>
+
+<P>Also, the KS terminology is somewhat inconsistent in the stream-flow direction that it assigns to a pin on a KS filter. The pin descriptor uses a <A HREF="ks-struct_2kkz.htm">KSPIN_DATAFLOW</A> enumeration value to specify the direction:
+
+<UL>
+	<LI>A stream that enters the filter through a sink pin has a direction of KSPIN_DATAFLOW_IN.</LI>
+
+	<LI>A stream that exits the filter through a source pin has a direction of KSPIN_DATAFLOW_OUT.</LI>
+</UL>
+
+<P>The directions "in" and "out" are clearly filter-centric, whereas the terms "sink" and "source" are connection-centric.</P>
+
+<P>For more information on the topology parsing algorithm used by WDMAud, refer to <A HREF="pcdesign_4mjr.htm">WDMAud Topology Parsing</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Kernel%20Streaming%20Topology%20to%20Audio%20Mixer%20API%20Translation"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

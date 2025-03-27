@@ -1,0 +1,130 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DDCreateDriverObject</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DDCreateDriverObject">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ddcreatedriverobject_gg"></A><I>DDCreateDriverObject</I></H1>
+
+<P>The <I>DDCreateDriverObject</I> function creates a driver object and registers it with DirectDraw. If the driver object is created during a mode change, this function reregisters the driver and driver capabilities with DirectDraw. </P>
+
+<PRE class=syntax><B>BOOL 
+  DDCreateDriverObject(
+</B>    <B>BOOL</B>  <I>bReset</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>bReset</I></DT>
+
+<DD>Specifies whether the driver object is registered or reregistered with DirectDraw. A value of 0 denotes that the driver object is registered; a value of 1 denotes that the driver object is reregistered.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>Returns TRUE if the function is successful; otherwise, returns NULL.</P>
+
+<H4>Comments</H4>
+
+<P>During initialization (see <A HREF="ddraw_0drb.htm">Windows 98/Me Driver Initialization</A>), DirectDraw issues a GDI escape call requesting the <I>DDCreateDriverObject</I> function to create a driver object and register it with DirectDraw. In this case, it is called with <I>bReset</I> set to 0. When <I>DDCreateDriverObject</I> is called from the <I>Enable</I> or <A HREF="ddfncs_2ox3.htm"><I>ReEnable</I></A> functions, <I>bReset</I> is set to 1 to indicate a mode change. When this happens, <I>DDCreateDriverObject</I> has to reregister the mode and driver capabilities with DirectDraw. In both cases the driver object has to be registered with DirectDraw. The function called to register with DirectDraw comes from the <B>DDNEWCALLBACKFNS</B> escape (see <A HREF="ddraw_8azr.htm">Getting the 16-bit Entry Points</A>). If this escape has not been received, it cannot register. </P>
+
+<P>If the HAL is <A HREF="ddraw_3hnr.htm">using VflatD</A>, <I>DDCreateDriverObject</I> starts VflatD. Otherwise it sets up for linear memory access. <I>DDCreateDriverObject</I> also calls the <A HREF="ddfncs_8f53.htm"><I>buildDDHALInfo16</I></A> function, which fills in the rest of the DDHALINFO structure (most of DDHALINFO has already been filled in by the 32-bit counterpart, <A HREF="ddfncs_54tj.htm"><I>buildDDHALInfo32</I></A>). </P>
+
+<P>The following is a sample implementation of <I>DDCreateDriverObject</I>:</P>
+
+<PRE>/*
+ * DDCreateDriverObject
+ *
+ * DDCREATEDRIVEROBJECT handler.
+ *
+ * Called at ESCAPE time or when the mode is set.
+ *
+ * When called from ESCAPE,
+ * DirectDraw issues a GDI Escape call asking us to create a driver
+ * object and register it with DirectDraw.
+ *
+ *     bReset           will be 0
+ *
+ * When called from Enable,
+ * the display driver calls this function internally, every time the
+ * display mode has changed. In this case we need to reregister
+ * the mode and driver caps with DirectDraw.
+ *
+ *     bReset           will be 1
+ *
+ * In both cases we need to call DirectDraw to register our driver 
+ * object. The function we need to call to register with DirectDraw is
+ * given to us with the DDNEWCALLBACKFNS escape (see DDNewCallbackFns).
+ * If we have not received this escape we should not register.
+ *
+ */
+BOOL DDCreateDriverObject(BOOL bReset)
+{
+    DPF("DDCreateDriverObject(%d)", bReset);
+
+
+    /*
+     * Do we have the function we need to call to register ourself?
+     */
+    if (DriverData.HALCallbacks.lpSetInfo == NULL)
+    {
+        DPF("DDCreateDriverObject: failing because lpSetInfo == NULL");
+        return FALSE;
+    }
+
+    /*
+     * If we have not connected with our 32-bit alter ego, don't 
+     * register.
+     */
+    if (DriverData.HALInfo.dwSize != sizeof(DDHALINFO))
+    {
+        DPF("DDCreateDriverObject: failing because 32-bit driver did not fill in stuff");
+        return FALSE;
+    }
+
+    /*
+     * Do we need VflatD for access to the frame buffer?
+     */
+#ifdef VFLATD
+    if (!bReset &amp;&amp; DriverData.ScreenAddress == 0 &amp;&amp;
+        DriverData.ScreenSel == VFDQuerySel())
+    {
+        if (VFDBeginLinearAccess())
+        {
+            DriverData.RealScreenAddress = VFDQueryBase();
+            DPF( "Using VFLATD, addr=%08lx", DriverData.RealScreenAddress);
+        }
+    }
+    else
+    {
+        DriverData.RealScreenAddress = DriverData.ScreenAddress;
+        DPF( "RealScreenAddress=%08lx", DriverData.RealScreenAddress);
+    }
+#endif
+
+    /*
+     * Set up 16-bit HAL info
+     */
+    buildDDHALInfo16();
+
+    /*
+     * Call DirectDraw to register our driver object.
+     */
+    return DriverData.HALCallbacks.lpSetInfo(&amp;DriverData.HALInfo, bReset);
+
+} /* DDCreateDriverObject */</PRE>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddfncs_8f53.htm"><I>buildDDHALInfo16</I></A>, <A HREF="ddfncs_54tj.htm"><I>buildDDHALInfo32</I></A>, <A HREF="ddfncs_2ox3.htm"><I>ReEnable</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DDCreateDriverObject"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

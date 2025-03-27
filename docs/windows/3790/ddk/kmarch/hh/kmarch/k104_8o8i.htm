@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IoReportDetectedDevice</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IoReportDetectedDevice">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ioreportdetecteddevice_kr"></A>IoReportDetectedDevice</H1>
+
+<P>The <B>IoReportDetectedDevice</B> routine reports a non-PnP device to the PnP Manager. </P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>IoReportDetectedDevice(</B>
+    <B>IN PDRIVER_OBJECT</B>  <I>DriverObject</I><B>,</B>
+    <B>IN INTERFACE_TYPE</B>  <I>LegacyBusType</I><B>,</B>
+    <B>IN ULONG</B>  <I>BusNumber</I><B>,</B>
+    <B>IN ULONG</B>  <I>SlotNumber</I><B>,</B>
+    <B>IN PCM_RESOURCE_LIST</B>  <I>ResourceList</I><B>,</B>
+    <B>IN PIO_RESOURCE_REQUIREMENTS_LIST</B>  <I>ResourceRequirements</I>  <B>OPTIONAL,</B>
+    <B>IN BOOLEAN</B>  <I>ResourceAssigned</I><B>,</B>
+    <B>IN OUT PDEVICE_OBJECT</B>  *<I>DeviceObject</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DriverObject</I></DT>
+
+<DD>Pointer to the driver object of the driver that detected the device.</DD>
+
+<DT><I>LegacyBusType</I></DT>
+
+<DD>Specifies the type of bus on which the device resides. The PnP Manager uses this information to match the reported device to its PnP-enumerated instance, if one exists.
+
+<P>The interface types, such as <B>PCIBus</B>, are defined in <I>ntddk.h</I>. If a driver does not know the <I>LegacyBusType</I> for the device, the driver supplies the value <B>InterfaceTypeUndefined</B> for this parameter.
+</DD>
+
+<DT><I>BusNumber</I></DT>
+
+<DD>Specifies the bus number for the device. The PnP Manager uses this information to match the reported device to its PnP-enumerated instance, if one exists.
+
+<P>The bus number distinguishes the bus on which the device resides from other buses of the same type on the machine. The bus-numbering scheme is bus-specific. If a driver does not know the <I>BusNumber</I> for the device, the driver supplies the value -1 for this parameter.
+</DD>
+
+<DT><I>SlotNumber</I></DT>
+
+<DD>Specifies the logical slot number of the device. The PnP Manager uses this information to match the reported device to its PnP-enumerated instance, if one exists.
+
+<P>If a driver does not know the <I>SlotNumber</I> for the device, the driver supplies the value -1 for this parameter.
+</DD>
+
+<DT><I>ResourceList</I></DT>
+
+<DD>Pointer to the resource list the driver used to detect the device. Resources in this list are in raw, untranslated form.</DD>
+
+<DT><I>ResourceRequirements</I></DT>
+
+<DD>Optionally points to a resource requirements list for the detected device. NULL if the caller does not have this information for the device.</DD>
+
+<DT><I>ResourceAssigned</I></DT>
+
+<DD>Specifies whether the device's resources have already been reported to the PnP Manager. If <I>ResourceAssigned</I> is TRUE, the resources have already been reported, possibly with <A HREF="k104_1wky.htm"><B>IoReportResourceForDetection</B></A>, and the PnP Manager will not attempt to claim them on behalf of the device. If TRUE, the PnP Manager will also not claim resources when the device is root-enumerated on subsequent boots.</DD>
+
+<DT><I>DeviceObject</I></DT>
+
+<DD>Optionally points to a PDO for the detected device. 
+
+<P>NULL if the caller does not have a PDO for the device, which is typically the case. If <I>DeviceObject</I> is NULL, the PnP Manager creates a PDO for the device and returns a pointer to the caller.
+
+
+<P>If the caller supplies a PDO, the PnP Manager does not create a new PDO. On a given call to this routine the <I>DeviceObject</I> parameter is either an IN or an OUT parameter, but not both.
+
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>IoReportDetectedDevice</B> returns STATUS_SUCCESS on success, or the appropriate error code on failure.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ntddk.h. </I>Include <I>ntddk.h.</I></P>
+
+<H4>Comments</H4>
+
+<P>Drivers for legacy devices use <B>IoReportDetectedDevice</B> to report their devices to the system. A driver should only call <B>IoReportDetectedDevice</B> to report a legacy, non-PnP device. PnP devices should be reported in response to an <A HREF="pnp-irps_5aia.htm">IRP_MN_QUERY_DEVICE_RELATIONS</A> request.</P>
+
+<P>Drivers only need to call <B>IoReportDetectedDevice</B> the first time they are loaded because the PnP Manager caches the reported information. Drivers that use this routine should store a flag in the registry to indicate whether or not they have already done device detection.</P>
+
+<P>A driver typically calls this routine from its <A HREF="drvrrtns_6r76.htm"><B>DriverEntry</B></A> routine. A few drivers, like certain NDIS or EISA drivers, might call this routine from an <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine.</P>
+
+<P>On successful completion of <B>IoReportDetectedDevice</B>, the caller should attach an FDO to the PDO returned at <I>DeviceObject</I>. Once the caller attaches its FDO, the caller is the function driver for the device, at least temporarily. There are no filter drivers. The PnP Manager owns the PDO.</P>
+
+<P>The PnP Manager considers the device to be started and therefore does not call the driver's <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine and does not send an <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> request. The driver must be prepared to handle all other PnP IRPs, however. </P>
+
+<P><B>IoReportDetectedDevice</B> marks the device as a root-enumerated device and this identification is persistent across system boots. During subsequent system boots the PnP Manager "detects" the device on the root-enumerated list and configures it like a PnP device: the PnP Manager queries for device information, identifies the appropriate drivers and calls their <I>AddDevice</I> routines, and sends all the appropriate PnP IRPs.</P>
+
+<P>The system generates two compatible ID strings for the device, of the form DETECTED<I>Interface</I>\<I>Driver</I> and DETECTED\<I>Driver</I>. <I>Interface</I> is the string name of the INTERFACE_TYPE of the first bus specified in the <I>ResourceList</I> parameter. <I>Interface </I>is set to "Internal" if no bus is specified. <I>Driver</I> is the driver's service name. A driver can provide additional hardware IDs or compatible IDs by handling the IRP_MN_QUERY_ID request. </P>
+
+<P>A driver writer must provide an INF file that matches any of the specified hardware IDs or compatible IDs. The INF file should specify the original driver that called <B>IoReportDetectedDevice</B> as the driver to load for those IDs. The system uses this information to rebuild the driver stack for the device, for example on restart. Callers of <B>IoReportDetectedDevice</B> must be running at IRQL&nbsp;= PASSIVE_LEVEL in the context of a system thread.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k104_1wky.htm"><B>IoReportResourceForDetection</B></A>, <A HREF="pnp-irps_5aia.htm">IRP_MN_QUERY_DEVICE_RELATIONS</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IoReportDetectedDevice"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

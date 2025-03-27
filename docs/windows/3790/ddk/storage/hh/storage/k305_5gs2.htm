@@ -1,0 +1,75 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ChangerQueryVolumeTags</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ChangerQueryVolumeTags">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_changerqueryvolumetags_kr"></A>ChangerQueryVolumeTags</H1>
+
+<P><B>ChangerQueryVolumeTags</B> handles the device-specific aspects of a device-control IRP with the IOCTL code of <A HREF="k307_7jxu.htm">IOCTL_CHANGER_QUERY_VOLUME_TAGS</A>. </P>
+
+<PRE class=syntax><B>NTSTATUS 
+  ChangerQueryVolumeTags(
+    IN PDEVICE_OBJECT  </B><I>DeviceObject</I><B>,</B>
+<B>    IN PIRP  </B><I>Irp</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the device object that represents the changer. </DD>
+
+<DT><I>Irp</I></DT>
+
+<DD>Pointer to the IRP. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>If the changer supports retrieval of volume tag information, <B>ChangerQueryVolumeTags</B> returns the STATUS_<I>XXX</I> value returned by the system port driver, or one of the following values:</P>
+
+<P class=indent1>STATUS_SUCCESS<BR>
+STATUS_INVALID_ELEMENT_ADDRESS<BR>
+STATUS_INSUFFICIENT_RESOURCES</P>
+
+<P>If the changer does not support retrieval of volume tag information, <B>ChangerQueryVolumeTags</B> returns STATUS_INVALID_DEVICE_REQUEST.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>mcd.h</I>. Include <I>mcd.h</I> and <I>ntddchgr.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P>This routine combines the functionality of two SCSI commands: SEND VOLUME TAGS and REQUEST VOLUME ELEMENT ADDRESS. This routine is required.</P>
+
+<P><B>ChangerQueryVolumeTags</B> retrieves volume tag information for specified elements. It can also be used to define or clear volume tag information if the changer supports these operations. The CHANGER_VOLUME_IDENTIFICATION flag in the <B>Features0</B> member of the <A HREF="k306_9yuq.htm">GET_CHANGER_PARAMETERS</A> structure indicates whether the changer supports this functionality.</P>
+
+<P>The changer class driver checks the input and output buffer lengths in the I/O stack location before calling <B>ChangerQueryVolumeTags</B>. <I>Irp</I><B>-&gt;SystemBuffer</B> points to a <A HREF="k306_63hu.htm">CHANGER_SEND_VOLUME_TAG_INFORMATION</A> structure that indicates the elements, the operation to perform, and a template that specifies the volume ID to search for or to set. </P>
+
+<P><B>ChangerQueryVolumeTags</B> first checks the action code for unsupported operations, and returns STATUS_INVALID_DEVICE_REQUEST for those it does not support. Next, it builds an SRB with a CDB to indicate the device-specific address of the starting element and sends it to the system port driver, passing the volume ID template as a parameter. (For a SCSI changer, the miniclass driver uses the SCSI command SEND VOLUME TAG.)</P>
+
+<P>If the first SRB succeeds, <B>ChangerQueryVolumeTags</B> builds a second SRB with a CDB to transfer the results of the previous SRB. (For a SCSI changer, the miniclass driver uses the SCSI command REQUEST VOLUME ELEMENT ADDRESS.)</P>
+
+<P><B>ChangerQueryVolumeTags</B> then fills in a <A HREF="k306_07ua.htm">READ_ELEMENT_ADDRESS_INFO</A> structure at <I>Irp</I><B>-&gt;AssociatedIrp.SystemBuffer</B> that indicates the number of elements for which volume tag information was transferred, and the information for each element. </P>
+
+<P>After filling in the system buffer, <B>ChangerQueryVolumeTags</B> sets the <B>Information</B> field in the I/O status block to the number of bytes written to the buffer before returning to the changer class driver.</P>
+
+<P>The changer class driver calls <B>ChangerQueryVolumeTags</B> at IRQL = PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k306_64aa.htm">CHANGER_ELEMENT</A>, <A HREF="k306_5wky.htm">CHANGER_ELEMENT_STATUS</A>, <A HREF="k305_50s2.htm"><B>ChangerGetElementStatus</B></A>, <A HREF="k306_07ua.htm">READ_ELEMENT_ADDRESS_INFO</A><A HREF="k306_9yuq.htm">, GET_CHANGER_PARAMETERS</A>, </P>
+
+<P><A HREF="k306_63hu.htm">CHANGER_SEND_VOLUME_TAG_INFORMATION</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ChangerQueryVolumeTags"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

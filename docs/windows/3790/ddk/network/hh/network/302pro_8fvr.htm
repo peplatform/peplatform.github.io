@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Receiving Data in a Connectionless Protocol Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Receiving Data in a Connectionless Protocol Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_receiving_data_in_a_connectionless_protocol_driver_ng"></A>Receiving Data in a Connectionless Protocol Driver</H2>
+
+<P>Underlying connectionless miniport drivers can indicate packets in two ways:
+
+<UL>
+	<LI>A miniport driver calls <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>. In this call, the miniport driver passes a pointer to an array of packet descriptor pointers to one or more full packets. The miniport driver relinquishes ownership of the resources for these packets to the overlying drivers. The overlying drivers can consume the data and return the packet resources to the miniport driver at a later time.</LI>
+
+	<LI>A miniport driver calls a filter-specific <B>NdisM</B><I>Xxx</I><B>IndicateReceive</B> function. In such a call, the miniport driver passes a pointer to a lookahead buffer, the size of the lookahead buffer, and the total size of the received net packet. </LI>
+</UL>
+
+<P>Every connectionless protocol driver must have at least one of the two possible receive handlers and can have both of the following:
+
+<OL>
+	<LI><A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> is a required function that is called with a pointer to a lookahead buffer. 
+<P><I>ProtocolReceive</I> examines the lookahead data to determine if the packet is intended for its clients. If so, the protocol driver must copy the lookahead data into a protocol-allocated buffer, possibly to be chained to a protocol-allocated packet descriptor. 
+
+<P>If the size of the lookahead buffer is less than the total size of the received packet, <I>ProtocolReceive</I> must call <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A> with the protocol-allocated packet descriptor. The underlying driver copies the rest of the received data into the protocol-supplied buffer.
+</LI>
+
+	<LI><A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A> is an optional function that receives a pointer to a packet descriptor specifying a buffered full network packet. 
+<P><I>ProtocolReceivePacket</I> examines the packet data and determines whether the packet is intended for its clients. If so, the protocol driver can return a nonzero value (a count of clients to which the protocol driver forwarded the receive indication) from <I>ProtocolReceivePacket</I> to give its clients ownership of the indicated packet resources, including direct read-only access to the buffered net packet data. The protocol driver's clients must subsequently call <A HREF="103ndisx_61de.htm"><B>NdisReturnPackets</B></A> to return the packet descriptor and all the resources it specifies to the underlying driver. Each client must return the packet descriptor until all clients' calls total the nonzero value returned from <I>ProtocolReceivePacket</I> for that receive indication. 
+
+<P>When the protocol driver's clients return the packet descriptor the required number of times, they relinquish ownership of the returned packet resources to the underlying miniport driver that originally indicated the receive. 
+
+<P>If a protocol driver returns zero from <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A>, it relinquishes ownership of the packet resources when <I>ProtocolReceivePacket</I> returns. Relinquishing of such a received packet immediately could occur, for instance, if the client for the packet has closed the connection or in some manner became unavailable; or if the protocol driver copies the indicated data into buffers of its own and processes the data internally before indicating the data up to its clients. 
+</LI>
+</OL>
+
+<P>The following topics contain additional information about receiving data in a connectionless protocol driver:</P>
+
+<P class=indent1><A HREF="302pro_21k7.htm">Implementing a <I>ProtocolReceivePacket</I> Handler in a Protocol Driver</A></P>
+
+<P class=indent1><A HREF="302pro_92sn.htm">Implementing a <I>ProtocolReceive</I> Handler in a Protocol Driver</A></P>
+
+<P class=indent1><A HREF="302pro_82jr.htm">Accessing OOB Information from a Connectionless Protocol Driver</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Receiving%20Data%20in%20a%20Connectionless%20Protocol%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

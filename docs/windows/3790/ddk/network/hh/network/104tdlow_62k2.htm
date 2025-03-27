@@ -1,0 +1,119 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProtocolReceive</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProtocolReceive">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocolreceive_nr"></A>ProtocolReceive</H1>
+
+<P>The <I>ProtocolReceive </I>function is a required driver function in NDIS protocols that bind themselves to connectionless NIC drivers. <I>ProtocolReceive</I> determines whether a received network packet is of interest to the protocol’s client(s) and, if so, copies the indicated data and, possibly, calls <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A> to retrieve the rest of the indicated packet. </P>
+
+<PRE class=syntax><B>NDIS_STATUS
+</B>  <B>ProtocolReceive(</B>
+    <B>IN NDIS_HANDLE</B>  <I>ProtocolBindingContext</I><B>,
+</B>    <B>IN NDIS_HANDLE</B>  <I>MacReceiveContext</I><B>,
+</B>    <B>IN PVOID</B>  <I>HeaderBuffer</I><B>,
+</B>    <B>IN UINT</B>  <I>HeaderBufferSize</I><B>,
+</B>    <B>IN PVOID</B>  <I>LookAheadBuffer</I><B>,
+</B>    <B>IN UINT</B>  <I>LookaheadBufferSize</I><B>,
+</B>    <B>IN UINT</B>  <I>PacketSize</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>ProtocolBindingContext</I></DT>
+
+<DD>Specifies the handle to a protocol-allocated context area in which the protocol driver maintains per-binding run-time state. The driver supplied this handle when it called <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A>.  </DD>
+
+<DT><I>MacReceiveContext</I></DT>
+
+<DD>Specifies a context handle that the underlying NIC driver associates with the packet received from the network. This handle is opaque to the protocol, reserved for use by the underlying driver that made the indication, and a required parameter to <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A>. </DD>
+
+<DT><I>HeaderBuffer</I></DT>
+
+<DD>Pointer to the base virtual address of a range containing the buffered packet header. The address is valid only within the current call to <I>ProtocolReceive</I>. </DD>
+
+<DT><I>HeaderBufferSize</I></DT>
+
+<DD>Specifies the number of bytes in the packet header. </DD>
+
+<DT><I>LookAheadBuffer</I></DT>
+
+<DD>Pointer to the base virtual address of a range that contains <I>LookaheadBufferSize</I> bytes of buffered network packet data. This address is valid only within the current call to <I>ProtocolReceive</I>. </DD>
+
+<DT><I>LookaheadBufferSize</I></DT>
+
+<DD>Specifies the number of bytes of network packet data in the lookahead buffer. 
+
+<P>The indicating driver ensures this number is at least as large as the size it returned for the protocol’s preceding call to <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A> with <A HREF="22genoid_1jzm.htm">OID_GEN_CURRENT_LOOKAHEAD</A> or the size of the packet, whichever is less. 
+
+
+<P>If <I>PacketSize</I> is less than or equal to the given <I>LookaheadBufferSize</I>, the lookahead buffer contains the entire packet.  
+</DD>
+
+<DT><I>PacketSize</I></DT>
+
+<DD>Specifies the size, in bytes, of the network packet data. The length of the packet does not include the length of the header. 
+
+<P><I>ProtocolReceive</I> determines whether the protocol must call <B>NdisTransferData</B> by comparing this parameter to the given <I>LookaheadBufferSize</I>. 
+
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>ProtocolReceive</I> can return either of the following: 
+
+<DL>
+<DT>NDIS_STATUS_NOT_ACCEPTED</DT>
+
+<DD>The protocol has no use for the indicated packet, that is, it has no current clients interested in the indicated network data. 
+
+<P>Returning this status quickly for rejected packets yields higher performance for the protocol and the highest possible network I/O throughput for the system as a whole. 
+</DD>
+
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD><I>ProtocolReceive</I> has processed the header information and accepted the packet, that is, it has copied the indicated network data from the header and lookahead buffers and, possibly, called <B>NdisTransferData</B> to retrieve the remaining data if less than a full network packet was indicated. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>NDIS provides equal packet access for any number of protocol drivers bound above an underlying connectionless miniport driver. NDIS can use the status that <I>ProtocolReceive</I> returns to optimize the order in which bound protocols receive indications for subsequent packets. </P>
+
+<P>When a miniport driver calls a filter-specific <B>NdisM..IndicateReceive</B> function, NDIS calls the <I>ProtocolReceive</I> functions of bound protocols. A call to an <B>NdisM..IndicateReceive</B> function indicates that a network packet, or some initial lookahead portion of it, is available for inspection by bound protocols. Each <I>ProtocolReceive</I> function, in turn, inspects the packet header and data, optionally copies as much of the header and/or data as is made available, and calls <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A> to instruct the NIC driver to copy any remaining data into a protocol-supplied buffer chained to a protocol-allocated packet descriptor if the protocol accepts the packet. <I>ProtocolReceive</I> can call <B>NdisTransferData</B> only once per receive indication. </P>
+
+<P>Before a serialized miniport driver calls <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A> with a packet array, it can set the <B>Status</B> member of an out-of-band block associated with a packet descriptor in the array to NDIS_STATUS_RESOURCES. This also causes NDIS to call the <I>ProtocolReceive</I> functions of bound protocols with the network packet header and data specified by that packet descriptor and, separately, with the received network packets specified in all subsequent descriptors in the indicated packet array. Each <I>ProtocolReceive</I> function, in turn, inspects the given network packet header and data and each optionally copies the indicated network packet data. </P>
+
+<P>If the underlying miniport driver supplies out-of-band information with the receives it indicates, <I>ProtocolReceive</I> can call <A HREF="103ndisx_4faq.htm"><B>NdisGetReceivedPacket</B></A> or <A HREF="103ndisx_7xma.htm">NDIS_GET_ORIGINAL_PACKET</A> to retrieve the out-of-band information for each such packet. Because such an underlying miniport driver always indicates full-packet receives, <I>ProtocolReceive</I> will never call <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A> for a packet indicated with <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>.  </P>
+
+<P>NDIS calls <I>ProtocolReceive</I> functions sequentially as calls to <B>NdisM..IndicateReceive</B> or <B>NdisMIndicateReceivePacket</B> occur, but it can indicate a packet to bound protocols using separate calls. However, every protocol must be able to handle out-of-order received packets since neither NDIS nor the underlying miniport driver has any control over the network over which packets are transmitted. </P>
+
+<P>A driver writer should minimize the amount of time spent in the <I>ProtocolReceive</I> function so that the protocol does not lose additional incoming packets, particularly from underlying drivers that call the filter-specific <B>NdisM...IndicateReceive</B> functions. <I>ProtocolReceive</I> must either reject an incoming packet or recognize the packet as of interest to its client(s) quickly. If it accepts the packet, <I>ProtocolReceive</I> must find a place to put packet data and copy the data quickly. Shortly after <I>ProtocolReceive</I> returns, when time constraints are not so severe, any underlying miniport driver that made one or more indications with <B>NdisM...IndicateReceive</B> will call the corresponding <B>NdisM..IndicateReceiveComplete</B>. The protocol driver’s <I>ProtocolReceiveComplete</I> function then performs any necessary postprocessing for the original indication(s). </P>
+
+<P>The underlying driver does not remove any headers or trailers from the packet data received on its NIC, nor does it remove any received padding. In other words, a packet can include padding in the data and length indicated to protocols. <I>ProtocolReceive</I> is responsible for detecting and ignoring such padding. </P>
+
+<P>The buffers at <I>HeaderBuffer</I> and <I>LookAheadBuffer</I> passed to <I>ProtocolReceive</I> are read-only and valid only until <I>ProtocolReceive</I> returns control. <I>ProtocolReceive</I> must copy all the indicated data that the driver needs into protocol-allocated storage. Whether a Windows®&nbsp;2000 or later protocol can copy the indication directly depends on the NDIS_MAC_OPTION_COPY_LOOKAHEAD_DATA flag returned for the OID_GEN_MAC_OPTIONS query. If this flag was set, <I>ProtocolReceive</I> can use <A HREF="103ndisx_87le.htm"><B>NdisMoveMemory</B></A> to copy the indicated data to its own storage; otherwise, it should use <A HREF="33tdifun_5rle.htm"><B>TdiCopyLookaheadData</B></A>. However, a Windows®&nbsp;2000  or later protocol can call <B>TdiCopyLookaheadData</B> even if the underlying driver set the NDIS_MAC_OPTION_COPY_LOOKAHEAD_DATA flag. </P>
+
+<P>On a multiprocessor system, this function may execute concurrently on more than one processor.  Apply  protection (for example,  use spinlocks)  to critical data structures accessed by this function.</P>
+
+<P><I>ProtocolReceive</I> runs at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_9a42.htm"><I>MiniportTransferData</I></A>, <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_146q.htm"><B>NdisGetFirstBufferFromPacket</B></A>, <A HREF="103ndisx_92wi.htm"><B>NdisGetFirstBufferFromPacketSafe</B></A>, <A HREF="103ndisx_7xma.htm">NDIS_GET_ORIGINAL_PACKET</A>, <A HREF="103ndisx_4faq.htm"><B>NdisGetReceivedPacket</B></A>, <A HREF="103ndisx_1saa.htm"><B>NdisMArcIndicateReceive</B></A>, <A HREF="103ndisx_51pu.htm"><B>NdisMEthIndicateReceive</B></A>, <A HREF="103ndisx_9dyq.htm"><B>NdisMFddiIndicateReceive</B></A>, <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, <A HREF="103ndisx_87le.htm"><B>NdisMoveMemory</B></A>, <A HREF="103ndisx_58c3.htm"><B>NdisMTrIndicateReceive</B></A>, <A HREF="103ndisx_9jaq.htm"><B>NdisMWanIndicateReceive</B></A>, <A HREF="104tdlow_5i7m.htm"><I>ProtocolReceiveComplete</I></A>, <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A>, <A HREF="104tdlow_8u7m.htm"><I>ProtocolTransferDataComplete</I></A>, <A HREF="33tdifun_5rle.htm"><B>TdiCopyLookaheadData</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProtocolReceive"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,47 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Offloading IPSec Tasks in the Send Path</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Offloading IPSec Tasks in the Send Path">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_offloading_ipsec_tasks_in_the_send_path_ng"></A>Offloading IPSec Tasks in the Send Path</H3>
+
+<P>Before the TCP/IP transport passes to the miniport driver a packet descriptor for a packet on which the miniport driver's NIC will perform Internet Protocol security (IPSec) tasks, it updates the IPSec information that is associated with the packet descriptor. The TCP/IP transport specifies this information in an <A HREF="105nstru_2tbm.htm">NDIS_IPSEC_PACKET_INFO</A> structure, which is part of the per-packet (extended out-of-band) data that is associated with the packet descriptor.</P>
+
+<P>The NDIS_IPSEC_PACKET_INFO structure is defined as:</P>
+
+<PRE>typedef struct _NDIS_IPSEC_PACKET_INFO
+{
+    union
+    {
+        struct
+        {
+            NDIS_HANDLE    OffloadHandle;
+            NDIS_HANDLE    NextOffloadHandle;
+        } Transmit;
+ 
+        struct
+        {
+            ULONG    SA_DELETE_REQ:1;
+            ULONG    CRYPTO_DONE:1;
+            ULONG    NEXT_CRYPTO_DONE:1;
+            ULONG    CryptoStatus;
+        } Receive;
+    };
+} NDIS_IPSEC_PACKET_INFO, *PNDIS_IPSEC_PACKET_INFO;
+</PRE>
+
+<P>The TCP/IP transport supplies an <I>OffloadHandle</I>, which specifies the handle to the outbound SA for the transport (end-to-end connection) portion of the send packet. If the packet will be transmitted through a tunnel, the TCP/IP transport also supplies the <I>NextOffloadHandle</I>, which specifies the handle to the outbound SA for the tunnel portion of the send packet.</P>
+
+<P>After a miniport driver receives the packet descriptor in its <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A>, <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A>, or <A HREF="101mini_0ycy.htm"><I>MiniportCoSendPackets</I></A> function, it can call the <A HREF="103ndisx_0bjm.htm">NDIS_PER_PACKET_INFO_FROM_PACKET</A> macro with an <I>InfoType</I> of <B>IpSecNdisTask</B> to obtain a pointer to the NDIS_IPSEC_PACKET_INFO structure that is associated with the packet descriptor. Alternatively, it can call the <A HREF="103ndisx_6pyq.htm">NDIS_PACKET_EXTENSION_FROM_PACKET</A> macro to obtain a pointer to the <A HREF="105nstru_9oqa.htm">NDIS_PACKET_EXTENSION</A> structure that is associated with the packet descriptor. The miniport driver can then use the <B>IpSecPacketInfo</B> array index to obtain a pointer to the NDIS_IPSEC_PACKET_INFO structure.</P>
+
+<P>When the NIC performs IPSec processing on a send packet, it calculates the AH and/or ESP encryption checksums for the packet and, if the packet contains an ESP payload, encrypts the packet. The TCP/IP transport has already framed the packet, padded it (if necessary), and assigned it a sequence number and SPI. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Offloading%20IPSec%20Tasks%20in%20the%20Send%20Path"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

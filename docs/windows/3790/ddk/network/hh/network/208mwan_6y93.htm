@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Sending Packets From an NDIS WAN Miniport Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Sending Packets From an NDIS WAN Miniport Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_sending_packets_from_an_ndis_wan_miniport_driver_ng"></A>Sending Packets from an NDIS WAN Miniport Driver</H2>
+
+<P>An upper-layer driver calls <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A> to send packets to an underlying NDIS WAN miniport driver. The NDISWAN intermediate driver forwards those packets. Before NDISWAN forwards packets, it repackages them. NDISWAN also reformats the structure of the packets from <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A> structures into <A HREF="105nstru_8n3m.htm">NDIS_WAN_PACKET</A> structures before forwarding. </P>
+
+<P>The NDISWAN intermediate driver forwards the repackaged packets to NDIS, which calls the NDIS WAN miniport driver's <A HREF="101mini_7oj6.htm"><I>MiniportWanSend</I></A> function. <I>MiniportWanSend</I> transmits packets through the NIC onto the wide area network. </P>
+
+<P>The NDIS WAN miniport driver owns both the packet descriptor and the packet data until the send completes, regardless of whether the send completes synchronously or asynchronously. If the miniport driver does not immediately complete the send request, it returns NDIS_STATUS_PENDING from <I>MiniportWanSend</I> and must later call <A HREF="103ndisx_7x0y.htm"><B>NdisMWanSendComplete</B></A> to complete the send request. </P>
+
+<P>A completion call does not necessarily indicate that a packet has been transmitted; however, with the exception of intelligent NICs, the packet usually has been transmitted. A completion call does, however, indicate that the miniport driver is ready to release ownership of the packet. </P>
+
+<P>If the NDIS WAN miniport driver returns a status other than NDIS_STATUS_PENDING, the send operation is considered to be complete, and ownership of the packet immediately reverts to the caller. In this case, the miniport driver does not call a completion function for that packet.</P>
+
+<P>After the NDIS WAN miniport driver receives a send packet in its <I>MiniportWanSend</I> function, it should send the packet out on the active connection, which is an established link. </P>
+
+<P>Unlike non-WAN connectionless miniport drivers, the NDIS WAN miniport driver <I>cannot</I> return a status of NDIS_STATUS_RESOURCES to indicate that it does not have enough resources currently available to process the transmission of packets. Instead, the WAN miniport driver should queue the send internally for a later time and perhaps lower the <B>SendWindow</B> value on the connection. This <B>SendWindow</B> value is the number of outstanding packets that the WAN miniport driver can handle per connection. The miniport driver specifies this <B>SendWindow</B> value to an upper-layer driver. </P>
+
+<P>The NDIS WAN miniport driver specifies the default number of outstanding packets that it can have per data channel in the <B>MaxTransmit</B> member of the NDIS_WAN_INFO structure. The miniport driver provides this structure when the miniport driver responds to the <A HREF="28wanoid_3302.htm">OID_WAN_GET_INFO</A> request from the protocol driver. </P>
+
+<P>The miniport driver can specify the send window dynamically and on a per-line basis by calling <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A> with a line-up indication. In the call to <B>NdisMIndicateStatus</B>, the miniport driver provides a new nonzero value for the <B>SendWindow</B> member of the <A HREF="105nstru_4agi.htm">NDIS_MAC_LINE_UP</A> structure. If the miniport driver sets the value of the <B>SendWindow</B> member to zero, NDISWAN uses the default value in <B>MaxTransmit</B> for that line.</P>
+
+<P>The NDIS WAN miniport driver might have to modify or add to the header as well as add to the end (tail) of the packet (for example, to add the FCS). Appropriate padding at the beginning and end of the packet was provided previously by the miniport driver. The WAN miniport driver can alter the data in the packet in any way it sees fit in order to send that packet on the WAN medium.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;NDIS WAN miniport drivers never call the <A HREF="103ndisx_58c2.htm"><B>NdisMSendResourcesAvailable</B></A> function.</P>
+
+<P>Packets that are passed to the WAN miniport driver's send function contain simple HDLC PPP framing if PPP framing is set. For SLIP or RAS framing, packets contain only the data portion with no framing whatsoever. For more information about WAN packet framing, see <A HREF="208mwan_0auf.htm">WAN Packet Framing</A>.</P>
+
+<P>A WAN NIC driver must <I>not</I> attempt to provide software loopback or promiscuous-mode loopback. Both of these loopback types are fully supported in the NDISWAN driver.</P>
+
+<P>The following applies to the WAN packet for an NDIS WAN miniport driver: 
+
+<UL>
+	<LI>The <B>MacReserved</B><I>x</I> members as well as the <B>WanPacketQueue</B> member of the <A HREF="105nstru_8n3m.htm">NDIS_WAN_PACKET</A> structure<I> </I>are fully available for use by the NDIS WAN miniport driver.</LI>
+
+	<LI>The available header padding is simply <B>CurrentBuffer</B>-<B>StartBuffer</B>. The available tail padding is <B>EndBuffer</B>-(<B>CurrentBuffer</B>+<B>CurrentLength</B>). The header and tail padding is guaranteed to be at least the size requested, but it can be larger.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Sending%20Packets%20From%20an%20NDIS%20WAN%20Miniport%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

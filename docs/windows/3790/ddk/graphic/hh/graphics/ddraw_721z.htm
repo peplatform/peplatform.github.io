@@ -1,0 +1,49 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Bank-Switched Memory Addressing on Windows 98/Me</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Bank-Switched Memory Addressing on Windows 98/Me">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_bank_switched_memory_addressing_on_windows_98_me_gg"></A>Bank-Switched Memory Addressing on Windows 98/Me</H3>
+
+<P><B>This topic applies only to Windows 98/Me.</B></P>
+
+<P>Use linear memory addressing if it is supported. If the hardware or driver only supports bank switching, then you must use the virtual flat-frame buffer device VflatD. </P>
+
+<P>VflatD helps manage the frame buffer for a display driver. To overcome the problem of addressing more than 64 KB of display memory, VflatD virtualizes the buffer for display cards that use bank-switching techniques. It does this by mapping display memory to a smaller block of memory addresses. Thereafter, whenever a page fault occurs during a drawing operation, VflatD calls the bank-switch procedure, directing it to map a block of display data into the physical frame buffer. </P>
+
+<P>If bank switching is used, DirectDraw gets this information from the display driver and sets the DDCAPS_BANKSWITCHED flag. This indicates that display memory is presented to the hardware through a memory window. The memory is made to appear flat with VflatD. </P>
+
+<P>With bank-switched memory, only a small window of memory (usually 64 KB) is visible to the application at any given time. When the application reaches the end of the window, a page fault is generated. VflatD traps the page fault and moves the memory pointer so a new window is visible to the application, as shown in the following figure. </P>
+
+<P><IMG SRC="images/ddfig2.gif" ALT="" BORDER=0> </P>
+
+<P><B>Bank Switched Memory</B></P>
+
+<P>As illustrated in the preceding figure, bank-switched memory exposes one 64K window of visible memory at a time. Make sure that heap start addresses are at least DWORD aligned to avoid slow performance or system crashes. VflatD hangs the system if a bank switch occurs within a chunk of memory that is not DWORD aligned. This is because the processor instruction being executed cannot be broken into smaller pieces. For instance, the instruction might be to read in 4-byte increments of memory. Only one page of memory is in the window at a time, so a 4-byte chunk of an instruction that straddles a page boundary causes the fault handler to endlessly bank switch back and forth between the two memory windows. Also, standard copy operations are up to three times faster when the data is properly aligned.</P>
+
+<P>Writing aligned data means that the destination address is 4-byte aligned. For example, if the destination address (PTR) is 4-byte aligned, use the following calculation to determine its aligned value:</P>
+
+<PRE>PTR==PTR &amp; 0xFFFFFFFC</PRE>
+
+<P>Word alignment requirements can be handled with a simple adjustment, as shown in the following pseudo code: </P>
+
+<PRE> /*
+  * required alignments of the scan lines for each kind of memory
+  */
+    ddHALInfo.vmiData.dwOffscreenAlign = AlignTbl[ wBpp &gt;&gt; 2 ];
+    ddHALInfo.vmiData.dwOverlayAlign = AlignTbl[ wBpp &gt;&gt; 2 ];
+    ddHALInfo.vmiData.dwTextureAlign = AlignTbl[ wBpp &gt;&gt; 2 ];
+    ddHALInfo.vmiData.dwAlphaAlign = AlignTbl[ wBpp &gt;&gt; 2 ];
+    ddHALInfo.vmiData.dwZBufferAlign = AlignTbl[ wBpp &gt;&gt; 2 ];</PRE>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The preceding sample shows pitch alignments only; these alignments do not control the alignment of the start of surface memory. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Bank-Switched%20Memory%20Addressing%20on%20Windows%2098%2FMe"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

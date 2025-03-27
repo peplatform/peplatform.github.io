@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IMiniportWavePciStream::RevokeMappings</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IMiniportWavePciStream::RevokeMappings">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_keacquirespinlock_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_kereleasespinlock_kr">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_kereleasespinlock_kr">
+</OBJECT>
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_keacquirespinlock_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_iminiportwavepcistream_revokemappings_ks"></A>IMiniportWavePciStream::RevokeMappings</H1>
+
+<P>The <B>RevokeMappings</B> method revokes mappings that were previously obtained through <A HREF="audmp-routines_0pir.htm"><B>IPortWavePciStream::GetMapping</B></A>.</P>
+
+<PRE class=syntax><B>NTSTATUS
+  RevokeMappings(
+    IN PVOID  </B><I>FirstTag</I><B>,</B>
+<B>    IN PVOID  </B><I>LastTag</I><B>,</B>
+<B>    OUT PULONG  </B><I>MappingsRevoked</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>FirstTag</I></DT>
+
+<DD>Specifies the tag value that identifies the first mapping that is being revoked.</DD>
+
+<DT><I>LastTag</I></DT>
+
+<DD>Specifies the tag value that identifies the last mapping that is being revoked.</DD>
+
+<DT><I>MappingsRevoked</I></DT>
+
+<DD>Output pointer for the count of revoked mappings. This parameter points to a ULONG variable into which the method writes the number of mappings actually revoked by the call. This number excludes any mappings in the range <I>FirstTag</I> to <I>LastTag</I> that the miniport driver has already released. Due to synchronization issues, some of the mappings in the range might be released between the time that the port driver determines the list of mappings to be revoked and the call to <B>RevokeMappings</B>. See the following <B>Comments</B> section.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>RevokeMappings</B> returns STATUS_SUCCESS if the call was successful. Otherwise, the method returns an appropriate error code.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>portcls.h</I>. Include <I>portcls.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The port driver calls <B>RevokeMappings</B> to revoke the stream's mappings when:
+
+<UL>
+	<LI>An I/O request (IRP) is canceled and the previously mapped memory might no longer be available.</LI>
+
+	<LI>The stream state changes to KSSTATE_STOP (see <A HREF="ks-struct_1ooj.htm">KSSTATE</A>) and the device no longer has need for the mappings.</LI>
+</UL>
+
+<P>The miniport driver keeps track of the order in which it acquires its mappings from calls to <A HREF="audmp-routines_0pir.htm"><B>IPortWavePciStream::GetMapping</B></A>. The <B>RevokeMapping</B> method revokes all mappings in the sequence that begins with the mapping identified by <I>FirstTag</I> and ends with the mapping identified by <I>LastTag</I>. This includes the mappings identified by <I>FirstTag</I> and <I>LastTag</I> and all mappings in between. The miniport driver revokes each mapping by removing it from the list of available mappings.</P>
+
+<P>The <B>RevokeMapping</B> method can be used to remove a single mapping by setting <I>FirstTag</I> and <I>LastTag</I> to the same value.</P>
+
+<P>The port driver can call <B>RevokeMappings</B> asynchronously with respect to the miniport driver's maintenance operations on the DMA controller's scatter/gather transfer queue. Access to this queue needs to be protected by a synchronization primitive. In the <I>ac97</I> sample adapter in the Windows DDK, for example, this is done by surrounding critical code sections with <A HREF="JavaScript:hhobj_1.Click()"><B>KeAcquireSpinLock</B></A> and <A HREF="JavaScript:hhobj_2.Click()"><B>KeReleaseSpinLock</B></A> calls. Because the miniport driver can release mappings asynchronously with respect to the port driver's calls to <B>RevokeMappings</B>, the miniport driver might have previously released (see <A HREF="audmp-routines_2uk3.htm"><B>IPortWavePciStream::ReleaseMapping</B></A>) one or more of the mappings specified in the <B>RevokeMappings</B> call.</P>
+
+<P>For more information on mappings, see <A HREF="aud-design_7btz.htm">WavePci Latency</A>.</P>
+
+<P>The <B>RevokeMappings</B> method is called at IRQL DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="ks-struct_1ooj.htm">KSSTATE</A>, <A HREF="audmp-routines_0pir.htm"><B>IPortWavePciStream::GetMapping</B></A>, <A HREF="audmp-routines_2uk3.htm"><B>IPortWavePciStream::ReleaseMapping</B></A>, <A HREF="JavaScript:hhobj_3.Click()"><B>KeReleaseSpinlock</B></A>, <A HREF="JavaScript:hhobj_4.Click()"><B>KeAcquireSpinlock</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IMiniportWavePciStream::RevokeMappings"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

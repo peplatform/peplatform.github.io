@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Plug and Play Driver Notification</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_2301"></A>Plug and Play Driver Notification</H3>
+
+<P>The Configuration Manager (CONFIGMG.VXD) controls the creation, deletion, and resource allocation of the Device Nodes. </P>
+
+<P>When a bus enumerator requests a new device node, the Configuration Manager locates the device ID of the device node in the system registry and loads the driver(s) using the registered device loader, if the necessary entries are present. After loading the device driver, the Configuration Manager sends a PnP_New_DevNode message to the driver's control procedure. </P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;If the new device node is the result of the "first insertion" event, the device node is setup during "appy-time." After successful installation of the device software, the Configuration Manager continues the startup sequence. </P>
+
+<P>On receipt of the PnP_New_DevNode message, the device driver registers a "Config Handler" procedure with the multimedia device loader (MMDEVLDR.VXD), using the <B>MMDEVLDR_Register_Device_Driver</B> service. The Config Handler processes all subsequent CONFIG_ type messages from the Configuration Manager. </P>
+
+<P>The Configuration Manager attempts to satisfy the resource requirements of the new device. If the device is a "floating" configuration, it may filter its logical configurations during the CONFIG_FILTER message processing. When the Configuration Manager can satisfy the resource requirements for the device node, it starts the device by sending a CONFIG_START message to the Config Handler. </P>
+
+<P>A typical Config Handler processes the configuration state messages and applies the configuration by allocating resources such as IRQ virtualization, I/O trapping and memory space from the virtual machine manager (VMM). </P>
+
+<P>The following procedure is a portion of the Config Handler used by MSMPU401.VXD. During the CONFIG_START message processing, the Config Handler queries the Configuration Manager for the allocated resources and then calls <B>MSMPU401_Set_Config</B> (an external private function defined by the specific device) to put the configuration into effect. </P>
+
+<PRE>//---------------------------------------------------------------------
+//  
+// MSMPU401_Config_Handler
+//  
+//---------------------------------------------------------------------
+
+CONFIGRET MSMPU401_Config_Handler
+(
+    CONFIGFUNC      cfFuncName,
+    SUBCONFIGFUNC   scfSubFuncName,
+    DEVNODE         dn,
+    DWORD           dwRefData,
+    ULONG           ulFlags
+)
+{
+   // Switch the function (aka command)
+
+   DPF( "MSMPU401: Config_Handler\r\n" ) ;
+
+   switch (cfFuncName)
+   {
+      // In this code snippet, we've removed all function processing
+      // except CONFIG_START, please see the DDK samples for the 
+      // complete example.
+
+      case CONFIG_START:
+      {
+         // This command is sent to instruct the driver that
+         // it can start using the resources that have been
+         // allocated to it. This is the meat of this
+         // DriverConfigMan.
+         //
+         // We get our resource allocation by calling the
+         // configuration manager (CM) using the devnode that
+         // was passed to us.
+         //
+         // If all has gone well, we should not have been given
+         // a resource allocation that we can't use. Ideally
+         // this command should always succeed. However, every
+         // now and then life throws you a curve ball, so we
+         // should still verify that we are happy with the
+         // resources we have been given.
+
+         CMCONFIG    ccb ;
+         CONFIGRET   cr ;
+         WORD        wBaseMPU401 ;
+         WORD        wIRQ ;
+
+         // Get our resource allocation from CM. if
+         // this fails, we have no choice but to fail
+         // the CONFIG_START. We'll return the same
+         // error that the CM_Get_Alloc_Config returned.
+
+         if (CR_SUCCESS != 
+               (cr = CM_Get_Alloc_Log_Conf( &amp;ccb, dn, 0 )))
+            return cr ;
+
+         // Extract the information of interest from the config buffer
+         // that we got from CM_Get_Alloc_Config.
+
+         wBaseMPU401 = (WORD) -1 ;
+
+         if (ccb.wNumIOPorts != 1)
+         {
+            DPF( "MSMPU401: Invalid config.\r\n" ) ;
+            return CR_FAILURE ;
+         }
+                                 
+         wBaseMPU401 = ccb.wIOPortBase[ 0 ] ;
+
+         if (ccb.wNumIRQs)
+            wIRQ = ccb.bIRQRegisters[ 0 ] ;
+         else
+            wIRQ = (WORD) -1 ;
+
+         if (-1 == wBaseMPU401)
+            return CR_FAILURE ;
+
+         // OK, now do whatever else is necessary to put this
+         // configuration into effect.
+
+         cr = MSMPU401_Set_Config( dn, wBaseMPU401, wIRQ ) ;
+
+         return cr ;
+      }
+   }
+} // MSMPU401_Config_Handler()
+ </PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Plug%20and%20Play%20Driver%20Notification"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

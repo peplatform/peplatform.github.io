@@ -1,0 +1,68 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Tightening File-Open Security in a Device INF File</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Tightening File-Open Security in a Device INF File">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iocreatedevice_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_raw_mode_dg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tightening_file_open_security_in_a_device_inf_file_dg"></A>Tightening File-Open Security in a Device INF File</H1>
+
+<P>For Microsoft® Windows®&nbsp;2000 and later, Microsoft tightened file-open security in the class installer INFs for certain device classes, including CDROM, DiskDrive, FDC, FloppyDisk, HDC, and SCSIAdapter.</P>
+
+<P>If you are unsure whether the class installer for your device has tightened security on file opens, you should tighten security by using the device's INF file to assign a value to the <B>DeviceCharacteristics</B> value name in the registry. Do this within an <I>add-registry-section</I>, which is specified using the <A HREF="inf-format_2v02.htm">INF <B>AddReg</B> directive</A>. The <I>add-registry-section</I> is referenced in an <A HREF="inf-format_2k8i.htm">INF <I>DDInstall</I> section</A> and has the following syntax:</P>
+
+<PRE><B>[</B><I>DDInstall</I><B>]</B>
+...
+<B>AddReg</B> = <I>Xxx</I>_AddReg
+...
+
+[<I>Xxx</I>_AddReg]
+...
+<B>HKR,,DeviceCharacteristics,0x10001,</B><I>characteristics</I> </PRE>
+
+<P>The <I>characteristics</I> value is the numeric value of the characteristics to assign to the device. This value is the result of ORing one or more FILE_* file characteristics values as defined in <I>wdm.h</I> or <I>ntddk.h</I>. Setting the FILE_DEVICE_SECURE_OPEN characteristic, which has a numeric value of 0x100, directs the I/O Manager to perform security checks on all open requests for the device. The FILE_DEVICE_SECURE_OPEN characteristic is supported on Windows&nbsp;2000 and later platforms but not on Win9x/Me platforms.</P>
+
+<P>A <I>characteristics</I> value of zero directs Setup to ignore the class-wide device characteristics, if any, that were specified in the associated class installer INF.</P>
+
+<P>During device installation, the Plug and Play Manager determines the device characteristics for a device object as follows:
+
+<OL>
+	<LI>It retrieves the characteristics settings for the device's class, if any, as specified in the class-installer INF.</LI>
+
+	<LI>It retrieves the characteristics for the device, if any, as specified in the device INF. Device-specific settings override class settings.</LI>
+
+	<LI>It ORs the resulting INF-specified settings with those set in the device object by the driver, either directly or through <A HREF="JavaScript:hhobj_1.Click()"><B>IoCreateDevice</B></A>. </LI>
+
+	<LI>It ORs the device characteristics settings of the FDO and any filter DOs and propagates these settings to the FDO and filter DOs. If the device is in <A HREF="JavaScript:hhobj_2.Click()">raw mode</A>, and therefore has no FDO, the Plug and Play Manager propagates the device characteristics across the PDO and any filter DOs. </LI>
+</OL>
+
+<P>The above steps ensure, for example, that if one driver for a device sets FILE_DEVICE_SECURE_OPEN, that characteristic is propagated to all the device objects for drivers servicing the device.</P>
+
+<P>The Plug and Play Manager ORs and propagates these characteristics after it has called the AddDevice routines for the device's drivers and after the drivers have created their device objects and attached them to the device stack, but before the Plug and Play Manager sends the IRP_MN_START_DEVICE request. </P>
+
+<P>The Plug and Play Manager also propagates the following device characteristics when it propagates FILE_DEVICE_SECURE_OPEN: FILE_REMOVABLE_MEDIA, FILE_READ_ONLY_DEVICE, and FILE_FLOPPY_DISKETTE.</P>
+
+<P>An INF file that has a <B>ClassInstall32</B> section can set the FILE_DEVICE_SECURE_OPEN characteristic for a setup class of devices. See <A HREF="class-inst_3zs7.htm">Tightening File-Open Security in a Class Installer INF File</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Tightening%20File-Open%20Security%20in%20a%20Device%20INF%20File"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

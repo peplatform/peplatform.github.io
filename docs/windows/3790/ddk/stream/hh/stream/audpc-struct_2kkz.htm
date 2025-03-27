@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>PCEVENT_REQUEST</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="PCEVENT_REQUEST">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_pcevent_request_ks"></A>PCEVENT_REQUEST</H1>
+
+<P>The PCEVENT_REQUEST structure specifies an event request.</P>
+
+<PRE class=syntax>typedef struct _PCEVENT_REQUEST
+{
+  PUNKNOWN  MajorTarget;
+  PUNKNOWN  MinorTarget;
+  ULONG  Node;
+  const PCEVENT_ITEM  *EventItem;
+  PKSEVENT_ENTRY  EventEntry;
+  ULONG  Verb;
+  PIRP  Irp;
+} PCEVENT_REQUEST, *PPCEVENT_REQUEST;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>MajorTarget</B></DT>
+
+<DD><B>IUnknown</B> pointer to the main miniport object. This member contains the <I>UnknownMiniport</I> pointer that the adapter driver previously passed to the <A HREF="audmp-routines_7qcz.htm"><B>IPort::Init</B></A> method.</DD>
+
+<DT><B>MinorTarget</B></DT>
+
+<DD><B>IUnknown</B> pointer to a stream object that is associated with the <B>MajorTarget</B> miniport object. This member contains the stream-object pointer that the port driver previously retrieved from the <B>IMiniport<I>Xxx</I>::NewStream</B> method (for example, the <A HREF="audmp-routines_735f.htm"><B>IMiniportWaveCyclic::NewStream</B></A> method's <I>Stream</I> parameter).</DD>
+
+<DT><B>Node</B></DT>
+
+<DD>Specifies a node ID. This member identifies the target node for the request. If the target is not a node, this member is set to ULONG(-1).</DD>
+
+<DT><B>EventItem</B></DT>
+
+<DD>Pointer to the <A HREF="audpc-struct_3j1v.htm">PCEVENT_ITEM</A> structure for this request</DD>
+
+<DT><B>EventEntry</B></DT>
+
+<DD>Pointer to the <A HREF="ks-struct_4fub.htm">KSEVENT_ENTRY</A> structure for this request</DD>
+
+<DT><B>Verb</B></DT>
+
+<DD>Specifies the type of event request. This member should be set to one of the values in the following table.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=41%>Value</TH>
+<TH align=left width=59%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>PCEVENT_VERB_ADD</TD>
+<TD width=59%>Indicates that a client wants to enable the specified event. After validating the event and target information, the <A HREF="audmp-routines_1d4j.htm"><I>EventHandler</I></A> routine adds the event by calling the <A HREF="audmp-routines_3w37.htm"><B>IPortEvents::AddEventToEventList</B></A> method.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>PCEVENT_VERB_REMOVE</TD>
+<TD width=59%>Notifies the <I>EventHandler</I> that an event is being disabled and removed from the list.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>PCEVENT_VERB_SUPPORT</TD>
+<TD width=59%>This request is a query for support. If the miniport driver supports the event for the target identified in the request, it should succeed this query. Otherwise, it should fail the query.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>PCEVENT_VERB_NONE</TD>
+<TD width=59%>No action is needed.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>Irp</B></DT>
+
+<DD>Pointer to the <A HREF="JavaScript:hhobj_1.Click()">IRP</A> containing the event request
+</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>This is the structure that the port driver passes to the miniport driver's <A HREF="audmp-routines_1d4j.htm"><I>EventHandler</I></A> routine. The <A HREF="audpc-struct_3j1v.htm">PCEVENT_ITEM</A> structure contains a function pointer to an event handler that takes a PCEVENT_REQUEST pointer as its only call parameter. The port driver allocates a PCEVENT_REQUEST structure, extracts the relevant information from the original event request (which the <B>Irp</B> member points to), and loads the information into this structure before calling the handler.</P>
+
+<P>In WDM audio, the target of an event request can be a pin instance but not a filter instance. The target can also include a node ID.</P>
+
+<P>The <B>MajorTarget</B> and <B>MinorTarget</B> members are <B>IUnknown</B> pointers to the main miniport object and an associated stream object, respectively. The event handler can query these objects for their miniport and stream interfaces.</P>
+
+<P>For example, if the target for the event request is a pin instance on a WaveCyclic filter:
+
+<UL>
+	<LI>The handler can call <B>QueryInterface</B> on the <B>MajorTarget</B> object's <B>IUnknown</B> interface to obtain a reference to the object's <A HREF="audmp-routines_8pir.htm"><B>IMiniportWaveCyclic</B></A> interface.</LI>
+
+	<LI>The handler can call <B>QueryInterface</B> on the <B>MinorTarget</B> object's <B>IUnknown</B> interface to obtain a reference to the object's <A HREF="audmp-routines_5jxv.htm"><B>IMiniportWaveCyclicStream</B></A> interface.</LI>
+</UL>
+
+<H4>See Also</H4>
+
+<P><A HREF="audpc-struct_8xbn.htm">PCFILTER_NODE</A>, <A HREF="audpc-struct_3j1v.htm">PCEVENT_ITEM</A>, <A HREF="ks-struct_4fub.htm">KSEVENT_ENTRY</A>, <A HREF="audmp-routines_1d4j.htm"><B>EventHandler</B></A>, <A HREF="audmp-routines_3w37.htm"><B>IPortEvents::AddEventToEventList</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: PCEVENT_REQUEST"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

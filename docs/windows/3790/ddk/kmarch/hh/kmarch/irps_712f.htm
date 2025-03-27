@@ -1,0 +1,185 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using a Driver-Supplied Spin Lock</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using a Driver-Supplied Spin Lock">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_using_a_driver_supplied_spin_lock_kg"></A>Using a Driver-Supplied Spin Lock</H3>
+
+<P>Drivers that manage their own queues of IRPs can use a driver-supplied spin lock, instead of the system cancel spin lock, to synchronize access to the queues. You can improve performance by avoiding use of the cancel spin lock except when absolutely necessary. Because the system has only one cancel spin lock, a driver might sometimes have to wait for that spin lock to become available. Using a driver-supplied spin lock eliminates this potential delay and makes the cancel spin lock available for the I/O Manager and other drivers. Although the system still acquires the cancel spin lock when it calls the driver's <I>Cancel </I>routine, a driver can use its own spin lock to protect its queue of IRPs. </P>
+
+<P>Even if a driver does not queue pending IRPs, but retains ownership in some other way, that driver must set a <I>Cancel </I>routine for the IRP and must use a spin lock to protect the IRP pointer. For example, suppose a driver marks an IRP pending, then passes the IRP pointer as context to an <A HREF="drvrrtns_7h9u.htm"><I>IoTimer</I></A> routine. The driver must set a <I>Cancel </I>routine that cancels the timer and must use the same spin lock in both the <I>Cancel </I>routine and the timer callback when accessing the IRP. </P>
+
+<P>Any driver that queues its own IRPs and uses its own spin lock must do the following:
+
+<UL>
+	<LI>Create a spin lock to protect the queue.</LI>
+
+	<LI>Set and clear the <I>Cancel </I>routine only while holding this spin lock.</LI>
+
+	<LI>If the <I>Cancel </I>routine starts running while the driver is dequeuing an IRP, allow the <I>Cancel </I>routine to complete the IRP.</LI>
+
+	<LI>Acquire the lock that protects the queue in the <I>Cancel </I>routine.</LI>
+</UL>
+
+<P>To create the spin lock, the driver calls <A HREF="k105_60xe.htm"><B>KeInitializeSpinLock</B></A>. In the following example, the driver saves the spin lock in a DEVICE_CONTEXT structure along with the queue it has created: </P>
+
+<PRE class=syntax>typedef struct {
+LIST_ENTRY    irpQueue;
+    KSPIN_LOCK     irpQueueSpinLock;
+    …
+    } DEVICE_CONTEXT;
+
+VOID InitDeviceContext(DEVICE_CONTEXT *deviceContext)
+{
+    InitializeListHead(&amp;deviceContext-&gt;irpQueue);
+    KeInitializeSpinLock(&amp;deviceContext-&gt;irpQueueSpinLock);
+}</PRE>
+
+<P>To queue an IRP, the driver acquires the spin lock, calls <A HREF="k109_1xyq.htm"><B>InsertTailList</B></A>, and then marks the IRP pending, as in the following example:</P>
+
+<PRE class=syntax>NTSTATUS QueueIrp(DEVICE_CONTEXT *deviceContext, PIRP Irp)
+{
+    PDRIVER_CANCEL  oldCancelRoutine;
+    KIRQL  oldIrql;
+    NTSTATUS status = STATUS_PENDING;
+
+KeAcquireSpinLock(&amp;deviceContext-&gt;irpQueueSpinLock, &amp;oldIrql);
+
+//  Queue the IRP and call IoMarkIrpPending
+//  to indicate that the IRP may complete on a different thread.
+//  N.B. It's okay to call these inside the spin lock because they're macros, not functions.
+IoMarkIrpPending(Irp);
+InsertTailList(&amp;deviceContext-&gt;irpQueue, &amp;Irp-&gt;Tail.Overlay.ListEntry);
+
+//  Must set a Cancel routine before checking the Cancel flag.
+oldCancelRoutine = IoSetCancelRoutine(Irp, IrpCancelRoutine);
+ASSERT(!oldCancelRoutine);
+
+if (Irp-&gt;Cancel){
+    //  The IRP was canceled.  Check whether our cancel routine was called.
+    oldCancelRoutine = IoSetCancelRoutine(Irp, NULL);
+    if (oldCancelRoutine){
+        //  The cancel routine was NOT called.  
+        //  So dequeue the IRP now and complete it after releasing the spinlock.
+        RemoveEntryList(&amp;Irp-&gt;Tail.Overlay.ListEntry);
+        status = Irp-&gt;IoStatus.Status = STATUS_CANCELLED; 
+    } //endif
+    else {
+        //  The cancel routine WAS called.  
+        //  As soon as we drop our spin lock it will dequeue and complete the IRP.
+        //  So leave the IRP in the queue and otherwise don’t touch it.
+        //  Return pending since we’re not completing the IRP here.
+    }  //end else
+} // endif
+
+KeReleaseSpinLock(&amp;deviceContext-&gt;irpQueueSpinLock, oldIrql);
+
+// Normally you shouldn't call IoMarkIrpPending 
+// and return a status other than STATUS_PENDING.
+// But you can break this rule if you complete the IRP.
+if (status != STATUS_PENDING){
+    IoCompleteRequest(Irp, IO_NO_INCREMENT);
+}
+return status;
+}</PRE>
+
+<P>As the example shows, the driver holds its spin lock while it sets and clears the <I>Cancel </I>routine. The sample queuing routine contains two calls to <A HREF="k104_6hiq.htm"><B>IoSetCancelRoutine</B></A>. </P>
+
+<P>The first call sets the <I>Cancel </I>routine for the IRP. However, because the IRP might have been canceled while the queuing routine is running, the driver must check the <B>Cancel<I> </I></B>member of the IRP. 
+
+<UL>
+	<LI>If <B>Cancel</B> is set, then cancellation has been requested, and the driver must make a second call to <B>IoSetCancelRoutine</B> to see whether the previously set <I>Cancel </I>routine was called. </LI>
+
+	<LI>If the IRP has been canceled but the <I>Cancel </I>routine has not yet been called, then the current routine dequeues the IRP and completes it with STATUS_CANCELLED. </LI>
+
+	<LI>If the IRP has been canceled and the <I>Cancel </I>routine has already been called, then the current return marks the IRP pending and returns STATUS_PENDING. The <I>Cancel </I>routine will complete the IRP.</LI>
+</UL>
+
+<P>The following example shows how to remove an IRP from the previously created queue:</P>
+
+<PRE class=syntax>PIRP DequeueIrp(DEVICE_CONTEXT *deviceContext)
+{
+KIRQL oldIrql;
+PIRP nextIrp = NULL;
+
+KeAcquireSpinLock(&amp;deviceContext -&gt;irpQueueSpinLock, &amp;oldIrql);
+
+while (!nextIrp &amp;&amp; !IsListEmpty(&amp;deviceContext -&gt;irpQueue)){
+    PDRIVER_CANCEL oldCancelRoutine;
+    PLIST_ENTRY listEntry = RemoveHeadList(&amp;deviceContext -&gt;irpQueue);
+
+    // Get the next IRP off the queue.
+    nextIrp = CONTAINING_RECORD(listEntry, IRP, Tail.Overlay.ListEntry);
+
+    //  Clear the IRP’s cancel routine
+    oldCancelRoutine = IoSetCancelRoutine(nextIrp, NULL);
+    //  IoCancelIrp() could have just been called on this IRP.
+    //  What we’re interested in is not whether IoCancelIrp() was called (nextIrp-&gt;Cancel flag set),
+    //  but whether IoCancelIrp() called (or is about to call) our cancel routine.
+    //  To check that, check the result of the test-and-set macro IoSetCancelRoutine.
+    if (oldCancelRoutine){
+        //  Cancel routine not called for this IRP.  Return this IRP.
+        ASSERT(oldCancelRoutine == IrpCancelRoutine);
+    }
+    else {
+        //  This IRP was just canceled and the cancel routine was (or will be) called.
+        //  The cancel routine will complete this IRP as soon as we drop the spin lock,
+        //  so don’t do anything with the IRP.
+        //  Also, the cancel routine will try to dequeue the IRP, 
+        //  so make the IRP’s listEntry point to itself.
+        ASSERT(nextIrp-&gt;Cancel);
+        InitializeListHead(&amp;nextIrp-&gt;Tail.Overlay.ListEntry);
+        nextIrp = NULL;
+    }
+}
+
+KeReleaseSpinLock(&amp;deviceContext -&gt;irpQueueSpinLock, oldIrql);
+
+return nextIrp;
+}</PRE>
+
+<P>In the example, the driver acquires the associated spin lock before it accesses the queue. While holding the spin lock, it checks that the queue is not empty and gets the next IRP off the queue. Then it calls <B>IoSetCancelRoutine</B> to reset the <I>Cancel </I>routine for the IRP. Because the IRP could be canceled while the driver dequeues the IRP and resets the <I>Cancel </I>routine, the driver must check the value returned by <B>IoSetCancelRoutine</B>. If <B>IoSetCancelRoutine</B> returns NULL, which indicates that the <I>Cancel </I>routine either has been or will soon be called, then the dequeuing routine lets the <I>Cancel </I>routine complete the IRP. It then releases the lock that protects the queue and returns.</P>
+
+<P>Note the use of <B>InitializeListHead</B> in the preceding routine. The driver could requeue the IRP, so that the <I>Cancel </I>routine can dequeue it, but it's simpler to call <B>InitializeListHead</B>, which reinitializes the IRP's <B>ListEntry </B>field so that it points to the IRP itself. Using the self-referencing pointer is important because the structure of the list could change before the <I>Cancel </I>routine acquires the spin lock. And if the list structure changes, possibly making the original value of <B>ListEntry</B> invalid, the <I>Cancel </I>routine could corrupt the list when it dequeues the IRP. But if <B>ListEntry</B> points to the IRP itself, then the <I>Cancel </I>routine will always use the correct IRP.</P>
+
+<P>The <I>Cancel </I>routine, in turn, simply does the following:</P>
+
+<PRE class=syntax>VOID IrpCancelRoutine(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp)
+{
+DEVICE_CONTEXT *deviceContext = DeviceObject-&gt;DeviceExtension;
+KIRQL oldIrql;
+
+//  Release the global cancel spin lock.  
+//  Do this while not holding any other spin locks so that we exit at the right IRQL.
+IoReleaseCancelSpinLock(Irp-&gt;CancelIrql);
+
+//
+//  Dequeue and complete the IRP.  
+//  The enqueue and dequeue functions synchronize properly so that if this cancel routine is called, 
+//  the dequeue is safe and only the cancel routine will complete the IRP. Hold the spin lock for the IRP
+//  queue while we do this.
+//
+
+KeAcquireSpinLock(&amp;deviceContext-&gt;irpQueueSpinLock, &amp;oldIrql);
+
+RemoveEntryList(&amp;Irp-&gt;Tail.Overlay.ListEntry);
+
+KeReleaseSpinLock(&amp;deviceContext-&gt;irpQueueSpinLock, oldIrql);
+
+//  Complete the IRP.  This is a call outside the driver, so all spin locks must be released by this point.
+Irp-&gt;IoStatus.Status = STATUS_CANCELLED;
+IoCompleteRequest(Irp, IO_NO_INCREMENT);
+return;
+}</PRE>
+
+<P>The I/O Manager always acquires the global cancel spin lock before it calls a <I>Cancel </I>routine, so the first task of the <I>Cancel </I>routine is to release this spin lock. It then acquires the spin lock that protects the driver's queue of IRPs, removes the current IRP from the queue, releases its spin lock, completes the IRP with STATUS_CANCELLED and no priority boost, and returns.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20a%20Driver-Supplied%20Spin%20Lock"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

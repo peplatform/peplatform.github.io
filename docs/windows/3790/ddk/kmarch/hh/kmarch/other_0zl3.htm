@@ -1,0 +1,80 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Technique 1: Defining a "64Bit" Field</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Technique 1: Defining a &quot;64Bit&quot; Field">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_technique_1_defining_a_64bit_field_kg"></A>Technique 1: Defining a "64Bit" Field</H3>
+
+<P>The "64Bit" field is defined in the IOCTL or FSCTL control code. This field contains a bit flag that is always set for 64-bit callers, but is always clear for 32-bit. Which bit in the control code is chosen as the "64Bit" field is driver-specific, but it must be a bit that is never set for 32-bit callers. A good choice for most drivers is the most significant bit (MSB) in the Function field. </P>
+
+<P>For example, the IOCTL (FSCTL) control codes used in 32-bit drivers contain four bit fields:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=30%>Device Type</TH>
+<TH align=left width=18%>Access</TH>
+<TH align=left width=30%>Function</TH>
+<TH align=left width=22%>Method</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>16 bits</TD>
+<TD width=18%>2 bits</TD>
+<TD width=30%>12 bits</TD>
+<TD width=22%>2 bits</TD>
+</TR>
+</TABLE><BR>
+
+<P>As long as none of the existing driver-defined control codes set the MSB in the Function field, these control codes can continue to be used by 32-bit user-mode applications.</P>
+
+<P>To accommodate 64-bit callers, the driver defines a Function field that is shorter by one bit. This bit is redefined as a "64Bit" field:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=30%>Device Type</TH>
+<TH align=left width=17%>Access</TH>
+<TH align=left width=13%>64Bit</TH>
+<TH align=left width=19%>Function</TH>
+<TH align=left width=21%>Method</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>16 bits</TD>
+<TD width=17%>2 bits</TD>
+<TD width=13%>1 bit</TD>
+<TD width=19%>11 bits</TD>
+<TD width=21%>2 bits</TD>
+</TR>
+</TABLE><BR>
+
+<P>The following code example shows how to define a "64Bit" field in a driver header file:</P>
+
+<PRE>#define REGISTER_FUNCTION 0     // Define the IOCTL function code
+
+<span style="color:#ff0000"><B>#ifdef  _WIN64
+#define CLIENT_64BIT   0x800
+#define REGISTER_FUNCTION 0
+#define IOCTL_REGISTER   CTL_CODE(FILE_DEVICE_UNKNOWN, \
+  CLIENT_64BIT|REGISTER_FUNCTION, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#else</B></span>    
+#define IOCTL_REGISTER   CTL_CODE(FILE_DEVICE_UNKNOWN, \
+  REGISTER_FUNCTION, METHOD_BUFFERED, FILE_ANY_ACCESS)
+<span style="color:#ff0000"><B>#endif</B></span>    
+
+typedef struct _IOCTL_PARAMETERS {
+    PVOID   Addr;
+    SIZE_T  Length;
+    HANDLE  Handle;
+} IOCTL_PARAMETERS, *PIOCTL_PARAMETERS;</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Technique%201:%20Defining%20a%20'64Bit'%20Field"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

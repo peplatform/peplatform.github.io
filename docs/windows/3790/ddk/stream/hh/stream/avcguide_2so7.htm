@@ -1,0 +1,241 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Peer Subunit Enumeration</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Peer Subunit Enumeration">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_inf_file_sections_and_directives_dr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_peer_subunit_enumeration_ksg"></A>Peer Subunit Enumeration</H3>
+
+<P>This section describes the mechanism for subunit enumeration and the format of the device IDs associated with an AV/C device.</P>
+
+<P><I>Avc.sys</I> creates one device object for each AV/C subunit present on a device. When the 1394 bus is reset, for example, when a device on the bus is added or removed, <I>avc.sys</I> reenumerates all the subunits on the device. This allows the device to reconfigure itself (that is, add or remove subunits) without having to reload <I>avc.sys</I>. Subunit drivers are added and removed only as the corresponding physical subunits are added and removed. <I>Avc.sys</I> cannot distinguish between multiple subunits of the same type, so addition and removal of these subunits loads and unloads the drivers with the highest subunit IDs.</P>
+
+<P>Each device object has one or two hardware IDs and multiple compatible IDs. One or more of these IDs are specified in the INF file associated with a subunit driver and are used to find suitable drivers to load for each subunit. For more information about implementing subunit INF files, see <A HREF="JavaScript:hhobj_1.Click()">INF File Sections and Directives</A>.</P>
+
+<P>A typical AV/C subunit hardware ID is formatted as follows:</P>
+
+<P>AVC\&lt;Vendor ID&gt;&amp;&lt;Model ID&gt;&amp;&lt;Subunit Type&gt;&amp;&lt;Subunit ID&gt;</P>
+
+<P>All numeric fields in device and compatible IDs are tagged as follows (with exceptions as noted):
+
+<UL>
+	<LI>Vendor - "<B>VEN_</B>" (unless vendor text is available)</LI>
+
+	<LI>Model - "<B>MOD_</B>" (unless model text is available)</LI>
+
+	<LI>SubunitType - "<B>TYP_</B>"</LI>
+
+	<LI>SubunitID - "<B>ID_</B>"</LI>
+</UL>
+
+<P>The individual elements of the device ID are as follows:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=28%>Element</TH>
+<TH align=left width=72%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=28%>Vendor ID</TD>
+<TD width=72%>If vendor name text is available in the Configuration ROM, it is used. Otherwise, the unique module vendor ID is used. This numeric value is obtained from the Module_Vendor_ID entry in the Configuration ROM root_directory. The Command and Status Register (CSR) Architecture Key for this immediate entry is 03<SUB>16</SUB> (hexadecimal), and the remaining 24 bits are the numeric module vendor ID.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=28%>Model ID</TD>
+<TD width=72%>The best available model information, giving precedence to the unit directory entries.
+<P>First in order of preference is the model text from the Configuration ROM unit directory.</P>
+
+<P>Second in preference is the numeric ID from the unit directory.</P>
+
+<P>Third is the model text from the root directory.</P>
+
+<P>Last is the model ID from the root directory.</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=28%>Subunit Type</TD>
+<TD width=72%>If available, the subunit type is extracted from the subunit address and converted to a string of hexadecimal values for each byte (there are multiple bytes only if the subunit type has been extended). In any case, the initial byte is extracted from the five most significant bits of the address byte, as described in section 5.3.3 of the <I>AV/C Digital Interface Command Set General Specification, Rev 3.0.</I>
+<P>For a list of the supported subunit types, see the <A HREF="avcref_4uyb.htm">AvcSubunitType</A> enumeration.</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=28%>Subunit ID</TD>
+<TD width=72%>If the subunit type is available, the subunit ID also is available. When querying the AV/C Unit for its subunit information, it is given a count of the subunits for each type. This zero-based count is used to create a device ID for each subunit. The subunit address specification also allows for the subunit ID to be extended, but this aspect is hidden from the subunit driver (and from you, the author of the INF file). The zero-based instance number is used in all cases. For example, if the Subunit ID is extended to support 270 subunits, the 270<SUP>th</SUP> subunit has a subunit ID of ‘10D’ (269 decimal).</TD>
+</TR>
+</TABLE><BR>
+
+<P>The hardware and compatible IDs generated by <I>avc.sys</I> for standard devices (that is, devices that report one or more subunits) are as follows:
+
+<UL>
+	<LI>Hardware IDs</LI>
+</UL>
+
+<DL>
+<DT>AVC\&lt;Vendor&gt;&amp;&lt;Model&gt;&amp;&lt;SubunitType&gt;&amp;&lt;SubunitID&gt;</DT>
+
+<DD>Most complete, but this is seldom used in an inf file because the subunit ID (the last ampersand-delimited portion of the device ID) is not usually of interest.</DD>
+
+<DT>AVC\&lt;Vendor&gt;&amp;&lt;Model&gt;&amp;&lt;SubunitType&gt;</DT>
+
+<DD>Preferred for use in inf files, especially when there can be multiple subunits of the same type on the device (and those subunits share the same driver). Can be used by hardware vendors or Microsoft, depending upon who provides the device driver.</DD>
+</DL>
+
+<UL>
+	<LI>Compatible IDs</LI>
+</UL>
+
+<DL>
+<DT>AVC\&lt;Vendor&gt;&amp;&lt;SubunitType&gt;</DT>
+
+<DD>Used for vendor-specific subunit drivers. Generally used only in Microsoft-provided inf files to load Microsoft-provided subunit drivers for a well defined class of subunits.</DD>
+
+<DT>AVC\&lt;SubunitType&gt;</DT>
+
+<DD>Used for AV/C subunit-specific drivers. Generally used only in Microsoft-provided inf files to load Microsoft-provided subunit drivers for a well defined class of subunits.</DD>
+</DL>
+
+<UL>
+	<LI>The following compatible IDs are <I>not </I>provided:</LI>
+</UL>
+
+<DL>
+<DT>AVC\&lt;SubunitType&gt;&amp;&lt;SubunitID&gt;</DT>
+
+<DD>Nothing ID-specific can be done without a Vendor_ID.</DD>
+
+<DT>AVC\&lt;Vendor&gt;</DT>
+
+<DD>A vendor-specific "universal" subunit driver should include supported AVC\&lt;Vendor&gt;&amp;&lt;SubunitType&gt; entries in its INF file.</DD>
+
+<DT>AVC\GENERIC</DT>
+
+<DD>A "universal" subunit driver should include supported AVC/&lt;SubunitType&gt; entries in its INF file.</DD>
+</DL>
+
+<P>The device and compatible IDs generated by <I>avc.sys</I> for camcorder devices (devices with one camera subunit, one tape recorder/player subunit, and any number of other subunits) are as follows:
+
+<UL>
+	<LI>Hardware ID</LI>
+</UL>
+
+<DL>
+<DT>AVC\&lt;Vendor&gt;&amp;&lt;Model&gt;&amp;CAMCORDER</DT>
+
+<DD>Used in vendor-specific INF files if <I>msdv.sys</I> is not to be loaded.</DD>
+</DL>
+
+<UL>
+	<LI>Compatible IDs</LI>
+</UL>
+
+<DL>
+<DT>AVC\&lt;Vendor&gt;&amp;CAMCORDER</DT>
+
+<DD>Used in <I>msdv.inf</I> to load <I>msdv.sys</I>.</DD>
+
+<DT>AVC\CAMCORDER</DT>
+
+<DD>Used in <I>msdv.inf</I> to load <I>msdv.sys</I>.</DD>
+</DL>
+
+<UL>
+	<LI>The following Compatible IDs are <I>not </I>provided:</LI>
+</UL>
+
+<DL>
+<DT>AVC\&lt;Vendor&gt;</DT>
+
+<DD>A vendor-specific "universal" subunit driver should include supported AVC\&lt;Vendor&gt;&amp;CAMCORDER entries in its INF file.</DD>
+
+<DT>AVC\GENERIC</DT>
+
+<DD>A "universal" subunit driver should include supported AVC\CAMCORDER entries in its INF file.</DD>
+</DL>
+
+<P>Note: Post-Windows XP Beta 2, a DV-specific discovery mechanism was included in avc.sys, so any DV tape device (including camcorders) will have “&amp;DV” appended to the Hardware ID and Compatible IDs. This may be disabled by unsetting bit 3 the AvcFlags registry value (AvcFlags &amp; 0x8). This detection is enabled by default for all Tape devices.</P>
+
+<P>The device and compatible IDs generated by <I>avc.sys</I> for nonstandard and noncompliant devices are only exposed if the <B>AvcFlags</B> registry value has bit 1 set (AvcFlags &amp; 0x2). The correct way to set this flag is through the INF file for the device. The IDs are as follows:
+
+<UL>
+	<LI>Hardware ID</LI>
+</UL>
+
+<DL>
+<DT>AVC\&lt;Vendor&gt;&amp;&lt;Model&gt;</DT>
+
+<DD>Used in vendor-specific INF files to load drivers for nonstandard and noncompliant devices.</DD>
+</DL>
+
+<UL>
+	<LI>Compatible IDs</LI>
+</UL>
+
+<DL>
+<DT>AVC\&lt;Vendor&gt;</DT>
+
+<DD>A vendor-specific "universal" unit driver includes this entry in its INF file.</DD>
+
+<DT>AVC\GENERIC</DT>
+
+<DD>A "universal" unit driver includes this entry in its INF file.
+</DD>
+</DL>
+
+<P>The following are samples of device and compatible IDs:</P>
+
+<P>The company Fabrikam, Inc. has a vendor ID of 0x50F2</P>
+
+<P>A Fabrikam, Inc. DV Camcorder (camcorder is special case):</P>
+
+<P>- Camcorder device ID:</P>
+
+<PRE>AVC\VEN_12345&amp;MOD_0&amp;CAMCORDER&amp;DV (may be used by Fabrikam, Inc. to override msdv.sys)</PRE>
+
+<P>- Camcorder compatible IDs:</P>
+
+<PRE>AVC\VEN_12345&amp;CAMCORDER&amp;DV (the style of ID that would be used in msdv.inf to load msdv.sys)
+AVC\CAMCORDER&amp;DV</PRE>
+
+<P>A Fabrikam, Inc. DVHS VCR with one tuner subunit and one tape recorder/player subunit:</P>
+
+<P>- Tape recorder/player subunit device ID:</P>
+
+<PRE>AVC\VEN_50F2&amp;MOD_0&amp;TYP_4&amp;ID_0</PRE>
+
+<P>- Tape recorder/player subunit compatible IDs (a tape recorder/player—audio or video—subunit type = 4):</P>
+
+<PRE>AVC\VEN_50F2&amp;MOD_0&amp;TYP_4
+AVC\VEN_50F2&amp;TYP_4 (used in msdv.inf to load msdv.sys)
+AVC\TYP_4</PRE>
+
+<P>- Tuner subunit device ID:</P>
+
+<PRE>AVC\VEN_50F2&amp;MOD_0&amp;TYP_5&amp;ID_0</PRE>
+
+<P>- Tuner subunit compatible IDs (a tuner subunit type = 5):</P>
+
+<PRE>AVC\VEN_50F2&amp;MOD_0&amp;TYP_5
+AVC\VEN_50F2&amp;TYP_5
+AVC\TYP_5</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Peer%20Subunit%20Enumeration"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

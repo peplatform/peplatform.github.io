@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Latency Clocks</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Latency Clocks">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_latency_clocks_ksg"></A>Latency Clocks</H4>
+
+<P>The synthesizer miniport driver model is designed to allow synchronization of audio output between multiple devices. As such, it contains a more complex timing model than that provided by a pure UART device. </P>
+
+<P>Events are delivered to (and captured from) the miniport driver with an associated time stamp. This time stamp is relative to a <A HREF="ks-overview_9gh3.htm">master clock</A>. The master clock is the same clock used by all sequencing in the entire system. Master-clock time is measured in units of 100-nanosecond ticks. </P>
+
+<P>The master clock is provided to the miniport driver by PortCls as a kernel-mode <A HREF="audmp-routines_2zeb.htm"><B>IMasterClock</B></A> interface. A pointer to the <B>IMasterClock</B> interface is given at pin creation time when <A HREF="audmp-routines_8oqb.htm"><B>IMiniportDMus::NewStream</B></A> is called in the miniport driver. Currently, the master clock wraps the system real-time clock. The master clock never changes when there are pins that require it to be in the <I>run</I> state. It is a constant-rate clock that never pauses.</P>
+
+<P>All rendering devices have some amount of latency between the time they accept an event and the time the event can be heard. This latency can be constant or variable (as in the case of a software synthesizer, where the latency depends on the current playback position of the audio buffer). This latency is compensated for by:
+
+<UL>
+	<LI>Allowing the miniport driver to receive events far enough in advance so that they can be played on time, despite the latency of the device. Events are sequenced for the miniport driver by a sequencer engine in the synthesizer port (PortDMus). 
+<P>At pin-creation time, PortDMus queries the miniport driver for a delta time in 100-nanosecond units. This delta time is how far ahead of each event's presentation time the miniport driver wants to receive the event. The port driver makes its best effort to deliver events this far ahead. Specifying a very large value for this delta (specified by <I>SchedulePreFetch</I> parameter of <A HREF="audmp-routines_8oqb.htm"><B>IMiniportDMus::NewStream</B></A>) makes the port driver pass the events to the miniport driver as soon as they are delivered to the port driver from user mode.
+</LI>
+
+	<LI>Informing applications how far ahead to schedule events. Using the maximum latency is not desirable in this case. Because events cannot be canceled once they are submitted, the closer that events can be submitted to their presentation time, the more responsively the application and synth can interact. To handle this requirement, DirectMusic has introduced the concept of a latency clock. 
+<P>The latency clock provides the nearest time in the future that an event can be scheduled to play and still play on time. In other words, if the application schedules an event to be played before the current time according to the latency clock, then the event is played late. Synthesizer miniport drivers provide a latency clock by responding to the <A HREF="aud-prop_5bxv.htm">KSPROPERTY_SYNTH_LATENCYCLOCK</A> property item.
+
+<P>The miniport driver is queried for <A HREF="aud-prop_72nn.htm">KSPROPSETID_Synth</A> and <A HREF="aud-prop_5bxv.htm">KSPROPERTY_SYNTH_LATENCYCLOCK</A>. The miniport driver's property handler should return a latency clock that specifies, in terms of the master clock, the next time that data can be rendered on time. For example, if the master clock currently reads 50, and there are currently 25 units of latency, then the latency clock reads 75. The reason the clock is implemented in this way is that the latency does not need to be constant, and the returned value is of more use to applications than just the delta.
+</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Latency%20Clocks"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

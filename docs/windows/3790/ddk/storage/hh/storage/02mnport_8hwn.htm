@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SCSI Miniport Driver's HwScsiAdapterControl Routine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="SCSI Miniport Driver's HwScsiAdapterControl Routine">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_scsi_miniport_drivers_hwscsiadaptercontrol_routine_kg"></A>SCSI Miniport Driver’s HwScsiAdapterControl Routine</H1>
+
+<P>In NT-based operating systems, miniport drivers should set this entry point to NULL in the HW_INITIALIZATION_DATA (see <A HREF="02mnport_8gfb.htm">Required and Optional SCSI Miniport Routines</A>) if the miniport driver does not support Plug and Play. Otherwise, the miniport driver must have a <I>HwScsiAdapterControl</I> routine in order to support PnP and power management operations for its HBA.</P>
+
+<P>A miniport’s <I>HwScsiAdapterControl</I> routine is first called by the port driver with <B>ScsiQuerySupportedControlTypes</B> after the HBA has been initialized but before the first I/O, to determine the other operations supported by the miniport. The miniport sets the operations it supports in a SUPPORTED_CONTROL_TYPE_LIST allocated by the port driver. After <I>HwScsiAdapterControl</I> returns from this initial call, the port driver calls the routine again only for the operations indicated by the miniport. </P>
+
+<P>A miniport's <I>HwScsiAdapterControl</I> routine can support any or all of the following operations:
+
+<UL>
+	<LI><B>ScsiStopAdapter</B> to shut down the HBA when it has been powered off, removed from the system, or otherwise reconfigured or disabled.
+<P>At the time the SCSI port driver calls <I>HwScsiAdapterControl</I> to stop the HBA, it ensures that there are no uncompleted requests. The miniport should disable interrupts on the HBA, halt all processing including background processing not subject to interrupts, and put the HBA into an uninitialized state. The miniport should not release its resources; if necessary, the port driver will release resources on behalf of the miniport. This call to <I>HwScsiAdapterControl</I> is preceded by an SRB_FUNCTION_FLUSH request, so it is not necessary to flush the cache unless its data has changed since the flush request was completed. 
+
+<P>The miniport driver is not called again for this HBA until either the PnP Manager requests that the HBA be restarted, or an HBA that was shut down for power management is powered up.
+
+<P>Note that <I>HwScsiAdapterControl</I>, like any miniport routine, might be called to stop the HBA after the HBA has already been removed from the system.
+</LI>
+
+	<LI><B>ScsiSetBootConfig</B> to restore any settings on an HBA that the BIOS might need to boot the system.
+<P>A miniport should support <B>ScsiSetBootConfig</B> if it needs to call <B>ScsiPortGetBusData</B> or <B>ScsiPortSetBusDataByOffset</B> to restore such settings. The port driver calls a miniport's <I>HwScsiAdapterControl</I> with <B>ScsiSetBootConfig</B> after calling the routine to stop the HBA.
+</LI>
+
+	<LI><B>ScsiSetRunningConfig</B> to restore any settings on an HBA that the miniport might need to control the HBA while the system is running.
+<P>A miniport should support <B>ScsiSetRunningConfig</B> if it needs to call <B>ScsiPortGetBusData</B> or <B>ScsiPortSetBusDataByOffset</B> to restore such settings. The port driver calls a miniport's <I>HwScsiAdapterControl</I> with <B>ScsiSetRunningConfig</B> before calling the routine to restart the HBA.
+</LI>
+
+	<LI><B>ScsiRestartAdapter</B> to restart an HBA that has been shut down for power management.
+<P>At the time the port driver calls <I>HwScsiAdapterControl</I> to restart the HBA, all resources previously assigned to the miniport are still available and its device extension and any logical unit extensions are intact. When restarting its HBA, the miniport must not call routines that can only be called from <I>HwScsiFindAdapter</I>. 
+
+<P>If the miniport does not support <B>ScsiRestartAdapter</B>, the port driver calls the miniport's <I>HwScsiFindAdapter</I> and <I>HwScsiInitialize</I> routines to restart the HBA. However, such routines might do detection work that is unnecessary when restarting, so such a miniport will not power up its HBA as quickly as a miniport that supports <B>ScsiRestartAdapter</B>.
+</LI>
+</UL>
+
+<P>See <A HREF="k302_8xma.htm">HwScsiAdapterControl</A> for more information. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: SCSI%20Miniport%20Driver's%20HwScsiAdapterControl%20Routine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

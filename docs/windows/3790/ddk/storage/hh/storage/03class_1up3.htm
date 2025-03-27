@@ -1,0 +1,47 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Storage Class Driver's ReleaseQueue Routine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Storage Class Driver's ReleaseQueue Routine">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_exallocatepool_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_storage_class_drivers_releasequeue_routine_kg"></A>Storage Class Driver's <I>ReleaseQueue</I> Routine</H2>
+
+<P>Unless a storage class driver ORs the <B>SrbFlags</B> for a given request with SRB_FLAGS_NO_QUEUE_FREEZE, the system port driver freezes a queue for a given logical unit after any of the following: 
+
+<UL>
+	<LI>A bus reset occurred while the logical unit was executing a request.</LI>
+
+	<LI>The logical unit returned SCSISTAT_CHECK_CONDITION or SCSISTAT_COMMAND_TERMINATED, which the class driver can find in the SRB's <B>ScsiStatus</B> member.</LI>
+
+	<LI>A request was timed out.</LI>
+
+	<LI>A request was terminated by a bus message command such as SCSIMESS_ABORT.</LI>
+</UL>
+
+<P>The port driver indicates that an LU-specific queue has been frozen by returning a request with SRB_STATUS_QUEUE_FROZEN in the <B>SrbStatus</B> member. New requests from the class driver can be inserted into the queue, but only autosense requests are sent to the logical unit as long as its queue is frozen. </P>
+
+<P>Freezing the queue under these conditions gives each storage class driver an opportunity to analyze an error before other queued jobs are executed. For example, queued jobs might need to be canceled if the media has changed. To flush the queue, the driver can send a request with the <B>SrbFlags</B> ORed with SRB_FLAGS_BYPASS_FROZEN_QUEUE. </P>
+
+<P>A <I>ReleaseQueue</I> routine allocates and sets up an IRP and an SRB to either release or flush a frozen queue. The <B>Function</B> member of the SRB must be set to SRB_FUNCTION_RELEASE_QUEUE or SRB_FUNCTION_FLUSH_QUEUE, which both releases a frozen queue and cancels all currently queued requests for the target logical unit. The port driver completes all requests in a flushed queue with their <B>SrbStatus</B> members set to SRB_STATUS_FLUSHED. </P>
+
+<P>Failing to release a frozen queue makes the device inaccessible, so a driver's <I>ReleaseQueue</I> routine should be designed to succeed even in low memory conditions. A <I>ReleaseQueue</I> routine should first attempt to allocate memory for an SRB by calling <A HREF="JavaScript:hhobj_1.Click()"><B>ExAllocatePool</B></A> with the <B>NonPagedPool</B> memory type and, if that allocation fails, use an SRB that was pre-allocated during driver initialization. If the driver allocates an SRB to hold in reserve when it initializes its device extension, as described in <A HREF="03class_7hyf.htm">Setting Up a Storage Class Driver's Device Extension</A>, its <I>ReleaseQueue</I> can use that SRB if the memory pool is low, with an appropriate synchronization mechanism in case multiple concurrent release operations might be needed.</P>
+
+<P>Note that a class driver’s <I>ReleaseQueue</I> routine is called asynchronously, generally from its <I>IoCompletion</I> routine. A class driver’s <I>IoCompletion</I> routine cannot call <I>ReleaseQueue</I> to flush a queue that is not frozen. However, it can call <I>ReleaseQueue</I> to release an unfrozen queue, and the port driver simply ignores such a request. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Storage%20Class%20Driver's%20ReleaseQueue%20Routine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

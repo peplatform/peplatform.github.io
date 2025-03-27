@@ -1,0 +1,96 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Improved Boot and Logon Performance</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Improved Boot and Logon Performance">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Appendix:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_supp_improved_boot_and_logon_performance"></A>Improved Boot and Logon Performance</H1>
+
+<P>Customer research has shown that one of the most frequently requested features that users want from their computers is fast system startup, whether from cold boot or when resuming from standby or hibernation. When a Windows&nbsp;XP system is first booted, data is saved about all logical disk read operations. On later boots, this information is used to prefetch these files in parallel with other boot operations. The Windows&nbsp;XP operating system has improved startup times, which provides opportunities for system manufacturers who want to improve boot and resume times for new computers. Windows&nbsp;XP has several improvements in the boot and resume processes, including:
+
+<UL>
+	<LI>Boot loader improvements</LI>
+
+	<LI>Operating system boot improvements</LI>
+
+	<LI>Operating system hibernation improvements</LI>
+
+	<LI>Operating system standby resume improvements</LI>
+</UL>
+
+<H3>Boot Loader Improvements</H3>
+
+<P>The key boost to boot loader performance is through optimizing the disk reads. The Windows&nbsp;XP boot loader (Ntldr) caches file and directory metadata in large chunks in a most-recently-used manner, which reduces disk seeking. Each system file is now read with a single I/O operation. The resulting improvement in Windows&nbsp;XP is that the boot loader is approximately four to five times faster than in Windows&nbsp;2000. Additionally, redundant PS/2-compatible mouse checks were removed from Ntldr.</P>
+
+<P>Boot loader enhancements also provide similar improvements in hibernation resume times, mainly by streamlining the I/O paths used by Ntldr to read the hibernation image. The hibernation file is compressed as it is written, and for efficiency, the compression algorithm overlaps with the file I/O. However, when resuming from hibernation, Ntldr is using the BIOS to perform the I/O; therefore, it is not feasible to overlap the disk I/O reads with the decompression.</P>
+
+<H3>Operating System Boot Improvements</H3>
+
+<P>Optimizing operating system load in Windows&nbsp;XP is achieved by overlapping device initialization with the required disk I/Os, and by removing or delaying loading all other processes and services from boot that are unnecessary at boot time. When tuning a system for fast booting, it is crucial to look at both the efficiency of device initialization and the disk I/Os. Windows&nbsp;XP initializes device drivers in parallel to improve boot time. Instead of waiting for each device sequentially, many can now be brought up in parallel. The slowest device has the greatest effect on boot. Overlapped device initialization can be viewed with the <I>Bootvis.exe</I> tool. </P>
+
+<P>For more information, see the Microsoft <a href="http://go.microsoft.com/fwlink/?linkid=8756&clcid=0x409" target="_blank">fast boot and fast resume</A> Web site.</P>
+
+<P>For optimizing boot time, device drivers should only do what is required to initialize the device during boot, and defer all else to post-boot. The goal is that the device is usable after boot, but does not delay boot unnecessarily. Device drivers should never hold spin locks except for very short time, particularly during boot, as this defeats any parallelism.</P>
+
+<P>Examples of gains made by overlapping device initialization with disk I/O include:
+
+<UL>
+	<LI>For computers not in a domain, network initialization is now done in parallel to boot. Winlogon will not wait for network initialization for computers in a workgroup; however, those computers in a domain will still wait.</LI>
+
+	<LI>Serial Plug and Play is now overlapped. Serial Plug and Play detects attached serial devices. This used to take 2.5 to 3 seconds for normal computers, and could take several minutes in large servers with lots of ports.</LI>
+
+	<LI>Protocol binding is now done in parallel to boot. Previously, NDIS caused boot delays while binding protocols to adapters, due to the adapter negotiating link speed with hubs and switches. This also affects computers having network adapters without network cables attached. </LI>
+
+	<LI>ATAPI boot disk enumeration has been improved from approximately 6 seconds to 2 seconds. Boot disk enumeration stalls all disk I/O during boot. 
+<P>In addition, several other services are now initialized in parallel to boot.
+</LI>
+</UL>
+
+<H3>Operating System Hibernation Improvements</H3>
+
+<P>During hibernation, all devices are powered off, and the system’s physical memory is written to disk in the system hibernation file, <I>Hiberfil.sys</I>. Before Windows&nbsp;XP writes to the hibernation file, all memory pages on the zero, free, and standby lists are freed; these pages do not need to be written to disk. Memory pages are also compressed before being written. </P>
+
+<P>To optimize the hibernation process in Windows&nbsp;XP, several improvements have been implemented. The compression algorithm has been optimized to compress and decompress large blocks (64 KB) of data. In addition, the compression is overlapped with the disk write. As the current data block is being transferred to the disk, the next block of data is being compressed. Overlapping the compression with disk writes makes the compression time virtually free. Also, the hibernation file is written using IDE DMA instead of PIO mode. Most modern IDE controllers and disks achieve their best performance only in DMA mode. </P>
+
+<H3>Operating System Standby Resume Improvements</H3>
+
+<P>During resume from standby, the operating system sends S0 IRPs to devices to indicate the change in system power state. As noted in the Power Management section of this paper, device drivers typically request D0 IRPs to change their device power state. The operating system is responsible for notifying each device in the correct order. There are two key ordering rules that must be followed to prevent deadlocks:
+
+<UL>
+	<LI>A device cannot be turned on until its parent is turned on.</LI>
+
+	<LI>All nonpaged devices must be turned on before any paged device is turned on. </LI>
+</UL>
+
+<P>Because many devices may take significant time to go from D3 to D0, the key to good resume performance is to overlap device initialization as much as possible. The ordering chosen by the operating system is important in maximizing parallelism.</P>
+
+<P>The following changes have been implemented to optimize the resume performance in Windows&nbsp;XP:
+
+<UL>
+	<LI>The Sx IRP dispatching engine has been rewritten to maximize potential parallelism.</LI>
+
+	<LI>USER has been changed to dispatch power events asynchronously, instead of tying up a worker thread waiting for them to complete.</LI>
+
+	<LI>NDIS.SYS has been changed to complete S0 IRPs immediately, instead of waiting for D0 to complete and then initializing on a lower priority thread.</LI>
+
+	<LI>Worker thread stacks are locked in memory before starting power operations, and unlocked when resume is complete.</LI>
+
+	<LI>The kernel Plug and Play manager has been changed so it does not tie up a worker thread with an enumerate operation while waiting for power operations to complete.</LI>
+
+	<LI><I>Pcmcia.sys</I>, <I>Kbdclass.sys</I>, and <I>Mouclass.sys</I> have been changed to initialize in the background.</LI>
+</UL>
+
+<H3>Windows&nbsp;XP Boot and Resume Tools</H3>
+
+<P>Windows&nbsp;XP has the ability to trace boot and resume metrics, and to dump the resulting information to a binary file viewable through <I>Bootvis.exe</I> and other tools. <I>Bootvis.exe</I> displays various time-interlocked graphs showing such things as CPU Usage, Disk I/O, Driver Delays and resume activity. <I>Bootvis.exe</I> can show many types of useful details; the best way to start is by dragging an area on the graph and either double-clicking it or right-clicking to use the context menu to see what options are available. The operating system instrumentation starts about one second after the boot loader loads. Overall boot time shown in <I>Bootvis.exe</I> should add BIOS power-on self test (POST) time&nbsp;+&nbsp;one second. Taking boot traces with Driver Delays will lengthen boot by two to three seconds. The resulting binary file will be several megabytes in size.</P>
+
+<P>Information on using<I> Bootvis.exe</I> and improving boot and resume can be found at the Microsoft <a href="http://go.microsoft.com/fwlink/?linkid=8756&clcid=0x409" target="_blank">fast boot and fast resume</A> Web site.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Improved%20Boot%20and%20Logon%20Performance"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

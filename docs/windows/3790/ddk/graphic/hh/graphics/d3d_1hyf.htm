@@ -1,0 +1,38 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Accelerated State Management</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Accelerated State Management">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_accelerated_state_management_gg"></A>Accelerated State Management</H2>
+
+<P>Accelerated state management is a mechanism for communicating large state changes across the API and DDI in a single call. This scheme allows an application to define a collection of state-set calls as a state block defined by a single integer. Sending this integer as a render state executes all the state changes in one call.</P>
+
+<P>This reduces API overhead by reducing the number of <B>IDirect3DDevice7::SetRenderState</B> method calls required, and can improve the efficiency of drivers by allowing them to “precompile” stage changes into their own hardware-specific format upon a state block define, instead of on execution of each state change.<B>IDirect3DDevice7::SetRenderState</B> is described in the Direct3D SDK documentation </P>
+
+<P>Most applications render in only a handful of states, so having fine-grained state transitions is seldom important. What is more important is being able to define blocks of state that can be interchanged as the driver switches between common rendering scenarios. This is the whole point of accelerated state management.</P>
+
+<P>State-set tokens are used to record the states in the driver. A handle refers to a collection of states. The <A HREF="d3dstrct_2uqv.htm">D3DHAL_DP2STATESET</A> structure informs the driver about what state-set operations to perform. </P>
+
+<P>If the <B>dwOperation </B>member of the D3DHAL_DP2STATESET structure is set to D3DHAL_STATESETBEGIN, the driver begins recording the states for the handle contained in the <B>dwParam</B> member. When the driver receives a <B>dwOperation</B> of D3DHAL_STATESETEND, it stops recording state.</P>
+
+<P>If the <B>dwOperation</B> member is D3DHAL_STATESETDELETE, the state-set referred to by the <B>dwParam</B> handle should be deleted. </P>
+
+<P>If the <B>dwOperation</B> member is D3DHAL_STATESETEXECUTE, the state block referred to by the <B>dwParam</B> handle should be applied in the device.</P>
+
+<P>If the <B>dwOperation</B> member is D3DHAL_STATESETCAPTURE, the current state in the driver should be captured in a specific way, giving a snapshot of the current states defined in the state block. That is, only states that are already in the state block are captured. Thus, the state block acts as a sort of mask, only recording states that are defined in it. For example, if there is a D3DRENDERSTATE_ZENABLE render state in the state block, then the current state for D3DRENDERSTATE_ZENABLE is captured and put in the state block. If there is no D3DRENDERSTATE_ZENABLE in the state block, then that state is not captured.</P>
+
+<P>Groupings of states are used to make generic state blocks that can be modified slightly for different rendering scenarios. These predefined groupings (enumerated in D3DSTATEBLOCKTYPE in the DirectX SDK documentation) define generic state blocks that can be subsequently modified with state changes to accommodate anticipated recurring rendering scenarios. For example, the driver might create 100 generic predefined state blocks and then modify each slightly to accommodate a different rendering scenario. The state block type is passed in the <B>sbType</B> member of the D3DHAL_DP2STATESET structure.</P>
+
+<P>The <B>sbType</B> member is only valid for D3DHAL_STATESETBEGIN and D3DHAL_STATESETEND and specifies the predefined state block type with one of the following D3DSTATEBLOCKTYPE enumerated types: NULL for no state, D3DSBT_ALL for all state, D3DSBT_PIXELSTATE for pixel state, and D3DSBT_VERTEXSTATE for vertex state.</P>
+
+<P>The driver should ignore the<B> sbType</B> member unless it implements render state extensions. If the driver implements extended render states, that is, render states beyond those the Direct3D runtime supplies, it can use <B>sbType </B>to determine what type of predefined render states are being used. From this information it can determine how to append the state block appropriately, to support its extensions. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Accelerated%20State%20Management"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

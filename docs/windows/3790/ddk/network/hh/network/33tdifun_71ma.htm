@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TdiMapUserRequest</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TdiMapUserRequest">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_using_i_o_control_codes_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdimapuserrequest_nr"></A>TdiMapUserRequest</H1>
+
+<P>The <B>TdiMapUserRequest</B> function converts a given IRP in which <B>MajorFunction</B> is set to IRP_MJ_DEVICE_CONTROL into an IRP_MJ_INTERNAL_DEVICE_CONTROL request if it recognizes the IOCTL_TDI_<I>XXX</I> code specified in the input IRP. </P>
+
+<PRE class=syntax><B>NTSTATUS</B>
+  <B>TdiMapUserRequest(</B>
+    <B>IN PDEVICE_OBJECT</B>  <I>DeviceObject</I><B>,</B>
+    <B>IN PIRP</B>  <I>Irp</I><B>,</B>
+    <B>IN PIO_STACK_LOCATION</B>  <I>IrpSp</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the device object created by the transport driver.</DD>
+
+<DT><I>Irp</I></DT>
+
+<DD>Pointer to the user IOCTL_<I>XXX</I> request to be converted.</DD>
+
+<DT><I>IrpSp</I></DT>
+
+<DD>Pointer to the I/O stack location to be converted. 
+
+<P>The transport's TdiDispatchDeviceControl routine already called <B>IoGetCurrentIrpStackLocation</B> to obtain this pointer. 
+
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>TdiMapUserRequest</B> returns STATUS_SUCCESS if it converted the given IOCTL_TDI_<I>XXX</I> device-control request into a TDI_<I>XXX</I> internal device-control request. Otherwise, it can return either of the following:
+
+<DL>
+<DT>STATUS_INVALID_PARAMETER</DT>
+
+<DD>If IOCTL_TDI_SET_EVENT_HANDLER is specified in the given I/O stack location of the input IRP</DD>
+
+<DT>STATUS_NOT_IMPLEMENTED</DT>
+
+<DD>If <B>TdiMapUserRequest</B> does not recognize the IOCTL_<I>XXX</I> code specified in the given I/O stack location of the input IRP
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>TdiKrnl.h</I>. Include <I>TdiKrnl.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>For the majority of system-defined IOCTL_TDI_<I>XXX</I> codes that can be set in IRPs passed to a transport's TdiDispatchDeviceControl routine, <B>TdiMapUserRequest</B> converts the current I/O stack location into the format of the corresponding kernel-mode TDI_<I>XXX</I> request. </P>
+
+<P>For example, if <I>IrpSp</I><B>-&gt;Parameters.DeviceIoControl.IoControlCode</B> is set to IOCTL_TDI_LISTEN in the input IRP, <B>TdiMapUserRequest</B> reformats the I/O stack location as follows:
+
+<UL>
+	<LI>Resets <B>MajorFunction</B> to IRP_MJ_INTERNAL_DEVICE_CONTROL</LI>
+
+	<LI>Sets <B>MinorFunction</B> to TDI_LISTEN </LI>
+
+	<LI>If the input <B>Irp-&gt;AssociatedIrp.SystemBuffer</B> is not NULL, sets <B>IrpSp-&gt;Parameters</B> to the address of a TDI_REQUEST_KERNEL_LISTEN structure, which it sets up with the caller-supplied information</LI>
+</UL>
+
+<P><B>TdiDispatchDeviceControl</B> can call <B>TdiDispatchInternalDeviceControl</B> with such a converted IRP, thereby saving the transport from having duplicate code paths for processing system-defined IOCTL_TDI_<I>XXX</I> and the corresponding TDI_<I>XXX</I> requests. </P>
+
+<P>While the kernel-mode TDI_REGISTER_EVENT_HANDLER has a corresponding user IOCTL_TDI_REGISTER_EVENT_HANDLER, <B>TdiMapUserRequest</B> fails any attempt to map such an input IRP. Only kernel-mode clients can register event handlers with a TDI transport, so a transport's TdiDispatchDeviceControl routine cannot be called with a valid request to set up an event handler. </P>
+
+<P>If a transport defines any private IOCTL_<I>XXX</I> codes to be used by a transport-dedicated Win32 application for communication with the transport, its TdiDispatchDeviceControl routine can process such a request whenever <B>TdiMapUserRequest</B> returns STATUS_NOT_SUPPORTED. For more information about defining driver-specific, private IOCTLs, see <A HREF="JavaScript:hhobj_1.Click()">Using I/O Control Codes</A>. </P>
+
+<P>Callers of <B>TdiMapUserRequest</B> run at IRQL PASSIVE_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="31tddisp_9pwy.htm"><B>TdiDispatchDeviceControl</B></A>, <A HREF="31tddisp_2sfm.htm"><B>TdiDispatchInternalDeviceControl</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TdiMapUserRequest"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

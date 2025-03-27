@@ -1,0 +1,45 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Getting the DirectDraw Data</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_getting_the_directdraw_data_gg"></A>Getting the DirectDraw Data</H4>
+
+<P><B>This topic applies only to Windows 98/Me.</B></P>
+
+<P>The <B>DDCREATEDRIVEROBJECT</B> escape is sent after the <B>DDGET32BITDRIVENAME</B> escape has been sent. The <B>DDCREATEDRIVEROBJECT</B> escape calls the same internal function that reinitializes DirectDraw in the <I>Enable</I> and <A HREF="ddfncs_2ox3.htm"><I>ReEnable</I></A> calls (<A HREF="ddfncs_8jaf.htm"><I>DDCreateDriverObject</I></A>). </P>
+
+<P>If bank switching is necessary, <I>DDCreateDriverObject</I> invokes <A HREF="ddraw_3hnr.htm">VflatD</A>. Then it calls <A HREF="ddfncs_8f53.htm"><I>buildDDHALInfo16</I></A>, which fills out the 16-bit information that goes into the <A HREF="ddstrcts_9m7b.htm">DDHALINFO</A> structure. This includes mode change information and any data required to communicate with the 16-bit display GDI driver, such as the mode table, current display mode, primary surface address, pixel format, display heap information, and any 16-bit callback functions (there is typically only one, <A HREF="ddfncs_21t3.htm"><I>HALDestroyDriver</I></A>). (Because <A HREF="ddfncs_4srr.htm"><I>DriverInit</I></A> — which calls <A HREF="ddfncs_54tj.htm"><I>buildDDHALInfo32</I></A> — has already been called, the 32-bit information is already present.) The driver then calls the <A HREF="ddfncs_1naf.htm"><B>DDHAL_SetInfo</B></A> function with DDHALINFO. DirectDraw thunks to the 16-bit side to retrieve the DDHALINFO structure. <I>Ddhelp.exe</I> is instructed to create a thread and to block on a special shared event. This event is signaled by <I>ddraw16.dll</I> at some point. </P>
+
+<P><IMG SRC="images/getddinfo.gif" ALT="" BORDER=0></P>
+
+<P><B>Getting DirectDraw Information from the Driver</B></P>
+
+<P>The following code sample shows how to use the <B>DDCREATEDRIVEROBJECT</B> escape. Note that any escape codes that are not handled in the <I>Control</I> function are passed on to the DIB engine. </P>
+
+<PRE>            /*
+             * handle the request to create a driver
+             * NOTE we must return our HINSTANCE in *lpOutput
+            */
+            else if (pdci-&gt;dwCommand == DDCREATEDRIVEROBJECT)
+            {
+                DPF("DDCREATEDRIVEROBJECT");
+                DDCreateDriverObject(FALSE);
+                *(DWORD FAR *)lpOutput = DriverData.HALInfo.hInstance;
+                return TRUE;
+            }
+
+            break;
+    }
+
+    return DIB_Control(lpDevice,function,lpInput,lpOutput);
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Getting%20the%20DirectDraw%20Data"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

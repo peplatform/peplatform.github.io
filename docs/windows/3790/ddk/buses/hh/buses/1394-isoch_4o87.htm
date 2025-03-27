@@ -1,0 +1,133 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Isochronous Talk Options for IEEE 1394 Devices</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Isochronous Talk Options for IEEE 1394 Devices">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_isochronous_talk_options_for_ieee_1394_devices_kg"></A>Isochronous Talk Options for IEEE 1394 Devices</H1>
+
+<P>There are three ways of organizing output data in isochronous talk operations: packets with no headers, fixed-sized data packets with headers, and variable-size data packets with headers.</P>
+
+<H4>Packets with no Headers</H4>
+
+<P>By default, the host controller sends out the data in the attached buffers, indicated by the <B>Mdl</B> member of the <A HREF="1394stct_33jm.htm">ISOCH_DESCRIPTOR</A> structure, in the order the buffers were attached. In the default case, the host controller automatically splits the buffer into packets of size no greater than that specified in the <B>nMaxBytesPerFrame</B> member of the buffer's ISOCH_DESCRIPTOR structure. </P>
+
+<P>For example, the driver for a device that expects to receive its data in 512 byte packets would include the following in its declaration of the buffer's ISOCH_DESCRIPTOR:</P>
+
+<PRE>/* elsewhere, the buffer has declared: */
+/*        ISOCH_DESCRIPTOR isoch_descriptor; */
+isoch_descriptor-&gt;nMaxBytesPerFrame = 512;</PRE>
+
+<H4>Fixed-size Data Packets with Headers</H4>
+
+<P>Some devices require that some header information be prepended to each packet the device receives. (This header information would be inserted before the data, but after the IEEE 1394 standard isochronous packet header.) In this instance, drivers can assemble a buffer of headers, and a buffer of data, and have the host controller automatically prepend a header to the data packets it sends to the device. The driver indicates that a buffer contains a list of headers by specifying the DESCRIPTOR_HEADER_SCATTER_GATHER flag in that buffer's ISOCH_DESCRIPTOR structure. There are two types of headers that can be prepended to a data packet: fixed-sized and variable-sized.</P>
+
+<P>With fixed-size headers, the driver specifies the header size in the <B>nMaxBytesPerFrame</B> member of the ISOCH_DESCRIPTOR structure. The host controller treats this buffer and the next buffer as a pair: a header buffer and data buffer. When it assembles the data packets, it takes one frame from the header buffer and one frame from the data buffer, and splices them together to form the next packet it sends to the device.</P>
+
+<P>For example, suppose the device expects each 512 byte data buffer to be preceded by an 8 byte header. The driver could declare a pair of ISOCH_DESCRIPTOR structures as follows:</P>
+
+<PRE>/* elsewhere, the buffer has declared: */
+/*        ISOCH_DESCRIPTOR isoch_descriptor_1, isoch_descriptor_2; */
+/*        #define NUM_HEADERS to be the number of headers included in /*        the first buffer */
+ 
+isoch_descriptor_1-&gt;fulFlags = DESCRIPTOR_HEADER_SCATTER_GATHER;
+isoch_descriptor_1-&gt;ulLength = 8 * NUM_HEADERS;
+isoch_descriptor_1-&gt;nMaxBytesPerFrame = 8;
+       .
+       .
+       .
+isoch_descriptor_2-&gt;ulLength = 512 * NUM_HEADERS;
+isoch_descriptor_2-&gt;nMaxBytesPerFrame = 512;
+</PRE>
+
+<P>Not all host controllers support the DESCRIPTOR_HEADER_SCATTER_GATHER flag. To determine if the host controller supports it, query the bus driver with the <A HREF="1394irp_6gqa.htm">REQUEST_GET_LOCAL_HOST_INFO</A> request, with <B>nLevel</B> = GET_HOST_CAPABILITIES. The bus driver will set the HOST_INFO_SUPPORTS_ISO_HDR_INSERTION flag of the <B>HostCapabilities</B> member of the GET_LOCAL_HOST_INFO2 structure it returns.</P>
+
+<H4>Variable-size Data Packets with Headers</H4>
+
+<P>This case is similar to the fixed-size packet case. As with the fixed-size case, the driver must set the DESCRIPTOR_HEADER_SCATTER_GATHER flag in the header buffer’s ISOCH_DESCRIPTOR structure as follows:</P>
+
+<PRE>isoch_descriptor_1-&gt;fulFlags = DESCRIPTOR_HEADER_SCATTER_GATHER;
+</PRE>
+
+<P>But for the variable-size case, the driver must also set the RESOURCE_VARIABLE_ISOCH_PAYLOAD flag in the <B>u.IsochAllocateResources.fulFlags</B> member of the IRB when it allocates resources with a <A HREF="1394irp_5acy.htm">REQUEST_ISOCH_ALLOCATE_RESOURCES</A> request.</P>
+
+<P>Also, in the case of variable-size data packets, the driver must assemble a buffer of headers as in the fixed-size case. However, with variable-size packets, unlike fixed-size packets, the driver must record the size of each packet in a scatter-gather <I>header element</I> that it prepends to each header.</P>
+
+<P>Header elements are defined by the following structure found in <I>1394.h</I>:</P>
+
+<PRE>typedef struct _IEEE1394_SCATTER_GATHER_HEADER {
+  USHORT  HeaderLength;
+  USHORT  DataLength;
+  UCHAR  HeaderData;
+} IEEE1394_SCATTER_GATHER_HEADER, *PIEEE1394_SCATTER_GATHER_HEADER;
+</PRE>
+
+<P>The header element indicates both the length of the header and the length of the data. Thus, with variable-size data packets, the <B>nMaxSizeBytesPerFrame</B> member of the <I>data</I> descriptor no longer indicates the size of an individual data packet. Each data packet can have a different size that is indicated in its corresponding header element. The <B>nMaxSizeBytesPerFrame</B> member of the <I>header</I> descriptor is defined as follows.</P>
+
+<PRE>IsochDescriptor-&gt;nMaxBytesPerFrame = MAX_HEADER_DATA_SIZE+FIELD_OFFSET(HeaderElement,HeaderData)
+</PRE>
+
+<P>where MAX_HEADER_DATA_SIZE indicates the size of the header to be prepended to each data packet, and FIELD_OFFSET(HeaderElement,HeaderData) indicates the length of the header element inserted immediately before each header.</P>
+
+<P>You should be aware of a subtlety with regard to the definition of <B>nMaxBytesPerFrame</B> whenever your driver is transmitting variable-size packets in "talk mode". There are two cases in which a driver must define  <B>nMaxBytesPerFrame</B>, and in both cases the host controller driver interprets the value assigned to <B>nMaxBytesPerFrame</B> as a <I>minimum</I> frame size, rather than a maximum, if the driver is transmitting frames that are of variable size.
+
+<UL>
+	<LI>During a REQUEST_ISOCH_ALLOCATE_RESOURCES request, the driver must indicate the frame size in the <B>u.IsochAllocateResources.nMaxBytesPerFrame</B> member of <A HREF="1394stct_5bci.htm">IRB</A>.</LI>
+
+	<LI>During a REQUEST_ISOCH_ATTACH_BUFFERS request, the driver must indicate the frame size in the <B>nMaxBytesPerFrame</B> member of <A HREF="1394stct_33jm.htm">ISOCH_DESCRIPTOR</A>. </LI>
+</UL>
+
+<P>The smaller the frame, the more frames the host controller driver can fit into the transmission buffer. Because each frame requires system resources such as time stamps and status information, smaller frames consume system resources more rapidly. The host controller driver calculates the number of frames that will fit in the buffer and the number of resources required for those frames, based on the value in <B>nMaxBytesPerFrame</B>. If there are frames smaller than the size indicated in <B>nMaxBytesPerFrame</B>, the number of frames requiring resources will be larger than the value calculated by the host controller driver, and this might lead to an error.</P>
+
+<P>These considerations do not apply when the driver is receiving data, only when the driver is transmitting variable-size frames in "talk mode". Drivers specify the type of data transmission associated with a particular channel when obtaining a resource handle for the channel with a <A HREF="1394irp_5acy.htm">REQUEST_ISOCH_ALLOCATE_RESOURCES</A> request. The driver sets the RESOURCE_VARIABLE_ISOCH_PAYLOAD flag in <B>u.IsochAllocateResources.fulFlags</B> during this request to indicate that it will transmit variable-size frames. The driver sets the RESOURCE_USED_IN_TALKING flag in <B>u.IsochAllocateResources.fulFlags</B> to indicate that it will use the channel to transmit rather than receive data. Only when the driver sets both of these flags during the resource allocation request will the host controller driver interpret <B>nMaxBytesPerFrame</B> as a minimum rather than a maximum value. </P>
+
+<P>Note that the <B>u.IsochAllocateResources.nMaxBufferSize</B> member of <A HREF="1394stct_5bci.htm">IRB</A> is always a maximum. </P>
+
+<P>Drivers can now transmit header-only data packets by simply setting the <B>DataLength</B> member of a header element to zero:</P>
+
+<PRE>HeaderElement-&gt;DataLength = 0
+</PRE>
+
+<P>The total length of the header descriptor buffer is indicated in the usual way by means of the <B>ulLength</B> member of the descriptor. It must be an integer multiple of the number of header scatter-gather elements:</P>
+
+<PRE>IsochDescriptor-&gt;ulLength = IsochDescriptor-&gt;nMaxBytesPerFrame * NUMBER_OF_PACKETS;
+</PRE>
+
+<P>where NUMBER_OF_PACKETS is the number of packets to be transmitted (including header-only packets). </P>
+
+<P>The third member of the header element structure, <B>HeaderData</B>, is merely a place holder that indicates where the header data begins. If, for example, the driver were assembling a buffer of 8-byte CIP headers, the assembled buffer would look like this:</P>
+
+<P><IMG SRC="images/hdrelem.gif" ALT="" BORDER=0></P>
+
+<P><B>Buffer of 8-byte CIP Headers</B></P>
+
+<P>All headers in a given descriptor must be of the same length. This allows the OHCI port driver (<I>ohci1394.sys</I>) to parse the header descriptor like an array of fixed-size elements. Data packets can vary in size, but must be contiguous, with no "holes."</P>
+
+<P>Data in both header and data descriptors must be page-aligned. There is no restriction on the size of data packets, but neither header nor data packets are allowed to straddle page boundaries. Drivers must align descriptor buffers properly <I>before setting up the MDL for the buffer</I>.</P>
+
+<P>If, for example, the driver assembles a header descriptor with 12-byte headers and 4-byte header elements, each data packet will have 16 bytes of prepended data. Because 16-bytes fits into a 4,096-byte page exactly 256 times, none of the prepended data ever straddles a page boundary. </P>
+
+<P>If, on the other hand, the driver assembles a header descriptor with 8-byte headers and 4-byte header elements, then each data packet will have 12 bytes of prepended data. Because a 4,096 byte page is not an integer multiple of 12, the header descriptor must be under 4,096 bytes in size to prevent a header from straddling a page boundary. However, the size of the header descriptor buffer can be extended up to two pages by adjusting the base address of the buffer as illustrated in the pseudocode that follows. </P>
+
+<PRE>// First find the number of headers (together with header elements)
+// that will fit in a page. Use a floor function that rounds down to 
+// the nearest integer
+PrependData = sizeof(header) + 8; // First two fields of header element take up 8 bytes
+NumHeaders =floor(PAGE_SIZE/PrependData);
+// By forcing the buffer address defined in the MDL to begin at the appropriate offset,
+// the driver can guarantee that the last header in the buffer will be aligned on a page 
+// boundary. That way, DMA can continue across at least one page boundary.
+r = PAGE_SIZE - (NumHeaders*12).
+// BufferAddress = the page-aligned address returned by a memory allocation routine
+// Adjust buffer starting address
+BufferAddress += r;
+isochDescriptor-&gt;mdl = IoAllocateMdl(BufferAddress, … and so on.)</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Isochronous%20Talk%20Options%20for%20IEEE%201394%20Devices"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

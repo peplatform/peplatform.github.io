@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DdCreateSurface</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DdCreateSurface">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_fourcc_gg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ddcreatesurface_gg"></A><I>DdCreateSurface</I></H1>
+
+<P>The<I> DdCreateSurface</I> callback function creates a DirectDraw surface.</P>
+
+<PRE class=syntax><B>DWORD
+  (APIENTRY *PDD_CREATESURFACE)(</B>
+<B>    PDD_CREATESURFACEDATA  </B><I>lpCreateSurface
+</I><B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>lpCreateSurface</I></DT>
+
+<DD>Points to a <A HREF="ddstrcts_13fr.htm">DD_CREATESURFACEDATA</A> structure that contains the information required to create a surface.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>DdCreateSurface</I> returns one of the following callback codes:</P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_handled_gg">DDHAL_DRIVER_HANDLED</A> </P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_nothandled_gg">DDHAL_DRIVER_NOTHANDLED</A> </P>
+
+<H4>Headers</H4>
+
+<DL>
+<DT>Declared in <I>ddrawint.h</I>.  Include <I>winddi.h</I>. </DT>
+
+<DD></DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>The driver can allocate the surface memory itself, request that DirectDraw perform the memory management, or specify that it does not support creating the surface at all. The following items describe these scenarios:
+
+<UL>
+	<LI>If the driver performs the allocation, it returns the DDHAL_DRIVER_HANDLED callback code and specifies DD_OK in the <B>ddRVal</B> member of the DD_CREATESURFACEDATA structure at <I>lpCreateSurface</I>. The driver also must do the following:
+<UL>
+	<LI>Perform the allocation and write the offset into display memory in the <B>fpVidMem</B> member of the <A HREF="ddstrcts_392f.htm">DD_SURFACE_GLOBAL</A> structure. A pointer to this DD_SURFACE_GLOBAL structure is stored in the <B>lpGbl</B> member of the surface's <A HREF="ddstrcts_1vl4.htm">DD_SURFACE_LOCAL</A> structure at the <B>lplpSList</B> member of DD_CREATESURFACEDATA.</LI>
+
+	<LI>If the surface has a <A HREF="JavaScript:hhobj_1.Click()">FourCC</A> format, write the pitch in the <B>lPitch</B> member of the DD_SURFACE_GLOBAL and <A HREF="ddstrcts_2y7b.htm">DDSURFACEDESC</A> structures, and update the flags accordingly. A pointer to this DDSURFACEDESC structure is stored in the <B>lpDDSurfaceDesc</B> member of DD_CREATESURFACEDATA.</LI>
+</UL>
+</LI>
+
+	<LI>Otherwise, the driver can have the DirectDraw memory manager allocate the surface. To do so, the driver returns the DDHAL_DRIVER_NOTHANDLED callback code. The value that the driver sets in <B>ddRVal</B> is irrelevant. The driver sets <B>fpVidMem</B> to one of the following values to specify whether the driver is involved in the allocation and how DirectDraw should allocate the surface memory:
+<UL>
+	<LI>DDHAL_PLEASEALLOC_USERMEM. The driver is involved in the allocation in that it must return the size in bytes of the memory region in the <B>dwUserMemSize</B> member of DD_SURFACE_GLOBAL. DirectDraw should allocate from user memory. </LI>
+
+	<LI>DDHAL_PLEASEALLOC_BLOCKSIZE. The driver is involved in the allocation in that it must return the size in bytes of the memory region in the <B>dwBlockSizeX</B> and <B>dwBlockSizeY</B> members of the DD_SURFACE_GLOBAL structure. DirectDraw should allocate from offscreen memory. </LI>
+
+	<LI>Any value except DDHAL_PLEASEALLOC_USERMEM and DDHAL_PLEASEALLOC_BLOCKSIZE. The driver is not involved. </LI>
+</UL>
+
+<P>If the driver specifies DDHAL_PLEASEALLOC_USERMEM or DDHAL_PLEASEALLOC_BLOCKSIZE in <B>fpVidMem</B>, the driver can also store pointers to private surface structures in the <B>dwReserved1</B> members of the surface's DD_SURFACE_GLOBAL and DD_SURFACE_LOCAL structures. In these cases, because the driver is involved in the allocation, DirectDraw subsequently calls the driver's <A HREF="ddfncs_1c4n.htm"><I>DdDestroySurface</I></A> function to release the private surface structures.
+
+<P>To prevent memory leaks, if the driver specifies any value except DDHAL_PLEASEALLOC_USERMEM and DDHAL_PLEASEALLOC_BLOCKSIZE in <B>fpVidMem</B>, the driver should not store pointers to private surface structures in <B>dwReserved1</B> members. In this case, because the driver is not involved in the allocation, DirectDraw does not call the driver's <I>DdDestroySurface</I> function to release memory for the surface. The driver cannot release memory for these private surface structures. Therefore, memory leaks could occur.
+
+<P>For DirectDraw to perform the allocation of a surface with a FourCC format, the driver must return the pitch, width, and height sizes in the <B>lPitch</B>, <B>dwBlockSizeX</B>, and <B>dwBlockSizeY</B> members, respectively, of the DD_SURFACE_GLOBAL structure. The pitch also must be returned in the <B>lPitch</B> member of the DDSURFACEDESC structure. For linear memory, the driver should set <B>dwBlockSizeX</B> to the size in bytes of the memory region and set <B>dwBlockSizeY</B> to 1. 
+
+<P>To specify that the DirectDraw runtime can create a volume texture in a heap that the runtime manages, the driver must set the indicated members of the DD_SURFACE_GLOBAL structure to the following values: 
+
+<UL>
+	<LI><B>fpVidMem</B> to DDHAL_PLEASEALLOC_BLOCKSIZE. </LI>
+
+	<LI><B>dwBlockSizeX</B> and <B>dwBlockSizeY</B> to such values that their multiplied product is the size in bytes of the requested volume texture.</LI>
+</UL>
+</LI>
+
+	<LI>If the driver determines that it cannot create the surface or that its device has insufficient memory available to create the surface, then <I>DdCreateSurface</I> should return the DDHAL_DRIVER_HANDLED callback code and should specify in <B>ddRVal</B> the DDERR_<I>Xxx</I> error code that best describes why the surface is not supported. For example, the driver should specify the following error codes in <B>ddRVal</B> for the following reasons:
+<UL>
+	<LI>DDERR_OUTOFVIDEOMEMORY, indicating that the driver's device has insufficient memory.</LI>
+
+	<LI>DDERR_GENERIC, indicating that the driver does not support video memory vertex buffers. DirectDraw can then allocate vertex buffers in system memory.</LI>
+</UL>
+
+<P>By returning this combination of codes, the driver indicates that it does not support creating the surface. The DirectDraw runtime then either creates the surface on its own or terminates the surface creation process and returns the error code to the application that requested the creation. 
+</LI>
+</UL>
+
+<P>By default, the driver is not notified when a primary surface is created on Windows 2000 and later. However, if the driver supports GUID_NTPrivateDriverCaps in a <A HREF="ddfncs_0yhz.htm"><I>DdGetDriverInfo</I></A> call and the DDHAL_PRIVATECAP_NOTIFYPRIMARYCREATION flag is set in the <B>dwPrivateCaps</B> member of the <A HREF="ddstrcts_35bb.htm">DD_NTPRIVATEDRIVERCAPS</A> structure, then the driver is notified.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddstrcts_13fr.htm">DD_CREATESURFACEDATA</A>, <A HREF="ddstrcts_35bb.htm">DD_NTPRIVATEDRIVERCAPS</A>, <A HREF="ddfncs_1c4n.htm"><I>DdDestroySurface</I></A>, <A HREF="ddfncs_0yhz.htm"><I>DdGetDriverInfo</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DdCreateSurface"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

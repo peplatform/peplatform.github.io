@@ -1,0 +1,65 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Tracking Window Changes</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Tracking Window Changes">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tracking_window_changes_gg"></A>Tracking Window Changes</H1>
+
+<P>Changes to a window, including one in a <A HREF="dpyddi_9c87.htm">multiple-monitor system</A>, can be tracked by a device driver through a <A HREF="grstrcts_9iuf.htm">WNDOBJ</A>. A WNDOBJ is a driver-level window object that contains information about the position, size, and the visible client region of a window. That is, by creating a WNDOBJ that corresponds to an application window, the driver can track the size, position, and client region changes in that window.</P>
+
+<P>An application uses the Win32 API to access the <B>WNDOBJ_SETUP</B> functionality implemented by the device driver. Access is gained through the Win32 <B>ExtEscape</B> function. GDI passes this escape call to the device driver with <A HREF="ddifncs_9tev.htm"><I>DrvEscape</I></A>, implemented by the device driver with <B>WNDOBJ_SETUP</B> for the value of <I>iEsc</I>.</P>
+
+<P>An application calls <B>ExtEscape(</B>hdc, WNDOBJ_SETUP,...<B>)</B> and passes a handle to the application-created window (created by <B>CreateWindow</B> or some equivalent Win32 function) through the input buffer to the driver. If the driver is to keep track of the window, it calls <A HREF="gdifncs_2ip3.htm"><B>EngCreateWnd</B></A>, within the context of the <B>ExtEscape</B> call, to create a WNDOBJ structure for the given window. From that point on, any changes to that window will pass down to the driver.</P>
+
+<P>The driver should handle the <B>ExtEscape</B> call in a manner similar to the following:</P>
+
+<PRE>ULONG DrvEscape(
+  SURFOBJ *pso,
+  ULONG    iEsc,
+  ULONG    cjIn,
+  PVOID    pvIn,
+  ULONG    cjOut,
+  PVOID    pvOut)
+{
+    WNDOBJ *pwo;
+    WNDDATA *pwd;
+ 
+    if (iEsc == WNDOBJ_SETUP)
+    {
+        pwo = EngCreateWnd(pso,*((HWND *)pvIn),&amp;DrvVideo,
+                           WO_RGN_CLIENT, 0);
+ 
+    // Allocate space for caching client rects. Remember the pointer
+    // in the pvConsumer field.
+ 
+        pwd = EngAllocMem(0, sizeof(WNDDATA), DRIVER_TAG);
+        WNDOBJ_vSetConsumer(pwo,pwd);
+ 
+    // Update the rectangle list for this wndobj.
+ 
+        vUpdateRects(pwo);
+        return(1);
+    }
+ 
+}
+ </PRE>
+
+<P>Creating a window object involves locking special window resources, therefore <A HREF="gdifncs_2ip3.htm"><B>EngCreateWnd</B></A> should be called only in the context of the <B>WNDOBJ_SETUP</B> escape in <A HREF="ddifncs_9tev.htm"><I>DrvEscape</I></A> or <A HREF="ddifncs_2uuf.htm"><I>DrvSetPixelFormat</I></A>.</P>
+
+<P>The <B>EngCreateWnd</B> function supports window tracking by multiple drivers. Through <B>EngCreateWnd</B>, each driver identifies its own callback routine that GDI is to call for changes to the corresponding window. This feature allows, for example, a live video driver to track changes to live video windows while an OpenGL driver is tracking changes to OpenGL windows.</P>
+
+<P>GDI will call back to the driver with the most recent window states if a new <A HREF="grstrcts_9iuf.htm">WNDOBJ</A> is created in <I>DrvSetPixelFormat</I> or <B>ExtEscape</B>. GDI will also call back to the driver when a window referenced by a WNDOBJ is destroyed.</P>
+
+<P>As an accelerator, the driver may access public members of the <A HREF="grstrcts_9iuf.htm">WNDOBJ</A> structure.</P>
+
+<P>Tracking window changes involves the use of three callback functions provided to support the WNDOBJ structure. The visible client region may be enumerated by calling the <A HREF="gdifncs_18o7.htm"><B>WNDOBJ_cEnumStart</B></A> and <A HREF="gdifncs_3jqf.htm"><B>WNDOBJ_bEnum</B></A> callback functions. A driver may associate its own data with a WNDOBJ by calling the <A HREF="gdifncs_484n.htm"><B>WNDOBJ_vSetConsumer</B></A> callback function.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Tracking%20Window%20Changes"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

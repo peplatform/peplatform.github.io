@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WSPEventSelect</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WSPEventSelect">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wspeventselect_nr"></A>WSPEventSelect</H1>
+
+<P><B>WSPEventSelect</B> associates an event object with a socket and a set of network events. </P>
+
+<PRE class=syntax><B>int 
+  WSPEventSelect(
+    IN SOCKET </B><I> s</I><B>,</B>
+<B>    IN WSAEVENT </B><I> hEventObject</I><B>,</B>
+<B>    IN long </B><I> lNetworkEvents</I><B>,</B>
+<B>    OUT LPINT </B><I> lpErrno</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>s</I></DT>
+
+<DD>Descriptor that identifies the socket.</DD>
+
+<DT><I>hEventObject</I></DT>
+
+<DD>Handle to the event object that becomes associated with the supplied set of network events.</DD>
+
+<DT><I>lNetworkEvents</I></DT>
+
+<DD>Bitmask that specifies the combination of FD_XXX network events for the SAN service provider. </DD>
+
+<DT><I>lpErrno</I></DT>
+
+<DD>Pointer to a variable that receives the error code.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>Returns zero if successful; otherwise, returns SOCKET_ERROR and, at <I>lpErrno</I>, one of the following error codes: 
+
+<DL>
+<DT>WSAENETDOWN</DT>
+
+<DD>Network subsystem failed.</DD>
+
+<DT>WSAEINVAL</DT>
+
+<DD>Indicates that one of the specified parameters was invalid, or the specified socket is in an invalid state.</DD>
+
+<DT>WSAENOTSOCK</DT>
+
+<DD>Descriptor is not a socket.
+</DD>
+</DL>
+
+<P>Note that a SAN service provider does not support the WSAEINPROGRESS error code for <B>WSPEventSelect</B>, because the switch never issues cancel blocking calls to a SAN service provider.</P>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>Ws2spi.h</I>. Include <I>Ws2spi.h</I>. Requires Windows Sockets version&nbsp;2.0.</P>
+
+<H4>Comments</H4>
+
+<P>The Windows Sockets switch calls a SAN service provider's <B>WSPEventSelect</B> function to associate an event object with a socket and a set of network events on which the switch requires notification. The switch specifies that it requires notification only when incoming-connection (FD_ACCEPT) and connection-completed (FD_CONNECT) events occur. That is, the switch uses the bitwise OR operator to combine the FD_ACCEPT and FD_CONNECT events before passing them to <B>WSPEventSelect</B>. </P>
+
+<P>The SAN service provider must internally record the occurrence of the specified network events in a WSANETWORKEVENTS structure. After the SAN service provider calls the Win32 <B>SetEvent</B> function to signal the event object indicating that one or more network events occurred, the switch calls the <B>WSPEnumNetworkEvents</B> function to retrieve the contents of WSANETWORKEVENTS and, thereby, determine which network events occurred. </P>
+
+<P>The <B>WSPEventSelect</B> function automatically sets the specified socket to nonblocking mode.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;After the SAN service provider successfully records the occurrence of a network event and signals the associated event object, the switch retrieves the state of that network event. After the SAN service provider clears that network event, the SAN service provider takes no further actions related to that network event until the switch implicitly reenables the setting of that network event and the signaling of the associated event object. To reenable the settings for the following network events, the switch makes the following function calls. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=31%>Network Event</TH>
+<TH align=left width=69%>Reenabling Function</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>FD_ACCEPT</TD>
+<TD width=69%>The <B>WSPAccept</B> function, unless the error code returned is WSATRY_AGAIN, thus indicating that the condition function returned CF_DEFER.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>FD_CONNECT</TD>
+<TD width=69%>NONE</TD>
+</TR>
+</TABLE><BR>
+
+<P class=note>Any call to the reenabling routine—even one that fails—results in operations that cause the SAN service provider to record the relevant network event and signal the associated event object. </P>
+
+<P class=note>For the FD_ACCEPT network event, network event recording and event-object resetting are level triggered. Level triggered means that if the reenabling routine is called and the relevant network condition is still valid after the call, the network event is recorded and the associated event object is reset. Using this approach, the switch is event driven rather than concerned with the amount of data that arrives at any given time. </P>
+
+<P class=note>If a network event occurred before the switch calls <B>WSPEventSelect</B> or the reenabling function, the SAN service provider still records the occurrence of that network event and signals the associated event object, as appropriate. For example, consider the following sequence: 
+
+<OL>
+	<LI>The switch calls the <A HREF="wsdpref_4a5u.htm"><B>WSPListen</B></A> function.</LI>
+
+	<LI>An incoming-connection event is received, but not yet accepted.</LI>
+
+	<LI>The switch calls the <B>WSPEventSelect</B> function, specifying that it requires notification on incoming-connection (FD_ACCEPT) events for the specified socket. The SAN service provider records the previous FD_ACCEPT event and signals the associated event object immediately.</LI>
+</OL>
+
+<H4>See Also</H4>
+
+<P><B>WSPAccept</B>, <A HREF="wsdpref_9lki.htm"><B>WSPEnumNetworkEvents</B></A>, <A HREF="wsdpref_4a5u.htm"><B>WSPListen</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WSPEventSelect"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

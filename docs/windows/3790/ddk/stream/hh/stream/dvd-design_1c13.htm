@@ -1,0 +1,57 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Stream Changes</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Stream Changes">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_stream_changes_ksg"></A>Stream Changes</H2>
+
+<P>The format of a DVD stream may change at anytime. For example, the audio stream format can change between AC3 and LPCM during playback. </P>
+
+<P>Each data sample in the stream contains a <A HREF="ks-struct_7l4j.htm">KSSTREAM_HEADER</A> structure appended to it. This structure contains an <B>OptionsFlags</B> member.</P>
+
+<P>The data sample associated with a header that contains one of the following flags may or may not contain a null data packet or valid data.</P>
+
+<P>The following values of the KSSTREAM_HEADER <B>OptionsFlags</B> member are important to DVD playback:
+
+<DL>
+<DT><B>KSSTREAM_HEADER_OPTIONSF_DATADISCONTINUITY</B></DT>
+
+<DD>The KSSTREAM_HEADER_OPTIONSF_DATADISCONTINUITY bit indicates that the sample immediately following it belongs to a different source (or location/position) of data than the previous sample. This indicates that whatever processing was in progress using the previous sample must be completed. This bit often comes in the middle of a previous frame, thus indicating that the decoder should discard the previous frame and begin processing with the new data.</DD>
+
+<DT><B>KSSTREAM_HEADER_OPTIONSF_TIMEDISCONTINUITY</B></DT>
+
+<DD>The KSSTREAM_HEADER_OPTIONSF_TIMEDISCONTINUITY bit indicates that there will be a time gap in data immediately following this sample. For example, if the DVD stream contains a still frame encoded as a single I frame, the decoder receives all of the data for the I frame, with the last sample containing the KSSTREAM_HEADER_OPTIONSF_TIMEDISCONTINUITY flag. This indicates that the decoder should immediately decode the I frame and not wait for B frame data.</DD>
+
+<DT><B>KSSTREAM_HEADER_OPTIONSF_TYPECHANGED</B></DT>
+
+<DD>The KSSTREAM_HEADER_OPTIONSF_TYPECHANGED bit indicates that the sample connected with the header will be a new <A HREF="ks-struct_0fub.htm">KSDATAFORMAT</A> block for the stream. This allows for changing of data types dynamically. An example would be the changing of video from 4x3 to 16x9, or the changing of audio from AC3 to PCM. The decoder should make all necessary changes for the new format block only when all data prior to the packet with the new format block has been processed.
+</DD>
+</DL>
+
+<P>When a stream format change occurs, the minidriver receives a data packet with the KSSTREAM_HEADER_OPTIONSF_TYPECHANGED bit set in the <B>OptionsFlags</B> member of the KSSTREAM_HEADER structure of the data packet.</P>
+
+<P>The minidriver may never see the KSSTREAM_HEADER_OPTIONSF_TYPECHANGED flag if it does not correctly expose the data formats supported by its audio stream.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Correctly exposing the data formats supported by a stream involves two steps:</B>
+
+<OL>
+	<LI>The SRB_GET_STREAM_INFO handler for the stream must set the <B>StreamFormatsArray</B> pointer to point to an array of <B>NumberOfFormatArrayEntries</B> pointers, each of which points to a valid format block.</LI>
+
+	<LI>The SRB_GET_DATA_INTERSECTION handler must copy the format block corresponding to the proposed format into the supplied buffer.</LI>
+</OL>
+
+<P>A video format change must also signal KSSTREAM events to the video port connection to indicate that the video format has changed. A minidriver should use <A HREF="strclass-routines_5ygj.htm"><B>StreamClassStreamNotification</B></A>(SignalMultipleStreamEvents, pMyHwDevExt-&gt;pMyStreamObject, &amp;MY_KSEVENTSETID_VPNOTIFY, KSEVENT_VPNOTIFY_FORMATCHANGE) for this purpose.</P>
+
+<P>When some parameter of the video format changes, such as pixel aspect ratio, the decoder receives a format block. The decoder should signal the video port to renegotiate the video port connection. The decoder calls <A HREF="strclass-routines_5ygj.htm"><B>StreamClassStreamNotification</B></A> with the parameter <I>SignalMultipleStreamEvents</I>.</P>
+
+<P>The DVD decoder minidriver must indicate that support is provided for this event in the <A HREF="strclass-struct_7stv.htm">HW_STREAM_INFORMATION</A> entry for the VideoPort stream. The event set ID for the video port event is <A HREF="dvdref_9j8z.htm">KSEVENTSETID_VPNotify</A> and the event ID is <A HREF="dvdref_5vsk.htm">KSEVENT_VPNOTIFY_FORMATCHANGE</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Stream%20Changes"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

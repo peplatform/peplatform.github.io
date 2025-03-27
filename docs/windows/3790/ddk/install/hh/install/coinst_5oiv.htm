@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling DIF Codes</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling DIF Codes">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_handling_dif_codes_dg"></A>Handling DIF Codes</H1>
+
+<P>Setup applications send <A HREF="dif-codes_4x9u.htm">device installation function codes</A> (DIF codes) to installers by calling <A HREF="di-rtns_7fjm.htm"><B>SetupDiCallClassInstaller</B></A>. This function, in turn, calls the installer's entry point function. For a description of installer entry points, see:</P>
+
+<P class=indent1><A HREF="coinst_9mqv.htm">Co-installer Interface</A> </P>
+
+<P class=indent1><A HREF="class-inst_4g2v.htm">Class Installer Interface</A> </P>
+
+<P>The reference page for each DIF code contains the following sections:
+
+<DL>
+<DT><B>When Sent</B></DT>
+
+<DD>Describes the typical times when, and reasons why, a Setup application sends this DIF request.</DD>
+
+<DT><B>Who Handles</B></DT>
+
+<DD>Specifies which installers are allowed to handle this request. The installers include class installers, class co-installers (setup-class-wide co-installers), and device co-installers (device-specific co-installers).</DD>
+
+<DT><B>Installer Input</B></DT>
+
+<DD>Besides the DIF code, <B>SetupDiCallClassInstaller</B> supplies additional information relevant to the particular request. See the reference page for each DIF code for details on the information that is supplied with each request. The following list contains a general description of the additional input parameters, and lists the <A HREF="di-rtns_85ma.htm">device installation functions</A> (<B>SetupDi</B><I>Xxx</I> functions) that installers can call to handle the parameters:
+
+<DL>
+<DT><I>DeviceInfoSet</I></DT>
+
+<DD>Supplies a handle to the device information set.
+
+<P>The handle is opaque. Use the handle, for example, to identify the device information set in calls to <B>SetupDi</B><I>Xxx</I> functions. 
+
+
+<P>The <I>DeviceInfoSet</I> might have an associated device setup class. If so, call <A HREF="di-rtns_78c2.htm"><B>SetupDiGetDeviceInfoListClass</B></A> to get the class GUID.
+</DD>
+
+<DT><I>DeviceInfoData</I></DT>
+
+<DD>Optionally supplies a pointer to an <A HREF="di-struct_7nqq.htm">SP_DEVINFO_DATA</A> structure that identifies a device in the device information set.</DD>
+
+<DT>Device Installation Parameters </DT>
+
+<DD>These indirect parameters supply information for the device installation in an <A HREF="di-struct_7j76.htm">SP_DEVINSTALL_PARAMS</A> structure. If <I>DeviceInfoData</I> is not NULL, there are device installation parameters associated with the <I>DeviceInfoData</I>. If <I>DeviceInfoData</I> is NULL, the device installation parameters are associated with the <I>DeviceInfoSet</I>. 
+
+<P>Call <A HREF="di-rtns_0h2q.htm"><B>SetupDiGetDeviceInstallParams</B></A> to get the device installation parameters.
+</DD>
+
+<DT>Class Installation Parameters</DT>
+
+<DD>The optional indirect parameters are specific to the particular DIF request. These are essentially "DIF request parameters." For example, the class installation parameters for a DIF_REMOVE installation request are contained in an SP_REMOVEDEVICE_PARAMS structure. 
+
+<P>Each SP_<I>XXX</I>_PARAMS structure starts with a fixed-sized SP_CLASSINSTALL_HEADER.
+
+
+<P>Call <A HREF="di-rtns_11iq.htm"><B>SetupDiGetClassInstallParams</B></A> to get the class installation parameters. 
+
+
+<P>If a DIF request has class installation parameters, there is a set of parameters associated with the <I>DeviceInfoSet</I> and another set of parameters associated with the <I>DeviceInfoData</I> (if the DIF request specifies <I>DeviceInfoData</I>). <B>SetupDiGetClassInstallParams</B> returns the most specific parameters available. 
+</DD>
+
+<DT><I>Context</I></DT>
+
+<DD>Co-installers have an optional context parameter.
+</DD>
+</DL>
+</DD>
+
+<DT><B>Installer Output</B></DT>
+
+<DD>Describes the output expected for this DIF code. 
+
+<P>If an installer modifies the device installation parameters, the installer must call <A HREF="di-rtns_9oc2.htm"><B>SetupDiSetDeviceInstallParams</B></A> to apply the changes before returning. Similarly, if an installer modifies the class installation parameters for the DIF code, the installer must call <A HREF="di-rtns_5vg2.htm"><B>SetupDiSetClassInstallParams</B></A>. 
+</DD>
+
+<DT><B>Installer Return Value</B></DT>
+
+<DD>Specifies the appropriate return value(s) for the DIF code. See the following figure for more information about return values.</DD>
+
+<DT><B>Default DIF Code Handler</B></DT>
+
+<DD>Specifies the <B>SetupDi</B> function that carries out system-defined operations for the DIF code. Not all DIF codes have a default handler. Unless a co-installer or class installer takes steps to prevent the default handler from being called, <B>SetupDiCallClassInstaller</B> calls the default handler for a DIF code after it calls the class installer (but before it calls any co-installers that registered for post-processing).
+
+<P>Co-installers should <I>not</I> call default DIF code handlers.
+</DD>
+
+<DT><B>Installer Operation</B></DT>
+
+<DD>Describes typical tasks that an installer might do to handle the DIF request.</DD>
+
+<DT><B>See Also</B></DT>
+
+<DD>Lists sources of related information.
+</DD>
+</DL>
+
+<P>The following figure shows the sequence of events in <B>SetupDiCallClassInstaller</B> for processing a DIF code.</P>
+
+<P><IMG SRC="images/dif-flow.gif" ALT="" BORDER=0></P>
+
+<P><B>Flow of DIF Code Processing in SetupDiCallClassInstaller</B></P>
+
+<P>The OS performs some operations for each DIF code. Vendor-supplied co-installers and class installers can participate in the installation activities. Note that <B>SetupDiCallClassInstaller</B> calls co-installers that registered for postprocessing even if the DIF code fails. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20DIF%20Codes"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

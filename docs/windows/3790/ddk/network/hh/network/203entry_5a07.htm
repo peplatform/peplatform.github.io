@@ -1,0 +1,42 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Registering a CheckForHang Handler</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Registering a CheckForHang Handler">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_registering_a_checkforhang_handler_ng"></A>Registering a CheckForHang Handler</H3>
+
+<P>A miniport driver can optionally supply a <I>MiniportCheckForHang</I> function when it calls <A HREF="103ndisx_6tte.htm"><B>NdisMRegisterMiniport</B></A>. If a miniport driver does not register such a handler, it relies on NDIS to detect whether its NIC has stopped responding.</P>
+
+<P>If a miniport driver supplies a <I>MiniportCheckForHang</I> function, NDIS calls this function every two seconds or at a driver-requested timeout interval. The <I>MiniportCheckForHang</I> function determines whether the NIC has stopped responding. <I>MiniportCheckForHang</I> returns TRUE if it detects that the NIC has stopped responding; otherwise, it returns FALSE.</P>
+
+<P>If a miniport driver does not register a <I>MiniportCheckForHang</I> function, NDIS concludes that a miniport driver has stopped responding if:
+
+<UL>
+	<LI>A send packet has been pending longer than twice the timeout period. For example, the miniport driver was passed a packet to send, it returned NDIS_STATUS_PENDING, and did not call <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A> for the pending packet in a period equal to twice the timeout period. This applies only to serialized miniport drivers.</LI>
+
+	<LI>A request sent to <I>MiniportQueryInformation</I> or <I>MiniportSetInformation</I> has not completed within the timeout period. In Windows XP and later, NDIS allows for three times the normal timeout period for queries of <A HREF="22genoid_25pu.htm">OID_GEN_LINK_SPEED</A>, <A HREF="211cooid_1242.htm">OID_GEN_CO_LINK_SPEED</A>, <A HREF="22genoid_1rw2.htm">OID_GEN_MEDIA_CONNECT_STATUS</A>, and <A HREF="211cooid_7l6a.htm">OID_GEN_CO_MEDIA_CONNECT_STATUS</A>.</LI>
+</UL>
+
+<P>A miniport driver can change timeout parameters by calling <A HREF="103ndisx_1pmb.htm"><B>NdisMSetAttributesEx</B></A> in the context of its <I>MiniportInitialize</I> function. For more information, see <A HREF="203entry_5rhj.htm">Initializing a NIC</A>. With <B>NdisMSetAttributesEx</B>, the miniport driver can increase the default two-second timeout interval to a driver-specified interval. NDIS will call the miniport driver’s <I>MiniportCheckForHang</I> function at this new interval. Miniport drivers for slow NICs can specify a timeout interval that is appropriate for the NIC.</P>
+
+<P>The miniport portion of an intermediate driver should set the following flags related to timeouts when calling <B>NdisMSetAttributesEx</B>:
+
+<UL>
+	<LI>NDIS_ATTRIBUTE_IGNORE_PACKET_TIMEOUT to prevent NDIS from timing out pending send packets that it has queued for the driver</LI>
+
+	<LI>NDIS_ATTRIBUTE_IGNORE_REQUEST_TIMEOUT flags to prevent NDIS from timing out query and set requests that it has queued for the driver</LI>
+</UL>
+
+<P>If the miniport driver specifies that NDIS should ignore packet timeout and request timeout, the miniport driver is responsible for detecting when a NIC is hung.</P>
+
+<P>If <I>MiniportCheckForHang</I> returns TRUE, or if a send or a request has been pending for more than twice the timeout period, NDIS calls <I>MiniportReset</I>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Registering%20a%20CheckForHang%20Handler"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,75 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DriverEntry of NDIS Miniport Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DriverEntry of NDIS Miniport Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_driverentry_of_ndis_miniport_drivers_nr"></A>DriverEntry of NDIS Miniport Drivers</H1>
+
+<P>The <B>DriverEntry</B> function is required and is the first function that the system calls in any NDIS driver. </P>
+
+<PRE class=syntax><B>NDIS_STATUS</B>
+  <B>DriverEntry(</B>
+    <B>IN</B> <B>PVOID</B>  <I>Argument1</I><B>,</B>
+    <B>IN</B> <B>PVOID</B>  <I>Argument2</I>
+    <B>);</B> </PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Argument1</I></DT>
+
+<DD>Pointer to a system-supplied parameter. For Windows®&nbsp;2000 and later drivers, this points to a driver object, which is opaque to any NDIS driver that exports only <I>MiniportXxx</I> functions. </DD>
+
+<DT><I>Argument2</I></DT>
+
+<DD>Pointer to a second system-supplied parameter. For Windows&nbsp;2000 and later drivers, this points to a registry path, which is opaque to any NDIS driver that exports only <I>MiniportXxx</I> functions.  
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>DriverEntry</B> returns the value returned by <A HREF="103ndisx_6tte.htm"><B>NdisMRegisterMiniport</B></A> or <A HREF="103ndisx_0sj7.htm"><B>NdisIMRegisterLayeredMiniport</B></A>. </P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h.</I></P>
+
+<H4>Comments</H4>
+
+<P>NDIS miniports and intermediate drivers carry out two basic tasks in their <B>DriverEntry</B> functions: 
+
+<OL>
+	<LI>Call <A HREF="103ndisx_244y.htm"><B>NdisMInitializeWrapper</B></A> to notify the NDIS library that the driver is about to register itself as a miniport driver. 
+<P>NDIS sets up the state it needs to track the driver and returns an <I>NdisWrapperHandle</I>, which the driver saves for subsequent calls to <B>Ndis</B><I>Xxx</I> configuration and initialization functions. 
+</LI>
+
+	<LI>Fill in an NDIS_MINIPORT_CHARACTERISTICS structure with the appropriate version numbers and the entry points for driver-supplied <I>MiniportXxx</I> functions and, then, call <A HREF="103ndisx_6tte.htm"><B>NdisMRegisterMiniport</B></A> or <A HREF="103ndisx_0sj7.htm"><B>NdisIMRegisterLayeredMiniport</B></A>. 
+<P>Usually, NIC drivers call <B>NdisMRegisterMiniport</B>, as do intermediate drivers that export only a set of <I>MiniportXxx</I> functions. Usually, NDIS intermediate drivers call <B>NdisIMRegisterLayeredMiniport</B>, which effectively defers the initialization of such a driver’s virtual NIC until the driver calls <A HREF="103ndisx_3m2a.htm"><B>NdisIMInitializeDeviceInstance</B></A> from its <A HREF="104tdlow_2bqq.htm"><I>ProtocolBindAdapter</I></A> function. 
+</LI>
+</OL>
+
+<P><B>DriverEntry</B> can allocate the NDIS_MINIPORT_CHARACTERISTICS structure on the stack since the NDIS library copies the relevant information to its own storage. <B>DriverEntry</B> should clear the memory for this structure with <A HREF="103ndisx_1ype.htm"><B>NdisZeroMemory</B></A> before setting any driver-supplied values in its members. The current <B>MajorNdisVersion</B> is 0x05, and the current <B>MinorNdisVersion</B> is 0x00. In each <I>Xxx</I><B>Handler</B> member of the characteristics structure, <B>DriverEntry</B> must set the name of a driver-supplied <I>MiniportXxx</I> function, or the member must be NULL. </P>
+
+<P>Calling <B>NdisMRegisterMiniport</B> causes the driver's <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A> function to run in the context of <B>NdisMRegisterMiniport</B>. Calling <B>NdisIMRegisterLayeredMiniport</B> defers the call to <I>MiniportInitialize</I> until the driver calls <B>NdisIMInitializeDeviceInstance</B>. </P>
+
+<P>Drivers that call <B>NdisMRegisterMiniport</B> must be prepared for an immediate call to their <I>MiniportInitialize</I> functions. Such a driver must have sufficient installation and configuration information stored in the registry or available from calls to an <B>Ndis</B><I>Xxx</I> bus-type-specific configuration function to set up any NIC-specific resources the driver will need to carry out network I/O operations. </P>
+
+<P>Drivers that call <A HREF="103ndisx_0sj7.htm"><B>NdisIMRegisterLayeredMiniport</B></A> defer the call to their <I>MiniportInitialize</I> functions to another driver-supplied function that makes a call to <A HREF="103ndisx_3m2a.htm"><B>NdisIMInitializeDeviceInstance</B></A>. NDIS intermediate drivers usually register a <A HREF="104tdlow_2bqq.htm"><I>ProtocolBindAdapter</I></A><I> </I>function and call <A HREF="103ndisx_0sj7.htm"><B>NdisIMRegisterLayeredMiniport</B></A> so that NDIS will call the <I>ProtocolBindAdapter</I> function after all underlying NIC drivers have initialized. This strategy gives such an NDIS intermediate driver, which makes the call to <B>NdisIMInitializeDeviceInstance</B> from <I>ProtocolBindAdapter</I>, the advantage of having its <I>MiniportInitialize</I> function configure driver-allocated resources for the intermediate's virtual NIC to the features of the underlying NIC driver to which the intermediate has already bound itself.  </P>
+
+<P>If <A HREF="103ndisx_6tte.htm"><B>NdisMRegisterMiniport</B></A> or <B>NdisIMRegisterLayeredMiniport</B> does not return NDIS_STATUS_SUCCESS, <B>DriverEntry</B> must release any resources it allocated, such as memory to hold the <I>NdisWrapperHandle</I>, and must call <A HREF="103ndisx_7mgi.htm"><B>NdisTerminateWrapper</B></A> before it returns control. The driver will not be loaded if this occurs.  </P>
+
+<P><B>DriverEntry</B> runs at IRQL = PASSIVE_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="104tdlow_9raq.htm"><B>DriverEntry of NDIS Protocol Drivers</B></A>, <A HREF="103ndisx_3m2a.htm"><B>NdisIMInitializeDeviceInstance</B></A>, <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, <A HREF="103ndisx_0sj7.htm"><B>NdisIMRegisterLayeredMiniport</B></A>, <A HREF="103ndisx_244y.htm"><B>NdisMInitializeWrapper</B></A>, <A HREF="103ndisx_6tte.htm"><B>NdisMRegisterMiniport</B></A>, <A HREF="103ndisx_7mgi.htm"><B>NdisTerminateWrapper</B></A>, <A HREF="103ndisx_1ype.htm"><B>NdisZeroMemory</B></A>, <A HREF="104tdlow_2bqq.htm"><I>ProtocolBindAdapter</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DriverEntry%20of%20NDIS%20Miniport%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

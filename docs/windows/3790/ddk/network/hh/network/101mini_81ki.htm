@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>MiniportReturnPacket</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="MiniportReturnPacket">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_miniportreturnpacket_nr"></A>MiniportReturnPacket</H1>
+
+<P>The <I>MiniportReturnPacket</I> function is required in drivers that indicate receives with <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A> or <A HREF="103ndisx_6f02.htm"><B>NdisMCoIndicateReceivePacket</B></A>. </P>
+
+<PRE class=syntax><B>VOID</B>
+  <B>MiniportReturnPacket(</B>
+    <B>IN</B> <B>NDIS_HANDLE</B>  <I>MiniportAdapterContext</I><B>,</B>
+    <B>IN</B> <B>PNDIS_PACKET</B>  <I>Packet</I>
+    <B>);</B> </PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>MiniportAdapterContext</I></DT>
+
+<DD>Specifies the handle to a miniport driver-allocated context area in which the driver maintains per-NIC state, set up by <I>MiniportInitialize</I>. </DD>
+
+<DT><I>Packet</I></DT>
+
+<DD>Pointer to a packet descriptor being returned to the miniport driver, which previously indicated a packet array that contained this pointer. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h.</I></P>
+
+<H4>Comments</H4>
+
+<P>The following types of drivers must supply a <I>MiniportReturnPacket</I> function:
+
+<UL>
+	<LI>A miniport driver of a bus-master DMA NIC that supports multipacket receives. Such drivers include serialized miniports that export a <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A> function, deserialized miniports, and connection-oriented miniports.</LI>
+
+	<LI>A miniport driver that supplies media-specific information, such as packet priorities, with its receive indications</LI>
+
+	<LI>An NDIS intermediate driver that binds itself to a miniport driver that supplies a <I>MiniportReturnPacket</I> function </LI>
+</UL>
+
+<H4>For Serialized Drivers</H4>
+
+<P>Any receive packet with associated <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A> structure in which the <B>Status</B> is set to NDIS_STATUS_PENDING on return from <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A> will be returned to <I>MiniportReturnPacket</I>. When all bound protocols have called <A HREF="103ndisx_61de.htm"><B>NdisReturnPackets</B></A> as many times as necessary to release their references to the originally indicated packet array, NDIS returns pended packets from the array to the <I>MiniportReturnPacket</I> function of the driver that originally allocated the packet array. </P>
+
+<P>If the driver, before indicating up a receive packet descriptor with <B>NdisMIndicateReceivePacket</B>, set the <B>Status</B> member in the NDIS_PACKET_OOB_DATA associated with the descriptor to NDIS_STATUS_SUCCESS, the driver must check the packet's <B>Status</B> on return of <B>NdisMIndicateReceivePacket</B>:
+
+<UL>
+	<LI>If the <B>Status</B> is set to NDIS_STATUS_SUCCESS, the packet descriptor and associated buffer descriptors have been returned to the driver.</LI>
+
+	<LI>If the <B>Status</B> is set to NDIS_STATUS_PENDING, NDIS will return the packet descriptor to the driver's <I>MiniportReturnPacket</I> function.</LI>
+</UL>
+
+<H4>For Deserialized and Connection-Oriented Drivers</H4>
+
+<P>If the driver, before indicating up a receive packet descriptor with <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A> or <A HREF="103ndisx_6f02.htm"><B>NdisMCoIndicateReceivePacket</B></A>, sets the <B>Status</B> member in the <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A> structure associated with the packet descriptor to NDIS_STATUS_SUCCESS, NDIS returns that packet descriptor to the driver's <I>MiniportReturnPacket</I> function. However, if the miniport driver sets the <B>Status</B> member to NDIS_STATUS_RESOURCES, thereby indicating that it needs to retain ownership of the packet descriptor and associated buffer descriptors, NDIS implicitly returns the packet descriptor to the driver on return of <B>NdisM(Co)IndicateReceivePacket</B>.</P>
+
+<P>A deserialized or connection-oriented miniport driver must not examine the <B>Status</B> of indicated packets on return of <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>. Instead, a deserialized miniport driver must save a packet’s <B>Status</B> in a local variable before indicating up the packet descriptor. When <B>NdisMIndicateReceivePacket</B> returns, the miniport driver should check the saved packet <B>Status</B>. If the miniport driver set the packet's <B>Status</B> to NDIS_STATUS_RESOURCES before indicating up the packet descriptor, it should reclaim the packet descriptor immediately after <B>NdisMIndicateReceivePacket</B> returns, preferably by calling its own <I>MiniportReturnPacket</I> function. In this case, NDIS does not call the miniport driver’s <I>MiniportReturnPacket</I> function to return the packet descriptor. If the miniport driver set the packet's <B>Status</B> to NDIS_STATUS_SUCCESS before indicating up the packet descriptor, the miniport driver must not reclaim the packet descriptor until NDIS subsequently returns the packet descriptor to the miniport driver's <I>MiniportReturnPacket</I> function.</P>
+
+<H4>For All Drivers</H4>
+
+<P>Usually, <I>MiniportReturnPacket</I> prepares such a returned packet to be used in a subsequent receive indication. Although <I>MiniportReturnPacket</I> could return the buffer descriptors chained to the packet to buffer pool and the packet descriptor itself to packet pool, it is far more efficient to reuse returned descriptors. </P>
+
+<P><I>MiniportReturnPacket</I> must call <B>NdisUnchainBufferAt</B><I>Xxx</I> as many times as necessary to save the pointers to all chained buffer descriptors before it calls <A HREF="103ndisx_87hu.htm"><B>NdisReinitializePacket</B></A>. Otherwise, <I>MiniportReturnPacket</I> cannot recover the buffer descriptors the driver originally chained to the packet for the indication. </P>
+
+<P><I>MiniportReturnPacket</I> also can call <A HREF="103ndisx_1ype.htm"><B>NdisZeroMemory</B></A> with the pointer returned by <A HREF="103ndisx_43qq.htm">NDIS_OOB_DATA_FROM_PACKET</A> to prepare the packet’s associated out-of-band block for reuse.</P>
+
+<P>If a particular buffer descriptor was shortened to match the size of an indicated range of data, <I>MiniportReturnPacket</I> should call <A HREF="103ndisx_2pki.htm"><B>NdisAdjustBufferLength</B></A> with that buffer descriptor to restore its mapping of the NIC’s receive buffer range. </P>
+
+<P><I>MiniportReturnPacket</I> runs at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="103ndisx_2pki.htm"><B>NdisAdjustBufferLength</B></A>, <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A>, <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_6f02.htm"><B>NdisMCoIndicateReceivePacket</B></A>, <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, <A HREF="103ndisx_43qq.htm">NDIS_OOB_DATA_FROM_PACKET</A>, <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="103ndisx_87hu.htm"><B>NdisReinitializePacket</B></A>, <A HREF="103ndisx_61de.htm"><B>NdisReturnPackets</B></A>, <A HREF="103ndisx_9vci.htm"><B>NdisUnchainBufferAtBack</B></A>, <A HREF="103ndisx_30mq.htm"><B>NdisUnchainBufferAtFront</B></A>, <A HREF="103ndisx_1ype.htm"><B>NdisZeroMemory</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: MiniportReturnPacket"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

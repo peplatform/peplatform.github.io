@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>BufferAccessScsiPortControlled Flag Information</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="BufferAccessScsiPortControlled Flag Information">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_bufferaccessscsiportcontrolled_flag_information_si"></A>BufferAccessScsiPortControlled Flag Information</H2>
+
+<P>The Knowledge Base article Q116450, "BufferAccessScsiPortControlled Flag Information," describes a mechanism in Windows 95 to improve miniport performance (throughput).</P>
+
+<P>Under Windows 95, if the miniport driver does not report that it supports scatter-gather, then it will only see read requests for one block at a time.</P>
+
+<P>The ScatterGather flag is used to determine if the miniport can handle more than one SGD. If you do not set this flag to true, then SCSIPORT.PDR will assume that the number of SGDs is one. Typically this will result in your miniport only getting I/O requests for one block at a time. </P>
+
+<P>This is obviously a problem for PIO devices, which do not typically support the concept of scatter-gather. In these cases it is possible to force SCSIPORT.PDR to emulate scatter-gather on behalf of your device. This is done by setting  BufferAccessScsiPortControlled=TRUE in the PORT_CONFIGURATION_INFORMATION structure in your SCSI miniport.</P>
+
+<P>Note that this field was originally only documented in the Windows NT 3.5x DDK (it was accidentally omitted from the Win95 DDK documentation). It is, however, correctly defined in the Windows 95 DDK include files. Also be aware that it is very important to <B>not</B> access the data buffer directly in your miniport when this flag is set; instead you should only use ScsiPort functions to access the buffer. This is due to the fact that the buffer will not be a linearly contiguous block, but instead will be a list of linear scatter-gather descriptors.</P>
+
+<P>The Master field of Port_Configuration_Information is used to determine if system DMA is required. If SCSIPORT.PDR receives any indication that system DMA is required, it will allocate a 64K physically contiguous block of memory for use as a DMA buffer, and transfer lengths will be limited to 64K. Set the flag Master=TRUE if you do support bus mastering.</P>
+
+<P>When using BufferAccessScsiPortControlled:
+
+<UL>
+	<LI>PIO should work fine because BufferAccessScsiPortControlled was designed for this purpose. Bus-mastering devices should <I>not</I> set this field to TRUE.</LI>
+
+	<LI>Never modify the SRB's DataTransferLength or DataBuffer. The ScsiPort{Read,Write}... functions actually scan through the chained list of  SRBs in the system, matching the I/O range against DataBuffer / DataTransferLength of each pending SRB. When found, if IOR_flags.IORF_SCATTER_GATHER is set, IOR_buffer_ptr points to a list of scatter-gather descriptors, and the routine does "emulation" of scatter-gather  data transfer, moving data to or from the scatter-gather memory areas. If IORF_SCATTER_GATHER is false, DataBuffer is used directly (it is assumed to be  a linear address). Note that within an IOP’s SRB, there is a pointer to its corresponding IOP (SrbIopPointer). This pointer can be used to inspect IOP/IOR fields such as DataBuffer, IOR_flags, and so on, when debugging.</LI>
+
+	<LI>Always use the ScsiPort{Read,Write}Buffer... functions when accessing your buffer.</LI>
+</UL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Here is a brief description of what ScsiPortReadPortBufferUchar (and its generic counterparts) do:</B>
+
+<OL>
+	<LI>Scan SCSIPORT's active SRB list, examining the .DataBuffer and .DataTransferLength fields. Attempt to find a buffer that "contains" the memory address requested. If it fails, perform the desired transfer between buffer and port without using any IOP / SRB information. Then quit.</LI>
+
+	<LI>Given the SRB, obtain the .SrbIopPointer. Use this to inspect for (IOR_flags and IORF_SCATTER_GATHER). If this bit is clear, perform the desired transfer between buffer and port, without using any IOP / SRB information at all. Then quit.</LI>
+
+	<LI>At this point the operation is using linear SGDs. Perform the desired transfer between buffer and port, using the linear SGDs to reference the scattered chunks of memory. When the count has been exhausted, quit. Note that care must be taken to not request too many bytes, since you will run off the end of the SGD list (the code does not appear to audit for a zero-length SGD element).</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: BufferAccessScsiPortControlled%20Flag%20Information"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

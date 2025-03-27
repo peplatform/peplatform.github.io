@@ -1,0 +1,182 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Data Formats for Audio Wave Streams</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Data Formats for Audio Wave Streams">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_data_formats_for_audio_wave_streams_ksg"></A>Data Formats for Audio Wave Streams</H2>
+
+<P>The data format for the wave stream that an audio device renders or captures is specified by a variable-length format descriptor, as shown in the following figure.</P>
+
+<P><IMG SRC="images/wavefmt.gif" ALT="" BORDER=0></P>
+
+<P><B>Wave-Format Descriptor</B></P>
+
+<P>The format descriptor begins with a <A HREF="ks-struct_0fub.htm">KSDATAFORMAT</A> structure. The amount of additional format information following the KSDATAFORMAT structure varies depending on the data format.</P>
+
+<P>Audio systems use this type of format descriptor in several ways:
+
+<UL>
+	<LI>A format descriptor like the one shown in the preceding figure is passed as a call parameter to a miniport driver's <B>NewStream</B> method (for example, see <A HREF="audmp-routines_735f.htm"><B>IMiniportWaveCyclic::NewStream</B></A>).</LI>
+
+	<LI>The <A HREF="ks-prop_7gdv.htm">KSPROPERTY_PIN_DATAINTERSECTION</A> <I>get</I>-property request retrieves a format descriptor like the one shown in the preceding figure.</LI>
+
+	<LI>A similar format is used for the <A HREF="ksfunc_95tf.htm"><B>KsCreatePin</B></A> function's <I>Connect</I> call parameter. This parameter points to the <A HREF="ks-struct_4ng3.htm">KSPIN_CONNECT</A> structure at the beginning of a buffer that also contains a format descriptor. The format descriptor, which immediately follows the KSPIN_CONNECT structure, begins with a KSDATAFORMAT structure, as shown in the preceding figure.</LI>
+</UL>
+
+<P>The format information that follows the KSDATAFORMAT structure should preferably be in the form of a <A HREF="aud-prop_7wz7.htm">WAVEFORMATEXTENSIBLE</A> structure, although, for the sake of backwards compatibility, the WDM audio subsystem continues to support the obsolete <A HREF="aud-prop_5s4z.htm">WAVEFORMATEX</A> structure for some PCM formats. WAVEFORMATEX is an extended version of the pre-WDM WAVEFORMAT structure. WAVEFORMAT is obsolete and is not supported by the WDM audio subsystem in any version of Windows.</P>
+
+<P>Similarly, the PCMWAVEFORMAT structure is an extended version of WAVEFORMAT that is obsolete, but for which the WDM audio subsystem provides limited support.</P>
+
+<P>For information about WAVEFORMAT and PCMWAVEFORMAT, see the Platform SDK documentation.</P>
+
+<P>The four wave-format structures—WAVEFORMAT, PCMWAVEFORMAT, WAVEFORMATEX, and WAVEFORMATEXTENSIBLE—all begin with the same five members, starting with <B>wFormatTag</B>. The preceding figure shows these four structures superimposed on each other to highlight the portions of the structures that are identical. PCMWAVEFORMAT and WAVEFORMATEX extend WAVEFORMAT by adding a <B>wBitsPerSample</B> member, but WAVEFORMATEX also adds a <B>cbSize</B> member. WAVEFORMATEXTENSIBLE extends WAVEFORMATEX by adding three members, beginning with <B>Samples.wValidBitsPerSample</B>. (<B>Samples</B> is a union whose other member, <B>wValidSamplesPerBlock</B>, is used instead of <B>wValidBitsPerSample</B> for some compressed formats.) The <B>wFormatTag</B> member, which immediately follows the end of the KSDATAFORMAT structure in the buffer, specifies what kind of format information follows KSDATAFORMAT. The <A HREF="aud-design_1kiv.htm#ddk_kmixer_system_driver_ksg">KMixer system driver</A> supports only PCM formats that use one of the three format tags shown in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=42%>wFormatTag Value</TH>
+<TH align=left width=58%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%>WAVE_FORMAT_PCM</TD>
+<TD width=58%>PCM data format specified by WAVEFORMATEX or PCMDATAFORMAT.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%>WAVE_FORMAT_IEEE_FLOAT</TD>
+<TD width=58%>Floating-point data format specified by WAVEFORMATEX.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%>WAVE_FORMAT_EXTENSIBLE</TD>
+<TD width=58%>Extended data format specified by WAVEFORMATEXTENSIBLE.</TD>
+</TR>
+</TABLE><BR>
+
+<P>In fact, KMixer supports only a subset of the formats that can be described by these tag values. USB audio devices (see <A HREF="aud-design_1kiv.htm#ddk_usbaudio_class_system_driver_ksg">USBAudio Class System Driver</A>) are restricted to this subset because all USB audio streams pass through KMixer. DirectSound applications, however, can overcome KMixer's restrictions by connecting directly to hardware pins on WaveCyclic and WavePci devices that support formats not supported by KMixer.</P>
+
+<P>Note the ambiguity in the meaning of the WAVE_FORMAT_PCM tag value in the preceding table—it can specify either a WAVEFORMATEX or PCMDATAFORMAT structure. However, these two structures are nearly identical. The only difference is that WAVEFORMATEX contains a <B>cbSize</B> member and PCMDATAFORMAT does not. According to the WAVEFORMATEX specification, <B>cbSize</B> is ignored if <B>wFormatTag</B>&nbsp;=&nbsp;WAVE_FORMAT_PCM; <B>cbSize</B> is used for all other formats. Thus, in the case of a PCM format, PCMDATAFORMAT and WAVEFORMATEX contain the same information and can be treated identically.</P>
+
+<P>WAVEFORMATEXTENSIBLE is able to specify a wider range of formats than WAVEFORMATEX can:
+
+<OL>
+	<LI>WAVEFORMATEXTENSIBLE specifies the number of bits per sample separately from the size of the sample container. For example, a 20-bit sample can be stored left-justified within a three-byte container. WAVEFORMATEX, which fails to distinguish the number of data bits per sample from the sample container size, is unable to describe such a format unambiguously.</LI>
+
+	<LI>WAVEFORMATEXTENSIBLE can assign specific speaker locations to audio channels in multichannel streams. WAVEFORMATEX lacks this capability and can adequately support only mono and (two-channel) stereo streams.</LI>
+</OL>
+
+<P>Any format that is described by WAVEFORMATEX can also be described by WAVEFORMATEXTENSIBLE. For information about converting a WAVEFORMATEX structure to WAVEFORMATEXTENSIBLE, see <A HREF="aud-design_7n3b.htm">Converting Between Format Tags and Subformat GUIDs</A>.</P>
+
+<P>WAVEFORMATEX is sufficient for describing formats with sample sizes of 8 or 16 bits, but WAVEFORMATEXTENSIBLE is necessary to adequately describe formats with a sample precision of greater than 16 bits. Here are two examples:
+
+<UL>
+	<LI>A stream with a sample precision of 24 bits can use a 32-bit container size for efficient processing, but can be converted to use a 24-bit container to improve storage efficiency without loss of data.</LI>
+
+	<LI>When processing a stream with 24-bit sample data, a rendering device that provides only 20 bits of precision can use dithering to improve the fidelity of its output signal. Dithering, however, requires additional processing time, and if the original stream is accurate to only 20 bits, the additional processing is unnecessary.</LI>
+</UL>
+
+<P>In both of these examples, preserving signal quality while making the right tradeoff between processing and storage efficiency is possible only if both the sample precision and container size are known.</P>
+
+<P>In all Windows releases except for Windows 98&nbsp;"Gold", KMixer supports a range of WAVEFORMATEXTENSIBLE PCM formats with multiple channels and up to 32 bits per sample.</P>
+
+<P>The subset of WAVEFORMATEX PCM formats that KMixer supports differs between Windows releases, as shown in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Windows Release</TH>
+<TH align=left width=33%>Packed Sample Sizes</TH>
+<TH align=left width=33%>Number of Channels</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>Windows&nbsp;98 "Gold"</TD>
+<TD width=33%>8, 16, 24, and 32 bits</TD>
+<TD width=33%>Multichannel</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>Windows&nbsp;98&nbsp;SE</TD>
+<TD width=33%>8 and 16 bits only</TD>
+<TD width=33%>Mono and stereo only</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>Windows&nbsp;98&nbsp;SE&nbsp;+&nbsp;QFE</TD>
+<TD width=33%>8, 16, 24, and 32 bits</TD>
+<TD width=33%>Mono and stereo only</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>Windows&nbsp;2000</TD>
+<TD width=33%>8 and 16 bits only</TD>
+<TD width=33%>Mono and stereo only</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>Windows&nbsp;Me</TD>
+<TD width=33%>8, 16, 24, and 32 bits</TD>
+<TD width=33%>Mono and stereo only</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>Windows&nbsp;XP (and later)</TD>
+<TD width=33%>8 and 16 bits only</TD>
+<TD width=33%>Mono and stereo only</TD>
+</TR>
+</TABLE><BR>
+
+<P>KMixer limits WAVEFORMATEX formats to only one or two channels in all versions of Windows except Windows 98 "Gold". The same limitations in sample size and number of channels apply to PCMWAVEFORMAT because it is equivalent to WAVEFORMATEX for PCM formats. For more information about Windows&nbsp;98&nbsp;SE&nbsp;+&nbsp;QFE, see <A HREF="aud-design_5u07.htm">Additional Requirements for Windows 98</A>.</P>
+
+<P>In WAVEFORMATEXTENSIBLE, <B>dwBitsPerSample</B> is the container size, and <B>wValidBitsPerSample</B> is the number of valid data bits per sample. Containers are always byte-aligned in memory, and the container size must be specified as a multiple of eight bits.</P>
+
+<P>When using WAVEFORMATEXTENSIBLE, set <B>wFormatTag</B> to WAVE_FORMAT_EXTENSIBLE and <B>SubFormat</B> to the appropriate format GUID. For PCM formats, set <B>SubFormat</B> to KSDATAFORMAT_SUBTYPE_PCM. For formats that encode sample values as floating-point numbers, set <B>SubFormat</B> to KSDATAFORMAT_SUBTYPE_IEEE_FLOAT. For either of these formats, set <B>cbSize</B> to <B>sizeof</B>(WAVEFORMATEXTENSIBLE)-<B>sizeof</B>(WAVEFORMATEX). For information about using WAVEFORMATEXTENSIBLE to describe non-PCM data formats, see <A HREF="aud-design_7pnr.htm">Supporting Non-PCM Wave Formats</A>.</P>
+
+<P>Each pin on a KS filter declares which data formats it supports. The pin factory exposes this information as an array of <I>data ranges</I>. Unlike the format descriptor shown in the preceding figure, a data range describes a range of data formats. For example, the data range for an audio pin's PCM data format specifies the range of sample frequencies, range of sample sizes, and maximum number of channels that the pin supports.</P>
+
+<P>When the miniport driver instantiates a pin, it configures the pin to handle a stream with a particular data format that it selects from the pin's data ranges. This work is done by the miniport driver's data-intersection handler, which selects an audio data format that is common to two pins so that they can be connected. For more information, see <A HREF="aud-design_8n1j.htm">Data-Intersection Handlers</A>.</P>
+
+<P>As explained in <A HREF="ks-overview_8rvr.htm">KS Data Formats and Data Ranges</A>, KS pins use <A HREF="ks-struct_0fub.htm">KSDATAFORMAT</A> and <A HREF="ks-struct_065v.htm">KSDATARANGE</A> structures to specify their data formats and data ranges.</P>
+
+<P>Audio pins use extended versions of these structures. WDM audio drivers use the <A HREF="aud-prop_5d83.htm">KSDATAFORMAT_DSOUND</A> and <A HREF="aud-prop_7v77.htm">KSDATAFORMAT_WAVEFORMATEX</A> structures, which are extensions of the KSDATAFORMAT structure, to provide additional information about audio data formats. Similarly, the <A HREF="aud-prop_6p0z.htm">KSDATARANGE_AUDIO</A> and <A HREF="aud-prop_1prn.htm">KSDATARANGE_MUSIC</A> structures extend the KSDATARANGE structure to provide additional information about audio data ranges.</P>
+
+<P>For information about using property requests to query audio pins for data formats and ranges, see <A HREF="aud-design_410n.htm">Pin Data-Range and Intersection Properties</A>.</P>
+
+<P>The following examples show how to use the KSDATAFORMAT and KSDATARANGE structures to describe some of the more common formats for audio streams:</P>
+
+<P class=indent1><A HREF="aud-design_8753.htm">Analog Audio Stream Data Range</A> </P>
+
+<P class=indent1><A HREF="aud-design_18vb.htm">DirectMusic Stream Data Format</A> </P>
+
+<P class=indent1><A HREF="aud-design_65uv.htm">DirectMusic Stream Data Range</A> </P>
+
+<P class=indent1><A HREF="aud-design_7nhj.htm">DirectSound Stream Data Format</A> </P>
+
+<P class=indent1><A HREF="aud-design_4jl3.htm">DirectSound Stream Data Range</A> </P>
+
+<P class=indent1><A HREF="aud-design_9p2f.htm">MIDI Stream Data Format</A> </P>
+
+<P class=indent1><A HREF="aud-design_01lz.htm">MIDI Stream Data Range</A> </P>
+
+<P class=indent1><A HREF="aud-design_9kmf.htm">PCM Stream Data Format</A> </P>
+
+<P class=indent1><A HREF="aud-design_7p5z.htm">PCM Stream Data Range</A> </P>
+
+<P class=indent1><A HREF="aud-design_6zdz.htm">PCM Multichannel Stream Data Format</A> </P>
+
+<P class=indent1><A HREF="aud-design_55pj.htm">PCM Multichannel Stream Data Range</A> </P>
+
+<P class=indent1><A HREF="aud-design_4aef.htm">PCM High Bitdepth Stream Data Format</A> </P>
+
+<P class=indent1><A HREF="aud-design_7axz.htm">PCM High Bitdepth Stream Data Range</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Data%20Formats%20for%20Audio%20Wave%20Streams"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

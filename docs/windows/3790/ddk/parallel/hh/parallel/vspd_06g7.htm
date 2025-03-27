@@ -1,0 +1,38 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Connecting an Interrupt Service Routine to a Parallel Port</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Connecting an Interrupt Service Routine to a Parallel Port">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Parallel&nbsp;Ports&nbsp;and&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_connecting_an_interrupt_service_routine_to_a_parallel_port_kg"></A>Connecting an Interrupt Service Routine to a Parallel Port</H2>
+
+<P>A kernel-mode client can use a <A HREF="cisspd_4lgy.htm">IOCTL_INTERNAL_PARALLEL_CONNECT_INTERRUPT</A> request to connect an interrupt service routine and a <I>deferred port check routine</I> to the operation of the parallel port function driver.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Microsoft does not recommend using a client-supplied interrupt routine. The use of interrupts might cause system instability. By default, the <A HREF="cisspd_4lgy.htm">IOCTL_INTERNAL_PARALLEL_CONNECT_INTERRUPT</A> request is disabled. </P>
+
+<P>To facilitate the porting and development of drivers for parallel devices, the system-supplied function driver for parallel ports supports a registry flag that kernel-mode clients can use to enable and disable a connect interrupt request. The connect interrupt request is enabled by the registry entry value <B>EnableConnectInterruptIoctl</B> under the Plug and Play registry key for the parallel port. The entry value has type REG_DWORD and the default value is 0x0 (disabled). A value that is not equal to 0x0 enables the connect interrupt request.</P>
+
+<P>The connect interrupt request returns a <A HREF="cisspd_3u7m.htm">PARALLEL_INTERRUPT_INFORMATION</A> structure that includes a pointer to the parallel port's interrupt object and the following pointers to system-supplied callback routines:
+
+<UL>
+	<LI>The <B>TryAllocatePortAtInterruptLevel</B> member is a pointer to a non-blocking <A HREF="cisspd_8a0i.htm">PPARALLEL_TRY_ALLOCATE_ROUTINE (ISR)</A> callback, which a kernel-mode driver can use in an ISR to allocate a parallel port.</LI>
+
+	<LI>The <B>FreePortFromInterruptLevel</B> member is a pointer to a non-blocking <A HREF="cisspd_4wmq.htm">PPARALLEL_FREE_ROUTINE (ISR)</A> callback that a kernel-mode driver can use in an ISR to free a parallel port.</LI>
+</UL>
+
+<P>The interrupt service routine is called at IRQL = DIRQL after a hardware interrupt on the parallel port. If a driver connects an interrupt service routine and has an <B>Unload</B> routine, the driver must send an <A HREF="cisspd_2bhu.htm">IOCTL_INTERNAL_PARALLEL_DISCONNECT_INTERRUPT</A> request in its <B>Unload</B> routine.</P>
+
+<P>The deferred port check routine is called after the parallel port is freed and when there are no pending requests to allocate the port or select an IEEE 1284.3 device. A driver can use the deferred port check routine to enable interrupts.</P>
+
+<P>If a client's interrupt service routine is called when the client does not have a port allocated, the client can attempt to quickly allocate the port by calling the PPARALLEL_TRY_ALLOCATE_ROUTINE (ISR) callback. The client can also use the PPARALLEL_FREE_ROUTINE (ISR) callback to free the port.</P>
+
+<P>Because a parallel port is shared by drivers, the parallel port function driver maintains a list of interrupt service routines and deferred port check routines connected to a parallel port. The parallel port function driver calls all connected interrupt routines and deferred port check routines in the order in which they were connected.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Connecting%20an%20Interrupt%20Service%20Routine%20to%20a%20Parallel%20Port"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

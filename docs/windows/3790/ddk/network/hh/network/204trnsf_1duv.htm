@@ -1,0 +1,55 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Single-Packet Sends from Connectionless Miniport Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Single-Packet Sends from Connectionless Miniport Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_single_packet_sends_from_connectionless_miniport_drivers_ng"></A>Single-Packet Sends from Connectionless Miniport Drivers</H2>
+
+<P>For a single packet send, a connectionless miniport driver declares the following function:</P>
+
+<PRE class=syntax><B>NDIS_STATUS
+</B>  <B>MiniportSend(
+</B>    <B>IN NDIS_HANDLE</B>  <I>MiniportAdapterContext</I><B>,</B>
+    <B>IN PNDIS_PACKET</B>  <I>Packet</I><B>,</B>
+    <B>IN UINT</B>  <I>Flags
+</I>    <B>);</B></PRE>
+
+<P>The <I>Flags</I> parameter is defined by cooperating protocol drivers and miniport drivers; NDIS does not define or make any assumptions about this parameter. However, NDIS provides a function, <A HREF="103ndisx_67si.htm"><B>NdisGetPacketFlags</B></A>, that is called by the miniport driver to retrieve the flag values. The miniport driver retains the packet until the send completes.</P>
+
+<P>A miniport driver is not required to check the packet size; rather, the miniport driver should assume that a protocol driver will never send a packet that is too large. The protocol driver queries the miniport driver during initialization to determine the maximum packet size it supports. The protocol is responsible for passing only packets of a size supported by the miniport driver. </P>
+
+<P>If a miniport driver can complete the send immediately (see the following figure), it returns NDIS_STATUS_SUCCESS, NDIS_STATUS_FAILURE if the send failed for any reason, such as a miniport driver-determined failure status, and then relinquishes ownership of the packet back to the sender. The miniport driver always returns the send status as the status of <I>MiniportSend</I>; it never sets the <B>Status</B> member of the OOB data block for such a packet.</P>
+
+<P><IMG SRC="images/fig4_4.gif" ALT="" BORDER=0></P>
+
+<P><B>Single-Packet Send From a Connectionless Miniport Driver</B><B>—</B><B>Synchronous Completion</B></P>
+
+<P>If a miniport driver cannot complete the send immediately (see the following figure), it returns NDIS_STATUS_PENDING. In this case, the miniport driver retains ownership of the packet until the send completes. For example, the miniport driver might have queued the packet internally or started but not completed the send before returning a pending status. When the send completes, the miniport driver must call <B>NdisMSendComplete</B>, passing a pointer to the packet descriptor that has been sent and relinquishing ownership of the packet resources back to the sender for reuse or to be freed. </P>
+
+<P><IMG SRC="images/fig4_5.gif" ALT="" BORDER=0></P>
+
+<P><B>Single-Packet Send From a Serialized Miniport Driver </B><B>—</B><B> Asynchronous Completion</B></P>
+
+<H4>How Serialized Miniports Handle a Resource Problem</H4>
+
+<P>If a serialized miniport driver lacks the resources for a send, it can return NDIS_STATUS_RESOURCES. In such a case, NDIS queues the packet and resends it to <I>MiniportSend</I> when the miniport driver calls <A HREF="103ndisx_58c2.htm"><B>NdisMSendResourcesAvailable</B></A> or <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A> to indicate that it can now accept packets (see the preceding figure).</P>
+
+<H4>How Deserialized Miniport Drivers Handle a Resource Problem</H4>
+
+<P>If a deserialized miniport driver lacks the resources for a send, it must queue the packet internally and return NDIS_STATUS_PENDING (see the following figure). A deserialized miniport driver cannot return NDIS_STATUS_RESOURCES. The return of such a status would effectively fail the send operation requested by the protocol, resulting in NDIS returning the packet descriptor and all associated resources to the protocol that originally allocated it.</P>
+
+<P><IMG SRC="images/fig4_6.gif" ALT="" BORDER=0></P>
+
+<P><B>Single-Packet Send From a Deserialized Miniport Driver</B><B>—</B><B>Asynchronous Completion</B></P>
+
+<P>Rather than relying on NDIS to queue and resubmit send packets whenever <I>MiniportSend</I> lacks the resources to transmit a packet, a deserialized miniport driver manages its own internal packet queuing. The miniport driver is responsible for holding incoming send packets in its internal queue until they can be transmitted over the network.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Single-Packet%20Sends%20from%20Connectionless%20Miniport%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TDI_EVENT_RECEIVE_DATAGRAM</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TDI_EVENT_RECEIVE_DATAGRAM">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_vxdtdi_tdi_event_receive_datagram"></A>TDI_EVENT_RECEIVE_DATAGRAM</H1>
+
+<P>The <B>TDI_EVENT_RECEIVE_DATAGRAM</B> event handler is called when an incoming datagram is received. As with the TDI_EVENT_RECEIVE event, the called client may take all, some, or none of the data, and may optionally pass back a buffer for unconsumed data. Unlike stream data, datagrams are not buffered, so any data the client does not consume is lost if no buffer is provided on the return. Also, MSTCP will not queue datagram receive buffers for later use if they are returned from an event handler. Thus, if a client consumes all the datagram and passes back a buffer, the buffer will be completed immediately with a length of zero. </P>
+
+<PRE class=syntax><B>TDI_STATUS
+  RcvDGEvent(
+    PVOID  </B><I>EventContext</I><B>, </B>
+<B>    uint  </B><I>AddressLength</I><B>,  </B>
+<B>    PTRANSPORT_ADDRESS  </B><I>Address</I><B>, </B>
+<B>    uint  </B><I>OptionsLength</I><B>, </B>
+<B>    PVOID  </B><I>Options</I><B>,  </B>
+<B>    uint  </B><I>Flags</I><B>, </B>
+<B>    uint  </B><I>Indicated</I><B>, </B>
+<B>    uint  </B><I>Available</I><B>,  </B>
+<B>    uint  *</B><I>Taken</I><B>, </B>
+<B>    uchar  *</B><I>Data</I><B>, </B>
+<B>    EventRcvBuffer  **</B><I>Buffer</I><B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>EventContext</I> </DT>
+
+<DD>Context value supplied on the <B>TdiSetEvent</B> call.</DD>
+
+<DT><I>AddressLength</I> </DT>
+
+<DD>Length in bytes of the structure pointed to by <I>Address</I>.</DD>
+
+<DT><I>Address</I> </DT>
+
+<DD>Pointer to a <B>TRANSPORT_ADDRESS</B> structure identifying the remote peer that sent the datagram. This structure is valid only for the duration of the call to the event handler.</DD>
+
+<DT><I>OptionsLength</I> </DT>
+
+<DD>Length in bytes of <I>Options</I>.</DD>
+
+<DT><I>Options</I> </DT>
+
+<DD>Pointer to a buffer containing IP options received with the datagram. This buffer is valid only for the duration of the call to the event handler, and may be NULL if there were no options. </DD>
+
+<DT><I>Flags</I> </DT>
+
+<DD>Set of TDI flags providing more information about the event. In the VxD environment, they are largely meaningless and may be ignored. See the Windows NT/Windows 2000 TDI documentation for more details on the flags.</DD>
+
+<DT><I>Indicated</I> </DT>
+
+<DD>Is a cCount of the number of bytes of data being indicated (for example, the number of bytes in the buffer pointed to by <I>Data</I>). </DD>
+
+<DT><I>Available</I> </DT>
+
+<DD>Count of the total number of bytes of data available in the transport. This value will always be greater than or equal to <I>Indicated</I>. If <I>Available</I> is greater than <I>Indicated,</I> then there is data available that is not being passed up in the event handler, and the called client will need to supply a receive buffer to retrieve it. The receive buffer must be supplied either by returning a pointer to an  <B>EventRcvBuffer</B> structure. If <I>Available</I> is greater than <I>Indicated</I> and the client does not provide an <B>EventRcvBuffer</B> structure, the additional data will be lost.</DD>
+
+<DT><I>Taken</I> </DT>
+
+<DD>Pointer to a location where the client may fill in the total number of bytes taken on the indication. The client may set <I>Taken</I> to zero if no data was consumed. The maximum value to which <I>Taken</I> may be set is <I>Indicated</I>. This is different from the <B>TDI_EVENT_RECEIVE</B> handler, where the maximum value of <I>Taken</I> is <I>Available</I>. If a client wants to consume the indicated data and discard the rest, it should return TDI_SUCCESS. <I>Taken</I> is only examined if TDI_MORE_PROCESSING is returned. In this case, the transport assumes that the first <I>Taken</I> bytes of data were consumed by the client and will not copy this data into a client buffer.</DD>
+
+<DT><I>Data</I> </DT>
+
+<DD>Is a pointer to a buffer of received data. The length of the buffer is given by Indicated.</DD>
+
+<DT><I>Buffer</I> </DT>
+
+<DD>Pointer to a pointer to an <B>EventRcvBuffer</B> structure If the client wants to return a receive buffer, it should set <I>Buffer</I> to a pointer to a filled in <B>EventRcvBuffer</B> structure describing the buffer chain and providing a callback routine. Note that this is different from the <B>TDI_EVENT_RECEIVE</B> case, where the transport provides the <B>EventRcvBuffer</B> structure and the client merely fills it in. This structure is only examined if the status TDI_MORE_PROCESSING is returned. The client-provided <B>EventRcvBuffer</B> structure must remain valid until the completion routine is called. The completion routine is generally called immediately.</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>The status codes that can be returned from a receive datagram event are TDI_MORE_PROCESSING, TDI_NOT_ACCEPTED, and TDI_SUCCESS. They have the same meaning as when they are returned from an ordinary TDI_EVENT_RECEIVE handler.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TDI_EVENT_RECEIVE_DATAGRAM"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

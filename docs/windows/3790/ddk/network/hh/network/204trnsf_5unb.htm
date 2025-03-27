@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Sending a Packet Using On-Board Memory</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Sending a Packet Using On-Board Memory">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_sending_a_packet_using_on_board_memory_ng"></A>Sending a Packet Using On-Board Memory</H3>
+
+<P>A miniport driver that supports a NIC that has on-board memory that appears in the I/O space of the host calls <A HREF="103ndisx_81de.htm"><B>NdisMMapIoSpace</B></A> from <I>MiniportInitialize</I> to map the adapter’s on-board memory onto host memory and to give the miniport driver a virtual address that can be used to refer to the memory. A miniport driver sends data on this type of NIC by moving the buffers to be sent into mapped memory and then writing, in a device-specific way, to the port (or registers) that the miniport driver claimed when it called <A HREF="103ndisx_76k2.htm"><B>NdisMRegisterIoPortRange</B></A>. These actions cause the NIC to put the data on the network medium. If the miniport driver lacks send resources, it either queues the packets or returns the packets to NDIS, as described earlier.</P>
+
+<P>If the miniport driver has send resources available, it calls:
+
+<OL>
+	<LI><A HREF="103ndisx_4ooi.htm"><B>NdisQueryPacket</B></A> to get the start and length of the packet containing the buffers to be sent.</LI>
+
+	<LI><A HREF="103ndisx_7t9u.htm"><B>NdisQueryBufferSafe</B></A> or <A HREF="103ndisx_0l82.htm"><B>NdisQueryBuffer</B></A> to get the buffer descriptor.</LI>
+
+	<LI><A HREF="103ndisx_97qq.htm"><B>NdisMoveToMappedMemory</B></A> to move one buffer at a time to the mapped adapter memory buffer.</LI>
+
+	<LI><A HREF="103ndisx_2j5e.htm"><B>NdisGetNextBuffer</B></A> to retrieve the next buffer from the packet and again call <B>NdisMoveToMappedMemory</B>. Repeat these two calls until all the buffers have been transferred.</LI>
+
+	<LI><B>NdisMRawWritePort</B><I>Xxx</I> or <B>NdisWriteRegister</B><I>Xxx</I> to cause the send to occur in a device-specific manner.</LI>
+</OL>
+
+<P>The miniport driver should use the length returned from <B>NdisQueryPacket</B> to make sure that there is enough room in on-board memory to contain all the buffers in the packet before starting the copy. If the NIC's memory does not have enough free space for the current packet, a serialized miniport driver can return a status of NDIS_STATUS_RESOURCES, in which case, NDIS queues the packet and resends it later when the miniport driver indicates that it has available resources. Alternatively, a serialized miniport driver can return NDIS_STATUS_PENDING and queue the packet internally. In this case, deserialized miniport drivers, connection-oriented miniport drivers, and WAN miniport drivers must return NDIS_STATUS_PENDING and queue the packet internally.</P>
+
+<H4>Sending a Packet on a Slave DMA Device</H4>
+
+<P>A slave DMA NIC uses the system DMA controller to transfer data from a packet supplied to its send handler (typically <I>MiniportSend</I>) to the NIC for transmission on the network. Miniports for slave DMA NICs are guaranteed that NDIS will ensure cache coherency during DMA transfers. </P>
+
+<P>For any packet for which the miniport driver has send resources, a miniport driver for a slave DMA NIC does the following:
+
+<OL>
+	<LI>Calls <A HREF="103ndisx_38mq.htm"><B>NdisMSetupDmaTransfer</B></A> to set up the system DMA controller for the send. The miniport driver passes the handle to a DMA channel that it allocated during miniport driver initialization by calling <A HREF="103ndisx_1gxe.htm"><B>NdisMRegisterDmaChannel</B></A>, a pointer to the host memory buffer containing the data to be sent, an offset into the buffer, the length of the data, and a Boolean value that indicates the direction of the transfer—in this case, from host memory to the device. On return from <B>NdisMSetupDmaTransfer</B>, the controller is programmed to transfer the data, including ensuring that the buffer is cache-coherent.</LI>
+
+	<LI>Performs device-dependent steps to cause the transfer (for example by calling <B>NdisRawWritePort</B><I>Xxx</I>).</LI>
+
+	<LI>When the transfer is complete, the miniport driver calls <A HREF="103ndisx_00ky.htm"><B>NdisMCompleteDmaTransfer</B></A>.</LI>
+</OL>
+
+<P>Generally, the miniport driver sets up the complete buffer for transfer. However, if the size of the buffer is greater than the DMA constraints of the NIC, the miniport driver uses the length and offset parameters to send a subrange of the buffer. If the buffer to be sent is less than 256 bytes, the miniport driver can improve performance by copying the data into a staging buffer and passing a miniport driver-allocated descriptor for the buffer to <B>NdisMSetupDmaTransfer</B>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Sending%20a%20Packet%20Using%20On-Board%20Memory"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

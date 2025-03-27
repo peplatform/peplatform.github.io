@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IoCompletion</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IoCompletion">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_iocompletion_kr"></A><I>IoCompletion</I></H1>
+
+<P>The <I>IoCompletion</I> routine completes the processing of I/O operations.</P>
+
+<PRE class=syntax><B>NTSTATUS
+  </B><I>IoCompletion</I><B>(</B>
+<B>    IN PDEVICE_OBJECT  </B><I>DeviceObject</I><B>,</B>
+<B>    IN PIRP  </B><I>Irp</I><B>,</B>
+<B>    IN PVOID  </B><I>Context</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceObject</I></DT>
+
+<DD>Caller-supplied pointer to a <A HREF="k112_32cy.htm">DEVICE_OBJECT</A> structure. This is the device object for the target device, previously created by the driver's <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine.</DD>
+
+<DT><I>Irp</I></DT>
+
+<DD>Caller-supplied pointer to an <A HREF="k112_3z5e.htm">IRP</A> structure that describes the I/O operation.</DD>
+
+<DT><I>Context</I></DT>
+
+<DD>Caller-supplied pointer to driver-specific context information, previously supplied when calling <A HREF="k104_5w6q.htm"><B>IoSetCompletionRoutine</B></A>, or <A HREF="k104_17zm.htm"><B>IoSetCompletionRoutineEx</B></A>. Context information must be stored in nonpaged memory, since an <I>IoCompletion</I> routine can be called at DISPATCH_LEVEL (see the following Comments section).
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>If the <I>IoCompletion</I> routine determines that additional processing is required for the IRP, it must return STATUS_MORE_PROCESSING_REQUIRED. For more information, see the following Comments section. Otherwise it should return STATUS_SUCCESS. (The I/O Manager only checks for the presence or absence of STATUS_MORE_PROCESSING_REQUIRED.)</P>
+
+<H4>Comments</H4>
+
+<P>A driver's <I>IoCompletion</I> routine executes in an arbitrary thread or DPC context, and at an IRQL that is less than or equal to <A HREF="intrupts_0kh3.htm#ddk_dispatch_level_kg">DISPATCH_LEVEL</A>. Because code written to execute at DISPATCH_LEVEL will also execute at lower levels, <I>IoCompletion</I> routines should be designed for execution at DISPATCH_LEVEL. However, because these routines are not guaranteed to run at DISPATCH_LEVEL, they must not call system routines that actually require execution at DISPATCH_LEVEL. (For more information about IRQLs, see <A HREF="intrupts_0kh3.htm">Managing Hardware Priorities</A>.)</P>
+
+<P>To register an <I>IoCompletion</I> routine for a specific IRP, a driver must call <A HREF="k104_5w6q.htm"><B>IoSetCompletionRoutine</B></A> or <A HREF="k104_17zm.htm"><B>IoSetCompletionRoutineEx</B></A>, which stores the <I>IoCompletion</I> routine's address in the next-lower driver's I/O stack location. (Thus, a lowest-level driver <I>cannot</I> register an <I>IoCompletion</I> routine.) A driver typically calls <B>IoSetCompletionRoutine</B> or <B>IoSetCompletionRoutineEx</B> from one of its dispatch routines, each time an IRP is received. Most drivers, including all PnP drivers, can use<B> IoSetCompletionRoutine</B> to register their <I>IoCompletion</I> routine. Non-PnP drivers that may be unloaded before their <I>IoCompletion</I> routine executes should use <B>IoSetCompletionRoutineEx</B> instead.</P>
+
+<P>When any driver completes an IRP, it calls <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>, which in turn calls the <I>IoCompletion</I> routine of each higher-level driver, from the next-highest to the highest, until all higher <I>IoCompletion</I> routines have been called or until one routine returns STATUS_MORE_PROCESSING_REQUIRED.</P>
+
+<P>If an <I>IoCompletion</I> routine returns STATUS_MORE_PROCESSING_REQUIRED, the lower driver's call to <B>IoCompleteRequest</B> immediately returns. In this case, a higher-level driver will have to call <B>IoCompleteRequest</B> to complete the IRP.</P>
+
+<P>For more information about implementing <I>IoCompletion</I> routines, see <A HREF="irps_6crr.htm">Completing IRPs</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IoCompletion"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,181 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Custom Property Sets and Interfaces</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Custom Property Sets and Interfaces">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_custom_property_sets_and_interfaces_ksg"></A>Custom Property Sets and Interfaces</H2>
+
+<P>Some devices and streams can implement custom property sets to control device-specific or stream-specific parameters. Typically, these kernel property sets are exposed as COM interfaces by a KSProxy plug-in. Similarly, custom property pages can be implemented to provide user interfaces to control these property sets, also by creating a KSProxy plug-in.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To create a custom property set:</B>
+
+<OL>
+	<LI>Create a unique GUID for your property set using <I>Guidgen.exe</I>.</LI>
+
+	<LI>Add the property set implementation to your driver.</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To create a custom COM interface or property page for your property set:</B>
+
+<OL>
+	<LI>Create a KsProxy plug-in DLL implementing your COM interface or property page. The Class ID (CLSID) for the plug-in DLL must match the property set GUID. Link to <I>ksproxy.lib</I> to get the implementation of <B>::KsSynchronousDeviceControl</B>.</LI>
+
+	<LI>Add the standard DirectShow mechanism of exposing CFactoryTemplateg_Templates from your DLL to allow self registration of your interface.</LI>
+
+	<LI>Add lines to the device INF file to expose the COM interface and property page as shown in the sample <I>MyINF.inf</I> below.
+<P>The following code samples are extracted from the implementation of <B>IAMCameraControl</B>.
+</LI>
+</OL>
+
+<P><B>Camera.h</B></P>
+
+<PRE>/*
+Implements IAMCameraControl via KSPROPERTY_VIDCAP_CAMERACONTROL
+*/
+
+class CCameraControlInterfaceHandler :
+    public CUnknown,
+    public IAMCameraControl {
+
+public:
+    DECLARE_IUNKNOWN;
+
+    static CUnknown* CALLBACK CreateInstance(
+        LPUNKNOWN UnkOuter,
+        HRESULT* hr);
+
+    CCameraControlInterfaceHandler(
+        LPUNKNOWN UnkOuter,
+        TCHAR* Name,
+        HRESULT* hr);
+
+    STDMETHODIMP NonDelegatingQueryInterface(
+        REFIID riid,
+        PVOID* ppv);
+    
+    STDMETHODIMP Set( 
+            IN long Property,
+            IN long lValue,
+            IN long Flags);
+        
+private:
+    HANDLE m_ObjectHandle;
+};
+</PRE>
+
+<P><B>Camera.cpp</B></P>
+
+<PRE>/*
+Implements IAMCameraControl via KSPROPERTY_VIDCAP_CAMERACONTROL
+*/
+
+#include "pch.h"
+#include "camera.h"
+
+CUnknown*
+CALLBACK
+CCameraControlInterfaceHandler::CreateInstance(
+    LPUNKNOWN   UnkOuter,
+    HRESULT*    hr
+    )
+{
+    CUnknown *Unknown;
+
+    Unknown = new CCameraControlInterfaceHandler(UnkOuter, NAME("IAMCameraControl"), hr);
+    if (!Unknown) {
+        *hr = E_OUTOFMEMORY;
+    }
+    return Unknown;
+} 
+
+CCameraControlInterfaceHandler::CCameraControlInterfaceHandler(
+    LPUNKNOWN   UnkOuter,
+    TCHAR*      Name,
+    HRESULT*    hr
+    ) :
+    CUnknown(Name, UnkOuter, hr)
+{
+    if (SUCCEEDED(*hr)) {
+        if (UnkOuter) {
+            IKsObject*  Object;
+            *hr =  UnkOuter-&gt;QueryInterface(uuidof(IKsObject), reinterpret_cast&lt;PVOID*&gt;(&amp;Object));
+            if (SUCCEEDED(*hr)) {
+                m_ObjectHandle = Object-&gt;KsGetObjectHandle();
+                // m_Object handle is file handle of the driver
+                if (!m_ObjectHandle) {
+                    *hr = E_UNEXPECTED;
+                }
+                Object-&gt;Release();
+            }
+        } else {
+            *hr = VFW_E_NEED_OWNER;
+        }
+    }
+}
+
+STDMETHODIMP
+CCameraControlInterfaceHandler::Set(
+     IN long Property,
+     IN long lValue,
+     IN long lFlags
+     )
+{
+    KSPROPERTY_CAMERACONTROL_S  CameraControl;
+    ULONG       BytesReturned;
+
+    CameraControl.Property.Set = PROPSETID_VIDCAP_CAMERACONTROL;
+    CameraControl.Property.Id = Property;
+    CameraControl.Property.Flags = KSPROPERTY_TYPE_SET;
+    CameraControl.Value = lValue;
+    CameraControl.Flags = lFlags;
+    CameraControl.Capabilities = 0;
+
+    return ::KsSynchronousDeviceControl(
+                m_ObjectHandle,
+                IOCTL_KS_PROPERTY,
+                &amp;CameraControl,
+                sizeof(CameraControl),
+                &amp;CameraControl,
+                sizeof(CameraControl),
+                &amp;BytesReturned);
+}
+
+STDMETHODIMP
+CCameraControlInterfaceHandler::NonDelegatingQueryInterface(
+    REFIID  riid,
+    PVOID*  ppv
+    )
+{
+    if (riid == uuidof(IAMCameraControl)) {
+        return GetInterface(static_cast&lt;IAMCameraControl*&gt;(this), ppv);
+    }
+    return CUnknown::NonDelegatingQueryInterface(riid, ppv);
+}
+</PRE>
+
+<P><B>MyINF.inf</B></P>
+
+<PRE>;IAMCameraControl
+HKCR,CLSID\{C6E13370-30AC-11d0-A18C-00A0C9118956},,,%PlugIn_IAMCameraControl%
+HKCR,CLSID\{C6E13370-30AC-11d0-A18C-00A0C9118956}\InprocServer32,,,kswdmcap.ax
+HKCR,CLSID\{C6E13370-30AC-11d0-A18C-00A0C9118956}\InprocServer32,ThreadingModel,,Both
+; This IID is aggregated for the filter given the CLSID of the property set
+HKLM,System\CurrentControlSet\Control\MediaInterfaces\{C6E13370-30AC-11d0-A18C-00A0C9118956},,,%PlugIn_IAMCameraControl%
+HKLM,System\CurrentControlSet\Control\MediaInterfaces\{C6E13370-30AC-11d0-A18C-00A0C9118956},IID,1,70,33,E1,C6,AC,30,d0,11,A1,8C,00,A0,C9,11,89,56
+
+; CameraControl Property Page
+HKCR,CLSID\{71F96465-78F3-11d0-A18C-00A0C9118956},,,%PropPage_CameraControl%
+HKCR,CLSID\{71F96465-78F3-11d0-A18C-00A0C9118956}\InprocServer32,,,kswdmcap.ax
+HKCR,CLSID\{71F96465-78F3-11d0-A18C-00A0C9118956}\InprocServer32,ThreadingModel,,Both
+; Associate the property set with the above property page
+HKLM,System\CurrentControlSet\Control\MediaSets\{C6E13370-30AC-11d0-A18C-00A0C9118956}\PropertyPages\{71F96465-78F3-11d0-A18C-00A0C9118956},,,%PropPage_CameraControl%</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Custom%20Property%20Sets%20and%20Interfaces"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

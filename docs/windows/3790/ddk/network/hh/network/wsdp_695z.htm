@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Accepting Connection Requests</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Accepting Connection Requests">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_accepting_connection_requests_ng"></A>Accepting Connection Requests</H3>
+
+<P>If an application calls the <B>WSAAccept</B>, <B>accept</B>, or <B>AcceptEx</B> function to accept an incoming connection request on a socket, the Windows Sockets switch always forwards this call to the TCP/IP service provider. If an incoming connection request arrives from a nonSAN network, it flows through the NDIS path and the TCP/IP service provider handles it. If a connection request arrives from a remote peer on a SAN, the switch acts as an intermediary between the TCP/IP service provider and the SAN service provider in determining whether to accept the connection request and in completing the application’s <B>WSAAccept</B>, <B>accept</B>, or <B>AcceptEx</B> function.</P>
+
+<P>The following figure shows an overview of the interaction between the Windows Sockets switch and the SAN service provider in determining whether to accept or reject an incoming connection request. The sequences and sections that follow describe acceptance determination in more detail.</P>
+
+<P><IMG SRC="images/apiflow5.gif" ALT="" BORDER=0></P>
+
+<P><B>Accepting an Incoming Connection Request</B></P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To accept or reject a connect request</B>
+
+<OL>
+	<LI>On receiving an incoming connection request from a remote peer, the SAN service provider signals an event object as described in <A HREF="wsdp_86lj.htm">Listening for Connections on a SAN</A>. </LI>
+
+	<LI>The Windows Sockets switch calls the SAN service provider's <A HREF="wsdpref_9lki.htm"><B>WSPEnumNetworkEvents</B></A> function to receive the FD_ACCEPT event code. </LI>
+
+	<LI>On receiving the FD_ACCEPT event code, the switch calls the SAN service provider's <A HREF="wsdpref_0tiq.htm"><B>WSPAccept</B></A> function to accept or reject the incoming connection request. </LI>
+
+	<LI>In the switch's call to the SAN service provider's <B>WSPAccept</B> function, the switch specifies a condition function. The SAN service provider must call this condition function in the same thread in which the <B>WSPAccept</B> function was called before returning from the <B>WSPAccept</B> call. </LI>
+
+	<LI>The switch returns the CF_ACCEPT, CF_DEFER, or CF_REJECT code from this condition function to indicate that it accepts, defers, or rejects the connection request respectively.</LI>
+</OL>
+
+<H4>Accepting a Connection Request and Creating an Accepting Socket</H4>
+
+<P>If an application accepts an incoming connection request, the switch returns the CF_ACCEPT code to the SAN service provider to complete the switch's condition function. On receiving CF_ACCEPT, the SAN service provider initializes an internal data structure in which it stores information about the accepting socket. The SAN service provider’s <B>WSPAccept</B> function must next call the <B>WPUCreateSocketHandle</B> function to acquire a descriptor for the accepting socket from the switch. The SAN service provider must store the switch's descriptor in its internal data structure for the accepting socket and must return its own descriptor for the accepting socket to complete the <B>WSPAccept</B> call. The switch must supply the SAN service provider’s internal descriptor for the accepting socket when calling the SAN service provider’s functions, while the SAN service provider must supply the switch's socket descriptor in up calls to the switch. </P>
+
+<P>Before successfully completing <B>WSPAccept</B>, the SAN service provider should call the Win32® <B>ResetEvent</B> function to reset the event object. Doing so enables the SAN service provider to later call the Win32® <B>SetEvent</B> function to signal the switch to accept the next incoming connection request. </P>
+
+<H4>Rejecting a Connection Request</H4>
+
+<P>If an application rejects an incoming connection request, the switch returns the CF_REJECT code to the SAN service provider to complete the switch's condition function. On receiving CF_REJECT, the SAN service provider should return the WSAECONNREFUSED error code to the switch to complete the <B>WSPAccept</B> call. </P>
+
+<H4>Deferring Connection Request Acceptance</H4>
+
+<P>If an application defers acceptance of an incoming connection request, either explicitly through a condition function or implicitly by delaying its <B>accept</B> call, the switch returns the CF_DEFER code to the SAN service provider to complete the switch's condition function. On receiving CF_DEFER, the SAN service provider should keep the connection request in the queue and return the WSATRY_AGAIN error code to the switch to complete the <B>WSPAccept</B> call. </P>
+
+<P>To prevent a SAN service provider from signaling the switch to accept an additional incoming connection request while awaiting the acceptance or rejection of a deferred connection request, a SAN service provider must not call the Win32 <B>ResetEvent</B> function to reset the event object before returning from the <B>WSPAccept</B> call. Instead, the SAN service provider should queue such incoming connection requests. The maximum number of incoming connection requests that the SAN service provider can queue was specified in the <I>backlog</I> parameter that the switch passed to the SAN service provider's <A HREF="wsdpref_4a5u.htm"><B>WSPListen</B></A> function. When the application eventually accepts or rejects the deferred connection request, the switch again calls the SAN service provider’s <B>WSPAccept</B> function and returns either CF_ACCEPT or CF_REJECT codes from its condition function. At this point, the SAN service provider should call the Win32 <B>ResetEvent</B> function to reset the event object. Doing so enables the SAN service provider to later call the Win32 <B>SetEvent</B> function to signal the switch to accept the next incoming connection request in the SAN service provider's backlog queue. </P>
+
+<H4>Indicating Acceptance or Refusal of a Connection Request to a Remote Peer</H4>
+
+<P>Before a SAN service provider can indicate to a remote peer that it accepts or refuses the remote peer's connection request, the SAN service provider must call the switch's condition function. Depending on the value that the switch's condition function returns, the SAN service provider should make one of the following indications to the remote peer:</P>
+
+<P class=indent1>If the switch's condition function returns CF_ACCEPT, the SAN service provider should indicate that it accepts the remote peer's connection request. The SAN service provider on the remote peer can then successfully complete its connection operation that was initiated by a <B>WSPConnect</B> call.</P>
+
+<P class=indent1>If the switch's condition function returns CF_REJECT, the SAN service provider should indicate that it refuses the remote peer's connection request. The SAN service provider on the remote peer must fail its connection operation that was initiated by a <B>WSPConnect</B> call with the WSAECONNREFUSED error code.</P>
+
+<P class=indent1>If the switch's condition function returns CF_DEFER, the SAN service provider should indicate that it accepts the remote peer's connection request and should keep the connection request in the queue. (Note that the TCP/IP service provider also has this behavior of indicating acceptance of the connection request even though the application has deferred acceptance.) When the switch later calls the SAN service provider's <B>WSPAccept</B> function to accept or reject the deferred connection request, the switch's condition function returns either the CF_ACCEPT or CF_REJECT value. If the switch's condition function returns CF_REJECT, the SAN service provider should tear down the already established connection. </P>
+
+<H4>Session Negotiation</H4>
+
+<P>After the switch has successfully used a SAN service provider to accept a connection request from a remote peer, the switch negotiates a session with that peer. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To negotiate a session</B>
+
+<OL>
+	<LI>The switch at the remote peer calls the SAN service provider's <A HREF="wsdpref_5hte.htm"><B>WSPRecv</B></A> function to post a set of receive buffers. </LI>
+
+	<LI>The switch at the remote peer calls the SAN service provider's <A HREF="wsdpref_6rqq.htm"><B>WSPSend</B></A> function to send a session negotiation message to the switch at the local accepting endpoint. This message includes the number of receive buffers that the switch at the remote peer posted. </LI>
+
+	<LI>The switch at the local accepting endpoint calls the local SAN service provider's <B>WSPRecv</B> function to post its own receive buffers, but it might not be able to do so in time to receive the session negotiation message. If the local switch does not post a receive buffer in time, the SAN service provider at the local accepting endpoint must buffer the remote switch’s session negotiation message. Note that a SAN service provider must not drop a connection simply because the switch did not post a receive buffer before the session negotiation message arrived. The maximum length of a session negotiation message is 256 bytes. </LI>
+
+	<LI>The switch at the local accepting endpoint posts its receive buffers before responding to the session negotiation message. The local switch calls the local SAN service provider's <B>WSPSend</B> function to respond to the session negotiation message. The local switch's response includes the number of receive buffers that the local switch posted. From this point forward, the local switch guarantees that the posted set of receive buffers is of sufficient size to receive any message that arrives on the connection.</LI>
+
+	<LI>If an application specifies an initial receive buffer in its <B>AcceptEx</B> call, the switch waits until it receives the first data message from its remote peer before completing the application’s <B>AcceptEx</B> call. </LI>
+
+	<LI>If the application cancels its own <B>accept</B> call, the switch calls the appropriate SAN service provider's <A HREF="wsdpref_4fsi.htm"><B>WSPCloseSocket</B></A> function to close the accepting SAN socket. </LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Accepting%20Connection%20Requests"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AVCSTRM_GET_STATE</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="AVCSTRM_GET_STATE">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mj_internal_device_control_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mj_internal_device_control_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_avcstrm_get_state_ks"></A>AVCSTRM_GET_STATE</H1>
+
+<P>The AVCSTRM_GET_STATE function code obtains the current stream state of the specified stream.</P>
+
+<H4>I/O Status Block</H4>
+
+<P>If successful, <I>avcstrm.sys</I> sets <B>Irp-&gt;IoStatus.Status </B>to STATUS_SUCCESS.</P>
+
+<P>If successful, a STATUS_SUCCESS is returned. The <B>StreamState</B> member of the <B>CommandData</B> union has the current stream state. It can be KSSTATE_STOP, KSTATE_PAUSE, or KSSTATE_RUN.</P>
+
+<P>Possible error return values include:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Error Status</TH>
+<TH align=left width=52%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>STATUS_DEVICE_REMOVED</TD>
+<TD width=52%>The device corresponding to the AVCSTRM_READ operation no longer exists.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>STATUS_CANCELLED</TD>
+<TD width=52%>The request was unable to be completed.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>STATUS_INVALID_PARAMETER</TD>
+<TD width=52%>A parameter specified in the IRP is incorrect,</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>STATUS_INSUFFICIENT_RESOURCES</TD>
+<TD width=52%>There were not sufficient system resources to complete the request.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>STATUS_PENDING</TD>
+<TD width=52%>The request has been received but requires further processing. The I/O completion routine will handle the final response.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>avcstrm.h</I>. Include <I>avcstrm.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>This function uses the <B>StreamState</B> member of the <B>CommandData</B> union in the AVC_STREAM_REQUEST_BLOCK structure as shown below.</P>
+
+<PRE class=syntax>typedef struct _AVC_STREAM_REQUEST_BLOCK {
+  ULONG  SizeOfThisBlock;
+  ULONG  Version;
+  AVCSTRM_FUNCTION  Function;
+  .
+  .
+  PVOID AVCStreamContext;
+  .
+  .
+  union _tagCommandData {
+    .
+    .
+    KSSTATE  StreamState;
+    .
+    .
+  } CommandData;
+} AVC_STREAM_REQUEST_BLOCK, *PAVC_STREAM_REQUEST_BLOCK;</PRE>
+
+<H4>AVC_STREAM_REQUEST_BLOCK Input</H4>
+
+<DL>
+<DT><B>SizeOfThisBlock, Version and Function</B></DT>
+
+<DD>Use the <A HREF="avcsref_98s3.htm">INIT_AVCSTRM_HEADER</A> macro to initialize these members. Pass AVCSTRM_GET_STATE in the Request argument of the macro.</DD>
+
+<DT><B>AVCStreamContext</B></DT>
+
+<DD>Specifies the stream context (handle) returned by an earlier AVCSTRM_OPEN call to obtain the stream state from.</DD>
+
+<DT><B>StreamState</B></DT>
+
+<DD>If AVCSTRM_GET_STATE returns successfully, this member contains the current stream state.
+</DD>
+</DL>
+
+<P>A subunit driver must first allocate an IRP and an <A HREF="avcsref_0h83.htm">AVC_STREAM_REQUEST_BLOCK</A> structure. Next, it should use the <A HREF="avcsref_98s3.htm">INIT_AVCSTRM_HEADER</A> macro to initialize the AVC_STREAM_REQUEST_BLOCK structure, passing AVCSTRM_GET_STATE as the Request argument to the macro. Next, the subunit driver sets the <B>AVCStreamContext</B> member to the stream context (handle) of the stream to obtain the stream state from.</P>
+
+<P>To send this request, a subunit submits an <A HREF="JavaScript:hhobj_1.Click()">IRP_MJ_INTERNAL_DEVICE_CONTROL</A> IRP with the <B>IoControlCode</B> member of the IRP set to <A HREF="avcsref_64vn.htm">IOCTL_AVCSTRM_CLASS</A> and the <B>Argument1</B> member of the IRP set to the AVC_STREAM_REQUEST_BLOCK structure that describes the stream to obtain the stream state from.</P>
+
+<P>A subunit driver can expect this command to be completed synchronously. The result returns immediately without pending operation in <I>avcstrm.sys</I>.</P>
+
+<P>This function code must be called at IRQL = PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="avcsref_0h83.htm">AVC_STREAM_REQUEST_BLOCK</A>, <A HREF="avcsref_98s3.htm">INIT_AVCSTRM_HEADER</A>, <A HREF="JavaScript:hhobj_2.Click()">IRP_MJ_INTERNAL_DEVICE_CONTROL</A>, <A HREF="avcsref_64vn.htm">IOCTL_AVCSTRM_CLASS</A>, <A HREF="ks-struct_1ooj.htm">KSSTATE</A>, <A HREF="avcsref_34tv.htm">AVCSTRM_FUNCTION</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: AVCSTRM_GET_STATE"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

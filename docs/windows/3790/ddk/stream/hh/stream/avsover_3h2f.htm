@@ -1,0 +1,43 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Leading and Trailing Edge Stream Pointers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_leading_and_trailing_edge_stream_pointers_ksg"></A>Leading and Trailing Edge Stream Pointers</H4>
+
+<P>By default, an AVStream queue contains one stream pointer referred to as the leading edge stream pointer. The leading edge stream pointer is a pointer into the data stream that points to the most recent unread data in the queue. It is through this pointer that the client first encounters new frames.</P>
+
+<P>When frames arrive in a queue, the leading edge is set to point to the first of these data frames. Pin-centric filters call <A HREF="avfunc_4rlf.htm"><B>KsStreamPointerAdvance</B></A> to advance the leading edge. AVStream advances the leading edge pointer for filter-centric filters. The leading edge also advances when a streaming IRP is canceled.</P>
+
+<P>Some queues have a <I>trailing edge</I> stream pointer. The trailing edge often indicates the oldest frame of interest to the client. The trailing edge trails behind the leading edge and is advanced only by the minidriver or by cancellation.</P>
+
+<P>For leading and trailing edge stream pointers, some additional rules apply:
+
+<UL>
+	<LI>The initial reference count for a frame arriving in a queue is zero. </LI>
+
+	<LI>All stream pointers except the trailing edge stream pointer increment a frame's reference count when they are set to reference that frame. </LI>
+
+	<LI>All stream pointers except the leading edge stream pointer <I>in a queue that has a trailing edge stream pointer </I>decrement a frame's reference count when they are set to no longer reference that frame. </LI>
+
+	<LI>When a frame's reference count changes from one to zero, the frame leaves the queue for its next destination. </LI>
+</UL>
+
+<P>The effect of these rules is that frames between the leading and trailing edge remain in the queue unless they are canceled, even if they have no stream pointer referencing them.</P>
+
+<P>As such, minidrivers can maintain a 'window' on a stream consisting of multiple contiguous frames. Minidrivers that access the stream at only one point can use just the leading edge stream pointer. Minidrivers that control the movement of each frame individually can create their own stream pointers by calling <A HREF="avfunc_8t6b.htm"><B>KsStreamPointerClone</B></A> to clone an existing stream pointer. The use of the trailing edge and cloning may also be mixed, if desired, as illustrated in the following figure.</P>
+
+<P><IMG SRC="images/cnstream4.gif" ALT="" BORDER=0></P>
+
+<P><B>Examples of AVStream Stream Pointers Referencing the Queue</B></P>
+
+<P>The leading edge stream pointer and optional trailing edge stream pointer are created and managed by the queue. The functions <A HREF="avfunc_7cj7.htm"><B>KsPinGetLeadingEdgeStreamPointer</B></A> and <A HREF="avfunc_10hf.htm"><B>KsPinGetTrailingEdgeStreamPointer</B></A> provide access to these stream pointers through a pin associated with the queue.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Leading%20and%20Trailing%20Edge%20Stream%20Pointers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

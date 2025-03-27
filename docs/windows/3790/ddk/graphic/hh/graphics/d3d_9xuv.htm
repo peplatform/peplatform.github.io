@@ -1,0 +1,26 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Presentation</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Presentation">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_presentation_gg"></A>Presentation</H2>
+
+<P>DirectX 8.0 formalizes the concept of “presentation” (or making the results of rendering visible to the user) in the API. Previously, this was accomplished either by page flipping in full screen mode or by blitting in windowed mode. Applications use the new <B>Present</B> API to perform either full screen flipping or windowed mode blitting. However, this mechanism is not yet exposed at the DDI level. The runtime simply maps the <B>Present</B> API to either the <A HREF="ddfncs_3e07.htm"><I>DdFlip</I></A> or <A HREF="ddfncs_7lpj.htm"><I>DdBlt</I></A> DDI entry points depending on the application mode.</P>
+
+<P>DirectX 8.0 has added two new DirectDraw blt flags that are passed to the driver as notification of when a blt operation is actually part of a <B>Present</B> and therefore marks a frame boundary. These new flags are DDBLT_PRESENTATION and DDBLT_LAST_PRESENTATION. Two flags are necessary because clipping may result in a single <B>Present</B> call invoking multiple blt operations in the driver. In this case, all of the blts that are invoked as a result of the <B>Present</B> operation have the DDBLT_PRESENTATION flag set. However, only the final blt of the sequence used to perform the <B>Present</B> has the DDBLT_LAST_PRESENTATION bit set. Therefore, if blt is used to implement a <B>Present</B> call, the driver sees zero or more blts with the DDBLT_PRESENTATION bit set followed by exactly one blt with both the DDLT_PRESENTATION and DDBLT_LAST_PRESENTATION bits set. These flags are never set by the application. Only the runtime is allowed to pass these flags to a blt. In addition, these flags are only passed to drivers supporting the DirectX 8.0 DDI.</P>
+
+<P>The driver is only permitted to queue a maximum of three frames. If the driver sees a blt call with DDBLT_PRESENTATION set and it already has three DDBLT_LAST_PRESENTATION blts queued it must fail the call with DDERR_WASSTILLDRAWING. The runtime retries until the queue has drained sufficiently.</P>
+
+<P>If the driver cannot effectively determine when a DDBLT_LAST_PRESENTATION blt in the queue has been retired, then the driver must not queue frames at all. DDBLT_LAST_PRESENTATION should cause such drivers to return DDERR_WASSTILLDRAWING until the accelerator is completely finished, exactly as if the application had called <B>Lock</B> on the source surface before calling <B>Blt</B>.</P>
+
+<P>Finally, in the case of multiple windowed applications running simultaneously, the driver should count presentation blts based on the source of each blt, rather than the primary, that is, the driver is allowed to queue three frames per window/render target. This results in better performance.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Presentation"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

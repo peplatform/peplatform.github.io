@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Do Waiting Threads Receive Alerts and APCs?</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Do Waiting Threads Receive Alerts and APCs?">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_do_waiting_threads_receive_alerts_and_apcs_kg"></A>Do Waiting Threads Receive Alerts and APCs?</H2>
+
+<P>The way a waiting thread responds to alerts and APC delivery depends on a number of factors. In some cases, an alert will cause a wait to be aborted, while in others it will not. Likewise, APCs are delivered to waiting threads only under certain circumstances. The following table summarizes the treatment of alerts and APCs by threads waiting on dispatcher objects.</P>
+
+<P>Four kernel support routines initiate a wait on a dispatcher object: <A HREF="k105_40c2.htm"><B>KeWaitForSingleObject</B></A>, <A HREF="k105_18oi.htm"><B>KeWaitForMultipleObjects</B></A>, <A HREF="k105_2kvm.htm"><B>KeWaitForMutexObject</B></A>, and <A HREF="k105_7epe.htm"><B>KeDelayExecutionThread</B></A>. All four of these routines take a pair of Boolean parameters called <I>Alertable</I> and <I>WaitMode</I>. The effects of the values that can be assigned to these two parameters are complex. Assigning a value of TRUE to the <I>Alertable</I> parameter, for instance, does not guarantee that the waiting thread can be alerted. The rest of this section provides a summary of how the settings of the <I>Alertable</I> and <I>WaitMode</I> parameters affect the behavior of the waiting thread.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=15%>Parameter Settings of KeWaitFor<I>Xxx</I> Routines</TH>
+<TH align=left colspan=2 width=24%>Special Kernel-Mode APC</TH>
+<TH align=left colspan=2 width=25%>Normal Kernel-Mode APC</TH>
+<TH align=left colspan=2 width=24%>User-Mode APC</TH>
+<TH align=left width=12%>Alerts</TH>
+</TR>
+
+<TR VALIGN="top">
+<TH align=left width=15%>&nbsp;</TH>
+<TH align=left width=11%>Wait Aborted?</TH>
+<TH align=left width=13%>APC Delivered and Executed?</TH>
+<TH align=left width=11%>Wait Aborted?</TH>
+<TH align=left width=14%>APC Delivered and Executed?</TH>
+<TH align=left width=12%>Wait Aborted?</TH>
+<TH align=left width=12%>APC Delivered and Executed?</TH>
+<TH align=left width=12%>Wait Aborted?</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%>Alertable = TRUE
+<P>WaitMode = User</P>
+</TD>
+<TD width=11%><B>No</B></TD>
+<TD width=13%>If <B>(A)</B> then <B>Yes</B></TD>
+<TD width=11%><B>No</B></TD>
+<TD width=14%>If <B>(B)</B> then <B>Yes</B></TD>
+<TD width=12%><B>Yes</B></TD>
+<TD width=12%><B>Yes</B>, after thread returns to user mode</TD>
+<TD width=12%><B>Yes</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%><I>Alertable</I> = TRUE
+<P><I>WaitMode</I> = Kernel</P>
+</TD>
+<TD width=11%><B>No</B> </TD>
+<TD width=13%>If <B>(A)</B> then <B>Yes</B></TD>
+<TD width=11%><B>No</B> </TD>
+<TD width=14%>If <B>(B) </B>then <B>Yes</B></TD>
+<TD width=12%><B>No</B> (since <I>WaitMode</I> = Kernel)</TD>
+<TD width=12%><B>No</B></TD>
+<TD width=12%><B>Yes</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%><I>Alertable</I> = FALSE
+<P><I>WaitMode</I> = User</P>
+</TD>
+<TD width=11%><B>No</B> </TD>
+<TD width=13%>If <B>(A)</B> then <B>Yes</B></TD>
+<TD width=11%><B>No </B></TD>
+<TD width=14%>If <B>(B)</B> then <B>Yes</B></TD>
+<TD width=12%><B>No</B> (since <I>Alertable</I> = FALSE)</TD>
+<TD width=12%><B>No</B> (with exceptions, EX. ^C to terminate)</TD>
+<TD width=12%><B>No</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%><I>Alertable</I> = FALSE
+<P><I>WaitMode</I> = Kernel</P>
+</TD>
+<TD width=11%><B>No</B> </TD>
+<TD width=13%>If <B>(A)</B> then <B>Yes</B></TD>
+<TD width=11%><B>No </B></TD>
+<TD width=14%>If <B>(B)</B> then <B>Yes</B></TD>
+<TD width=12%><B>No</B> (since <I>Alertable</I> = FALSE <B>and</B> since <I>WaitMode</I> = Kernel)</TD>
+<TD width=12%><B>No</B></TD>
+<TD width=12%><B>No</B></TD>
+</TR>
+</TABLE><BR>
+
+<OL type=A>
+	<LI><B>IRQL &lt; APC_LEVEL</B></LI>
+
+	<LI><B>IRQL &lt; APC_LEVEL, thread not already in an APC, thread not in a critical section</B></LI>
+</OL>
+
+<P>The <I>Alertable</I> parameter specifies whether the thread can be alerted and its wait state aborted by an alert originating from an undocumented internal kernel routine or by a user-mode APC. If the value of <I>Alertable</I> is FALSE then the thread cannot be alerted, no matter what the value of the <I>WaitMode</I> parameter or the origin of the alert. The only exception to this rule is that of a terminating thread. A thread is automatically made alertable, for instance, when terminated by a user with a Ctrl+C.</P>
+
+<P>If the value of <I>Alertable </I>is TRUE and one of the following conditions is present, the thread will be alerted:
+
+<OL>
+	<LI>The origin of the alert is an internal, undocumented kernel-mode routine used to alert threads.</LI>
+
+	<LI>The origin of the alert is a user-mode APC, and the value of the <I>WaitMode</I> parameter is <B>UserMode</B>.</LI>
+</OL>
+
+<P>In the first of these two cases, the thread’s wait is satisfied with the completion status STATUS_ALERTED; in the second case, it is satisfied with the completion status STATUS_USER_APC.</P>
+
+<P>The thread must be alertable for a user-mode APC to be delivered. However, a kernel-mode APC can be delivered and executed even though the thread is not alerted. Once the APC's execution completes, the thread's wait resumes. A thread is never alerted, nor is its wait aborted, by the delivery of a kernel-mode APC.</P>
+
+<P>The delivery of kernel-mode APCs to a waiting thread does not depend on whether the thread can be alerted. If the APC is a special kernel-mode APC, then the APC is delivered provided that IRQL &lt; APC_LEVEL. If the APC is a normal kernel-mode APC, then the APC is delivered provided that the following three conditions hold: (1) IRQL &lt; APC_LEVEL; (2) no kernel-mode APC is in progress; and (3) the thread is not in a critical section. </P>
+
+<P>Note that unlike the <B>KeWait</B><I>Xxx</I> routines, the routine <A HREF="k105_7epe.htm"><B>KeDelayExecutionThread</B></A> does not take an <I>Object</I> parameter. <B>KeDelayExecutionThread</B> initiates a wait on the dispatcher object associated with the calling thread. Threads waiting on thread-dispatcher objects respond to alerts and APC delivery in the same manner as threads waiting on other dispatcher objects.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Do%20Waiting%20Threads%20Receive%20Alerts%20and%20APCs%3F"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

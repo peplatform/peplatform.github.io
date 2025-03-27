@@ -1,0 +1,142 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DOCEVENT_FILTER</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DOCEVENT_FILTER">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_docevent_filter_gg"></A>DOCEVENT_FILTER</H1>
+
+<P>The DOCEVENT_FILTER structure contains a list of document events to which the printer driver will respond. See <A HREF="drvrfnc_9c4n.htm"><B>DrvDocumentEvent</B></A> for a complete list of the document events.</P>
+
+<PRE class=syntax>typedef struct _DOCEVENT_FILTER {
+  UINT  cbSize;
+  UINT  cElementsAllocated;
+  UINT  cElementsNeeded;
+  UINT  cElementsReturned;
+  DWORD  aDocEventCall[ANYSIZE_ARRAY];
+} DOCEVENT_FILTER, *PDOCEVENT_FILTER;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>cbSize</B></DT>
+
+<DD>Spooler-supplied size, in bytes, of this structure. The spooler initializes this member to <B>sizeof</B>(DOCEVENT_FILTER).</DD>
+
+<DT><B>cElementsAllocated</B></DT>
+
+<DD>Spooler-supplied number of elements in the <B>aDocEventCall</B> array member. The spooler initializes this member to DOCUMENTEVENT_LAST - 1. (The DOCUMENTEVENT_LAST constant is defined in <I>winddiui.h</I>.)</DD>
+
+<DT><B>cElementsNeeded</B></DT>
+
+<DD>Driver-supplied total number of elements needed in the <B>aDocEventCall</B> array member. The spooler initializes this member to 0XFFFFFFFF. See <B>Comments</B> for more information.</DD>
+
+<DT><B>cElementsReturned</B></DT>
+
+<DD>Driver-supplied number of DOCUMENTEVENT_<I>XXX </I>events that it placed in the <B>aDocEventCall</B> array member. The spooler initializes this member to 0XFFFFFFFF. See <B>Comments</B> for more information.</DD>
+
+<DT><B>aDocEventCall</B></DT>
+
+<DD>Driver-filled array of DWORDs listing all of the DOCUMENTEVENT_<I>XXX</I> events to which the printer driver will respond. The spooler initializes this member to 0.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>winddiui.h</I>. Include <I>winddiui.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>This structure is available in Windows&nbsp;XP and later.</P>
+
+<P>The printer driver lists the events to which it will respond in the DOCEVENT_FILTER structure. Because this limits the number of calls to the driver the spooler needs to make, printer performance is enhanced. When the spooler makes a call to the <A HREF="drvrfnc_9c4n.htm"><B>DrvDocumentEvent</B></A> DDI with its <I>iEsc</I> parameter set to DOCUMENTEVENT_QUERYFILTER, the spooler allocates a buffer that contains a DOCEVENT_FILTER structure, including its dynamic array. The amount of memory allocated for the buffer is: </P>
+
+<PRE>sizeof(DOCEVENT_FILTER) + sizeof(DWORD) * (DOCUMENTEVENT_LAST - 2)
+ </PRE>
+
+<P>After allocating a buffer that contains a DOCEVENT_FILTER structure, the spooler initializes the structure members to the following values: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=43%>Member</TH>
+<TH align=left width=57%>Initialized to:</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%><B>cbSize</B></TD>
+<TD width=57%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%><B>cElementsAllocated</B></TD>
+<TD width=57%>DOCUMENTEVENT_LAST - 1 <BR>
+The DOCUMENTEVENT_LAST constant is defined in <I>winddiui.h</I>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%><B>cElementsNeeded</B></TD>
+<TD width=57%>0XFFFFFFFF</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%><B>cElementsReturned</B></TD>
+<TD width=57%>0XFFFFFFFF</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%><B>aDocEventCall</B></TD>
+<TD width=57%>0</TD>
+</TR>
+</TABLE><BR>
+
+<P>After the spooler has initialized the structure members to the values shown in the preceding table, it then calls <A HREF="drvrfnc_9c4n.htm"><B>DrvDocumentEvent</B></A>. When this function returns, the spooler inspects the <B>cElementsNeeded</B> and <B>cElementsReturned</B> members to see if either has been changed. If the driver has written to one of these members, but not the other, the spooler interprets the unwritten-to member as having the value 0.</P>
+
+<P>If the driver supports DOCUMENTEVENT_QUERYFILTER:
+
+<UL>
+	<LI>If the <B>aDocEventCall</B> array is large enough to contain all of the DOCUMENTEVENT_<I>XXX</I> events the printer driver intends to place in it, the printer driver:
+<UL>
+	<LI>fills the array with those events</LI>
+
+	<LI>sets the <B>cElementsReturned</B> member to that number of events (which should be less than or equal to <B>cElementsAllocated</B>)</LI>
+
+	<LI>leaves <B>cElementsNeeded</B> unchanged</LI>
+
+	<LI>returns DOCUMENTEVENT_SUCCESS </LI>
+</UL>
+
+<P>In this case, the spooler uses the first <B>cElementsReturned</B> values in the <B>aDocEventCall</B> array.
+</LI>
+</UL>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The DOCUMENTEVENT_CREATEDCPRE event is treated in a special way. When the spooler calls <A HREF="drvrfnc_9c4n.htm"><B>DrvDocumentEvent</B></A> with the <I>iEsc</I> parameter set to DOCUMENTEVENT_CREATEDCPRE, the spooler uses the return value to determine whether future calls to this function are necessary. Unlike other DOCUMENTEVENT_<I>XXX</I> events, the printer driver always receives calls to <B>DrvDocumentEvent</B> with DOCUMENTEVENT_CREATEDCPRE, whether this event is filtered out or not.</P>
+
+<UL>
+	<LI>If the <B>aDocEventCall</B> array is <I>not</I> large enough to contain all of the DOCUMENTEVENT_<I>XXX</I> events the printer driver intends to place in it, the printer driver should:
+<UL>
+	<LI>set <B>cElementsNeeded</B> to the number of events to which it intends to respond (which should be greater than <B>cElementsAllocated</B>)</LI>
+
+	<LI>leave <B>cElementsReturned</B> unchanged</LI>
+
+	<LI>return DOCUMENTEVENT_SUCCESS</LI>
+</UL>
+
+<P>In this case, the spooler then allocates a new buffer that is sufficiently large, and then makes another call to <A HREF="drvrfnc_9c4n.htm"><B>DrvDocumentEvent</B></A> with DOCUMENTEVENT_QUERYFILTER.
+</LI>
+</UL>
+
+<P>If the driver does <I>not</I> support the DOCUMENTEVENT_QUERYFILTER event, it should return DOCUMENTEVENT_UNSUPPORTED. If the driver does support DOCUMENTEVENT_QUERYFILTER, but encounters internal errors when it handles this event, it should return DOCUMENTEVENT_FAILURE. In either case, the spooler is not able to retrieve the event filter from the driver, so it continues in its behavior of calling <B>DrvDocumentEvent</B> for all events.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="drvrfnc_9c4n.htm"><B>DrvDocumentEvent</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DOCEVENT_FILTER"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

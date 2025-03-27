@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Multipacket Sends from Serialized Miniport Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Multipacket Sends from Serialized Miniport Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_multipacket_sends_from_serialized_miniport_drivers_ng"></A>Multipacket Sends from Serialized Miniport Drivers</H3>
+
+<P>Each packet descriptor has associated out-of-band (OOB) data, as described in <A HREF="204trnsf_46w7.htm">Packet Out-of-Band Data</A>. The OOB block lets a protocol driver specify a time-to-send (<B>TimeToSend</B>) to a cooperating miniport driver that supports priority sends. The <B>Status</B> member of the OOB block is set by a serialized miniport driver before returning from <I>MiniportSendPackets</I> to indicate the return value of the call. The other members of the NDIS_PACKET_OOB_DATA block are read-only to the miniport driver. </P>
+
+<P>A serialized miniport driver that provides <I>MiniportSendPackets</I> and returns NDIS_STATUS_PENDING for one or more packets must save the pointers to the individual packets for which it returns this pending status. When <I>MiniportSendPackets</I> returns, the array containing the pointers will be returned to the caller.</P>
+
+<P>A serialized miniport driver that does not have the resources to send a packet can set the <B>Status</B> member to NDIS_STATUS_RESOURCES. In this case, NDIS queues the packets and then resubmits them to the miniport driver when it completes a send by calling <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A><B> </B>or calls <A HREF="103ndisx_58c2.htm"><B>NdisMSendResourcesAvailable</B></A>, whichever is called first.</P>
+
+<P>NDIS assumes that, if NDIS_STATUS_RESOURCES is set for one element, it is set for all subsequent array elements. In effect, the miniport driver relinquishes ownership, temporarily or permanently, of any packet in an array of packets for which it sets a <B>Status</B> other than NDIS_STATUS_PENDING before returning from <I>MiniportSendPackets</I>. Otherwise, the miniport driver owns those packet resources until it later relinquishes ownership by calling <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A>, passing the final status of the send as a parameter to this call (see preceding figure).</P>
+
+<P>Instead of returning NDIS_STATUS_RESOURCES when it does not have the resources to send a packet, a serialized miniport driver can queue the send request internally. The miniport driver can use the miniport driver-reserved fields in the packet header to link queued packets, which may be linked to its adapter-specific context structure. If the miniport driver queues a packet, it must return NDIS_STATUS_PENDING as the status for the queued packet. To increase throughput, the miniport driver might implement packet queuing to avoid the latency incurred when the packet is returned to NDIS and later resubmitted to the miniport driver.</P>
+
+<P>A serialized miniport driver sets the <B>Status</B> field of every packet before it returns from <I>MiniportSendPackets</I>, whether the packet is completed synchronously or asynchronously. </P>
+
+<P>If a serialized miniport driver completes the send synchronously (see the following figure), it should set the <B>Status</B> member of the OOB data in the packet with the status of the send, which is NDIS_STATUS_SUCCESS, NDIS_STATUS_FAILURE, NDIS_STATUS_RESOURCES, or a miniport driver-determined status. The miniport driver sets the <B>Status</B> member to NDIS_STATUS_PENDING if it keeps the packet and therefore will complete the send later. If the miniport driver returns a status of NDIS_STATUS_RESOURCES for a packet in the array, NDIS requeues that packet and any following packets in the array and submits them later when the miniport driver indicates that it has available resources.</P>
+
+<P><IMG SRC="images/fig4_2.gif" ALT="" BORDER=0></P>
+
+<P><B>Multipacket Send From a Serialized Miniport Driver</B><B>—</B><B>Synchronous Completion</B></P>
+
+<P>After <I>MiniportSendPackets</I> returns, the <B>Status</B> field of the OOB data is unavailable. Therefore, when a serialized miniport driver completes a packet for which it has previously returned NDIS_STATUS_PENDING, the miniport driver must return the status of the send in the <I>Status</I> parameter of its call to <B>NdisMSendComplete</B>. The miniport driver <I>must not</I> write the <B>Status</B> member of the OOB data for any packets that are completed by calling <B>NdisMSendComplete</B>. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Multipacket%20Sends%20from%20Serialized%20Miniport%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>PoCallDriver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="PoCallDriver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_pocalldriver_dr"></A>PoCallDriver</H1>
+
+<P>The <B>PoCallDriver</B> routine passes a power <A HREF="k112_3z5e.htm">IRP</A> to the next-lower driver in the device stack. </P>
+
+<PRE class=syntax><B>NTSTATUS
+</B>  <B>PoCallDriver(</B>
+    <B>IN PDEVICE_OBJECT</B>  <I>DeviceObject</I><B>,</B>
+    <B>IN OUT PIRP</B>  <I>Irp</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the driver-created <A HREF="k112_32cy.htm">DEVICE_OBJECT</A> to which the IRP is to be routed.</DD>
+
+<DT><I>Irp</I></DT>
+
+<DD>Pointer to an IRP.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>PoCallDriver</B> returns STATUS_SUCCESS to indicate success. It returns STATUS_PENDING if it has queued the IRP. </P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Drivers call <B>PoCallDriver</B> — not <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A> — to pass a power IRP to the next-lower driver. Drivers must call <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A> before calling <B>PoCallDriver</B>. </P>
+
+<P>A driver that requires a new IRP should call <A HREF="portn_55gy.htm"><B>PoRequestPowerIrp</B></A>. A driver must not allocate its own power IRP.</P>
+
+<P>When passing a power IRP down to the next-lower driver, the caller should use <A HREF="k104_1ohe.htm"><B>IoSkipCurrentIrpStackLocation</B></A> or <A HREF="k104_4fqq.htm"><B>IoCopyCurrentIrpStackLocationToNext</B></A> to set the IRP stack location, then call <B>PoCallDriver</B>. Use <B>IoCopyCurrentIrpStackLocationToNext</B> if processing the IRP requires setting an <A HREF="drvrrtns_4rsi.htm"><I>IoCompletion</I></A> routine, or <B>IoSkipCurrentStackLocation</B> if no <I>IoCompletion</I> routine is required.</P>
+
+<P>When a device is powering up, its drivers must set <I>IoCompletion</I> routines to perform start-up tasks (initializing the device, restoring context, and so on) after the bus driver has set the device in the working state. Set <I>IoCompletion</I> routines before calling <B>PoCallDriver</B>. </P>
+
+<P>When a device is powering down, its drivers must perform necessary power-down tasks before passing the IRP to the next lower driver. After the IRP has reached the bus driver, the device will be powered off and its drivers will no longer have access to it. An <I>IoCompletion</I> routine associated with a power-down IRP should simply call <B>PoStartNextPowerIrp</B>. </P>
+
+<P>Only one inrush IRP can be active in the system at a time. When passing a power-up IRP for a device that requires inrush current (in other words, the DO_POWER_INRUSH flag is set in the device object), <B>PoCallDriver</B> checks whether another inrush IRP is already active. If so, <B>PoCallDriver</B> queues the current IRP for handling after the previous IRP completes, and then returns STATUS_PENDING. For more information on inrush IRPs, see <A HREF="pwrmgmt_7qjr.htm">Setting Device Object Flags for Power Management</A>. </P>
+
+<P>If an <A HREF="poirp_6hde.htm">IRP_MN_SET_POWER</A> or <A HREF="poirp_9e9e.htm">IRP_MN_QUERY_POWER</A> request is already active for <I>DeviceObject</I>, <B>PoCallDriver</B> queues this IRP and returns STATUS_PENDING.</P>
+
+<P>On Windows®&nbsp;2000 and later systems, pagable drivers (the DO_POWER_PAGABLE flag is set in the device object) must call <B>PoCallDriver</B> at IRQL&nbsp;= PASSIVE_LEVEL. Drivers that can not be paged (DO_POWER_PABABLE is not set in the device object) or that require inrush current (DO_POWER_INRUSH is set in the device object) can call <B>PoCallDriver</B> at IRQL&nbsp;= PASSIVE_LEVEL or DISPATCH_LEVEL.</P>
+
+<P>On Windows 98/Me, all drivers call <B>PoCallDriver</B> at IRQL&nbsp;= PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k104_1agi.htm"><B>IoCallDriver</B></A>, <A HREF="drvrrtns_4rsi.htm"><I>IoCompletion</I></A>, <A HREF="k104_4fqq.htm"><B>IoCopyCurrentIrpStackLocationToNext</B></A>, <A HREF="k104_1ohe.htm"><B>IoSkipCurrentIrpStackLocation</B></A>, <A HREF="k112_3z5e.htm">IRP</A>, <A HREF="poirp_9e9e.htm">IRP_MN_QUERY_POWER</A>, <A HREF="poirp_6hde.htm">IRP_MN_SET_POWER</A>, <A HREF="portn_55gy.htm"><B>PoRequestPowerIrp</B></A>, <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: PoCallDriver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

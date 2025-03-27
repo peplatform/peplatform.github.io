@@ -1,0 +1,42 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Receiving Data on a Bus-Master DMA NIC</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Receiving Data on a Bus-Master DMA NIC">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_receiving_data_on_a_bus_master_dma_nic_ng"></A>Receiving Data on a Bus-Master DMA NIC</H3>
+
+<P>When one or more packets are received, the miniport driver does the following:
+
+<OL>
+	<LI>Calls <A HREF="103ndisx_188i.htm"><B>NdisFlushBuffer</B></A> and <A HREF="103ndisx_29rm.htm"><B>NdisMUpdateSharedMemory</B></A> to ensure that the incoming data is coherent in the memory area to be accessed by the miniport driver.</LI>
+
+	<LI>Calls <A HREF="103ndisx_2pki.htm"><B>NdisAdjustBufferLength</B></A> to adjust the length in the buffer descriptor field that maps the network interface card (NIC) receive/ring buffer to match the actual length of the data in the buffer before indicating up. When the packet is returned, the miniport driver must again call <B>NdisAdjustBufferLength</B> to adjust the length back to the full, as-allocated length of the receive/ring buffer.</LI>
+
+	<LI>If the miniport driver indicates up an array of packets by calling <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A> or <A HREF="103ndisx_6f02.htm"><B>NdisMCoIndicateReceivePacket</B></A>, it must set the <B>Status</B> member of the out-of-band (OOB) block associated with each packet descriptor. If the miniport driver determines that it must force the protocol driver to copy the indicated packets because the miniport driver is running short of receive buffers, it should set the <B>Status</B> member in the OOB block to NDIS_STATUS_RESOURCES. Otherwise, the miniport driver should set the <B>Status</B> member to NDIS_STATUS_SUCCESS, NDIS_STATUS_FAILURE, NDIS_STATUS_PENDING, or a driver-determined status.</LI>
+
+	<LI>If a connectionless miniport driver indicates up a single packet by calling <B>NdisM</B><I>Xxx</I><B>IndicateReceive</B>, the miniport driver indicates all the received data, indicating its full size as the lookahead size. </LI>
+
+	<LI>After the packet is indicated up (Step 3) or copied (Step 4), the miniport driver replaces the buffer descriptors on the ring. A buffer descriptor is replaced by one of the following:
+<UL>
+	<LI>a buffer descriptor from a previously allocated and currently available packet</LI>
+
+	<LI>a buffer descriptor from a packet that the protocol driver was forced to copy and return</LI>
+
+	<LI>a buffer descriptor allocated by calling <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A> for a buffer descriptor to describe a buffer that was allocated by calling <A HREF="103ndisx_3fg2.htm"><B>NdisMAllocateSharedMemoryAsync</B></A> </LI>
+</UL>
+</LI>
+</OL>
+
+<P>Miniport drivers for NICs that receive variable-size frames must chain and unchain packets, depending on the amount of incoming data to build varying size packets. Some miniport drivers receive data on a medium that uses fixed-size frames. This kind of miniport driver can allocate fixed-size buffers once, chain them to packet descriptors, and reuse them without being required to chain and unchain buffers.</P>
+
+<P>If the miniport driver calls <B>NdisMAllocateSharedMemoryAsync</B> to allocate a buffer, it will be called at its <A HREF="101mini_225u.htm"><I>MiniportAllocateComplete</I></A> function when the allocation is complete. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Receiving%20Data%20on%20a%20Bus-Master%20DMA%20NIC"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

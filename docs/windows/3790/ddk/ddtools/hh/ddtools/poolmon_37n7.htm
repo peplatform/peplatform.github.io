@@ -1,0 +1,464 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>PoolMon Examples</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="PoolMon Examples">
+<META NAME="MS-HKWD" CONTENT="Example 1: Display and Sort PoolMon Output">
+<META NAME="MS-HKWD" CONTENT="Example 2: Display Driver Names">
+<META NAME="MS-HKWD" CONTENT="Example 3: Detect Memory Leakage">
+<META NAME="MS-HKWD" CONTENT="Example 4: Examine a Pool Memory Leak">
+<META NAME="MS-HKWD" CONTENT="Example 5: Monitor a Terminal Server Session">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Driver&nbsp;Development&nbsp;Tools:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_poolmon_examples_tools"></A>PoolMon Examples</H2>
+
+<P>This topic includes the following examples of PoolMon use:</P>
+
+<P class=indent1><A HREF="#ddk_example_1_display_and_sort_poolmon_output_tools">Example 1: Display and Sort PoolMon Output</A></P>
+
+<P class=indent1><A HREF="#ddk_example_2_display_driver_names_tools">Example 2: Display Driver Names</A></P>
+
+<P class=indent1><A HREF="#ddk_example_3_detect_memory_leakage_tools">Example 3: Detect Memory Leakage</A></P>
+
+<P class=indent1><A HREF="#ddk_example_4_examine_a_pool_memory_leak_tools">Example 4: Examine a Pool Memory Leak</A></P>
+
+<P class=indent1><A HREF="#ddk_example_5_monitor_a_terminal_server_session_tools">Example 5: Monitor a Terminal Server Session</A></P>
+
+
+
+<H4><A NAME="ddk_example_1_display_and_sort_poolmon_output_tools"></A>Example 1: Display and Sort PoolMon Output</H4>
+
+<P>This example describes various ways to configure the PoolMon display. By default, PoolMon displays all kernel memory allocations in alphanumeric order by tag value. You can modify the sort order of the display at the command line or while PoolMon is running.</P>
+
+<P>The following command starts PoolMon:</P>
+
+<PRE><B>poolmon
+</B></PRE>
+
+<P>The following command starts PoolMon and sorts the display by number of free operations:</P>
+
+<PRE><B>poolmon /f
+</B></PRE>
+
+<P>While poolmon is running, you can use the run-time commands to change the display. For example, to sort the display by number of bytes used, press <B>b</B>. To sort by bytes per allocation, press <B>m</B>.</P>
+
+<P>The following command starts PoolMon and displays only allocations from the nonpaged pool:</P>
+
+<PRE><B>poolmon /p
+</B></PRE>
+
+<P>While PoolMon is running, press <B>p</B> to toggle through allocations from the paged pool, the nonpaged pool, or both.</P>
+
+<P>To start PoolMon and display data for allocations with a particular tag, use the <B>/i</B> parameter. The following command displays allocations with the <B>AfdB</B> tag (the tag used by <I>afd.sys</I> for data buffers).</P>
+
+<PRE><B>poolmon /iAfdB
+</B></PRE>
+
+<P>To exclude allocations with a particular tag, use the <B>/x</B> parameter. The following command displays all allocations that do not have the <I>AfdB</I> tag;</P>
+
+<PRE><B>poolmon /xAfdB</B></PRE>
+
+<P>You can use an asterisk (*) and/or a question mark (?) to specify a set of tags with the same characters. The following command displays allocations that have pool tags beginning with <B>Afd</B>, the tag used by <I>afd.sys</I>;</P>
+
+<PRE><B>poolmon /iAfd</B>*
+</PRE>
+
+<P>A PoolMon startup command can include multiple <B>/i</B> and <B>/x</B> parameters. The following command displays allocations that have tags beginning with <B>Aud</B> and four-character tags beginning with <B>Cc</B>, except for allocations with the <B>CcBc</B> tag;</P>
+
+<PRE><B>poolmon /iAud* /iCc?? /xCcBc
+</B></PRE>
+
+<P>You can also sort the PoolMon display by the change in a value between updates. The <B>/(</B> parameter places PoolMon in sort-by-change mode.</P>
+
+<P>The following command displays allocations with tags beginning with <B>Afd</B>, and sorts by the change in allocations. It uses the <B>/a</B> parameter to sort by number of allocations and the <B>/)</B> parameter to sort by the change in the number of allocations.</P>
+
+<PRE><B>poolmon /iAfd* /( /a
+</B></PRE>
+
+<P>The <B>/(</B> parameter and the parentheses keys are toggle switches. When PoolMon is in sort-by-change mode, it interprets all sort commands as commands to sort by the change in the value. If you press a parenthesis key again, it sorts by the value.</P>
+
+
+
+<H4><A NAME="ddk_example_2_display_driver_names_tools"></A>Example 2: Display Driver Names</H4>
+
+<P>You can use the PoolMon <B>/g</B> parameter to display the names of Windows components and commonly used drivers that assign each pool tag. If you find a problem in allocations with a particular tag, this feature helps you identify the offending component or driver. </P>
+
+<P>The components and drivers are listed in the Mapped_Driver column, the right-most column in the display. The data for the Mapped_Driver column comes from <I>pooltag.txt</I>, a file installed with PoolMon.</P>
+
+<P>The following command displays memory allocated with tags that begin with <B>NtF</B>. (It uses the question mark character (<B>?</B>) as a wildcard.) The <B>/g</B> parameter adds the Mapped_Driver column.</P>
+
+<PRE><B>poolmon /iNtF? /g
+</B></PRE>
+
+<P>The resulting display lists allocations with tags beginning in <B>NtF</B>. The rightmost column in the display, Mapped_Driver, shows that the memory was allocated by <I>ntfs.sys</I>, the driver for the NTFS file system. In this case, the display is even more specific, because <I>pooltag.txt</I> includes the source files for NTFS allocations.</P>
+
+<PRE> Memory:  260620K Avail:   65152K  PageFlts:    85   InRam Krnl: 2116K P:19560K
+ Commit: 237688K Limit: 640916K Peak: 260632K            Pool N: 8500K P:33024K
+ System pool information
+ Tag  Type     Allocs            Frees            Diff   Bytes      Per Alloc  Mapped_Driver
+
+ NtFA Nonp       9112 (   0)      9112 (   0)     0       0 (     0)      0 [ntfs.sys  -  AttrSup.c]
+ NtFB Paged      3996 (   0)      3986 (   0)    10  252088 (     0)  25208 [ntfs.sys  -  BitmpSup.c]
+ NtFC Paged   1579279 (   0)   1579269 (   0)    10     640 (     0)     64 [ntfs.sys  -  Create.c]
+ NtFD Nonp         13 (   0)        13 (   0)     0       0 (     0)      0 [ntfs.sys  -  DevioSup.c]
+ NtFF Paged      1128 (   0)      1128 (   0)     0       0 (     0)      0 [ntfs.sys  -  FileInfo.c]
+ NtFI Nonp        152 (   0)       152 (   0)     0       0 (     0)      0 [ntfs.sys  -  IndexSup.c]
+ NtFL Nonp      68398 (   0)     68390 (   0)     8   27280 (     0)   3410 [ntfs.sys  -  LogSup.c]
+ NtFS Paged      2915 (   0)      2614 (   0)   301   80192 (     0)    266 [ntfs.sys  -  SecurSup.c]
+ NtFa Paged       838 (   0)       829 (   0)     9     288 (     0)     32 [ntfs.sys  -  AllocSup.c]
+ NtFd Paged    137696 (   0)    137688 (   0)     8     720 (     0)     90 [ntfs.sys  -  DirCtrl.c]
+ NtFf Nonp          2 (   0)         1 (   0)     1      40 (     0)     40 [ntfs.sys  -  FsCtrl.c]
+ NtFs Nonp      48825 (   0)     47226 (   0)  1599   64536 (     0)     40 [ntfs.sys  -  StrucSup.c]
+ NtFv Paged       551 (   0)       551 (   0)     0       0 (     0)      0 [ntfs.sys  -  ViewSup.c]
+</PRE>
+
+<P><I>Pooltag.txt</I> is extensive, but it is not a complete list of all tags used in Windows. When a tag that appears in the display is not included in <I>pooltag.txt</I>, PoolMon displays "Unknown driver" in the Mapped_Driver column for the tag. When this occurs, you can use the <B>/c</B> parameter to search the drivers on the local system and determine whether they assign the tag.</P>
+
+<P>The following examples demonstrate this method.</P>
+
+<P>The following command uses the <B>/i</B> parameter to list allocations with tags that end in MEM. The <B>/g</B> parameter adds the driver name to the display from the <I>pooltag.txt</I> file.</P>
+
+<PRE><B>poolmon /i?MEM /g
+</B></PRE>
+
+<P>The resulting display lists the allocations with tags ending in MEM. However, because the MEM tags are not included in <I>pooltag.txt</I>, "Unknown Driver" appears in the Mapped_Driver column in place of the driver name.</P>
+
+<PRE> Tag  Type        Allocs          Frees      Diff   Bytes      Per Alloc    Mapped_Driver
+
+ 1MEM Nonp       1 (   0)         0 (   0)     1    3344 (     0)   3344   Unknown Driver
+ 2MEM Nonp       1 (   0)         0 (   0)     1    3944 (     0)   3944   Unknown Driver
+ 3MEM Nonp       3 (   0)         0 (   0)     3     248 (     0)     82   Unknown Driver
+</PRE>
+
+<P>In this case, you can use the <B>/c</B> parameter to compile a list of local drivers and the tags they assign, and then display the names of local drivers in the Mapped_Driver column.</P>
+
+<P>The following command starts PoolMon. It uses the <B>/i</B> parameter to list allocations with tags ending in MEM, and the <B>/c</B> parameter to display the local drivers that assign the tags.</P>
+
+<PRE><B>poolmon /i?MEM /c
+</B></PRE>
+
+<P>If you do not specify a local tag file and PoolMon cannot find a <I>localtag.txt</I> file , it creates one, as shown in the following screen messages. (PoolMon cannot generate a local tag file on 64-bit versions of Windows.)</P>
+
+<PRE>d:\tools\poolmon&gt;<B>poolmon /?MEM /c</B>
+PoolMon: No localtag.txt in current directory
+PoolMon: Creating localtag.txt in current directory......
+</PRE>
+
+<P>The resulting display, which uses the content from the newly created <I>localtag.txt</I> file, shows the local driver names in the Mapped_Driver column.</P>
+
+<PRE> Memory:  260620K Avail:   57840K  PageFlts:   162   InRam Krnl: 2116K P:19448K
+ Commit: 244580K Limit: 640916K Peak: 265416K            Pool N: 8496K P:32904K
+ System pool information
+ Tag  Type     Allocs            Frees            Diff   Bytes      Per Alloc  Mapped_Driver
+
+ 1MEM Nonp          1 (   0)         0 (   0)        1    3344 (     0)   3344 [el90xbc5]
+ 2MEM Nonp          1 (   0)         0 (   0)        1    3944 (     0)   3944 [el90xbc5]
+ 3MEM Nonp          3 (   0)         0 (   0)        3     248 (     0)     82 [el90xbc5]
+</PRE>
+
+<P>For a comprehensive driver name display, you can combine the <B>/c</B> and <B>/g</B> parameters in a command. (The order of parameters does not change the output.) The following command lists allocations for tags beginning with <B>Ip</B>. It uses the <B>/c</B> parameter, which uses the contents of the <I>localtag.txt</I> file in the Mapped_Driver column, and the <B>/g</B> parameter, which uses the contents of the <I>pooltag.txt</I> file in the Mapped_Driver column.</P>
+
+<PRE><B>poolmon /iIp* /c /g
+</B></PRE>
+
+<P>In the resulting display, the Mapped_Driver column contains data from both the <I>localtag.txt</I> and <I>pooltag.txt</I> files.</P>
+
+<PRE> Memory:  130616K Avail:   23692K  PageFlts:   146   InRam Krnl: 2108K P: 9532K
+ Commit: 187940K Limit: 318628K Peak: 192000K            Pool N: 8372K P:13384K
+ System pool information
+ Tag  Type     Allocs            Frees            Diff   Bytes      Per Alloc  Mapped_Driver
+
+ IpEQ Nonp          1 (   0)         0 (   0)        1    1808 (     0)   1808 [ipsec][ipsec.sys    -  event queue]
+ IpFI Nonp         26 (   0)         0 (   0)       26    7408 (     0)    284 [ipsec][ipsec.sys    -  Filter blocks]
+ IpHP Nonp          1 (   0)         1 (   0)        0       0 (     0)      0 [ipsec.sys    - IP Security]
+ IpIO Nonp          1 (   0)         1 (   0)        0       0 (     0)      0 [ipsec]
+ IpLA Nonp          1 (   0)         0 (   0)        1     248 (     0)    248 [ipsec][ipsec.sys    -  lookaside lists]
+ IpSH Nonp          1 (   0)         1 (   0)        0       0 (     0)      0 [ipsec.sys    - IP Security]
+ IpSI Nonp       1027 (   0)         0 (   0)     1027   53272 (     0)     51 [ipsec][ipsec.sys    - initial allcoations]
+ IpTI Nonp          3 (   0)         0 (   0)        3    5400 (     0)   1800 [ipsec][ipsec.sys    -  timers]
+</PRE>
+
+
+
+<H4><A NAME="ddk_example_3_detect_memory_leakage_tools"></A>Example 3: Detect Memory Leakage</H4>
+
+<P>This example suggests a procedure for using PoolMon to detect a memory leak.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To detect a memory leak</B>
+
+<OL>
+	<LI>Start PoolMon with the parameters <B>/p /p</B> (display only allocations from the paged pool) and <B>/b</B> (sort by the number of bytes).
+<PRE><B>poolmon /p /p /b
+</B></PRE>
+</LI>
+
+	<LI>Let PoolMon run for a few hours. Because starting PoolMon changes the data, it must regain a steady state before the data is reliable. </LI>
+
+	<LI>Save the information generated by PoolMon, either as a screenshot, or by copying it from the command window and pasting it into Notepad. </LI>
+
+	<LI>Returning to PoolMon, press the <B>p</B> key twice to display only allocations from the nonpaged pool.</LI>
+
+	<LI>Repeat steps 3 and 4 approximately every half-hour for at least two hours, switching between the paged and nonpaged pool displays each time.</LI>
+
+	<LI>When data collection is complete, examine the Diff (allocation operations minus free operations) and Bytes (number of bytes allocated minus number of bytes freed) values for each tag, and note any that continually increase. </LI>
+
+	<LI>Next, stop PoolMon, wait for a few hours, and then restart PoolMon. </LI>
+
+	<LI>Examine the allocations that were increasing, and determine whether the bytes are now freed. The likely cause is allocations that have still not been freed or have continued to increase in size.</LI>
+</OL>
+
+
+
+<H4><A NAME="ddk_example_4_examine_a_pool_memory_leak_tools"></A>Example 4: Examine a Pool Memory Leak</H4>
+
+<P>The following example demonstrates using PoolMon to investigate a pool memory leak from a suspected printer driver. In this example, PoolMon displays data that Windows collects about memory allocations with the Dsrd tag.</P>
+
+<P>Printer drivers assign the Drsd tag when they allocate Graphical Device Interface (GDI) objects and associated memory. If a printer driver has an object leak, the memory allocated with the Drsd tag also will leak.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Before running the steps in this example, ensure that the printer you are using will not be interrupted until you are finished. Otherwise, the results may be invalid. </P>
+
+<P>At the command line, type the following: </P>
+
+<PRE><B>poolmon /iDrsd
+</B></PRE>
+
+<P>This command directs PoolMon to display information for allocations with the Drsd tag. (Pool tags are case-sensitive, so be sure to type the command exactly as shown.)</P>
+
+<P>Record the values in the Diff and Bytes columns. In the following sample display, the value of Diff is 21 and the number of Bytes is 17472. </P>
+
+<PRE>Memory:  130480K Avail:   91856K  PageFlts:  1220   InRam Krnl: 2484K P: 7988K
+Commit:  30104K Limit: 248432K Peak:  34028K            Pool N: 2224K P: 8004K
+Tag  Type        Allocs           Frees           Diff  Bytes           Per Alloc
+
+Drsd Paged       560 ( 177)       539 ( 171)       21   17472 (  4992)    832 
+</PRE>
+
+<P>Send a job to the printer, wait briefly for Windows to return to normal, and then record the values for the Diff and Bytes columns. </P>
+
+<PRE>Memory:  130480K Avail:   91808K  PageFlts:  1240   InRam Krnl: 2488K P: 7996K
+Commit:  30152K Limit: 248432K Peak:  34052K            Pool N: 2224K P: 8012K
+Tag  Type        Allocs           Frees           Diff  Bytes          Per Alloc
+
+Drsd Paged       737 (   0)       710 (   0)       27   22464 (     0)    832  
+</PRE>
+
+<P>When the memory management for the printer driver is working properly, the value of Diff should return to its original value of 21 after printing. However, as the preceding output illustrates, the value of Diff rose to 27, and the number of Bytes rose to 22464. The difference between the initial and subsequent output means that six Drsd blocks, with a total of 4992 bytes, leaked during printing.</P>
+
+<H4>For More Information</H4>
+
+<P>If you believe you have identified a leaking driver, go to the <a href="http://go.microsoft.com/fwlink/?linkid=8713&clcid=0x409" target="_blank">Microsoft support </A> Web site and search the Knowledge Base for relevant articles.</P>
+
+
+
+<H4><A NAME="ddk_example_5_monitor_a_terminal_server_session_tools"></A>Example 5: Monitor a Terminal Server Session</H4>
+
+<P>This example shows several ways to display allocations from the Terminal Services session pools. It demonstrates the use of the <B>/s</B> command-line parameter, and the <B>s</B>, <I>TSSessionID</I>, and <B>i</B> running parameters.</P>
+
+<P>The following command displays allocations from all of the Terminal Services session pools. In this example, the local computer, which is configured as a Terminal Server, is hosting the sessions, and client computers are using the Remote Desktop feature to connect to the host.</P>
+
+<PRE><B>poolmon /s
+</B></PRE>
+
+<P>In response, PoolMon displays allocations from all session pools. Note the "All sessions pool information" title in the header.</P>
+
+<PRE>Memory:  523572K Avail:  233036K  PageFlts:   344   InRam Krnl: 1828K P:18380K
+Commit: 193632K Limit:1279764K Peak: 987356K            Pool N:14332K P:18644K
+All sessions pool information
+ Tag  Type     Allocs            Frees            Diff   Bytes       Per Alloc
+
+ Bmfd Paged       361 (   0)       336 (   0)       25   57832 (     0)   2313
+ DDfb Paged        34 (   0)        22 (   0)       12     720 (     0)     60
+ Dddp Paged         8 (   0)         6 (   0)        2     272 (     0)    136
+ Dh 1 Paged        24 (   0)        24 (   0)        0       0 (     0)      0
+ Dh 2 Paged       344 (   0)       344 (   0)        0       0 (     0)      0
+ Dvgr Paged         2 (   0)         2 (   0)        0       0 (     0)      0
+ GDev Paged       108 (   0)       102 (   0)        6   20272 (     0)   3378
+ GFil Paged        29 (   0)        27 (   0)        2     160 (     0)     80
+ GPal Paged        11 (   0)         8 (   0)        3     816 (     0)    272
+ GTmp Paged     88876 (   1)     88876 (   1)        0       0 (     0)      0
+ GUma Paged         2 (   0)         2 (   0)        0       0 (     0)      0
+ Galp Paged      3250 (   0)      3250 (   0)        0       0 (     0)      0
+ Gbaf Paged      9829 (   0)      9801 (   0)       28   19712 (     0)    704
+ Gcac Paged      3761 (   0)      3706 (   0)       55  288968 (     0)   5253
+ Gcsl Paged         1 (   0)         0 (   0)        1     488 (     0)    488
+ Gdbr Paged      6277 (   0)      6271 (   0)        6    1872 (     0)    312
+ ...
+</PRE>
+
+<P>To see allocations from a particular session pool, type the session ID immediately after the <B>/s</B> parameter, as shown in the following command. This command displays session pool allocations for Terminal Services session 0.</P>
+
+<PRE><B>poolmon /s0
+</B></PRE>
+
+<P>In response, PoolMon displays allocations from the session pool for Terminal Services session 0. Note the "Session 0 pool information" title in the header.</P>
+
+<PRE>Memory:  523572K Avail:  233024K  PageFlts:   525   InRam Krnl: 1828K P:18384K
+ Commit: 193760K Limit:1279764K Peak: 987356K            Pool N:14340K P:18644K
+ Session 0 pool information
+ Tag  Type     Allocs            Frees            Diff   Bytes       Per Alloc
+
+ Bmfd Paged       361 (   0)       336 (   0)       25   57832 (     0)   2313
+ DDfb Paged        34 (   0)        22 (   0)       12     720 (     0)     60
+ Dddp Paged         8 (   0)         6 (   0)        2     272 (     0)    136
+ Dh 1 Paged        24 (   0)        24 (   0)        0       0 (     0)      0
+ Dh 2 Paged       344 (   0)       344 (   0)        0       0 (     0)      0
+ Dvgr Paged         2 (   0)         2 (   0)        0       0 (     0)      0
+ GDev Paged       108 (   0)       102 (   0)        6   20272 (     0)   3378
+ GFil Paged        29 (   0)        27 (   0)        2     160 (     0)     80
+ GPal Paged        11 (   0)         8 (   0)        3     816 (     0)    272
+ GTmp Paged     89079 (  99)     89079 (  99)        0       0 (     0)      0
+ GUma Paged         2 (   0)         2 (   0)        0       0 (     0)      0
+ Galp Paged      3250 (   0)      3250 (   0)        0       0 (     0)      0
+ Gbaf Paged      9830 (   0)      9802 (   0)       28   19712 (     0)    704
+ Gcac Paged      3762 (   0)      3707 (   0)       55  283632 (     0)   5156
+ Gcsl Paged         1 (   0)         0 (   0)        1     488 (     0)    488
+ Gdbr Paged      6280 (   0)      6274 (   0)        6    1872 (     0)    312
+ ...
+</PRE>
+
+<P>To help determine which drivers and components are allocating memory from the session pool, add the <B>/g</B> parameter, as shown in the following command. The <B>/g</B> parameter adds a Mapped_Driver column listing the Windows components and drivers that assign each tag.</P>
+
+<PRE><B>poolmon /s0 /g
+
+</B>Memory:  523572K Avail:  235876K  PageFlts:    43   InRam Krnl: 1900K P:18860K
+Commit: 185040K Limit:1279764K Peak: 987356K            Pool N:14684K P:19124K
+Session 0 pool information
+Tag  Type     Allocs            Frees            Diff   Bytes      Per Alloc  Mapped_Driver
+
+Bmfd Paged       421 (   0)       396 (   0)       25   57832 (     0)   2313 [Font related stuff]
+DDfb Paged        34 (   0)        22 (   0)       12     720 (     0)     60 Unknown Driver
+Dddp Paged        11 (   0)         6 (   0)        5     392 (     0)     78 Unknown Driver
+Dh 1 Paged        37 (   0)        35 (   0)        2     224 (     0)    112 Unknown Driver
+Dh 2 Paged       367 (   0)       364 (   0)        3     912 (     0)    304 Unknown Driver
+Dvgr Paged         2 (   0)         2 (   0)        0       0 (     0)      0 [vga for risc video driver]
+GDev Paged       119 (   0)       113 (   0)        6   20272 (     0)   3378 [Gdi pdev]
+GFil Paged        29 (   0)        27 (   0)        2     160 (     0)     80 [Gdi engine descriptor list]
+GPal Paged        11 (   0)         8 (   0)        3     816 (     0)    272 [Gdi Objects]
+GTmp Paged     98626 (   1)     98626 (   1)        0       0 (     0)      0 [Gdi Objects]
+GUma Paged         2 (   0)         2 (   0)        0       0 (     0)      0 [Gdi Objects]
+Galp Paged      3250 (   0)      3250 (   0)        0       0 (     0)      0 [Gdi Objects]
+Gbaf Paged     10331 (   0)     10305 (   0)       26   18304 (     0)    704 [Gdi Objects]
+Gcac Paged      4722 (   0)      4666 (   0)       56  305400 (     0)   5453 [Gdi glyph cache]
+Gcsl Paged         1 (   0)         0 (   0)        1     488 (     0)    488 [Gdi string resource script names]
+Gdbr Paged      6972 (   0)      6965 (   0)        7    2184 (     0)    312 [Gdi driver brush realization]
+</PRE>
+
+<P>You can also configure the Terminal Services session pool display while PoolMon is running. The following table shows a series of running commands, in the order in which they are typed, and the resulting PoolMon display.</P>
+
+<P>The series begins with a command to start PoolMon. All other parameters are typed while PoolMon is running.</P>
+
+<PRE><B>poolmon
+</B></PRE>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=14%>Key</TH>
+<TH align=left width=45%>Result</TH>
+<TH align=left width=41%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%><B>s</B></TD>
+<TD width=45%>Displays all session pools.</TD>
+<TD width=41%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%><B>s</B></TD>
+<TD width=45%>Displays the system pools.</TD>
+<TD width=41%>The <B>s</B> parameter toggles the display between the system pools and the Terminal Services session pools.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%><B>0</B></TD>
+<TD width=45%>Displays session 0 pool.</TD>
+<TD width=41%>You can type a session ID while displaying the system pools.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%><B>7</B></TD>
+<TD width=45%>Displays session 7 pool.</TD>
+<TD width=41%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%><B>a</B></TD>
+<TD width=45%>Displays pool allocations for session 7, sorted by number of allocations.</TD>
+<TD width=41%>All standard running parameters are valid for session pool displays.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%><B>0</B></TD>
+<TD width=45%>Displays allocations for session 0, sorted by number of allocations.</TD>
+<TD width=41%>Session and sorting options are retained until changed.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%><B>s</B></TD>
+<TD width=45%>Displays the system pools.</TD>
+<TD width=41%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%><B>s</B></TD>
+<TD width=45%>Displays allocations for session 0, sorted by number of allocations.</TD>
+<TD width=41%>Session option is retained.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%><B>10<BR>
+ENTER</B></TD>
+<TD width=45%>Displays Session 1 allocations, and then displays Session 0 allocations.</TD>
+<TD width=41%>Without <B>i</B>, you can enter only session IDs 0 through 9.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%><B>i</B></TD>
+<TD width=45%>Prompts for a Terminal Server session ID.</TD>
+<TD width=41%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%><B>10</B></TD>
+<TD width=45%>Displays Session 10 allocations.</TD>
+<TD width=41%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%><B>i</B></TD>
+<TD width=45%>Prompts for a Terminal Server session ID.</TD>
+<TD width=41%>To display all session pools, press <B>i</B> and then press ENTER.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%><B>ENTER</B></TD>
+<TD width=45%>Displays all session pools.</TD>
+<TD width=41%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P>Only systems configured as a Terminal Server allocate memory from the session pool. If you use PoolMon to display the session pool on a computer that is not a Terminal Server, or if you type a session ID that does not exist on Windows, PoolMon does not display any allocations. Instead, it displays only the headings with general memory data.</P>
+
+<P>The following command displays allocations from all Terminal Services session pools:</P>
+
+<PRE><B>poolmon /s
+</B></PRE>
+
+<P>The following figure shows the PoolMon display that would result if the <B>/s</B> command were submitted to a computer running Windows XP that could not be configured as a Terminal Server:</P>
+
+<PRE> Memory:  260620K Avail:   44956K  PageFlts:   308   InRam Krnl: 2744K P:20444K
+ Commit: 185452K Limit: 640872K Peak: 192472K            Pool N: 8112K P:20648K
+ All sessions pool information
+ Tag  Type     Allocs            Frees            Diff   Bytes       Per Alloc
+</PRE>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: PoolMon%20Examples"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

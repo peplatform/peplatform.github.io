@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Controlling Device Access</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Controlling Device Access">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_controlling_device_access_kg"></A>Controlling Device Access</H2>
+
+<P>Access to a device is controlled by a security descriptor (and the ACL it contains). A security descriptor for a device object can be specified when the device object is created, or set in the registry.  </P>
+
+<H4>Controlling Device Access for WDM Drivers</H4>
+
+<P>When a WDM driver (other than certain bus drivers) creates a device object, the Plug and Play Manager determines a security descriptor for the device.  The order of operations is as follows.
+
+<OL>
+	<LI>The PnP Manager calls the driver's <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine.</LI>
+
+	<LI>The driver's <I>AddDevice</I> routine calls <A HREF="k104_8piq.htm"><B>IoCreateDevice</B></A> to create the device object and attach it to the device object stack.</LI>
+
+	<LI>The PnP Manager updates the security descriptor for the newly-created device object.</LI>
+</OL>
+
+<P>For a WDM driver, the PnP Manager determines the security descriptor for the device object as follows. 
+
+<OL>
+	<LI>If the device has a security descriptor setting in the registry, it is applied to every object in the device stack. </LI>
+
+	<LI>Otherwise, if the device's setup class has a security descriptor setting in the registry, it is applied to every object in the device stack. </LI>
+
+	<LI>Otherwise, the PnP Manager leaves the default security descriptor for each object unchanged.  In this case, the default security descriptor for the stack is determined by the device type and device characteristics of the PDO.</LI>
+</OL>
+
+<P>For most device types and characteristics, the default security descriptor gives full access (GENERIC_ALL) to administrators, and read, write, and execute access (GENERIC_READ | GENERIC_WRITE | GENERIC_EXECUTE) access to everyone else.</P>
+
+<P>For more information on how to set a security descriptor for a device or device setup class in the registry, see <A HREF="devobjts_3bxj.htm">Setting Device Object Properties in the Registry</A>.</P>
+
+<P>If a device is operated in raw mode, then the PnP Manager cannot determine a security descriptor for the device object.  In that case, the bus driver must provide a security descriptor; see below.</P>
+
+<H4>Controlling Device Access for WDM Bus Drivers</H4>
+
+<P>A WDM bus driver must provide a security descriptor for the PDO of every device that can be operated in raw mode.  Use <A HREF="k104_1ycy.htm"><B>IoCreateDeviceSecure</B></A> to create the device object with a security descriptor.</P>
+
+<P>If the bus driver does <I>not</I> operate a device in raw mode, then it is not required to supply a security descriptor.  The PnP Manager determines the security descriptor, as described above.  The bus driver <I>can</I> supply a security descriptor if it must ensure that its PDOs have stricter security settings than the default descriptor.  Any descriptor specified by the bus driver is overridden by settings in the registry.</P>
+
+<P>For more information on creating device objects, see <A HREF="devobjts_3y93.htm">Creating a Device Object</A>.</P>
+
+<H4>Controlling Device Access for Non-WDM Drivers</H4>
+
+<P>Non-WDM drivers must specify a default security descriptor and class GUID for any named device objects they create.</P>
+
+<P>Use the <B>IoCreateDeviceSecure</B> routine to create the named device object and to specify the default security descriptor and class GUID for that device. The security descriptor is specified in a subset of SDDL. For more information, see <A HREF="devobjts_5e07.htm">SDDL for Device Objects</A>.</P>
+
+<P>The system overrides the default security descriptor with any security settings in the registry for the specified class GUID.  The driver must specify its own unique GUID for the device.  Use the GuidGen tool to generate a unique GUID.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Controlling%20Device%20Access"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

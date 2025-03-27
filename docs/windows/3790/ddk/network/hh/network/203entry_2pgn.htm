@@ -1,0 +1,34 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Registering an Interrupt</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Registering an Interrupt">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_registering_an_interrupt_ng"></A>Registering an Interrupt</H2>
+
+<P>After calling <B>NdisMSetAttributesEx</B>, allocating memory, and claiming resources, a miniport driver that manages an interrupting NIC must call <A HREF="103ndisx_5uk2.htm"><B>NdisMRegisterInterrupt</B></A> to identify the interrupt and to claim an interrupt vector/level. The miniport driver allocates resident storage for an opaque variable of type NDIS_MINIPORT_INTERRUPT, and passes a pointer to the variable to <B>NdisMRegisterInterrupt</B>. The miniport driver passes information about its interrupt, such as the following:
+
+<UL>
+	<LI>The bus-relative interrupt vector and interrupt level</LI>
+
+	<LI>Whether its MiniportISR should be called at every interrupt</LI>
+
+	<LI>Whether its interrupt is shared</LI>
+
+	<LI>Its interrupt mode</LI>
+</UL>
+
+<P>The interrupt mode specified by the miniport driver is either <B>NdisInterruptLevelSensitive </B>or <B>NdisInterruptLatched</B>. <B>NdisMRegisterInterrupt</B> makes HAL calls on behalf of the miniport driver to claim an interrupt vector, and then connects to the interrupt by calling the I/O system. When NDIS connects to the interrupt, it supplies its own ISR function to be called first on any interrupt. Therefore, when an interrupt occurs, control always goes to NDIS first. Within the NDIS ISR, the decision is made (based on the value of <I>RequestIsr</I> supplied to <B>NdisMRegisterInterrupt</B>) whether to pass the interrupt to the miniport driver’s <I>MiniportISR</I> or <I>MiniportDisableInterrupt</I> function or to handle the interrupt within NDIS and then to queue <I>MiniportHandleInterrupt</I>. </P>
+
+<P><B>NdisMRegisterInterrupt</B> has no effect on the state of the NIC. However, the miniport driver could receive interrupts as soon as it calls <B>NdisMRegisterInterrupt</B> (that is, before <B>NdisMRegisterInterrupt</B> returns), even if the NIC’s interrupts are disabled. The miniport driver can keep getting interrupts until its call to <B>NdisMDeregisterInterrupt</B> returns. Before calling <B>NdisMRegisterInterrupt</B>, the miniport driver should therefore perform whatever adapter-specific steps it requires to prepare itself to handle interrupts. That is, the miniport driver must create and initialize any structures it needs, perhaps initializing any spin locks it needs to synchronize access to shared data. When a miniport driver has registered its interrupt and is prepared to handle interrupts, the miniport driver can enable interrupts in a device-specific manner — for instance, by resetting the NIC.</P>
+
+<P>It is good practice for a miniport driver to test its device during initialization to make sure that the device is capable of generating interrupts. When <B>NdisMRegisterInterrupt</B> returns, a miniport driver can perform this test. If the device is not operating correctly, the miniport driver should free all claimed resources and return NDIS_STATUS_FAILURE from <I>MiniportInitialize</I> so that the miniport driver can be unloaded by the system.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Registering%20an%20Interrupt"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

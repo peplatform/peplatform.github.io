@@ -1,0 +1,38 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Registering and Queuing a CustomDpc Routine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Registering and Queuing a CustomDpc Routine">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_registering_and_queuing_a_customdpc_routine_kg"></A>Registering and Queuing a <I>CustomDpc</I> Routine</H2>
+
+<P>A driver registers a <A HREF="drvrrtns_3tbm.htm"><I>CustomDpc</I></A> routine for a device object by calling <A HREF="k105_9d0y.htm"><B>KeInitializeDpc</B></A> after it has created the device object. The driver can make this call from its <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine, or from <A HREF="drvrrtns_8uya.htm"><I>DispatchPnP</I></A> code that handles <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> requests. </P>
+
+<P>Just before the driver's ISR returns control, it can call <A HREF="k105_75iq.htm"><B>KeInsertQueueDpc</B></A> to queue the <I>CustomDpc</I> routine for execution. The following figure illustrates calls to these routines.</P>
+
+<P><B><IMG SRC="images/3cstmdpc.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Using a DPC Object for a CustomDpc Routine</B></P>
+
+<P>As the previous figure shows, a driver that has a <I>CustomDpc</I> routine must provide the storage for a DPC object. Because the driver must pass a pointer to the DPC object from its ISR, the storage must be in resident, system-space memory. Most drivers with <I>CustomDpc</I> routines provide storage for their DPC objects in the device extension, but the storage can be in a controller extension if the driver uses a <A HREF="iputoput_5xd3.htm">controller object</A> or in nonpaged pool allocated by the driver.</P>
+
+<P>When the driver<B> </B>calls <B>KeInitializeDpc</B>, it must pass the entry point for its <I>CustomDpc</I> routine, along with pointers to the driver-allocated storage for the DPC object and to a driver-defined context area, which is passed to the <I>CustomDpc</I> routine when it is called. Because the context area must be accessible at raised IRQL, it also must be in resident memory.</P>
+
+<P>Unlike a <I>DpcForIsr</I> routine, a <I>CustomDpc</I> routine is not associated with a device object. Nevertheless, drivers typically include pointers to the target device object and current IRP in the context information supplied to the <I>CustomDpc</I> routine. Like a <I>DpcForIsr</I> routine, the <I>CustomDpc</I> routine uses this information to complete an interrupt-driven I/O operation at a lower IRQL than the ISR.</P>
+
+<P>As the previous figure shows, the ISR passes pointers to the DPC object and to two additional parameters, which are driver-defined, to <A HREF="k105_75iq.htm"><B>KeInsertQueueDpc</B></A>. If all processors in the machine currently have code running at an IRQL greater than or equal to DISPATCH_LEVEL, the DPC object is queued until the IRQL falls below DISPATCH_LEVEL on a processor. Then, the kernel dequeues the DPC object and the driver's <I>CustomDpc</I> routine is run on the processor at IRQL DISPATCH_LEVEL.</P>
+
+<P>Only a single instantiation of any one DPC object can be queued at any given moment. Thus if an ISR calls <B>KeInsertQueueDpc</B> more than once with the same <I>Dpc</I> pointer before the driver's <I>CustomDpc</I> routine is run, the <I>CustomDpc</I> routine runs only once after IRQL falls below DISPATCH_LEVEL on a processor.</P>
+
+<P>A <I>CustomDpc</I> routine is responsible for doing whatever is necessary to complete the I/O operation that caused the interrupt. </P>
+
+<P>The ISR and <I>CustomDpc</I> routines can be run concurrently on an SMP machine. Therefore, when writing <I>CustomDpc</I> routines, follow the guidelines set out in the previous section, <A HREF="intrupts_3u7b.htm">Registering and Queuing a <I>DpcForIsr</I> Routine</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Registering%20and%20Queuing%20a%20CustomDpc%20Routine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Reading Joystick Position Information</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_2738"></A>Reading Joystick Position Information</H3>
+
+<P>The following example examines the section of <B>Poll</B> where the driver calculates the coordinate values. In this section, <B>Poll</B> performs the following tasks: 
+
+<UL>
+	<LI>Clears the interrupt flag. </LI>
+
+	<LI>Initializes the coordinate variables. It sets the position counter variables to a negative base value, since the first iteration of the polling loop occurs before the potentiometer timers are started. See the next section for more information on the first iteration of the polling loop. </LI>
+
+	<LI>Records the delta calibration value for the coordinates in general-purpose registers. </LI>
+
+	<LI>Establishes the bit masks used to check the resistive flags during the polling loop. </LI>
+</UL>
+
+<P>The following code fragment continues where the previous fragment ended: </P>
+
+<PRE>pushf                           ; Push the flags register
+    cli                             ; No interrupts allowed!
+
+    mov     wClear, 1               ; Set stabilization loop flag
+
+Real_Poll:
+
+    mov     dx,JOYPORT              ; Set joystick port address
+    mov     si,offset _JoyCal       ; Point to first JOYCALIBRATE structure
+    
+    mov     bx,JOY1_XY_MASK         ; Place bit mask in bx
+    cmp     id,0                    ; Are we polling joystick 1?
+    jz      @f                      ;    If so, use first structure
+    cmp     zOnly, 0                ; Are we polling the z axis?
+    jnz     @f                      ;    If so, use first structure
+
+                                    ; Polling the second joystick
+    add     si,(size JOYCALIBRATE)  ; Use second JOYCALIBRATE structure
+    mov     bx,JOY2_XY_MASK         ; and bit mask
+
+@@:
+    ; Note zOnly values:
+    ;       0   if polling x and y
+    ;      -1   if z axis is on the second joystick's x potentiometer
+    ;       1   if z axis is on the second joystick's y potentiometer
+
+    cmp     zOnly, 0                ; Are we polling the z axis?
+    jz      poll_setxy              ;   No
+    jl      @f                      ;   Yes, on y potentiometer
+                                    ;   Yes, on x potentiometer
+    mov     ax,[si].jcal_wZbase     ; Set x-pos. counter to z base value
+    neg     ax                      ; Start off negative
+    cwd
+    mov     _wXpos,ax
+    mov     _wXpos_hi,dx            ; used to check for roll-over error
+
+    mov     cx,[si].jcal_wZdelta    ; Establish z delta value
+    mov     bx,JOY2_X_MASK          ; Put bit mask into dx
+    jmp     poll_timers             ; Start the timers!
+; Set up for z-axis poll, using joystick 2's y potentiometer
+
+@@: mov     ax,[si].jcal_wZbase     ; Set y-pos. counter to z base value
+    neg     ax
+    cwd
+    mov     _wYpos,ax
+    mov     _wYpos_Hi,dx            ; used to check for roll-over error
+    
+    mov     di,[si].jcal_wZdelta    ; Establish z delta value
+    mov     bx,JOY2_Y_MASK          ; Put bit mask into bx
+    jmp     poll_timers             ; Start the timers!
+
+    ; Set up for x- and y-axis poll
+
+poll_setxy:
+
+    mov     ax,[si].jcal_wXbase     ; Set x-pos. counter to x base value
+    neg     ax
+    cwd
+    mov     _wXpos,ax
+    mov     _wXpos_hi,dx            ; used to check for roll-over error
+
+    mov     ax,[si].jcal_wYbase     ; Set y-pos. counter to y base value
+    neg     ax                      ; Start off negative
+    cwd
+    mov     _wYpos,ax
+    mov     _wYpos_Hi,dx            ; used to check for roll-over error
+
+    mov     cx,[si].jcal_wXdelta    ; Establish x and y deltas
+    mov     di,[si].jcal_wYdelta
+    .
+    .                               ; Sample continued in next section
+    . 
+ </PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Reading%20Joystick%20Position%20Information"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

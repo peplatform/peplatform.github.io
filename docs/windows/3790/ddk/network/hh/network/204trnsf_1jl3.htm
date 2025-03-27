@@ -1,0 +1,72 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Sending a Packet on a Bus-master DMA NIC</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Sending a Packet on a Bus-master DMA NIC">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_sending_a_packet_on_a_bus_master_dma_nic_ng"></A>Sending a Packet on a Bus-Master DMA NIC</H3>
+
+<P>The steps involved in sending a packet on a bus-master DMA NIC depend on how the miniport driver initialized or reserved system resources during DMA initialization:
+
+<UL>
+	<LI>A serialized miniport driver that manages a bus-master DMA NIC must call <B>NdisMAllocateMapRegisters</B> from its <I>MiniportInitialize</I> function to allocate map registers for DMA operations.</LI>
+
+	<LI>A deserialized or connection-oriented NIC that manages a bus-master DMA NIC should call <B>NdisMInitializeScatterGatherDma</B> from its <I>MiniportInitialize</I> function to initialize DMA resources. The benefits of using <B>NdisMInitializeScatterGatherDma</B> are that system resources, such as map registers, are dynamically allocated and deallocated for each DMA transfer (thereby better utilizing system resources) and that DMA performance is improved through a streamlined procedure for obtaining the physical addresses of mapped virtual ranges. Instead of calling <B>NdisMInitializeScatterGatherDma</B>, a deserialized or connection-oriented miniport driver that manages a bus-master DMA NIC can call <B>NdisMAllocateMapRegisters</B> to statically allocate map registers; however, this results in poorer DMA performance and poorer utilization of system resources.</LI>
+</UL>
+
+<H4>Miniport Drivers that Reserve DMA Resources with NdisMAllocateMapRegisters</H4>
+
+<P>Generally, a connectionless miniport driver (either serialized or deserialized) that manages a bus-master DMA NIC exports a<I><B> </B>MiniportSendPackets</I> function to get the best performance from its NIC. A connection-oriented miniport driver that manages a bus-master DMA NIC always exports <I>MiniportCoSendPackets</I>.</P>
+
+<P>After receiving one or more packet descriptors in its <I>Miniport(Co)SendPackets</I> function, a miniport driver that allocated map registers with <B>NdisMAllocateMapRegisters</B> during DMA initialization performs the following steps when sending a packet using DMA:
+
+<OL>
+	<LI>The miniport driver calls <A HREF="103ndisx_4ooi.htm"><B>NdisQueryPacket</B></A> to read the packet length, to obtain a pointer to the first buffer descriptor, and to determine the number of buffer descriptors and the physical segment count.</LI>
+
+	<LI>The miniport driver may need to determine whether it has available transmit buffers and available transmit buffer descriptors that map buffers in the ring. If either of these resources is unavailable, a serialized miniport driver either fails the call to <I>MiniportSend</I> or <I>MiniportSendPackets </I>with NDIS-STATUS_RESOURCES, returning the packet to NDIS, or queues the packet internally and returns NDIS_STATUS_PENDING. A deserialized or connection-oriented miniport driver always queues the packet internally and returns.</LI>
+
+	<LI>A DMA device can have an upper limit on the number of physical segments that it can map for a single DMA operation. If a miniport driver is given a packet to send that is too fragmented, it must copy the buffers chained to the packet into a single transmit buffer. A miniport driver should, from its <I>MiniportInitialize</I> function, allocate such a staging buffer and a buffer descriptor to map it. A miniport driver calls <A HREF="103ndisx_87le.htm"><B>NdisMoveMemory</B></A> to move data from each protocol-supplied buffer into this transmit staging buffer. A miniport driver must copy send data only when the packet is too fragmented, because copying to a staging buffer is an expensive operation and adversely affects performance if done too frequently. Generally, if the buffer to be sent is less than 256 bytes, the miniport driver can improve performance by copying the data into a staging buffer and passing a miniport-allocated descriptor for the buffer to <B>NdisMStartBufferPhysicalMapping</B>. </LI>
+
+	<LI>The miniport driver calls <A HREF="103ndisx_3a42.htm"><B>NdisMStartBufferPhysicalMapping</B></A> to map the previously allocated shared memory buffer whose contents will be sent. This call takes a Boolean argument, <I>WriteToDevice</I>, that indicates whether data is being moved from host memory to the NIC or from the NIC to host memory. For a send, <I>WriteToDevice</I> is set to TRUE. The miniport driver must also supply the index of the map register it is using to map the buffer, and this index must be one of the registers returned from calling <A HREF="103ndisx_44j6.htm"><B>NdisMAllocateMapRegisters</B></A> at miniport driver-initialization time. </LI>
+
+	<LI>If the miniport driver allocated cached memory for its transmit buffers, it calls <A HREF="103ndisx_188i.htm"><B>NdisFlushBuffer</B></A>, supplying the address of the buffer being sent and specifying the <I>WriteToDevice</I> parameter as TRUE to indicate that the direction of the transfer is from the host to the NIC. <B>NdisFlushBuffer</B> flushes the processor cache line, ensuring that the memory contents seen by the NIC and the miniport driver are the same. Because cache-line tearing is not a problem for transmitted data, the miniport driver can flush the data without concern for cache fill size. To ensure cache-coherency on all platforms, the miniport driver should also call <A HREF="103ndisx_29rm.htm"><B>NdisMUpdateSharedMemory</B></A>. </LI>
+
+	<LI>The miniport driver programs the NIC for the transmission, for example, by writing to the control registers. The NIC then performs the DMA transfer.</LI>
+
+	<LI>When the send completes, the miniport driver calls <A HREF="103ndisx_3pbm.htm"><B>NdisMCompleteBufferPhysicalMapping</B></A><B> </B>to release the map register. If the NIC interrupts at the completion of the send, this call is made from <I>MiniportHandleInterrupt</I>. </LI>
+
+	<LI>The miniport driver calls <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A> or <A HREF="103ndisx_5t2q.htm"><B>NdisMCoSendComplete</B></A>.</LI>
+</OL>
+
+<P>For more information, see <A HREF="203entry_6xgn.htm">Bus-Master DMA Device Initialization</A>.</P>
+
+<H4>Miniport Drivers that Initialize DMA Resources with NdisMInitializeScatterGatherDma</H4>
+
+<P>Generally, a deserialized miniport driver that manages a bus-master DMA NIC exports a <I>MiniportSendPackets</I> function to get the best performance from its NIC. A connection-oriented miniport driver that manages a bus-master DMA NIC always exports a <I>MiniportCoSendPackets</I> function.</P>
+
+<P>After receiving one or more packet descriptors in its <I>Miniport(Co)SendPackets</I> function, a bus-master DMA miniport driver that initialized system resources with <B>NdisMInitializeScatterGatherDma</B> during DMA initialization performs the following steps when sending a packet using DMA:
+
+<OL>
+	<LI>The miniport driver calls NDIS_PER_PACKET_INFO_FROM_PACKET with an <I>InfoType</I> of <B>ScatterGatherListPacketInfo</B>. NDIS_PER_PACKET_INFO_FROM_PACKET returns a pointer to a SCATTER_GATHER_LIST structure. This structure specifies an array of SCATTER_GATHER_ELEMENT structures, each of which specifies the base physical address and length of a contiguous range of DMA data to be transferred.</LI>
+
+	<LI>The miniport driver may need to determine whether it has available transmit buffers and available transmit buffer descriptors that map buffers in the ring. If either of these resources is unavailable, a deserialized or connection-oriented miniport driver always queues the packet internally and returns.</LI>
+
+	<LI>A DMA device can have an upper limit on the number of physical segments that it can map for a single DMA operation. If a miniport driver is given a packet to send that is too fragmented, it must copy the buffers chained to the packet into a single transmit buffer. A miniport driver should have allocated such a staging buffer and a buffer descriptor to map it by calling <A HREF="103ndisx_1ywi.htm"><B>NdisMAllocateSharedMemory</B></A> from its <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A> function. A miniport driver calls <A HREF="103ndisx_87le.htm"><B>NdisMoveMemory</B></A> to move data from each protocol-supplied buffer into this transmit staging buffer. A miniport driver must copy send data only when the packet is too fragmented, because copying to a staging buffer is an expensive operation and adversely affects performance if done too frequently. Generally, if the buffer to be sent is less than 256 bytes, the miniport driver can improve performance by copying the data into a staging buffer.</LI>
+
+	<LI>If the miniport driver allocated cached memory for its transmit buffers, it calls <A HREF="103ndisx_188i.htm"><B>NdisFlushBuffer</B></A>, supplying the address of the buffer being sent and specifying the <I>WriteToDevice</I> parameter as TRUE to indicate that the direction of the transfer is from the host to the NIC. <B>NdisFlushBuffer</B> flushes the processor cache line to ensure that the memory contents seen by the NIC and the miniport driver are the same. Because cache-line tearing is not a problem for transmitted data, the miniport driver can flush the data without concern for cache fill size. To ensure cache-coherency on all platforms, the miniport driver should also call <A HREF="103ndisx_29rm.htm"><B>NdisMUpdateSharedMemory</B></A>. </LI>
+
+	<LI>The miniport driver programs the NIC for the transmission—for example, by writing to the control registers. The NIC then performs the DMA transfer.</LI>
+
+	<LI>The miniport driver calls <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A> or <A HREF="103ndisx_5t2q.htm"><B>NdisMCoSendComplete</B></A>. The call to <B>NdisM(Co)SendComplete</B> releases the mapping resources used for the DMA transfer.</LI>
+</OL>
+
+<P>For more information, see <A HREF="203entry_6xgn.htm">Bus-Master DMA Device Initialization</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Sending%20a%20Packet%20on%20a%20Bus-master%20DMA%20NIC"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,57 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Gamma Control</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Gamma Control">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_gamma_control_gg"></A>Gamma Control</H1>
+
+<P>Beginning with DirectX 6.0, DirectDraw offers applications a way of specifying gamma tables that are applied to the DirectDraw device. Gamma ramp support was added to Windows&nbsp;98/Me so that applications can modify the device color mapping in HiColor and TrueColor modes. Driver writers are encouraged to add this facility to their drivers, because it can be used by both DirectDraw and advanced gamma-correcting software.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Gamma ramp capabilities are implemented as part of the 16-bit GDI display driver, not the 32-bit HAL DirectDraw driver DLL. In addition, the information provided here applies only to Windows&nbsp;98/Me, but not to Windows&nbsp;2000 and later.</P>
+
+<P>DirectDraw calls the driver through the <A HREF="ddfncs_3s4n.htm"><B>SetDeviceGammaRamp</B></A> SDK function. If the call is successful, DirectDraw sets the DDCAPS2_PRIMARYGAMMA flag in the <B>dwCaps2</B> member of the <A HREF="ddstrcts_5xgn.htm">DDCORECAPS</A> structure.</P>
+
+<P>Your display driver must perform the following steps:
+
+<OL>
+	<LI>Set the C1_GAMMA_RAMP flag in the <B>dpCaps1</B> member of the GDIINFO structure. C1_GAMMA_RAMP and GDIINFO are both defined in the Windows DDK, in the file \winddk\inc\win_me\inc16\gdidefs.inc. For information on the GDIINFO structure, see the Windows DDK documentation.</LI>
+
+	<LI>Write a <A HREF="ddfncs_9sfb.htm"><I>DDIGammaRamp</I></A> function, which is prototyped with the <I>OEMGammaRamp</I> pseudoname in the following code snippet:</LI>
+</OL>
+
+<PRE>cProc   OEMGammaRamp,&lt;FAR,PUBLIC,WIN,PASCAL&gt;,&lt;es,si,di&gt;
+        parmD   lpDev
+        parmW   fGetSet          ;determine get/set flag
+        parmD   lpGammaRamp      ;pointer to a set of three arrays</PRE>
+
+<P class=indent1>The <I>lpDev</I> parameter is used in all other exports and is documented elsewhere.</P>
+
+<P class=indent1>The <I>fGetSet</I> parameter determines whether you should return the current gamma ramp or set a new one. If <I>fGetSet</I> == 0, then set the gamma ramp specified in <I>lpGammaRamp</I>; otherwise, return the current gamma ramp in <I>lpGammaRamp</I>.</P>
+
+<P class=indent1>The <I>lpGammaRamp</I> parameter is a pointer to an array of 768 16-bit WORDs containing the new gamma ramp values, or a buffer to return the current values (depending on the value of <I>fGetSet</I>). The first 256 entries define the red gamma values, the next 256 define the green gamma values, and the last 256 entries define the blue gamma values. The gamma values range between 0 and 65535. </P>
+
+<OL start=3>
+	<LI>Export the <I>DDIGammaRamp</I> function as ordinal 32 in the display driver .DEF file.</LI>
+</OL>
+
+<P>The <I>DDIGammaRamp</I> function returns a WORD containing either 1 for success or 0 for an error. This value is returned directly to the application. The function cannot return -1 for simulation; there is no simulation.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;DIBENG does not implement this function, so do not try to pass it on.</P>
+
+<P>Your driver must ensure that this device driver interface is safe to call between calls to the <B>IDirect3DDevice::BeginScene</B> and <B>IDirect3DDevice::EndScene</B> methods. Do not let the system stall waiting for the 3-D hardware. If necessary, fail the call.</P>
+
+<P>The latest version of DirectX handles saving and restoring the gamma values for full-screen applications; your driver should not do this. However, your driver (and miniVDD) must restore the gamma ramp values when an MS-DOS box is deactivated (through the <I>ResetHiResMode</I> 16-bit GDI driver function). Your driver also must restore the gamma values to appropriate defaults when a full-screen VM gets the focus.</P>
+
+<P>Your driver is not required to set the DDCAPS2_PRIMARYGAMMA flag. DirectDraw detects your driver's support for <I>DDIGammaRamp</I> and sets this flag automatically.</P>
+
+<P>The DDCAPS2_CANCALIBRATEGAMMA flag is not directly relevant to display drivers. This bit means that DirectDraw can modify gamma ramp tables to account for the physical responses of the display subsystem. The driver may see modified gamma ramps, but it does not have to take any special action (and in fact does not have any way to know that these ramps have been modified).</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Gamma%20Control"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

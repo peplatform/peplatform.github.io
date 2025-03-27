@@ -1,0 +1,269 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>UNWIND_CODE Structure</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_unwind_code_structure_kg"></A>UNWIND_CODE Structure</H4>
+
+<P>The unwind code array is a list of UNWIND_CODE structures and is used to record the sequence of operations in the prolog that affect the nonvolatile registers and RSP. Each code item (UNWIND_CODE structure) has the following format:</P>
+
+<PRE class=syntax>typedef union _UNWIND_CODE {
+    struct {
+        UBYTE CodeOffset;
+        UBYTE UnwindOp : 4;
+        UBYTE OpInfo   : 4;
+    };
+    USHORT FrameOffset;
+} UNWIND_CODE, *PUNWIND_CODE;</PRE>
+
+<P>The unwind code array is sorted by descending order of offset in the prolog. The members of UNWIND_CODE contain the following information:
+
+<DL>
+<DT><B>CodeOffset</B></DT>
+
+<DD>Specifies the offset from the beginning of the prolog to the end of the instruction that performs this operation, plus 1 (that is, the offset of the start of the next instruction).</DD>
+
+<DT><B>UnwindOp</B></DT>
+
+<DD>Specifies the unwind operation. Each unwind operation can be specified by one of the following codes:
+
+<DL>
+<DT>UWOP_PUSH_NONVOL (0)    one node</DT>
+
+<DD>Push a nonvolatile integer register, which decrements RSP by 8. In this case, the <B>OpInfo</B> member specifies the number of the register. Note that, due to the constraints on epilogs, UWOP_PUSH_NONVOL unwind codes must appear first in the prolog and, correspondingly, last in the unwind code array. This relative ordering applies to all other unwind codes, except UWOP_PUSH_MACHFRAME.</DD>
+
+<DT>UWOP_ALLOC_LARGE (1)    two or three nodes</DT>
+
+<DD>Allocate a large-sized area on the stack. There are two forms. If the <B>OpInfo</B> member specifies zero, then the size of the allocation divided by 8 is recorded in the next slot, allowing an allocation of up to 512 KB minus 8 bytes. If the <B>OpInfo</B> member specifies 1, then the unscaled size of the allocation is recorded in the next two slots in little-endian format, allowing allocations of up to 4 GB minus 8 bytes.</DD>
+
+<DT>UWOP_ALLOC_SMALL (2)    one node</DT>
+
+<DD>Allocate a small-sized area on the stack. The size of the allocation is (the number in the <B>OpInfo</B> member) times 8 plus 8, allowing allocations from 8 to 128 bytes. </DD>
+
+<DT>UWOP_SET_FPREG (3)    one node</DT>
+
+<DD>Establish the frame pointer register by setting the register to some offset of the current RSP. The offset is equal to (the <B>FrameOffset</B> member in the <A HREF="64bitamd_5rc7.htm">UNWIND_INFO Structure</A>) times 16, allowing offsets from 0 to 240. The use of an offset permits establishing a frame pointer, which points to the middle of the fixed stack allocation, helping code density by allowing more accesses to use short instruction forms. Note that the <B>OpInfo</B> member is reserved and should not be used.</DD>
+
+<DT>UWOP_SAVE_NONVOL (4)    two nodes</DT>
+
+<DD>Save a nonvolatile integer register on the stack using an MOV instead of a PUSH. This is primarily used for shrink-wrapping, where a nonvolatile register is saved to the stack in a position that was previously allocated. The <B>OpInfo</B> member is the number of the register. The scaled-by-8 stack offset is recorded in the next unwind operation code slot, as described in the preceding note.</DD>
+
+<DT>UWOP_SAVE_NONVOL_FAR (5)   three nodes</DT>
+
+<DD>Save a nonvolatile integer register on the stack with a long offset, using an MOV instead of a PUSH. This is primarily used for shrink-wrapping, where a nonvolatile register is saved to the stack in a position that was previously allocated. The <B>OpInfo</B> member is the number of the register. The unscaled stack offset is recorded in the next two unwind operation code slots, as described in the preceding note.</DD>
+
+<DT>UWOP_SAVE_XMM (6)    two nodes</DT>
+
+<DD>Save the low 64 bits of a nonvolatile XMM register on the stack. The <B>OpInfo</B> member is the number of the register. The scaled-by-8 stack offset is recorded in the next slot.</DD>
+
+<DT>UWOP_SAVE_XMM_FAR (7)    three nodes</DT>
+
+<DD>Save the low 64 bits of a nonvolatile XMM register on the stack with a long offset. The <B>OpInfo</B> member is the number of the register. The unscaled stack offset is recorded in the next two slots.</DD>
+
+<DT>UWOP_SAVE_XMM128 (8)   two nodes</DT>
+
+<DD>Save all 128 bits of a nonvolatile XMM register on the stack. The <B>OpInfo</B> member is the number of the register. The scaled-by-16 stack offset is recorded in the next slot.</DD>
+
+<DT>UWOP_SAVE_XMM128_FAR (9)    three nodes</DT>
+
+<DD>Save all 128 bits of a nonvolatile XMM register on the stack with a long offset. The <B>OpInfo</B> member is the number of the register. The unscaled stack offset is recorded in the next two slots.</DD>
+
+<DT>UWOP_PUSH_MACHFRAME (10)    one node</DT>
+
+<DD>Push a “machine frame.” This is used to record the effect of a hardware interrupt or exception. There are two forms. If the <B>OpInfo</B> member equals 0, the following has been pushed on the stack:
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=48%>RSP+32</TD>
+<TD width=52%>SS</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>RSP+24</TD>
+<TD width=52%>Old RSP</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>RSP+16</TD>
+<TD width=52%>EFLAGS</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>RSP+8</TD>
+<TD width=52%>CS</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>RSP</TD>
+<TD width=52%>RIP</TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>If the <B>OpInfo</B> member equals 1, then the following has instead been pushed:
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=48%>RSP+40</TD>
+<TD width=52%>SS</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>RSP+32</TD>
+<TD width=52%>Old RSP</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>RSP+24</TD>
+<TD width=52%>EFLAGS</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>RSP+16</TD>
+<TD width=52%>CS</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>RSP+8</TD>
+<TD width=52%>RIP</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>RSP</TD>
+<TD width=52%>Error code</TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>This unwind code will always appear in a dummy prolog, which is never actually executed but instead appears before the real entry point of an interrupt routine, and exists only to provide a place to simulate the push of a machine frame. UWOP_PUSH_MACHFRAME records that simulation, which indicates the machine has conceptually done the following operation:
+
+
+<P><CODE>Pop RIP return address from top of stack into <I>Temp</I><BR>
+Push SS<BR>
+Push old RSP<BR>
+Push EFLAGS<BR>
+Push CS<BR>
+Push <I>Temp</I><BR>
+Push Error Code (if op info equals 1)</CODE>
+
+
+<P>The simulated UWOP_PUSH_MACHFRAME operation decrements RSP by 40 (<B>OpInfo</B> member equals 0) or 48 (<B>OpInfo</B> member equals 1).
+
+</DD>
+</DL>
+</DD>
+
+<DT><B>OpInfo</B></DT>
+
+<DD>Specifies information for the operation. The meaning of these four bits depends upon the value specified in the <B>UnwindOp</B> member. To encode a general-purpose (integer) register, the following mapping is used:
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Encode value</TH>
+<TH align=left width=52%>Register</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>0</TD>
+<TD width=52%>RAX</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>1</TD>
+<TD width=52%>RCX</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>2</TD>
+<TD width=52%>RDX</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>3</TD>
+<TD width=52%>RBX</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>4</TD>
+<TD width=52%>RSP</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>5</TD>
+<TD width=52%>RBP</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>6</TD>
+<TD width=52%>RSI</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>7</TD>
+<TD width=52%>RDI</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>8 to 15</TD>
+<TD width=52%>R8 to R15</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>FrameOffset</B></DT>
+
+<DD>Specifies the scaled offset.
+
+<P>Note that certain operation codes require an unsigned offset to a value in the local stack frame. If the <B>FrameRegister</B> member in the <A HREF="64bitamd_5rc7.htm">UNWIND_INFO Structure</A> is zero, this offset is from RSP. If the <B>FrameRegister</B> member is nonzero, this is the offset from where RSP was located when the FP register was established. This equals the FP register minus the FP register offset (16 times the scaled frame register offset in UNWIND_INFO). If an FP register is used, then any unwind code taking an offset must only be used after the FP register is established in the prolog.
+
+
+<P>For all operation codes except UWOP_SAVE_XMM128 and UWOP_SAVE_XMM128_FAR, the offset is always a multiple of 8, because all stack values of interest are stored on 8-byte boundaries (the stack itself is always 16-byte aligned). For operation codes that take a short offset (less than 512 KB), the final USHORT in the nodes for this code holds the offset divided by 8. For operation codes that take a long offset (512 KB &lt;= offset &lt; 4 GB), the final two USHORT nodes for this code hold the offset (in little-endian format).
+
+
+<P>For the operation codes UWOP_SAVE_XMM128 and UWOP_SAVE_XMM128_FAR, the offset is always a multiple of 16, because all 128-bit XMM operations must occur on 16-byte aligned memory. Therefore, a scale factor of 16 is used for UWOP_SAVE_XMM128, permitting offsets of less than 1megabyte.
+
+</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>The unwind code for a stack allocation should always use the shortest possible encoding:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=43%>Allocation Size</TH>
+<TH align=left width=57%>Unwind Code</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>8 to 128 bytes</TD>
+<TD width=57%>UWOP_ALLOC_SMALL</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>136 bytes to 512 KB minus 8 bytes</TD>
+<TD width=57%>UWOP_ALLOC_LARGE, with <B>OpInfo</B> = 0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>512 KB to 4 GB minus 8 bytes</TD>
+<TD width=57%>UWOP_ALLOC_LARGE, with <B>OpInfo</B> = 1</TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: UNWIND_CODE%20Structure"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

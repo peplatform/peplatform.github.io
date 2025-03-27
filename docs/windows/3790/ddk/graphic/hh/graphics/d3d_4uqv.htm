@@ -1,0 +1,41 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling Asynchronous Queries</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_handling_asynchronous_queries_gg"></A>Handling Asynchronous Queries</H4>
+
+<P>A driver handles asynchronous query operations that are received in the <A HREF="d3d_7fs7.htm">command stream</A> of its <A HREF="d3dfncs_5usn.htm"><I>D3dDrawPrimitives2</I></A> function as discussed in the following sequence: 
+
+<OL>
+	<LI>The driver creates resources for a query after it receives a <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_createquery_gg">D3DDP2OP_CREATEQUERY</A> operation code along with a <A HREF="d3dstrct_3quf.htm">D3DHAL_DP2CREATEQUERY</A> structure in the command stream. </LI>
+
+	<LI>The driver starts to process a query after it receives a <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_issuequery_gg">D3DDP2OP_ISSUEQUERY</A> operation code along with a <A HREF="d3dstrct_2w13.htm">D3DHAL_DP2ISSUEQUERY</A> structure in the command stream.</LI>
+
+	<LI>If previously submitted queries using the D3DDP2OP_ISSUEQUERY operation completed, the driver sets the size of the response buffer in the <B>dwErrorOffset</B> member of the <A HREF="d3dstrct_47fr.htm">D3DHAL_DRAWPRIMITIVES2DATA</A> structure and sets the <B>ddrval</B> member of D3DHAL_DRAWPRIMITIVES2DATA to D3D_OK for successful completion. The driver overwrites the command buffer in the incoming <A HREF="d3d_7fs7.htm">command stream</A> with the response buffer in the outgoing stream. The driver sets the <A HREF="d3dstrct_8xif.htm">D3DHAL_DP2RESPONSE</A> structure's <B>bCommand</B> member to <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_responsequery_gg">D3DDP2OP_RESPONSEQUERY</A> to indicate that responses to previously issued queries are available in the response buffer. Each <A HREF="d3dstrct_5fon.htm">D3DHAL_DP2RESPONSEQUERY</A> in the response buffer is followed by the following data related to the query: 
+<UL>
+	<LI>BOOL for D3DQUERYTYPE_EVENT. Before responding with D3DDP2OP_RESPONSEQUERY for an event, the driver must ensure that the graphics processing unit (GPU) is finished processing all <A HREF="d3denum_0jon.htm">D3DHAL_DP2OPERATION</A> operations that are related to the event. That is, the driver only responds after the event's ISSUE_END state occurs. Before the driver sets the event to the signaled state (set to TRUE), the GPU might be required to perform a flush to ensure that the pixels are finished rasterizing, blts are completed, resources are no longer being used, and so on. The driver must always set the event's BOOL value to TRUE when responding.</LI>
+
+	<LI>DWORD for D3DQUERYTYPE_OCCLUSION. The driver sets this DWORD to the number of pixels for which the z-test passed for all primitives between the begin and end of the query. If the depth buffer is multi-sampled, the driver determines the number of pixels from the number of samples. However, if the display device is capable of per-multi-sample z-test accuracy, the conversion to number of pixels should generally be rounded up. An application can then check the occlusion result against 0, to effectively mean "fully occluded." Drivers that convert multi-sampled quantities to pixel quantities should detect render target multi-sampling changes and continue to compute the query results appropriately. </LI>
+
+	<LI><A HREF="d3dstrct_7u7b.htm">D3DDEVINFO_VCACHE</A> structure for D3DQUERYTYPE_VCACHE. </LI>
+</UL>
+
+<P>If the supplied command buffer is too small for the driver to write all the responses, the driver also sends <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_responsecontinue_gg">D3DDP2OP_RESPONSECONTINUE</A> in the outgoing stream.
+</LI>
+
+	<LI>If the runtime determines that the driver's <A HREF="d3dfncs_5usn.htm"><I>D3dDrawPrimitives2</I></A> function succeeded (<B>ddrval</B> member of D3DHAL_DRAWPRIMITIVES2DATA set to D3D_OK), the runtime examines the <B>dwErrorOffset</B> member of D3DHAL_DRAWPRIMITIVES2DATA to determine if responses are available from the driver. This <B>dwErrorOffset</B> member is zero if no responses are available; otherwise, <B>dwErrorOffset</B> is the size of the response buffer in bytes. Therefore, on success of <I>D3dDrawPrimitives2</I> (<B>ddrval</B> set to D3D_OK), the driver must ensure that it only sets <B>dwErrorOffset</B> to nonzero when responses are available. </LI>
+
+	<LI>The runtime parses the returned response buffer and updates its internal data structures.</LI>
+
+	<LI>If the driver sent D3DDP2OP_RESPONSECONTINUE, the runtime submits an empty command buffer in the incoming <A HREF="d3d_7fs7.htm">command stream</A> so that the driver can continue to write more responses. The driver must ensure that it can process empty command buffers.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20Asynchronous%20Queries"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

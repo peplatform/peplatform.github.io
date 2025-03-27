@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Building an NDI Procedure DLL</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_pss_333"></A>Building an NDI Procedure DLL</H2>
+
+<P>To build an installer DLL, write a 16-bit Windows DLL. Include the header file Netdi.h and link to the import library Netdi.lib. Netdi.dll is the class installer for all network devices and exports the NDI interface. </P>
+
+<P>Because Windows 95 Setup runs under Windows 3.1, your installer DLL must be a 16-bit DLL and must be Windows 3.1-compatible. Define WINVER as 0x030a before including Windows.h to ensure Windows 3.1 compatibility. It also recommended that you link your DLL to a Windows 3.1 version of Libw.dll so that you don't accidentally import any other Windows 95 function. Note that all necessary Windows 95 registry and property sheet APIs are exported in Setupx.dll as SU<I>functionname</I> for use by setup modules; you must use these rather that the actual Windows 95 functions. Even though your DLL must be 3.1 compatible, it must be marked as a 4.0 DLL by specifying /40 on the RC line. </P>
+
+<P>The installer procedure is registered as described in <I>General Driver Information</I>. </P>
+
+<P>Notes: 
+
+<UL>
+	<LI>You can call the default message handler, <B>DefNdiProc</B> for any messages you do not want to handle specifically in your code. </LI>
+
+	<LI>By default, NETDI assumes that changes in an object do not require the machine to be rebooted. If the object does need a reboot, the Ndi dll for that object must call <B>NdiNeedReboot</B>, described in the following. </LI>
+</UL>
+
+<P>Here is an example custom NDI procedure that shows its own settings dialog box, performs specific bindings checks, and has custom installation work. Note that most messages should get forwarded to the default procedure. </P>
+
+<PRE>#define WINVER 0x030a    // Must be Win 3.1 compatible
+#define STRICT            // Recommended for strict type checking
+#include &lt;windows.h&gt;    // Windows
+#include &lt;netdi.h&gt;        // Network driver installer
+
+RETERR _loadds CALLBACK MyNdiProc
+(
+    HNDI        hndi,        // NDI handle
+    UINT         uMsg,         // NDI message
+    WPARAM     wParam,    // 1st message specific parameter
+    LPARAM     lParam        // 2nd message specific parameter
+)
+{
+    RETERR        reterr;    // return code
+
+    switch (uMsg)
+    {
+    case NDI_CREATE:
+        // Read in my properties and attach them to this object
+        // using NdiSetProperties.
+        return MyNdiCreate(hndi);
+
+    case NDI_HASPROPPAGES:
+        // Tell the installer that I have my own property pages to add.
+        return TRUE;
+
+    case NDI_ADDPROPPAGES:
+        // Add my own property sheet page(s) to the properties dialog.
+        // My property page dialog proc gets the properties that
+        // I read in during NDI_CREATE using NdiGetProperties and
+        // saves them back to my properties structure in memory. I
+        // write them out during the NDI_INSTALL message.
+        return MyNdiAddPropPages(hndi,(LPNDIADDPROPPAGES)lParam);
+
+    case NDI_QUERY_BIND:
+        // Check if this binding is ok and pass to the default handler
+        if ((reterr = MyNdiQueryBind(hndi,(HNDI)wParam,lParam)) != OK)
+            return reterr;
+        break;
+
+    case NDI_INSTALL:
+        // Write out my properties values and let NDI finish up
+        // with the default install.
+        if ((reterr = MyNdiInstall(hndi)) != OK)
+            return reterr;
+        break;
+
+    case NDI_DESTROY:
+        // Destroy my properties memory
+        return MyNdiDestroy(hndi);
+
+    default:    // call the default handler for all other messages
+        break;
+    }
+
+    // Let NDI do default handling...
+    return DefNdiProc(hndi, uMsg, wParam, lParam);
+}
+</PRE>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The following message <I>must</I> be forwarded to the default handler: NDI_INSTALL, NDI_REMOVE, NDI_QUERY_BIND, and NDI_VALIDATE. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Building%20an%20NDI%20Procedure%20DLL"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

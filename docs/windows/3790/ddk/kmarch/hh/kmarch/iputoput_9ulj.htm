@@ -1,0 +1,42 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using Packet-Based System DMA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using Packet-Based System DMA">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_using_packet_based_system_dma_kg"></A>Using Packet-Based System DMA</H3>
+
+<P>Drivers of slave devices that use packet-based DMA call the following general sequence of support routines as they process an IRP requesting a DMA transfer:
+
+<UL>
+	<LI><A HREF="k105_6asy.htm"><B>KeFlushIoBuffers</B></A> just before attempting to allocate the system DMA controller (for more information, see <A HREF="iputoput_7pgn.htm">Maintaining Cache Coherency</A>)</LI>
+
+	<LI><A HREF="kdma_92r6.htm"><B>AllocateAdapterChannel</B></A> when the driver is ready to program its device for DMA and needs the system DMA controller
+<P><B>AllocateAdapterChannel</B>, in turn, calls the driver's <A HREF="drvrrtns_7vea.htm"><I>AdapterControl</I></A> routine.
+</LI>
+
+	<LI><A HREF="k106_5nhu.htm"><B>MmGetMdlVirtualAddress</B></A> to get an index into the MDL, required as an parameter in the initial call to <B>MapTransfer</B></LI>
+
+	<LI><A HREF="kdma_1hv6.htm"><B>MapTransfer</B></A> to program the system DMA controller for the transfer operation
+<P>A driver might need to call <B>MapTransfer</B> more than once to transfer all the requested data, as explained in <A HREF="iputoput_70h3.htm">Splitting Transfer Requests</A>.
+</LI>
+
+	<LI><A HREF="kdma_9cxe.htm"><B>FlushAdapterBuffers</B></A> just after each DMA transfer operation to/from the slave device
+<P>If a driver must call <B>MapTransfer</B> more than once to transfer all the requested data, it must call <B>FlushAdapterBuffers</B> as many times as it calls <B>MapTransfer</B>.
+</LI>
+
+	<LI><A HREF="kdma_3bua.htm"><B>FreeAdapterChannel</B></A> either as soon as all the requested data has been transferred or if the driver fails the IRP because of a device I/O error</LI>
+</UL>
+
+<P>The adapter object pointer returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A> is a required parameter to each of these routines except <B>KeFlushIoBuffers</B> and <B>MmGetMdlVirtualAddress</B>, which require the pointer to the MDL passed at <B>Irp-&gt;MdlAddress</B>.</P>
+
+<P>Individual drivers call this sequence of support routines at different points, depending on how each driver is implemented to service its device. For example, one driver's <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A> routine might make the call to <B>AllocateAdapterChannel</B>, another driver might make this call from a routine that removes IRPs from a driver-created interlocked queue, and still another driver might make this call when its slave DMA device indicates it is ready to transfer data.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20Packet-Based%20System%20DMA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

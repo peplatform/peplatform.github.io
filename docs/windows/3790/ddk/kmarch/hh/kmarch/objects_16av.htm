@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Life Cycle of an Object</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Life Cycle of an Object">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_life_cycle_of_an_object_kg"></A>Life Cycle of an Object</H1>
+
+<P>This topic describes the "life cycle" of an object, that is, how objects are referenced and tracked by the Object Manager. This topic also describes how to make objects temporary or permanent.</P>
+
+<H4>Object Reference Count</H4>
+
+<P>The Object Manager maintains a count of  the number of references to an object. When an object is created, the Object Manager sets the object's reference count to 1.  Once that counter falls to zero, the object is freed.</P>
+
+<P>Drivers must ensure that the Object Manager has an accurate reference count for any objects they manipulate. An object that is released prematurely can cause the system to crash. An object whose reference count is mistakenly high will never be freed.</P>
+
+<P>Objects can be referenced either by handle, or by pointer. In addition to the reference count, the Object Manager maintains a count of the number of open handles to an object. Each routine that opens a handle increases both the object reference count and the object handle count by one. Each call to such a routine must be matched with a corresponding call to <A HREF="k111_03aq.htm"><B>ZwClose</B></A>. For more information, see <A HREF="objects_5btz.htm">Object Handles</A>.</P>
+
+<P>Within kernel mode, objects can be referenced by a pointer to the object. Routines that return pointers to objects, such as <A HREF="k104_0kz6.htm"><B>IoGetAttachedDeviceReference</B></A>, increase the reference count by one. Once the driver is done using the pointer, it must call <A HREF="k107_6vg2.htm"><B>ObDereferenceObject</B></A> to decrease the reference count by one.</P>
+
+<P>The following routines all increase the reference count of an object by one:
+
+<UL>
+	<LI><A HREF="k102_967m.htm"><B>ExCreateCallback</B></A> </LI>
+
+	<LI><A HREF="k104_0kz6.htm"><B>IoGetAttachedDeviceReference</B></A> </LI>
+
+	<LI><A HREF="k104_1os2.htm"><B>IoGetDeviceObjectPointer</B></A> </LI>
+
+	<LI><A HREF="k104_04aa.htm"><B>IoWMIOpenBlock</B></A> </LI>
+
+	<LI><A HREF="k107_0tyq.htm"><B>ObReferenceObject</B></A> </LI>
+
+	<LI><A HREF="k107_54qa.htm"><B>ObReferenceObjectByHandle</B></A> </LI>
+
+	<LI><A HREF="k107_4b76.htm"><B>ObReferenceObjectByPointer</B></A> </LI>
+</UL>
+
+<P>Each call that is made to any of the preceding routines must be matched with a corresponding call to <B>ObDereferenceObject</B>.</P>
+
+<P>The <B>ObReferenceObject</B> and <B>ObReferenceObjectByPointer</B> routines are provided so that drivers can increase the reference count of a known object pointer by one. <B>ObReferenceObject</B> simply increases the reference count. <B>ObReferenceObjectByPointer</B> does an access check before increasing the reference count.</P>
+
+<P>The <A HREF="k107_54qa.htm"><B>ObReferenceObjectByHandle</B></A> routine receives an object handle and supplies a pointer to the underlying object. It too increases the reference count by one.</P>
+
+<H4>Temporary and Permanent Objects</H4>
+
+<P>Most objects are <I>temporary</I>; they exist as long as they are in use, and then they are freed by the Object Manager. Objects can be created that are <I>permanent</I>. If an object is permanent, the Object Manager itself holds a reference to the object. Thus its reference count remains greater than zero, and the object is not freed when it is no longer in use.</P>
+
+<P>A temporary object can be accessed by name only as long as its handle count is at least 1. Once the handle count drops to zero, the object's name is removed from the Object Manager's namespace. Such objects can still be accessed by pointer as long as their reference count remains greater than zero. Permanent objects can be accessed by name as long as they exist.</P>
+
+<P>An object can be made permanent at the time of its creation by specifying the OBJ_PERMANENT attribute in the <A HREF="k112_2d6a.htm">OBJECT_ATTRIBUTES</A> structure for the object. For more information, see <A HREF="k109_66uq.htm"><B>InitializeObjectAttributes</B></A>.</P>
+
+<P>To make a permanent object temporary, use the <A HREF="k111_4oc2.htm"><B>ZwMakeTemporaryObject</B></A> routine. This routine causes an object to be automatically deleted once it is no longer in use. (If the object has no open handles, the object's name is immediately removed from the Object Manager's namespace. The object itself remains until the reference count falls to zero.)</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Life%20Cycle%20of%20an%20Object"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

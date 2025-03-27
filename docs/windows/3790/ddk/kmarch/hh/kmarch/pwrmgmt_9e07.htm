@@ -1,0 +1,46 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling IRP_MN_SET_POWER for Device Power States</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling IRP_MN_SET_POWER for Device Power States">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_handling_irp_mn_set_power_for_device_power_states_kg"></A>Handling IRP_MN_SET_POWER for Device Power States </H2>
+
+<P>A device set-power IRP requests a change of state for a single device and is sent to all the drivers in the stack for the device. Such an IRP specifies <B>DevicePowerState</B> in the <B>Power.Type</B> member of the I/O stack location.</P>
+
+<P>Drivers handle power-down IRPs as they travel down the stack. For power-up IRPs, drivers set<I> IoCompletion</I> routines as the IRPs travel down the stack, and then handle the IRPs in the<I> IoCompletion</I> routines as the IRPs travel back up the stack. The drivers in a typical device stack handle a device set-power IRP as follows:
+
+<UL>
+	<LI>Most filter drivers should simply call <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A>, pass the IRP to the next-lower driver (see <A HREF="pwrmgmt_5n3b.htm">Passing Power IRPs</A>), and return STATUS_PENDING from the<I> DispatchPower</I> routine. Some filter drivers, however, might first need to perform device-specific tasks, such as queuing incoming IRPs or saving device state. </LI>
+
+	<LI>A function driver calls <B>IoMarkIrpPending</B>, performs device-specific tasks (such as completing pending I/O requests, queuing incoming I/O requests, saving device context, or changing device power), sets an<I> IoCompletion</I> routine if necessary, and passes the device power IRP to the next-lower driver (see <A HREF="pwrmgmt_5n3b.htm">Passing Power IRPs</A>). It returns STATUS_PENDING from its<I> DispatchPower</I> routine.</LI>
+
+	<LI>The bus driver changes device power if it is capable of doing so, calls <A HREF="portn_5saa.htm"><B>PoSetPowerState</B></A> to notify the Power Manager of the new device state, and calls <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A> to start the next power IRP. It then completes the IRP, specifying IO_NO_INCREMENT. If the driver cannot complete the IRP immediately, it calls <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A>, returns STATUS_PENDING from its <A HREF="drvrrtns_00mq.htm"><I>DispatchPower</I></A> routine, and completes the IRP later.</LI>
+</UL>
+
+<P>Even if the target device is already in the requested power state, each function or filter driver must pass the IRP down to the next-lower driver. Every set-power IRP must travel all the way down the device stack to the bus driver, which completes it. </P>
+
+<P>Function and filter drivers that are located above a bus driver must not fail a device set power IRP. The bus driver can fail a device power-up IRP if the device is removed or in the process of being removed.</P>
+
+<P>Each driver (function, filter, and bus driver) in a driver stack must call <A HREF="portn_5saa.htm"><B>PoSetPowerState</B></A> to inform the Power Manager of a change in the power state of its corresponding device object.</P>
+
+<P>Like other driver tasks associated with device power-up and power-down, the call to <B>PoSetPowerState</B> must occur after the device powers on (if the new state is D0) or before the device powers off (if the new state is any other state). </P>
+
+<P>Each driver should keep track of the power state of its device. The Power Manager does not supply this information to drivers.</P>
+
+<P>While handling an IRP_MN_SET_POWER request for a device power state, a driver should return from the<I> DispatchPower</I> routine as quickly as possible. A driver must not wait in its<I> DispatchPower</I> routine for a kernel event signaled by code that handles the same IRP. Because power IRPs are synchronized throughout the system, a deadlock might occur.   </P>
+
+<P>The exact steps a driver must take to handle a power IRP depend upon whether the device is powering up or down, as described in the following sections:</P>
+
+<P class=indent1><A HREF="pwrmgmt_4giv.htm">Handling Device Power-Down IRPs</A> </P>
+
+<P class=indent1><A HREF="pwrmgmt_4dnr.htm">Handling Device Power-Up IRPs</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20IRP_MN_SET_POWER%20for%20Device%20Power%20States"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

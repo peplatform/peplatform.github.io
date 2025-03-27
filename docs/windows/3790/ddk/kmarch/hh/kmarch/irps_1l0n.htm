@@ -1,0 +1,145 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Defining I/O Control Codes</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Defining I/O Control Codes">
+<META NAME="MS-HKWD" CONTENT="CTL_CODE">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_exclusive_device_kg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_defining_i_o_control_codes_kg"></A>Defining I/O Control Codes</H2>
+
+<P>When defining new IOCTLs, it is important to remember the following rules:
+
+<UL>
+	<LI>If a new IOCTL will be available to user-mode software components, the IOCTL must be used with <A HREF="k113_0hiq.htm">IRP_MJ_DEVICE_CONTROL</A> requests.  User-mode components send IRP_MJ_DEVICE_CONTROL requests by calling the <B>DeviceIoControl</B>, which is a Win32 function.</LI>
+
+	<LI>If a new IOCTL will be available <I>only</I> to kernel-mode driver components,  the IOCTL must be used with <A HREF="k113_2yia.htm">IRP_MJ_INTERNAL_DEVICE_CONTROL</A> requests. Kernel-mode components create IRP_MJ_INTERNAL_DEVICE_CONTROL requests by calling <B>IoBuildDeviceIoControlRequest</B>.  For more information, see Creating IOCTL Requests in Drivers.</LI>
+</UL>
+
+<P>An I/O control code is a 32-bit value that consists of several fields. The following figure illustrates the layout of I/O control codes.</P>
+
+<P><IMG SRC="images/ioctl_1.gif" ALT="" BORDER=0></P>
+
+<P><B>I/O Control Code Layout</B></P>
+
+<P>Use the system-supplied CTL_CODE macro, which is defined in <I>wdm.h </I>and<I> ntddk.h</I>, to define new I/O control codes. The definition of a new IOCTL code, whether intended for use with IRP_MJ_DEVICE_CONTROL or IRP_MJ_INTERNAL_DEVICE_CONTROL requests, uses the following format:</P>
+
+<PRE>#define IOCTL_<I>Device</I>_<I>Function </I>CTL_CODE(<I>DeviceType</I>, <I>Function</I>, <I>Method</I>, <I>Access</I>)
+</PRE>
+
+<P>Choose a descriptive constant name for the IOCTL, of the form IOCTL_<I>Device</I>_<I>Function</I>, where <I>Device</I> indicates the type of device and <I>Function</I> indicates the operation. An example constant name is IOCTL_VIDEO_ENABLE_CURSOR.</P>
+
+<P>Supply the following parameters to the CTL_CODE macro:
+
+<DL>
+<DT><I>DeviceType</I></DT>
+
+<DD>Identifies the device type. This value must match the value that is set in the <B>DeviceType</B> member of the driver’s DEVICE_OBJECT structure. (See <A HREF="devobjts_5hnr.htm">Specifying Device Types</A>). Values of less than 0x8000 are reserved for Microsoft. Values of 0x8000 and higher can be used by vendors. Note that the vendor-assigned values set the <B>Common</B> bit.</DD>
+
+<DT><I>FunctionCode</I> </DT>
+
+<DD>Identifies the function to be performed by the driver. Values of less than 0x800 are reserved for Microsoft. Values of 0x800 and higher can be used by vendors. Note that the vendor-assigned values set the <B>Custom</B> bit. </DD>
+
+<DT><I>TransferType</I> </DT>
+
+<DD>Indicates how the system will pass data between the caller of <B>DeviceIoControl</B> (or <A HREF="k104_8ble.htm"><B>IoBuildDeviceIoControlRequest</B></A>) and the driver that handles the IRP. 
+
+<P>Use one of the following system-defined constants:
+
+
+<DL>
+<DT>METHOD_BUFFERED</DT>
+
+<DD>Specifies the <A HREF="iputoput_3m07.htm#ddk_buffered_i_o_kg">buffered I/O</A> method, which is typically used for transferring small amounts of data per request. Most I/O control codes for device and intermediate drivers use this <I>TransferType</I> value. 
+
+<P>For information about how the system specifies data buffers for METHOD_BUFFERED I/O control codes, see <A HREF="irps_7j53.htm">Buffer Descriptions for I/O Control Codes</A>.
+
+
+<P>For more information about buffered I/O, see <A HREF="iputoput_1ulj.htm">Using Buffered I/O</A>.
+</DD>
+
+<DT>METHOD_IN_DIRECT or METHOD_OUT_DIRECT</DT>
+
+<DD>Specifies the <A HREF="iputoput_3m07.htm#ddk_direct_i_o_kg">direct I/O</A> method, which is typically used for reading or writing large amounts of data, using DMA or PIO, that must be transferred quickly.
+
+<P>Specify METHOD_IN_DIRECT if the caller of <B>DeviceIoControl</B> or <B>IoBuildDeviceIoControlRequest</B> will pass data <I>to</I> the driver.
+
+
+<P>Specify METHOD_OUT_DIRECT if the caller of <B>DeviceIoControl</B> or <B>IoBuildDeviceIoControlRequest</B> will receive data <I>from</I> the driver.
+
+
+<P>For information about how the system specifies data buffers for METHOD_IN_DIRECT and METHOD_OUT_DIRECT I/O control codes, see <A HREF="irps_7j53.htm">Buffer Descriptions for I/O Control Codes</A>.
+
+
+<P>For more information about direct I/O, see <A HREF="iputoput_46xz.htm">Using Direct I/O</A>.
+</DD>
+
+<DT>METHOD_NEITHER</DT>
+
+<DD>Specifies <A HREF="iputoput_3m07.htm#ddk_neither_buffered_nor_direct_i_o_kg">neither buffered nor direct I/O</A>. The I/O manager does not provide any system buffers or MDLs. The IRP supplies the user-mode virtual addresses of the input and output buffers that were specified to <B>DeviceIoControl</B> or <B>IoBuildDeviceIoControlRequest</B>, without validating or mapping them.
+
+<P>For information about how the system specifies data buffers for METHOD_NEITHER I/O control codes, see <A HREF="irps_7j53.htm">Buffer Descriptions for I/O Control Codes</A>.
+
+
+<P>This method can be used only if the driver can be guaranteed to be running in the context of the thread that originated the I/O control request. Only a highest-level kernel-mode driver is guaranteed to meet this condition, so METHOD_NEITHER is seldom used for the I/O control codes that are passed to low-level device drivers. 
+
+
+<P>With this method, the highest-level driver must determine whether to set up buffered or direct access to user data on receipt of the request, possibly must lock down the user buffer, and must wrap its access to the user buffer in a structured exception handler (see <A HREF="other_23zb.htm">Handling Exceptions</A>). Otherwise, the originating user-mode caller might change the buffered data before the driver can use it, or the caller could be swapped out just as the driver is accessing the user buffer. 
+
+
+<P>For more information, see <A HREF="iputoput_3cbr.htm">Using Neither Buffered Nor Direct I/O</A>.
+</DD>
+</DL>
+</DD>
+
+<DT><I>RequiredAccess</I> </DT>
+
+<DD>Indicates the type of access that a caller must request when opening the file object that represents the device (see <A HREF="k113_02lu.htm">IRP_MJ_CREATE</A>). The I/O Manager will create IRPs and call the driver with a particular I/O control code only if the caller has requested the specified access rights. <I>RequiredAccess</I> is specified by using the following system-defined constants:
+
+<DL>
+<DT>FILE_ANY_ACCESS</DT>
+
+<DD>The I/O Manager sends the IRP for any caller that has a handle to the file object that represents the target device object.</DD>
+
+<DT>FILE_READ_DATA</DT>
+
+<DD>The I/O Manager sends the IRP only for a caller with read access rights, allowing the underlying device driver to transfer data from the device to system memory.</DD>
+
+<DT>FILE_WRITE_DATA</DT>
+
+<DD>The I/O Manager sends the IRP only for a caller with write access rights, allowing the underlying device driver to transfer data from system memory to its device.
+</DD>
+</DL>
+</DD>
+</DL>
+
+<P>FILE_READ_DATA and FILE_WRITE_DATA can be OR'ed together if the caller must have both read and write access rights.</P>
+
+<P>Some system-defined I/O control codes have a <I>RequiredAccess</I> value of FILE_ANY_ACCESS. This is especially true for I/O control codes that are sent to drivers of <A HREF="JavaScript:hhobj_1.Click()">exclusive devices</A>, and for those that specify buffered I/O. </P>
+
+<P>The system-defined I/O control codes for some types of devices require the caller to have read access rights, write access rights, or both. For example, the following definition of the public I/O control code IOCTL_DISK_SET_PARTITION_INFO shows that this I/O request can be sent to a driver only if the caller has both read and write access rights:</P>
+
+<PRE>#define IOCTL_DISK_SET_PARTITION_INFO\
+   CTL_CODE(IOCTL_DISK_BASE, 0x008, METHOD_BUFFERED,\
+         FILE_READ_DATA | FILE_WRITE_DATA)</PRE>
+
+<P>Before specifying FILE_ANY_ACCESS for a new IOCTL code, you must be absolutely certain that allowing unrestricted access to your device does not create a possible path for malicious users to compromise the system.</P>
+
+<P>Drivers can use <A HREF="k104_3oz6.htm"><B>IoValidateDeviceIoControlAccess</B></A> to perform stricter access checking than that provided by an IOCTL's <I>RequiredAccess</I> bits.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Defining%20I%2FO%20Control%20Codes"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

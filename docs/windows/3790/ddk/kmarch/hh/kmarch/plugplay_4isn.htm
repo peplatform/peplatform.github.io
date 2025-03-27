@@ -1,0 +1,70 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Removing a Device in a Bus Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Removing a Device in a Bus Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_removing_a_device_in_a_bus_driver_kg"></A>Removing a Device in a Bus Driver</H3>
+
+<P>When removing a child device (child PDO), the parent bus driver must undo any operations it performed to add and start the device. </P>
+
+<P>A bus driver removes a child device with a procedure such as the following in its <I>DispatchPnP</I> routine:
+
+<OL>
+	<LI>Has the driver handled a previous IRP_MN_SURPRISE_REMOVAL request for this PDO?
+<P>If so, perform any remaining clean-up and skip to step (4).
+
+<P>A driver typically maintains a flag in the device extension that indicates whether the driver has handled an IRP_MN_SURPRISE_REMOVAL request for the device.
+</LI>
+
+	<LI>Complete any requests queued in the driver.</LI>
+
+	<LI>Remove power from the device, if the bus driver is capable of doing so, and notify the Power Manager by calling <A HREF="portn_5saa.htm"><B>PoSetPowerState</B></A>.
+<P>The bus driver powers down the child device, if possible, and notifies the Power Manager of the device's change in power state. The bus driver does this in response to the IRP_MN_REMOVE_DEVICE request; the device's power policy owner does not send an IRP_MN_SET_POWER request when the device is being removed. For additional information, see <A HREF="pwrmgmt_48br.htm">Power Management</A>.
+</LI>
+
+	<LI>If the bus driver reported this device in its most recent response to an <A HREF="pnp-irps_5aia.htm">IRP_MN_QUERY_DEVICE_RELATIONS</A> request for <B>BusRelations</B>, the device is still physically present on the machine. In this case, the bus driver:
+<UL>
+	<LI>Retains the PDO for the device until the device has been physically removed.</LI>
+
+	<LI>Sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS.</LI>
+
+	<LI>Completes the IRP with <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>.</LI>
+
+	<LI>Returns from the <I>DispatchPnP</I> routine</LI>
+</UL>
+
+<P>The bus driver must continue to report this device in subsequent enumerations (IRP_MN_QUERY_DEVICE_RELATIONS for <B>BusRelations</B>) until the device is physically removed. The PnP Manager keeps track of whether an enumerated device has been added and started.
+</LI>
+
+	<LI>If the device was not included in the bus driver's most recent response to an IRP_MN_QUERY_DEVICE_RELATIONS request for <B>BusRelations</B>, the bus driver considers the device to be physically removed from the machine. In this case, the bus driver does the following:
+<UL>
+	<LI>Cleans up device-specific allocations, memory, events, and so forth</LI>
+
+	<LI>Sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS</LI>
+
+	<LI>Completes the IRP with <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> </LI>
+
+	<LI>Frees the PDO with <A HREF="k104_3wky.htm"><B>IoDeleteDevice</B></A> 
+<P>The bus driver must delete the PDO if the driver omitted the device from its most recent <B>BusRelations</B> list. If a user plugs the device into the machine again, the bus driver must create a new PDO in response to the next <B>BusRelations</B> query. If a bus driver reuses the same PDO for a new instance of a device, the machine will not operate properly.
+</LI>
+
+	<LI>Returns from the <I>DispatchPnP</I> routine.</LI>
+</UL>
+</LI>
+</OL>
+
+<P>If the device is still present when the PnP Manager sends the IRP_MN_REMOVE_DEVICE request, the bus driver retains the PDO. If, at some later time, the device is physically removed from the bus, the PnP Manager sends another IRP_MN_REMOVE_DEVICE. Upon receipt of the subsequent remove IRP, the bus driver deletes the PDO for the device.</P>
+
+<P>A bus driver must be able to handle an IRP_MN_REMOVE_DEVICE for a device it has already removed and whose PDO is marked for deletion. In response to such an IRP, the bus driver can succeed the IRP or return STATUS_NO_SUCH_DEVICE. The PDO for the device has not yet been deleted in this case, despite the bus driver's previous call to <B>IoDeleteDevice</B>, because some component still has a reference to the object. Therefore, the bus driver can access the PDO while handling the second remove IRP. The bus driver must not call <B>IoDeleteDevice</B> a second time for the PDO; the I/O system deletes the PDO when its reference count reaches zero.</P>
+
+<P>A bus driver does not remove its data structures for a child device until it receives an IRP_MN_REMOVE_DEVICE request for the device. A bus driver might detect that a device has been removed and call <A HREF="k104_8t6a.htm"><B>IoInvalidateDeviceRelations</B></A>, but it must not delete the device's PDO until the PnP Manager sends an IRP_MN_REMOVE_DEVICE request.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Removing%20a%20Device%20in%20a%20Bus%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

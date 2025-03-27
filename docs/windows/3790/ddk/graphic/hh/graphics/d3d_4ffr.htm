@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Direct3D Driver Initialization</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Direct3D Driver Initialization">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_direct3d_driver_initialization_gg"></A>Direct3D Driver Initialization</H1>
+
+<P>When the driver's <A HREF="ddfncs_4yav.htm"><I>DrvGetDirectDrawInfo</I></A> function is called by the Microsoft® DirectDraw® runtime to initialize DirectDraw support, the driver must do the following to indicate its Microsoft® Direct3D® capabilities:
+
+<UL>
+	<LI>Set the DDCAPS_3D flag in the <B>ddCaps.dwCaps</B> member of the <A HREF="ddstrcts_17s7.htm">DD_HALINFO</A> structure to indicate that the driver's hardware has 3D acceleration.</LI>
+
+	<LI>Set the DDSCAPS_<I>Xxx</I> flags in the <B>ddCaps.ddsCaps</B> member of the DD_HALINFO structure that describe the 3D capabilities of a driver's video memory surface. The flags are listed in the following table.</LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Flag</TH>
+<TH align=left width=52%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDSCAPS_3DDEVICE</TD>
+<TD width=52%>Indicates that a driver's surface can be used as a destination for 3D rendering.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDSCAPS_TEXTURE</TD>
+<TD width=52%>Indicates that a driver's surface can be used for 3D texture mapping.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDSCAPS_ZBUFFER</TD>
+<TD width=52%>Indicates that a driver's surface can be used as a Z-buffer.</TD>
+</TR>
+</TABLE><BR>
+
+<UL>
+	<LI>Set the <B>GetDriverInfo</B> member of the <A HREF="ddstrcts_17s7.htm">DD_HALINFO</A> structure to point to the driver's <A HREF="ddfncs_0yhz.htm"><I>DdGetDriverInfo</I></A> callback. The driver must also set the DDHALINFO_GETDRIVERINFOSET flag in the <B>dwFlags</B> member of the DD_HALINFO structure to indicate that it has implemented the <I>DdGetDriverInfo</I> callback.</LI>
+
+	<LI>Allocate and initialize the members of the <A HREF="d3dstrct_1yjr.htm">D3DHAL_CALLBACKS</A> structure and return this structure in the <B>lpD3DHALCallbacks</B> member of the DD_HALINFO structure.</LI>
+
+	<LI>Allocate and initialize the members of the <A HREF="d3dstrct_1s13.htm">D3DHAL_GLOBALDRIVERDATA</A> structure and return this structure in the <B>lpD3DGlobalDriverData</B> member of the DD_HALINFO structure.</LI>
+</UL>
+
+<P>To indicate that the driver is capable of working with Microsoft DirectX® 7.0, it should do the following:
+
+<UL>
+	<LI>Include the D3DDEVCAPS_DRAWPRIMITIVES2EX flag in the <B>dwDevCaps</B> member of the <A HREF="d3dstrct_278n.htm">D3DDEVICEDESC_V1</A> structure that is reported during Microsoft Direct3D® driver initialization. </LI>
+
+	<LI>Respond to the GUID_Miscellaneous2Callbacks GUID in <I>DdGetDriverInfo</I> callback by setting the <B>GetDriverState</B>, <B>CreateSurfaceEx</B>, and <B>DestroyDDLocal</B> members of the <A HREF="ddstrcts_4k6f.htm">DD_MISCELLANEOUS2CALLBACKS</A> structure. These are set to point to the appropriate callbacks for the Direct3D driver and ORed in the <B>dwFlags</B> member with the DDHAL_MISC2CB32_CREATESURFACEEX, DDHAL_MISC2CB32_GETDRIVERSTATE, and DDHAL_MISC2CB32_DESTROYDDLOCAL bits, respectively.</LI>
+</UL>
+
+<P>After <A HREF="ddfncs_4yav.htm"><I>DrvGetDirectDrawInfo</I></A> returns, GDI calls the driver's <A HREF="ddfncs_0yhz.htm"><I>DdGetDriverInfo</I></A> callback several times for different GUIDs to complete the driver's initialization. The <I>DdGetDriverInfo</I> callback must respond to the following GUIDs to support Direct3D:
+
+<DL>
+<DT>GUID_D3DCallbacks3</DT>
+
+<DD>The driver should allocate and initialize the members of the <A HREF="d3dstrct_7hyf.htm">D3DHAL_CALLBACKS3</A> structure and return this structure in the <B>lpvData</B> member of the <A HREF="ddstrcts_3ijr.htm">DD_GETDRIVERINFODATA</A> structure.</DD>
+
+<DT>GUID_Miscellaneous2Callbacks</DT>
+
+<DD>The driver should allocate and initialize the members of the <A HREF="ddstrcts_4k6f.htm">DD_MISCELLANEOUS2CALLBACKS</A> structure and return this structure in the <B>lpvData</B> member of the DD_GETDRIVERINFODATA structure.</DD>
+
+<DT>GUID_D3DExtendedCaps</DT>
+
+<DD>The driver should allocate and initialize the appropriate members of the <A HREF="d3dstrct_2zhj.htm">D3DHAL_D3DEXTENDEDCAPS</A> structure and return this structure in the <B>lpvData</B> member of the DD_GETDRIVERINFODATA structure.</DD>
+
+<DT>GUID_ZPixelFormats</DT>
+
+<DD>The driver should allocate and initialize the appropriate members of a <A HREF="ddstrcts_6wtj.htm">DDPIXELFORMAT</A> structure for every Z-buffer format that the driver supports and return these structures in the <B>lpvData</B> member of the DD_GETDRIVERINFODATA structure. The driver must respond to this GUID if it supports the <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_clear_gg">D3DDP2OP_CLEAR</A> operation code in its implementation of <A HREF="d3dfncs_5usn.htm"><I>D3dDrawPrimitives2</I></A>.</DD>
+
+<DT>GUID_D3DParseUnknownCommandCallback</DT>
+
+<DD>The driver should store the pointer to the Direct3D runtime's <B>D3DParseUnknownCommand</B> callback. The pointer is passed to the driver in the <B>lpvData</B> member of the DD_GETDRIVERINFODATA structure. The driver's <A HREF="d3dfncs_5usn.htm"><I>D3dDrawPrimitives2</I></A> callback calls the <B>D3DParseUnknownCommand</B> callback to parse commands that the driver does not recognize.
+</DD>
+</DL>
+
+<P>For more information, see <A HREF="ddraw_7zfr.htm">DirectDraw Driver Initialization</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Direct3D%20Driver%20Initialization"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

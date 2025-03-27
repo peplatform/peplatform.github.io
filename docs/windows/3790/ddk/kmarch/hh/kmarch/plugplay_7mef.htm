@@ -1,0 +1,262 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Adding a PnP Device to a Running System</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Adding a PnP Device to a Running System">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_fdo_dg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_pdo_dg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_installation_functions_dr">
+</OBJECT>
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_pnp_configuration_manager_functions_dr">
+</OBJECT>
+<OBJECT ID="hhobj_5" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_installation_overview_dg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_adding_a_pnp_device_to_a_running_system_kg"></A>Adding a PnP Device to a Running System</H1>
+
+<P>This section describes the sequence of events that occur when the system configures a PnP device that a user has added to a running machine. This discussion highlights the roles of the PnP Manager, bus drivers, and function and filter drivers in enumerating and configuring a new device. </P>
+
+<P>Most of this discussion is also relevant to configuring a PnP device that is present when the machine is booted. Specifically, devices whose drivers are marked SERVICE_DEMAND_START in an INF file are configured in essentially the same way whether the device is added dynamically or is present at boot time.</P>
+
+<P>The following figure shows the first steps in configuring the device, starting from when the user plugs the hardware into the machine.</P>
+
+<P><IMG SRC="images/hotplug.gif" ALT="" BORDER=0></P>
+
+<P><B>Enumerating and Reporting a PnP Device</B></P>
+
+<P>The following notes correspond to the circled numbers in the previous figure:
+
+<OL>
+	<LI>A user plugs a PnP device into a free slot on a PnP bus. 
+<P>In this example, the user plugs a PnP USB joystick into the hub on a USB host controller. The USB hub is a PnP bus device because child devices can be attached to it.
+</LI>
+
+	<LI>The function driver for the bus device determines that a new device is on its bus. 
+<P>How the driver determines this depends on the bus architecture. For some buses, the bus function driver receives hot-plug notification of new devices. If the bus does not support hot-plug notification, the user must take appropriate action in Control Panel to cause the bus to be enumerated.
+
+<P>In this example, the USB bus supports hot-plug notification so the function driver for the USB bus is notified that its children have changed.
+</LI>
+
+	<LI>The function driver for the bus device notifies the PnP Manager that its set of child devices has changed.
+<P>The function driver notifies the PnP Manager by calling <A HREF="k104_8t6a.htm"><B>IoInvalidateDeviceRelations</B></A> with a <I>Type</I> of <B>BusRelations</B>. 
+</LI>
+
+	<LI>The PnP Manager queries the bus's drivers for the current list of devices on the bus.
+<P>The PnP Manager sends an <A HREF="pnp-irps_5aia.htm">IRP_MN_QUERY_DEVICE_RELATIONS</A> request to the device stack for the bus. The <B>Parameters.QueryDeviceRelations.Type</B> value is <B>BusRelations</B>, indicating that the PnP Manager is asking for the current list of devices present on the bus (<A HREF="pnp-irps_5aia.htm#ddk_busrelations_dr">bus relations</A>).
+
+<P>The PnP Manager sends the IRP to the top driver in the device stack for the bus. According to the rules for PnP IRPs, each driver in the stack handles the IRP, if appropriate, and passes the IRP down to the next driver. 
+</LI>
+
+	<LI>The function driver for the bus device handles the IRP.
+<P>See the reference page for <A HREF="pnp-irps_5aia.htm">IRP_MN_QUERY_DEVICE_RELATIONS</A> for detailed information on handling this IRP.
+
+<P>In this example, the USB hub driver handles this IRP for the hub <A HREF="JavaScript:hhobj_1.Click()">FDO</A>. The hub driver creates a <A HREF="JavaScript:hhobj_2.Click()">PDO</A> for the joystick device and includes a referenced pointer to the joystick PDO in its list of child devices returned with the IRP. 
+
+<P>When the USB hub's parent bus driver (the USB host controller class/miniclass driver pair) completes the IRP, the IRP travels back up the device stack by means of any <I>IoCompletion</I> routines registered by the hub drivers. 
+</LI>
+</OL>
+
+<P>Note that the bus function driver reports a change in its list of children by requesting that the PnP Manager query for its list of child devices. The resulting IRP_MN_QUERY_DEVICE_RELATIONS request is seen by all the drivers for the bus device. Typically, the bus function driver is the only driver to handle the IRP and report children. In some device stacks, a bus filter driver is present and participates in constructing the list of bus relations. One example is ACPI, which attaches as a bus filter driver for ACPI devices. In some device stacks, non-bus filter drivers handle the IRP_MN_QUERY_DEVICE_RELATIONS request, but this is not typical.</P>
+
+<P>At this point, the PnP Manager has the current list of devices on the bus. The PnP Manager then determines whether any devices are newly arrived or have been removed. In this example, there is one new device. The following figure shows the PnP Manager creating a devnode for the new device and beginning to configure the device.</P>
+
+<P><IMG SRC="images/credvnd.gif" ALT="" BORDER=0></P>
+
+<P><B>Creating a Devnode for a New PnP Device</B></P>
+
+<P>The following notes correspond to the circled numbers in the previous figure:
+
+<OL start=6>
+	<LI>The PnP Manager creates devnodes for any new child devices on the bus.
+<P>The PnP Manager compares the list of bus relations returned in the IRP_MN_QUERY_DEVICE_RELATIONS IRP to the list of children for the bus currently recorded in the PnP device tree. The PnP Manager creates a devnode for each new device and initiates removal processing for any devices that have been removed.
+
+<P>In this example, there is one new device (a joystick), so the PnP Manager creates a devnode for the joystick. At this point, the only driver that is configured for the joystick is the parent USB hub bus driver, which created the joystick's PDO. Any optional bus filter drivers would also be present in the device stack, but the example omits bus filter drivers for simplicity.
+
+<P>The wide arrow between the two devnodes in the previous figure indicates that the joystick devnode is a child of the USB hub devnode.
+</LI>
+
+	<LI>The PnP Manager gathers information about the new device and begins configuring the device.
+<P>The PnP Manager sends a sequence of IRPs to the device stack to gather information about the device. At this point, the device stack consists of only the PDO created by the device's parent bus driver and filter DOs for any optional bus filter drivers. Therefore, the bus driver and bus filter drivers are the only drivers that respond to these IRPs. In this example, the only driver in the joystick device stack is the parent bus driver, the USB hub driver. 
+
+<P>The PnP Manager gathers information about a new device by sending IRPs to the device stack. These IRPs include the following:
+
+<UL>
+	<LI><A HREF="pnp-irps_60vm.htm">IRP_MN_QUERY_ID</A>, a separate IRP for each of the following types of hardware IDs:
+<P><B>BusQueryDeviceID<BR>
+BusQueryInstanceID<BR>
+BusQueryHardwareIDs<BR>
+BusQueryCompatibleIDs</B>
+</LI>
+
+	<LI><A HREF="pnp-irps_9unm.htm">IRP_MN_QUERY_CAPABILITIES</A> </LI>
+
+	<LI><A HREF="pnp-irps_5raq.htm">IRP_MN_QUERY_DEVICE_TEXT</A>, a separate IRP for each of the following items:
+<P><B>DeviceTextDescription<BR>
+DeviceTextLocationInformation</B>
+</LI>
+
+	<LI><A HREF="pnp-irps_2i2a.htm">IRP_MN_QUERY_BUS_INFORMATION</A> </LI>
+
+	<LI><A HREF="pnp-irps_3kdu.htm">IRP_MN_QUERY_RESOURCES</A> </LI>
+
+	<LI><A HREF="pnp-irps_9jhu.htm">IRP_MN_QUERY_RESOURCE_REQUIREMENTS</A> </LI>
+</UL>
+
+<P>The PnP Manager sends the IRPs listed above at this stage of processing a new PnP device, but not necessarily in the order listed, so you should not make assumptions about the order in which the IRPs are sent. Also, you should not assume that the PnP Manager sends only the IRPs listed above.
+
+<P>The PnP Manager checks the registry to determine whether the device has been installed on this machine previously. The PnP Manager checks for an &lt;<I>enumerator</I>&gt;\&lt;<I>deviceID</I>&gt; subkey for the device under the <B>Enum</B> branch. In this example, the device is new and must be configured "from scratch."
+</LI>
+
+	<LI>The PnP Manager stores information about the device in the registry. 
+<P>The registry's <B>Enum</B> branch is reserved for use by operating system components and its layout is subject to change. Driver writers must use system routines to extract information related to drivers. Do not access the <B>Enum</B> branch directly from a driver. The following <B>Enum</B> information is listed for debugging purposes only.
+
+<UL>
+	<LI>The PnP Manager creates a subkey for the device under the key for the device's enumerator. 
+<P>The PnP Manager creates a subkey named <B>HKLM\System\CurrentControlSet\Enum\</B>&lt;<I>enumerator</I>&gt;<B>\</B>&lt;<I>deviceID</I>&gt;. It creates the &lt;<I>enumerator</I>&gt; subkey if it does not already exist.
+
+<P>An <I>enumerator</I> is a component that discovers PnP devices based on a PnP hardware standard. The tasks of an enumerator are carried out by a PnP bus driver in partnership with the PnP Manager. A device is typically enumerated by its parent bus driver, such as PCI or PCMCIA. Some devices are enumerated by a bus filter driver, such as ACPI.
+</LI>
+
+	<LI>The PnP Manager creates a subkey for this instance of the device.
+<P>If <B>Capabilities.UniqueID</B> is returned as TRUE for IRP_MN_QUERY_CAPABILITIES, the device's unique ID is unique across the system. If not, the PnP Manager modifies the ID so that it is unique system-wide.
+
+<P>The PnP Manager creates a subkey named <B>HKLM\System\CurrentControlSet\Enum\</B>&lt;<I>enumerator</I>&gt;<B>\</B>&lt;<I>deviceID</I>&gt;<B>\</B>&lt;<I>instanceID</I>&gt;. 
+</LI>
+
+	<LI>The PnP Manager writes information about the device to the subkey for the device instance.
+<P>The PnP Manager stores information, including the following, if it was supplied for the device:
+
+<P><B>DeviceDesc</B> — from IRP_MN_QUERY_DEVICE_TEXT<BR>
+<B>Location</B> — from IRP_MN_QUERY_DEVICE_TEXT<BR>
+<B>Capabilities</B> — the flags from IRP_MN_QUERY_CAPABILITES<BR>
+<B>UINumber</B> — from IRP_MN_QUERY_CAPABILITIES<BR>
+<B>HardwareID</B> — from IRP_MN_QUERY_ID<BR>
+<B>CompatibleIDs</B> — from IRP_MN_QUERY_ID<BR>
+<B>LogConf\BootConfig</B> — from IRP_MN_QUERY_RESOURCES<BR>
+<B>LogConf\BasicConfigVector</B> — from IRP_MN_QUERY_<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;RESOURCE_REQUIREMENTS<BR>
+
+
+<P>Do not access these registry keys directly in a driver! They are listed here for debugging purposes only.
+
+<P>In kernel mode, you access this information with the <A HREF="k104_7pgy.htm"><B>IoGetDeviceProperty</B></A> routine or an IRP_MN_QUERY_CAPABILITIES request. In user mode, you access this information through <A HREF="JavaScript:hhobj_3.Click()">device installation functions</A> or <A HREF="JavaScript:hhobj_4.Click()">PnP Configuration Manager functions</A>.
+</LI>
+</UL>
+</LI>
+</OL>
+
+<P>At this point, the PnP Manager is ready to locate the function driver and filter drivers for the device, if any. (See the following figure.)</P>
+
+<P><IMG SRC="images/finddrv.gif" ALT="" BORDER=0></P>
+
+<P><B>Finding Function and Filter Drivers</B></P>
+
+<P>The following notes correspond to the numbered circles in the previous figure:
+
+<OL start=9>
+	<LI>The kernel-mode PnP Manager coordinates with the user-mode PnP Manager and user-mode Setup components to find the function and filter drivers for the device, if there are any.
+<P>The kernel-mode PnP Manager queues an event to the user-mode PnP Manager, identifying a device that needs to be installed. Once a privileged user logs in, the user-mode components proceed with finding drivers. See the <A HREF="JavaScript:hhobj_5.Click()">Device Installation Overview</A> for information on Setup components and their role in installing a device.
+</LI>
+
+	<LI>The user-mode Setup components direct the kernel-mode PnP Manager to load the function and filter drivers.
+<P>The user-mode components call back to kernel mode to get the drivers loaded, causing their <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routines to be called.
+</LI>
+</OL>
+
+<P>The following figure shows the PnP Manager loading the drivers (if appropriate), calling their <I>AddDevice</I> routines, and directing the drivers to start the device.</P>
+
+<P><IMG SRC="images/addstart.gif" ALT="" BORDER=0></P>
+
+<P><B>Calling <I>AddDevice</I> Routines and Starting the New Device</B></P>
+
+<P>The following notes correspond to the numbered circles in the previous figure:
+
+<OL start=11>
+	<LI>Lower-filter drivers
+<P>Before the function driver attaches to the device stack, the PnP Manager processes any lower-filter drivers. For each lower-filter driver, the PnP Manager calls the driver's <A HREF="drvrrtns_6r76.htm"><B>DriverEntry</B></A> routine if the driver is not yet loaded. Then the PnP Manager calls the driver's <I>AddDevice</I> routine. In its <I>AddDevice</I> routine, the filter driver creates a filter device object (filter DO) and attaches it to the device stack (<A HREF="k104_9tiq.htm"><B>IoAttachDeviceToDeviceStack</B></A>). Once it attaches its device object to the device stack, the driver is engaged as a driver for the device.
+
+<P>In the USB joystick example, there is one lower-filter driver for the device.
+</LI>
+
+	<LI>Function driver
+<P>After any lower filters are attached, the PnP Manager processes the function driver. The PnP Manager calls the function driver's <B>DriverEntry</B> routine if the driver is not yet loaded and calls the function driver's <I>AddDevice</I> routine. The function driver creates a function device object (FDO) and attaches it to the device stack.
+
+<P>In this example, the function driver for the USB joystick is actually a pair of drivers: the HID class driver and the HID miniclass driver. The two drivers work together to serve as the function driver. The driver pair creates only one FDO and attaches it to the device stack.
+</LI>
+
+	<LI>Upper-filter drivers
+<P>After the function driver is attached, the PnP Manager processes any upper-filter drivers.
+
+<P>In this example, there is one upper-filter driver for the device.
+</LI>
+
+	<LI>Assigning resources and starting the device
+<P>The PnP Manager assigns resources to the device, if needed, and issues an IRP to start the device.
+
+<UL>
+	<LI>Assigning resources 
+<P>Earlier in the configuration process, the PnP Manager gathered the hardware resource requirements for the device from the device's parent bus driver. After the full set of drivers is loaded for the device, the PnP Manager sends an <A HREF="pnp-irps_15o2.htm">IRP_MN_FILTER_RESOURCE_REQUIREMENTS</A> request to the device stack. All drivers in the stack have the opportunity to handle this IRP and modify the device's resource requirements list, if necessary. 
+
+<P>The PnP Manager assigns resources to the device, if the device requires any, based on the device's requirements and the resources currently available. 
+
+<P>The PnP Manager might need to rearrange the resource assignments of existing devices to satisfy the needs of the new device. This reassignment of resources is called "rebalancing." The drivers for the existing devices receive a sequence of stop and start IRPs during a rebalance, but the rebalance must be transparent to users.
+
+<P>In the example of the USB joystick, USB devices do not require hardware resources so the PnP Manager sets the resource list to NULL.  
+</LI>
+
+	<LI>Starting the device (IRP_MN_START_DEVICE)
+<P>Once the PnP Manager assigns resources to the device, it sends an <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> IRP to the device stack to direct the drivers to start the device.
+</LI>
+</UL>
+
+<P>After the device is started, the PnP Manager sends three more IRPs to the drivers for the device:
+
+<UL>
+	<LI><A HREF="pnp-irps_9unm.htm">IRP_MN_QUERY_CAPABILITIES</A> 
+<P>After the start IRP completes successfully, the PnP Manager sends another IRP_MN_QUERY_CAPABILITIES IRP to the device stack. All the drivers for the device have the option of handling the IRP. The PnP Manager sends this IRP at this time, after all drivers are attached and the device is started, because the function or filter drivers might need to access the device to collect capability information.
+</LI>
+
+	<LI><A HREF="pnp-irps_6acy.htm">IRP_MN_QUERY_PNP_DEVICE_STATE</A> 
+<P>This IRP gives a driver the opportunity to, for example, report that the device should not be displayed in user interfaces such as the Device Manager and the Hotplug program. This is useful for devices that are present on a system but are not usable in the current configuration, such as a game port on a laptop that is not usable when the laptop is undocked. 
+</LI>
+
+	<LI><A HREF="pnp-irps_5aia.htm">IRP_MN_QUERY_DEVICE_RELATIONS</A> for bus relations 
+<P>The PnP Manager sends this IRP to determine whether the device has any child devices. If so, the PnP Manager configures each child device. 
+</LI>
+</UL>
+</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Adding%20a%20PnP%20Device%20to%20a%20Running%20System"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

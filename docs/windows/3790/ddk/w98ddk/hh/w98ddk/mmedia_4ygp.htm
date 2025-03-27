@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Polling Loop</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_2739"></A>Polling Loop</H3>
+
+<P>After setting up the required registers and global variables, Poll starts the polling loop. The first iteration of the polling loop occurs before the OUT to address 0x201; this is to ensure that the joystick's monostable vibrators have stabilized since the last poll. After the first iteration, Poll starts the timers by outputting a zero byte to address 0x201. </P>
+
+<P>Each iteration of the polling loop checks the resistive flags. If the flag for a given axis is still set, the timeout has not yet occurred. Poll adds the delta value for that axis to the appropriate position variable. When all the flags are clear, Poll exits the loop. The value returned by this process depends on CPU speed; a fast CPU will complete more polling loops during the timeout period and therefore return higher coordinate values. This is why the IBMJOY driver requires calibration. </P>
+
+<P>An unplugged joystick continually returns high bits for the position values. If a position counter exceeds a certain value (hard-coded as 0x30000 in POLL.ASM), assume the joystick is unplugged. Because the position value is dependent on CPU speed, the use of a constant ceiling value can present a problem with a very fast CPU (for example, a 50-MHz i486). </P>
+
+<P>The following code fragment continues where the previous fragment ended: </P>
+
+<PRE>; Start the timers!
+
+poll_timers:
+
+    mov     dx,JOYPORT              ; Set joystick port address
+    cmp     wClear, 1               ; Dummy loop?
+    je      poll_skipout
+    xor     ax,ax
+    out     dx,al
+
+poll_skipout:
+
+    mov     ah,bl                   ; bl contains x-position bit mask
+    or        ah,bh                   ; bh contains y-position bit mask
+
+poll_loop:
+    in      al,dx                   ; Get position info from joystick port
+    and     al,ah                   ; Only watch bits of interest
+
+    jz      poll_done               ; Counters cleared?
+
+poll_x_test:
+    test    al,bl                   ; If x bit is cleared, stop
+    jz        poll_y_test             ; incrementing the x counter.
+
+    add     _wXpos,cx               ; X still high, increment counter
+    adc     _wXpos_Hi,0
+
+    cmp     _wXpos_Hi,3             ; Check for overflow (unplugged)
+    jl      poll_y_test
+
+    xor     ax,ax                   ; Unplugged. Return 0 and exit loop
+    jz      poll_sti
+poll_y_test:
+    test    al,bh                   ; If y bit clear, stop incrementing
+    jz        poll_loop
+
+    add     _wYpos,di               ; Y still high, increment counter
+    adc     _wYpos_Hi,0
+    cmp     _wYpos_Hi,3             ; Check for overflow (unplugged)
+ 
+    jl      poll_loop               ; No overflow, loop again
+
+    xor     ax,ax                   ; Unplugged (return 0 and exit loop)
+    jz      poll_sti
+
+poll_done:
+    dec     wClear                  ; Loop again if this is the dummy poll
+    jnz     poll_sti
+    jmp     Real_Poll
+
+poll_sti:
+    pop bx                          ; Pop flags
+    test bx,200h                    ; Was interrupt flag already clear?
+    jz poll_fix_x                   ;    Yes; don't reset it
+    sti                             ;    No; reset interrupt flag
+
+poll_fix_x:                         ; Clean up final x position value
+    xor     bx,bx
+    cmp     _wXpos_Hi,bx            ; Check overflow variable
+    jz        poll_fix_y              ; If wXpos_Hi == 0, wXpos is OK
+    jl        @f                      ; If wXpos_Hi &lt; 0, set wXpos = 0
+    dec     bx                      ; If wXpos_Hi &gt; 0, set wXpos = 65535
+@@: mov     _wXpos,bx
+
+poll_fix_y:                         ; Clean up final y position value
+    xor     bx,bx
+    cmp     _wYpos_Hi,bx
+    jz        poll_fix_done
+    jl        @f
+    dec     bx
+@@: mov     _wYpos,bx
+
+poll_fix_done:
+    mov     al,ah                   ; ax =  0 for unplugged joystick
+    xor     ah,ah                   ; ax != 0 if good read
+
+    cEnd                            ; All done 
+ </PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Polling%20Loop"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

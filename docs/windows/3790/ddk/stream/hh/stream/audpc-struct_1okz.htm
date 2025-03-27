@@ -1,0 +1,127 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>PCPROPERTY_ITEM</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="PCPROPERTY_ITEM">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_pcproperty_item_ks"></A>PCPROPERTY_ITEM</H1>
+
+<P>The PCPROPERTY_ITEM structure describes a property that is supported by a particular filter, pin, or node.</P>
+
+<PRE class=syntax>typedef struct
+{
+  const GUID  *Set;
+  ULONG  Id;
+  ULONG  Flags;
+  PCPFNPROPERTY_HANDLER  Handler;
+} PCPROPERTY_ITEM, *PPCPROPERTY_ITEM;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>Set</B></DT>
+
+<DD>Specifies the property set. This member is a pointer to a GUID that uniquely identifies the property set. See the list of property-set GUIDs in <A HREF="aud-prop_0ylv.htm">Audio Drivers Property Sets</A>.</DD>
+
+<DT><B>Id</B></DT>
+
+<DD>Specifies the property ID. This member identifies a property item within the property set. If the property set contains N items, valid property IDs are integers in the range 0 to N-1.</DD>
+
+<DT><B>Flags</B></DT>
+
+<DD>Specifies the types of property requests that the driver supports. Set this member to the bitwise OR of some or all of the flag bits that appear in the following table.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Flag Bits</TH>
+<TH align=left width=52%>Type of Property Request</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>PCPROPERTY_ITEM_FLAG_GET</TD>
+<TD width=52%>Request to <I>get</I> the current property data setting.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>PCPROPERTY_ITEM_FLAG_SET</TD>
+<TD width=52%>Request to <I>set</I> the current property data setting.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>PCPROPERTY_ITEM_FLAG_DEFAULTVALUES</TD>
+<TD width=52%>Request for the driver's default values for the property data.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>PCPROPERTY_ITEM_FLAG_BASICSUPPORT</TD>
+<TD width=52%>Request for basic support, which specifies which request types the driver handles for this property, and also specifies the valid data type and the valid ranges for the property data.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>PCPROPERTY_ITEM_FLAG_SERIALIZESIZE</TD>
+<TD width=52%>Request for the size of the property data for this property when it is serialized as part of a KSPROPERTY_TYPE_SERIALIZESET request.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>PCPROPERTY_ITEM_FLAG_SERIALIZERAW</TD>
+<TD width=52%>Request to serialize this property in a driver-dependent manner. This operation is the inverse of PCPROPERTY_ITEM_FLAG_UNSERIALIZERAW.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>PCPROPERTY_ITEM_FLAG_UNSERIALIZERAW</TD>
+<TD width=52%>Request to unserialize this property in a driver-dependent manner. This operation is the inverse of PCPROPERTY_ITEM_FLAG_SERIALIZERAW.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>PCPROPERTY_ITEM_FLAG_SERIALIZE</TD>
+<TD width=52%>PCPROPERTY_ITEM_FLAG_SERIALIZERAW&nbsp;| PCPROPERTY_ITEM_FLAG_UNSERIALIZERAW&nbsp;| PCPROPERTY_ITEM_FLAG_SERIALIZESIZE</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>Handler</B></DT>
+
+<DD>Pointer to the property-handler routine. This member is a function pointer of type PCPFNPROPERTY_HANDLER, which is defined as follows:
+
+<PRE>  typedef NTSTATUS (*PCPFNPROPERTY_HANDLER)
+  (
+      IN PPCPROPERTY_REQUEST  PropertyRequest
+  );</PRE>
+
+
+
+<P>See the following <B>Comments</B> section.
+
+</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>The PCPROPERTY_ITEM structure specifies a particular property item in an automation table. The <A HREF="audpc-struct_3nlf.htm">PCAUTOMATION_TABLE</A> structure points to an array of PCPROPERTY_ITEM structures.</P>
+
+<P>When calling the <B>Handler</B> routine, the caller passes in a single call parameter, which is a pointer to a <A HREF="audpc-struct_93g3.htm">PCPROPERTY_REQUEST</A> structure. This structure is allocated by the caller, and the caller frees it under either of the following conditions:
+
+<OL>
+	<LI>If the <B>Handler</B> routine returns any status code other than STATUS_PENDING, the caller frees the structure. In this case, the miniport driver should not attempt to access the structure after the <B>Handler</B> routine returns.</LI>
+
+	<LI>The <B>Handler</B> routine can also return STATUS_PENDING, in which case the miniport driver is obliged to call <A HREF="audpc-routines_0oc3.htm"><B>PcCompletePendingPropertyRequest</B></A> at a later time to complete the pending property request. The <B>PcCompletePendingPropertyRequest</B> function frees the structure. After calling <B>PcCompletePendingPropertyRequest</B>, the miniport driver should not attempt to access the structure.</LI>
+</OL>
+
+<P>If the miniport driver attempts to access the structure after it has been freed, this action is likely to cause a bugcheck or to corrupt another driver's memory.</P>
+
+<P>For more information about serialization and raw serialization of a property set, see <A HREF="ks-overview_1uhz.htm">KS Properties</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="audpc-struct_93g3.htm">PCPROPERTY_REQUEST</A>, <A HREF="audpc-routines_0oc3.htm"><B>PcCompletePendingPropertyRequest</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: PCPROPERTY_ITEM"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

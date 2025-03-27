@@ -1,0 +1,140 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ClientEventReceiveExpedited</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ClientEventReceiveExpedited">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_clienteventreceiveexpedited_nr"></A>ClientEventReceiveExpedited</H1>
+
+<P>The ClientEventReceiveExpedited routine is an event handler that the underlying TDI transport calls in response to an incoming expedited receive from a remote node with which the client has an established endpoint-to-endpoint connection. </P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>ClientEventReceiveExpedited(
+</B>    <B>IN PVOID</B>  <I>TdiEventContext</I><B>,
+</B>    <B>IN CONNECTION_CONTEXT</B>  <I>ConnectionContext</I><B>,
+</B>    <B>IN ULONG</B>  <I>ReceiveFlags</I><B>,
+</B>    <B>IN ULONG</B>  <I>BytesIndicated</I><B>,
+</B>    <B>IN ULONG</B>  <I>BytesAvailable</I><B>,
+</B>    <B>OUT ULONG</B>  <B>*</B><I>BytesTaken</I><B>,
+</B>    <B>IN PVOID</B>  <I>Tsdu</I><B>,
+</B>    <B>OUT PIRP</B>  <B>*</B><I>IoRequestPacket
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>TdiEventContext</I></DT>
+
+<DD>Pointer to the client-supplied context provided in the IRP that was set up with <B>TdiBuildSetEventHandler</B> when ClientEventReceiveExpedited was registered with the underlying transport.</DD>
+
+<DT><I>ConnectionContext</I></DT>
+
+<DD>Pointer to the client's context area for this connection endpoint. The client previously supplied this value to its underlying transport when its ClientEventConnect handler accepted a connection offer from the remote-node peer and/or when it opened the connection endpoint with <B>ZwCreateFile</B>. </DD>
+
+<DT><I>ReceiveFlags</I></DT>
+
+<DD>Specifies the nature of the receive indication as a combination (ORed) of the following flags:
+
+<DL>
+<DT>TDI_RECEIVE_EXPEDITED</DT>
+
+<DD>The buffer at <I>Tsdu</I> contains expedited data received from the client's remote-node peer. This flag is always set when ClientEventReceiveExpedited is called. </DD>
+
+<DT>TDI_RECEIVE_ENTIRE_MESSAGE</DT>
+
+<DD>The buffer at <I>Tsdu</I> contains a full TSDU. ClientEventReceiveExpedited should return control as quickly as possible after copying the indicated data into an internal buffer if it accepts the TSDU. 
+
+<P>If this flag is clear (or TDI_RECEIVE_PARTIAL is set by a legacy transport), ClientEventReceiveExpedited must check the <I>BytesIndicated</I> and <I>BytesAvailable</I> parameters to determine how much of the TSDU has been provided. Although legacy transports continue to set the TDI_RECEIVE_PARTIAL flag, newer transports leave clear the TDI_RECEIVE_ENTIRE_MESSAGE flag to indicate partial TSDUs to their clients. 
+</DD>
+
+<DT>TDI_RECEIVE_COPY_LOOKAHEAD</DT>
+
+<DD>Unless TDI_RECEIVE_ENTIRE_MESSAGE is set, <I>BytesIndicated</I> is something less than <I>BytesAvailable</I>, and ClientEventReceiveExpedited should copy the number of indicated bytes into an internal buffer, set the variable at <I>BytesTaken</I>, and return control. The client will subsequently submit one or more TDI_RECEIVE requests to get the remainder of the TSDU or ClientEventReceiveExpedited will be called again to copy the remainder of the TSDU. </DD>
+
+<DT>TDI_RECEIVE_FRAGMENT</DT>
+
+<DD>The buffer at <I>Tsdu</I> contains a fragmented TSDU. </DD>
+
+<DT>TDI_RECEIVE_PEEK</DT>
+
+<DD>The transport has buffered some receive data internally, but not yet the full TSDU. The client can examine the buffer at <I>Tsdu</I> to decide whether to submit a TDI_RECEIVE request for the TSDU. </DD>
+</DL>
+</DD>
+
+<DT><I>BytesIndicated</I></DT>
+
+<DD>Specifies the number of bytes of expedited data in the buffer at <I>Tsdu</I>. This parameter is always less than or equal to the value of <I>BytesAvailable</I>. A TDI transport provides at least 128 bytes of data in a receive indication to its client, unless the received message or stream segment is less than 128 bytes in length. If <I>BytesAvailable</I> is greater than <I>BytesIndicated</I>, the transport has received data that it does not make available when it calls ClientEventReceiveExpedited.</DD>
+
+<DT><I>BytesAvailable</I></DT>
+
+<DD>Specifies the total number of bytes in the received TSDU. </DD>
+
+<DT><I>BytesTaken</I></DT>
+
+<DD>Pointer to a caller-supplied variable in which ClientEventReceiveExpedited returns the number of bytes of data it copies from the TSDU.</DD>
+
+<DT><I>Tsdu</I></DT>
+
+<DD>Pointer to a buffer containing the received TSDU data. </DD>
+
+<DT><I>IoRequestPacket</I></DT>
+
+<DD>Pointer to a variable in which ClientEventReceiveExpedited returns a pointer to an IRP that was set up with <B>TdiBuildReceive</B>. If this parameter is NULL, the client will not be making a receive request for the remainder of the TSDU.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>ClientEventReceiveExpedited can return one of the following:
+
+<DL>
+<DT>STATUS_SUCCESS</DT>
+
+<DD>Indicates the client copied all the data in the given TSDU.</DD>
+
+<DT>STATUS_MORE_PROCESSING_REQUIRED</DT>
+
+<DD>Indicates the client has supplied an IRP requesting the remainder of the TSDU, after copying <I>BytesIndicated</I> into an internal buffer. </DD>
+
+<DT>STATUS_DATA_NOT_ACCEPTED</DT>
+
+<DD>Indicates this client is not interested in the TSDU. 
+</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>ClientEventReceiveExpedited accepts or rejects an expedited TSDU that the TDI driver has received on an established endpoint-to-endpoint connection. This handler is almost identical to ClientEventReceive, except that expedited data flow supersedes normal data flow. </P>
+
+<P>Consequently, the underlying transport can call ClientEventReceiveExpedited on a connection while a normal receive operation or an indication to ClientEventReceive (or ClientEventChainedReceive) is in progress. If this occurs, normal data flow does not resume until ClientEventReceiveExpedited has returned and the client has received all the expedited data for the TSDU. If ClientEventReceiveExpedited provides a TDI_RECEIVE request at <I>IoRequestPacket</I>, this request also has priority over any client-issued request for nonexpedited data.</P>
+
+<P>When ClientEventReceiveExpedited is called, it can do one of the following:
+
+<UL>
+	<LI>Reject the indicated TSDU if it has no use for the data by returning STATUS_DATA_NOT_ACCEPTED</LI>
+
+	<LI>Copy all of the data into an internal buffer if TDI_RECEIVE_ENTIRE_MESSAGE is set in the <I>ReceiveFlags</I> and return STATUS_SUCCESS</LI>
+
+	<LI>If TDI_RECEIVE_ENTIRE_MESSAGE is clear (or TDI_RECEIVE_PARTIAL is set), copy some or all of the indicated data and return either of the following, depending on which operation it carries out:
+<P>STATUS_MORE_PROCESSING_REQUIRED if the client is supplying a TDI_RECEIVE request at <I>IoRequestPacket</I> to obtain the remaining TSDU data 
+
+<P>STATUS_SUCCESS if the transport is expected to call ClientEventReceiveExpedited again with the remaining TSDU data 
+</LI>
+</UL>
+
+<P>When it has finished copying receive data, ClientEventReceiveExpedited sets the variable at <I>BytesTaken</I> to the number of bytes of data accepted before it returns control.</P>
+
+<P>ClientEventReceiveExpedited must be capable of carrying out its operations at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_57n6.htm"><B>ClientEventChainedReceiveExpedited</B></A>, <A HREF="35tdicli_7yeq.htm"><B>ClientEventReceive</B></A>, <A HREF="34bldmac_8df6.htm"><B>TdiBuildInternalDeviceControlIrp</B></A>, <A HREF="34bldmac_21de.htm"><B>TdiBuildReceive</B></A>, <A HREF="34bldmac_6sxe.htm"><B>TdiBuildSetEventHandler</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ClientEventReceiveExpedited"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

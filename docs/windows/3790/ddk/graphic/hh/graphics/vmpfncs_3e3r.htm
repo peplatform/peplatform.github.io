@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>HwVidFindAdapter</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="HwVidFindAdapter">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_extensions_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_hwvidfindadapter_gg"></A><I>HwVidFindAdapter</I></H1>
+
+<P><I>HwVidFindAdapter</I> performs initialization of data specific to the miniport driver and devices supported by the miniport driver.</P>
+
+<PRE class=syntax><B>VP_STATUS
+  (*PVIDEO_HW_FIND_ADAPTER)(
+    IN PVOID</B>  <I>HwDeviceExtension</I><B>,
+    IN PVOID</B>  <I>HwContext</I><B>,
+    IN PWSTR</B>  <I>ArgumentString</I><B>,
+    IN OUT PVIDEO_PORT_CONFIG_INFO</B>  <I>ConfigInfo</I><B>,
+    OUT PUCHAR</B>  <I>Again</I><B>
+    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>HwDeviceExtension</I></DT>
+
+<DD>Pointer to the driver's per-device storage area. For more information, see <A HREF="JavaScript:hhobj_1.Click()">Device Extensions</A>.</DD>
+
+<DT><I>HwContext</I></DT>
+
+<DD>Is NULL and should be ignored by the miniport driver.</DD>
+
+<DT><I>ArgumentString</I></DT>
+
+<DD>Pointer to a zero-terminated ASCII string that originates with the user. This pointer can be NULL.</DD>
+
+<DT><I>ConfigInfo</I></DT>
+
+<DD>Pointer to a <A HREF="vstrcts_459j.htm">VIDEO_PORT_CONFIG_INFO</A> structure. The video port driver allocates memory for and initializes this structure with any known configuration information, such as the system IO bus number and values that the miniport driver set in the <A HREF="vstrcts_750n.htm">VIDEO_HW_INITIALIZATION_DATA</A> structure.</DD>
+
+<DT><I>Again</I></DT>
+
+<DD>Should be ignored by the miniport driver.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>HwVidFindAdapter</I> must return one of the following status codes:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Value</TH>
+<TH align=left width=52%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>ERROR_DEV_NOT_EXIST</TD>
+<TD width=52%>Indicates, for a reenumerable bus, that the miniport driver could not find the device.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>ERROR_INVALID_PARAMETER</TD>
+<TD width=52%>Indicates the miniport driver could not configure or initialize the adapter successfully.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>NO_ERROR</TD>
+<TD width=52%>Indicates success.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>video.h</I>. Include <I>video.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Every video miniport driver must have an <I>HwVidFindAdapter</I> function.</P>
+
+<P>The video port driver does the following before it calls <I>HwVidFindAdapter</I>:
+
+<UL>
+	<LI>Allocates storage for the miniport driver's per-adapter storage area according to the value of <B>HwDeviceExtensionSize</B> that the miniport driver's <A HREF="vmpfncs_06g7.htm"><B>DriverEntry</B></A> function specified in the <A HREF="vstrcts_750n.htm">VIDEO_HW_INITIALIZATION_DATA</A> structure, and zero-initializes the allocated storage.</LI>
+
+	<LI>Allocates storage for a <A HREF="vstrcts_459j.htm">VIDEO_PORT_CONFIG_INFO</A> structure and fills in all available information based on miniport driver-supplied information in VIDEO_HW_INITIALIZATION_DATA.</LI>
+</UL>
+
+<P>The video port driver then calls the miniport driver's <I>HwVidFindAdapter</I> function with pointers to the initialized per-adapter storage area and configuration information in the <I>HwDeviceExtension</I> and <I>ConfigInfo</I> parameters, respectively.</P>
+
+<P>The <I>HwVidFindAdapter</I> function for devices on an enumerable bus must do the following:
+
+<UL>
+	<LI>Check the size of the VIDEO_PORT_CONFIG_INFO structure to which <I>ConfigInfo</I> points to ensure proper versioning.</LI>
+
+	<LI>Call <B>VideoPortGetAccessRanges</B> to obtain the bus-relative physical addresses to which the device will respond. These addresses are assigned by the PnP Manager. The miniport driver should pass NULL in the <I>VendorId</I>, <I>DeviceId</I>, and <I>Slot</I> parameters of <B>VideoPortGetAccessRanges</B>.</LI>
+
+	<LI>For miniport drivers that support several device types, determine the type of device that the PnP Manager has detected. The miniport driver can call <B>VideoPortGetBusData</B> to obtain PCI configuration information.</LI>
+
+	<LI>Fill in any relevant but missing configuration information in the appropriate members of the VIDEO_PORT_CONFIG_INFO structure with adapter-specific data.</LI>
+</UL>
+
+<P><I>HwVidFindAdapter</I> should not attempt to initialize the device.</P>
+
+<P><I>HwVidFindAdapter</I> can allocate resources, such as memory and locks, for use by the miniport driver. Those resources can be device-specific or they can be shared by several devices that the miniport driver supports. If <I>HwVidFindAdapter</I> returns any value other than NO_ERROR, it must free all device-specific resources before returning. For resources that are shared among several devices, <I>HwVidFindAdapter</I> should keep a reference count. For example, the reference count could indicate the number of previous calls to <I>HwVidFindAdapter</I> that succeeded. That way, if <I>HwVidFindAdapter</I> must fail, and it determines that all previous calls to <I>HwVidFindAdapter</I> have failed, it could free the shared resources.</P>
+
+<P>If <I>HwVidFindAdapter</I> fails every time it is called by the video port driver, the operating system might unload the miniport driver later. In such a case, any resources that <I>HwVidFindAdapter</I> allocated but did not free will leak.</P>
+
+<P>For a device on a reenumerable bus such as ISA, PnP still attempts to start the device, although it is the responsibility of <I>HwVidFindAdapter</I> to determine whether the device is actually present. If the device is not found, <I>HwVidFindAdapter</I> should return ERROR_DEV_NOT_EXIST.</P>
+
+<P><I>HwVidFindAdapter</I> should also call <B>VideoPortSetRegistryParameters</B> to store adapter-specific information in the <B>HardwareInformation</B> key. This information is used by the Display program in Control Panel. See <A HREF="vmport_6n8n.htm">Setting Hardware Information in the Registry</A> for details.</P>
+
+<P>Depending on the adapter and the <B>AdapterInterfaceType</B> value in <A HREF="vstrcts_459j.htm">VIDEO_PORT_CONFIG_INFO</A>, <I>HwVidFindAdapter</I> can call some of the following <B>VideoPort</B><I>Xxx</I> functions to get the necessary bus-relative configuration data and mapped access ranges to communicate with the adapter:
+
+<UL>
+	<LI><A HREF="vpfncs_5naf.htm"><B>VideoPortGetBusData</B></A> to get bus-type-specific configuration information about an adapter on a particular I/O bus.</LI>
+
+	<LI><A HREF="vpfncs_9353.htm"><B>VideoPortGetDeviceData</B></A> to get VIDEO_DEVICE_DATA_TYPE-specific information from the registry and call <A HREF="vmpfncs_2m93.htm"><I>HwVidQueryDeviceCallback</I></A> to process this information.</LI>
+
+	<LI><A HREF="vpfncs_8a07.htm"><B>VideoPortGetRegistryParameters</B></A> to get configuration information from the registry.</LI>
+
+	<LI><A HREF="vpfncs_22lj.htm"><B>VideoPortGetAccessRanges</B></A> to get bus-relative access ranges addresses and possibly other hardware configuration values, and to claim them in the registry for use by the driver of an adapter.</LI>
+
+	<LI><A HREF="vpfncs_0x7r.htm"><B>VideoPortVerifyAccessRanges</B></A> to determine whether bus-relative video memory and/or I/O ports for the adapter can be claimed by the miniport driver; otherwise, a previously loaded driver has already claimed the resource in the registry and <I>HwVidFindAdapter</I> must try to claim other access ranges if possible or fail.</LI>
+
+	<LI><A HREF="vpfncs_87mv.htm"><B>VideoPortGetDeviceBase</B></A> to map each successfully claimed bus-relative base address and range size, as described in a <A HREF="vstrcts_6h0n.htm">VIDEO_ACCESS_RANGE</A> structure, to system-space logical addresses. <I>HwVidFindAdapter</I> must successfully call <B>VideoPortVerifyAccessRanges</B> or <B>VideoPortGetAccessRanges</B> before it can call <B>VideoPortGetDeviceBase</B>.</LI>
+</UL>
+
+<P>If the driver does not handle interrupts, <I>HwVidFindAdapter</I> should set both <B>BusInterruptLevel</B> and <B>BusInterruptVector</B> in the VIDEO_PORT_CONFIG_INFO structure to zero after its call to <B>VideoPortGetAccessRanges</B>. If both members are zero, the video port driver does not connect the interrupt for the miniport driver. Explicitly setting both <B>BusInterruptLevel</B> and <B>BusInterruptVector</B> to zero in <I>HwVidFindAdapter</I> disables the <A HREF="vmpfncs_2luv.htm"><I>HwVidInterrupt</I></A> entry point, if any, that was set up by the miniport driver's <B>DriverEntry</B> routine.</P>
+
+<P><I>HwVidFindAdapter</I> must not leave an unsupported adapter with its state changed. For VGA/SVGA adapters, <I>HwVidFindAdapter</I> must leave the adapter in a VGA state and restore any extended registers it might have modified to their original condition.</P>
+
+<P><I>HwVidFindAdapter</I><B> </B>should be made pageable.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="vmpfncs_06g7.htm"><B>DriverEntry</B></A>, <A HREF="ddifncs_00pz.htm"><B>DrvAssertMode</B></A>, <A HREF="vmpfncs_2m93.htm"><I>HwVidQueryDeviceCallback</I></A>, <A HREF="vmpfncs_4ucn.htm"><I>HwVidQueryNamedValueCallback</I></A>, <A HREF="vmpfncs_2luv.htm"><I>HwVidInterrupt</I></A>, <A HREF="vstrcts_750n.htm">VIDEO_HW_INITIALIZATION_DATA</A>, <A HREF="vstrcts_459j.htm">VIDEO_PORT_CONFIG_INFO</A>, <A HREF="vpfncs_9413.htm"><B>VideoPortFreeDeviceBase</B></A>, <A HREF="vpfncs_22lj.htm"><B>VideoPortGetAccessRanges</B></A>, <A HREF="vpfncs_5naf.htm"><B>VideoPortGetBusData</B></A>, <A HREF="vpfncs_87mv.htm"><B>VideoPortGetDeviceBase</B></A>, <A HREF="vpfncs_9353.htm"><B>VideoPortGetDeviceData</B></A>, <A HREF="vpfncs_8a07.htm"><B>VideoPortGetRegistryParameters</B></A>, <A HREF="vpfncs_0x7r.htm"><B>VideoPortVerifyAccessRanges</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: HwVidFindAdapter"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

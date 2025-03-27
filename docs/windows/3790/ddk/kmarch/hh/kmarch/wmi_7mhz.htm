@@ -1,0 +1,60 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using Custom WMI Events</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using Custom WMI Events">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_using_custom_wmi_events_kg"></A>Using Custom WMI Events</H2>
+
+<P>Some classes of drivers are required to support certain WMI event classes.  Drivers can also design their own custom WMI event classes.  Custom WMI events offer a way for a driver to pass data back to a user-mode component.  A user-mode component receives WMI events through WMI COM interfaces.</P>
+
+<P>An application can receive event notifications as follows:
+
+<UL>
+	<LI>Use the <B>CoCreateInstance</B> routine to get a pointer to an <B>IWbemLocator</B> object.</LI>
+
+	<LI>Use the <B>IWbemLocator</B> pointer to connect to the WMI server process.  The <B>IWBemLocator::ConnectServer</B> method call provides you with a pointer to an <B>IWbemServices</B> object.</LI>
+
+	<LI>Use the <B>IWbemServices</B> object to query for the event types you are interested in.  The <B>IWbemServices::ExecNotificationQuery</B> method allows you to specify an event query in the WMI Query Language (WQL).</LI>
+
+	<LI>An application can also register to receive WMI events asynchronously, by implementing the <B>IWbemObjectSink</B> interface.  The application uses the <B>IWbemServices::ExecNotificationQueryAsync</B> method to register for asynchronous notification of events.  When matching events occur, the system uses the <B>IWbemObjectSink::Indicate</B> method to notify the application of the events that have occurred.</LI>
+</UL>
+
+<P>You can also implement a user-mode WMI <I>event consumer provider</I>.  This is a user-mode component that WMI can automatically load when events of a specified type occur.
+
+<UL>
+	<LI>Include an instance of the <B>__EventConsumerProviderRegistration</B> WMI class in the MOF data for your user-mode component.</LI>
+
+	<LI>Implement the <B>IWbemUnboundObjectSink</B> interface for each WMI event class you want to receive notifications of.</LI>
+
+	<LI>Implement the <B>IWbemEventConsumerProvider</B> interface to specify the event classes the component receives notifications of, and the associated <B>IWbemUnboundObjectSink</B> implementations.</LI>
+
+	<LI>Implement the <B>IWbemProviderInit</B> interface that initializes your component as an event consumer.</LI>
+</UL>
+
+<P>More information on receiving WMI events and the <B>IWbemXxx</B> COM interfaces can be found in the Platform SDK documentation.</P>
+
+<P>WMI events are not the only way to notify user-mode applications when particular situations occur.  A driver could implement an IOCTL that an application could use to poll for notification.  The driver and application could share a notification event object (see <A HREF="synchro_4euf.htm">Event Objects</A>) to signal that a particular situation has occurred.</P>
+
+<P>WMI events have some advantages over these other methods:
+
+<UL>
+	<LI>If user-mode applications poll for events faster than the driver can respond, then the driver may have many IOCTLs pending.</LI>
+
+	<LI>You can ameliorate the previous problem by using a notification event object to notify a user-mode application, but notification events can only signal that an event has occurred.  The application must still use an IOCTL to get any additional data.  The next two issues still apply.</LI>
+
+	<LI>If multiple applications poll the driver for events, the driver would need to maintain state to determine which applications had received which events.</LI>
+
+	<LI>Some drivers, such as SCSI miniport and NDIS miniport drivers, cannot receive IOCTLs.</LI>
+</UL>
+
+<P>WMI events do have the disadvantage that the user-mode code you must provide is considerably more complicated than that for the other methods.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20Custom%20WMI%20Events"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

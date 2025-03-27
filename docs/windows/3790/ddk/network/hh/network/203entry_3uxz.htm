@@ -1,0 +1,46 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Registering Handlers for Interrupt Support</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Registering Handlers for Interrupt Support">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_registering_handlers_for_interrupt_support_ng"></A>Registering Handlers for Interrupt Support</H3>
+
+<P>This section describes how to choose interrupt-support handlers for a miniport driver that manages a NIC that generates interrupts. For a detailed description of interrupt handling, see <A HREF="204trnsf_9t2f.htm">Handling an Interrupt</A>.</P>
+
+<P>When a NIC interrupts, NDIS fields the interrupt; that is, NDIS is always called first when a NIC interrupts. NDIS determines to which miniport driver the interrupt belongs and either calls that miniport driver’s <A HREF="101mini_38c2.htm"><I>MiniportISR</I></A> function or handles the interrupt for the miniport driver if the interrupt is not shared and if the miniport driver specified in its call to <A HREF="103ndisx_5uk2.htm"><B>NdisMRegisterInterrupt</B></A> that NDIS should not call its <I>MiniportISR</I> function. If NDIS does not call a miniport driver’s ISR function, NDIS disables further interrupts by calling the miniport driver’s <A HREF="101mini_0jg2.htm"><I>MiniportDisableInterrupt</I></A> function and then queues the miniport driver’s <A HREF="101mini_7s36.htm"><I>MiniportHandleInterrupt</I></A> DPC function. </P>
+
+<P>If a miniport driver handles its device interrupts, it must register its ISR handler in an NDIS_MINIPORT_CHARACTERISTICS structure and indicate that it wants its ISR handler called by setting the <I>RequestIsr</I> argument of <B>NdisMRegisterInterrupt</B> to TRUE.</P>
+
+<H4>Registering an ISR Handler</H4>
+
+<P>A miniport driver for a NIC that generates interrupts must register an ISR handler if any of the following is true:
+
+<UL>
+	<LI>The miniport driver manages a NIC that can interrupt during miniport driver initialization or during a miniport driver halt operation</LI>
+
+	<LI>The miniport driver's NIC shares an IRQ with another device</LI>
+
+	<LI>The miniport driver must capture interrupt-specific data from NIC registers at DIRQL.</LI>
+</UL>
+
+<P>Such a miniport driver must also set <I>RequestIsr</I> to TRUE when it calls <B>NdisMRegisterInterrupt</B>. If the interrupt is shared, the miniport driver must also set <I>SharedInterrupt</I> to TRUE when calling <B>NdisMRegisterInterrupt</B>. </P>
+
+<P>If none of the above-listed conditions are true, a miniport driver for a NIC that generates interrupts can specify that NDIS handle interrupts by calling <B>NdisMRegisterInterrupt</B> with <I>RequestIsr</I> set to FALSE and <I>SharedInterrupt</I> set to FALSE.</P>
+
+<H4>Registering a HandleInterrupt Handler</H4>
+
+<P>A miniport driver must register an HandleInterrupt Handler if it manages a NIC that generates interrupts. Even if NDIS completely handles the interrupt, it will always queue a DPC for the miniport driver, causing the miniport driver’s <I>MiniportHandleInterrupt</I> handler to run.</P>
+
+<H4>Enabling and Disabling Interrupts</H4>
+
+<P>If the NIC does not generate an interrupt, the miniport driver does not need to provide a <A HREF="101mini_222a.htm"><I>MiniportEnableInterrupt</I></A><I> </I>or <I>MiniportDisableInterrupt </I>function. If a miniport driver always handles its interrupts in a <I>MiniportISR</I> function and schedules a <I>MiniportHandleInterrupt </I>function, it might not provide specific <I>MiniportEnableInterrupt </I>or <I>MiniportDisableInterrupt</I> functions. Instead, such a miniport driver can choose to disable interrupts within its ISR and enable them within its DPC, without providing specific driver functions for this purpose. If a miniport driver specifies that NDIS handle its interrupts, it must supply a <I>MiniportDisableInterrupt</I> function, and if the miniport driver does not reenable interrupts in its <I>MiniportHandleInterrupt</I> function, it must have a <I>MiniportEnableInterrupt</I> function.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Registering%20Handlers%20for%20Interrupt%20Support"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

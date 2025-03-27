@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProtocolClRegisterSapComplete</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProtocolClRegisterSapComplete">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocolclregistersapcomplete_nr"></A>ProtocolClRegisterSapComplete</H1>
+
+<P>Connection-oriented NDIS clients that accept incoming calls must have <I>ProtocolClRegisterSapComplete</I> functions to complete the asynchronous operations that they initiate with <A HREF="103ndisx_22nm.htm"><B>NdisClRegisterSap</B></A>. Otherwise, such a protocol driver's registered <I>ProtocolClRegisterSapComplete</I> function can simply return control.</P>
+
+<PRE class=syntax><B>VOID 
+</B>  <B>ProtocolClRegisterSapComplete(
+</B>    <B>IN NDIS_STATUS</B>  <I>Status</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>ProtocolSapContext</I><B>,
+</B>    <B>IN PCO_SAP</B>  <I>Sap</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisSapHandle
+</I>    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Status</I></DT>
+
+<DD>Specifies the final status of the client’s call to <B>NdisClRegisterSap</B>, which can be one of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>The SAP has been registered both with NDIS and the call manager, which will subsequently call <A HREF="103ndisx_2v76.htm"><B>NdisCmDispatchIncomingCall</B></A> whenever it receives an incoming call offer directed to the given SAP, thereby causing NDIS to call the client's <A HREF="104tdlow_8a9e.htm"><I>ProtocolClIncomingCall</I></A> function. </DD>
+
+<DT>NDIS_STATUS_RESOURCES</DT>
+
+<DD>NDIS or the call manager could not allocate and/or initialize necessary resources to register and maintain the SAP. </DD>
+
+<DT>NDIS_STATUS_INVALID_DATA</DT>
+
+<DD>The client supplied an invalid specification at <I>Sap</I> to NDIS, which it forwarded to the call manager's <A HREF="104tdlow_3kky.htm"><I>ProtocolCmRegisterSap</I></A> function for validation.</DD>
+
+<DT>NDIS_STATUS_<I>XXX</I></DT>
+
+<DD>The call manager encountered an error in attempting to register the given SAP and NDIS propagated this CM-determined failure status to the client.</DD>
+</DL>
+</DD>
+
+<DT><I>ProtocolSapContext</I></DT>
+
+<DD>Specifies the handle to the client’s per-SAP context area, which the client originally supplied to NDIS when it called <A HREF="103ndisx_22nm.htm"><B>NdisClRegisterSap</B></A>. If the registration is successful, NDIS retains this context handle and uses it subsequently in calls to the client's <I>ProtocolClIncomingCall</I> function pertaining to this SAP.</DD>
+
+<DT><I>Sap</I></DT>
+
+<DD>Pointer to the client-allocated buffer containing the specification for the SAP to be opened. The client originally passed this pointer to <B>NdisClRegisterSap</B>. </DD>
+
+<DT><I>NdisSapHandle</I></DT>
+
+<DD>If <I>Status</I> is NDIS_STATUS_SUCCESS, specifies an NDIS-supplied valid handle to this registered SAP, effectively an association established with NDIS between the client and a particular call manager for the client-specified SAP. Otherwise, this parameter is NULL. The client must save a valid handle, preferably in its <I>ProtocolSapContext</I> area, for an eventual call to <A HREF="103ndisx_8lwy.htm"><B>NdisClDeregisterSap</B></A>. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>NDIS calls <I>ProtocolClRegisterSapComplete</I> to indicate that the client’s previous call to <B>NdisClRegisterSap</B> has been processed by NDIS and, if NDIS did not fail the call, by the call manager with which the client shares the <I>NdisAfHandle</I> that it passed to <B>NdisClRegisterSap</B>. </P>
+
+<P>To receive incoming calls through a connection-oriented NIC, a client's <A HREF="104tdlow_2goi.htm"><I>ProtocolCoAfRegisterNotify</I></A> or <A HREF="104tdlow_4f76.htm"><I>ProtocolClOpenAfComplete</I></A> function usually registers one or more SAPs with the call manager. </P>
+
+<P>To register each SAP, the client calls <B>NdisClRegisterSap</B>, passing in the <I>NdisAfHandle</I> that identifies the call manager from which the client wants to receive notifications of incoming calls, and NDIS returns the client an <I>NdisSapHandle</I> to the registered SAP if the client's call to <B>NdisClRegisterSap</B> succeeds. <I>ProtocolClRegisterSapComplete</I> must save each valid <I>NdisSapHandle</I>, usually in the client's per-SAP <I>ProtocolSapContext</I> area so it can release the SAP later with <A HREF="103ndisx_8lwy.htm"><B>NdisClDeregisterSap</B></A>. </P>
+
+<P>The format of a SAP is specific to the call manager. If the call manager does not recognize the SAP that the client is attempting to register or if the specified SAP is already in use, the call manager can fail the SAP registration. <I>ProtocolClRegisterSapComplete</I> should check the input <I>Status</I> for NDIS_STATUS_SUCCESS before proceding further. If the attempt to register the SAP failed, <I>ProtocolClRegisterSapComplete</I> can either release the per-SAP context area and buffer at <I>Sap</I> that the client allocated or prepare them for reuse in another call to <B>NdisClRegisterSap</B>. </P>
+
+<P>A client can receive incoming calls on a SAP even while SAP registration is still pending, that is, before its <I>ProtocolClRegisterSapComplete</I> function is called. </P>
+
+<P><I>ProtocolClRegisterSapComplete</I> must be written so that it can run at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="103ndisx_8lwy.htm"><B>NdisClDeregisterSap</B></A>, <A HREF="103ndisx_22nm.htm"><B>NdisClRegisterSap</B></A>, <A HREF="103ndisx_2v76.htm"><B>NdisCmDispatchIncomingCall</B></A>, <A HREF="103ndisx_4xgy.htm"><B>NdisCmRegisterSapComplete</B></A>, <A HREF="103ndisx_6sc2.htm"><B>NdisFreeMemory</B></A>, <A HREF="103ndisx_0kc2.htm"><B>NdisFreeToNPagedLookasideList</B></A>, <A HREF="103ndisx_5zoy.htm"><B>NdisMCmDispatchIncomingCall</B></A>, <A HREF="103ndisx_7mur.htm"><B>NdisMCmRegisterSapComplete</B></A>, <A HREF="104tdlow_8a9e.htm"><I>ProtocolClIncomingCall</I></A>, <A HREF="104tdlow_4f76.htm"><I>ProtocolClOpenAfComplete</I></A>, <A HREF="104tdlow_3kky.htm"><I>ProtocolCmRegisterSap</I></A>, <A HREF="104tdlow_2goi.htm"><I>ProtocolCoAfRegisterNotify</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProtocolClRegisterSapComplete"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

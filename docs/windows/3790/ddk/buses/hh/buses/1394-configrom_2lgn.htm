@@ -1,0 +1,46 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Supporting Requests in IEEE 1394 Virtual Device Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Supporting Requests in IEEE 1394 Virtual Device Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_supporting_requests_in_ieee_1394_virtual_device_drivers_kg"></A>Supporting Requests in IEEE 1394 Virtual Device Drivers</H1>
+
+<P>Virtual PDOs and the drivers that are loaded above them have the same level of access to the 1394 bus DDI that a functional driver loaded on a PDO has to actual hardware. However, because there is no actual hardware in the case of a virtual driver, the 1394 bus driver must treat certain requests as special cases. This topic describes requests that exhibit different behavior if addressed to a virtual PDO: 
+
+<UL>
+	<LI><A HREF="1394irp_17w2.htm"><B>REQUEST_ASYNC_READ</B></A>, <A HREF="1394irp_6mya.htm"><B>REQUEST_ASYNC_WRITE</B></A>, and <A HREF="1394irp_8lv6.htm"><B>REQUEST_ASYNC_LOCK</B></A>
+<P>Normally, when an application or a driver addresses an asynchronous I/O request to a target device, the 1394 bus driver extracts the node ID of the device from the device extension of the device's physical device object (PDO). This information is recorded in the device's PDO extension when the device is enumerated. Virtual devices, however, are not enumerated in the usual fashion, so the driver that generates the request <I>must</I> provide a node ID when sending a request to a virtual device, just as it would if it were doing asynchronous I/O in raw mode. For a discussion of raw mode addressing, see <A HREF="1394-async_7iuf.htm">Sending Asynchronous I/O Request Packets on the IEEE 1394 Bus</A>. 
+
+<P>When the bus driver receives a request for the PDO of a virtual device, it uses the node ID provided by the driver that originated the request rather than attempting to extract the node ID from the device extension. Strictly speaking, virtual devices do not have node IDs, so the drivers that send requests to virtual devices must provide an alternative node ID. By convention, virtual devices use the node ID of the PC's host controller. 
+
+<P>When the driver for the virtual device allocates memory, it specifies that it will receive all packets that are broadcast on the 1394 bus. The driver then identifies its packets by checking for the node ID of the host controller in every packet that it receives. 
+
+<P>Virtual devices do not have packet size or transfer rate information recorded in their device extensions, because these are hardware parameters. In the case of virtual devices, the bus driver uses packet size and transfer rate information that was stored in the device object for the port.
+</LI>
+
+	<LI><A HREF="1394irp_5q9e.htm"><B>REQUEST_ALLOCATE_ADDRESS_RANGE</B></A>
+<P>Drivers for virtual devices must set the <B>ACCESS_FLAGS_TYPE_BROADCAST</B> flag in the <B>fulAccessType</B> member of the IRB when allocating memory by means of a REQUEST_ALLOCATE_ADDRESS_RANGE request. Because virtual devices have no actual node numbers, drivers for virtual devices have no means of receiving requests unless they receive packets in broadcast mode. If multiple nodes have allocated the same address range, only one will receive asynchronous requests that are addressed to that range. If drivers for a virtual device and a physical device both allocate the same address range, the physical device has priority over the virtual device, and so the physical device receives the packets. If multiple virtual devices allocate the same address range, the first driver to allocate the range has priority. 
+</LI>
+
+	<LI><A HREF="1394irp_5nsi.htm"><B>REQUEST_GET_ADDR_FROM_DEVICE_OBJECT</B></A>
+<P>Virtual devices have no corresponding hardware node and no node ID of their own. Virtual device drivers return the node ID of the host controller whenever they receive this request, rather than the node ID of a physical node on the bus.  
+</LI>
+
+	<LI><A HREF="1394irp_1h2q.htm"><B>REQUEST_SET_DEVICE_XMIT_PROPERTIES</B></A>
+<P>This request is not supported for virtual devices because there is no corresponding hardware node from which to get the node ID.
+</LI>
+</UL>
+
+<P>For all other requests, the behavior between virtual and physical devices is identical.</P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Supporting%20Requests%20in%20IEEE%201394%20Virtual%20Device%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

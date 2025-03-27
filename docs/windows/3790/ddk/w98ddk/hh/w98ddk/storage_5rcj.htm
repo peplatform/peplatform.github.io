@@ -1,0 +1,226 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ILB_int_io_criteria_rtn</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_4263"></A>ILB_int_io_criteria_rtn</H3>
+
+<PRE>cCall [ilb.ILB_int_io_criteria_rtn],&lt;&lt;OFFSET32 IOP&gt;&gt;
+or  eax, eax
+jnz error
+</PRE>
+
+<P>This service is used by IOS layer drivers located within the IOS layered driver hierarchy. IOS clients should use <B>ILB_io_criteria_rtn</B> instead. </P>
+
+<P>The service ensures that total transfer count does not exceed the maximum allowed, checks for too many logical SGDs (Scatter-Gather Descriptors), and optionally audits linear buffer start addresses and buffer lengths for WORD or DWORD alignment.</P>
+
+<P>If this service has been so requested, it will generate a list of physical SGD’s into memory pointed to by <B>IOR_sgd_lin_phys</B>. It will work from either a single linear address (IORF_SCATTER_GATHER=FALSE) or from a linear scatter-gather list (IORF_SCATTER_GATHER=TRUE). </P>
+
+<P>The physical SGD conversion service is performed by calling the <B>_CopyPageTable</B> function to obtain the list of page table entries (PTEs) corresponding to the linear address space(s) specified.  Next, the service routine attempts to concatenate PTEs whose physical addresses are contiguous, into a single physical SGD if possible.  The maximum allowed size of each physical SGD is 65535 bytes; this limit will be observed while concatenating physical SGDs.  If processing of the linear address space(s) results in too many physical SGDs being created (<B>IOR_num_sgds</B> becomes greater than the smaller of 17 or  <B>DCB_max_sg_elements</B>), the io_criteria routine reports an error. This service fails if any linear buffer (pointed to by <B>IOR_buffer_ptr</B> or the SGD field <B>BD_SG_Buffer_Ptr</B>) being processed is larger than 512K.</P>
+
+<P>A successful call is indicated if the EAX register returns zero.</P>
+
+<P>The following table lists the fields used by this service.</P>
+
+<P><B>Table 1. Fields used by ILB_io_criteria_rtn:</B></P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=29%>Field</TH>
+<TH align=left width=12%>Usage</TH>
+<TH align=left width=59%>Purpose</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>DCB_apparent_blk_shift</TD>
+<TD width=12%>Read</TD>
+<TD width=59%>See IOR_flags &amp; IORF_CHAR_COMMAND</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>DCB_device_flags &amp; DCB_DEV_RMM</TD>
+<TD width=12%>Read </TD>
+<TD width=59%>If FALSE, uses physical DCB pointer (pDCB = pDCB-&gt;physical_dcb).  If TRUE, uses logical (original) DCB.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>DCB_dmd_flags &amp; DCB_dmd_dword_align</TD>
+<TD width=12%>Read</TD>
+<TD width=59%>If this demand flag is set, criteria routine will verify that DWORD alignment of the I/O buffer is being adhered to.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>DCB_dmd_flags &amp; DCB_dmd_phys_sgd</TD>
+<TD width=12%>Read</TD>
+<TD width=59%>If set, criteria routine will attempt to create a list of up to 17 physical SGDs.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>DCB_dmd_flags &amp; DCB_dmd_phys_sgd_ptr</TD>
+<TD width=12%>Read</TD>
+<TD width=59%>This demand flag (originally intended to cause the IOR_sgd_lin_phys address to be a physical address instead of a linear address) is currently not implemented; do not set this bit, to avoid unpredictable results.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>DCB_dmd_flags &amp; DCB_dmd_word_align</TD>
+<TD width=12%>Read</TD>
+<TD width=59%>If this demand flag is set, criteria routine will verify that word alignment of the I/O buffer  is being adhered to.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>DCB_max_sg_elements</TD>
+<TD width=12%>Read</TD>
+<TD width=59%>See IOR_flags &amp; IORF_SCATTER_GATHER.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>DCB_max_xfer_len</TD>
+<TD width=12%>Read</TD>
+<TD width=59%>This is always a byte count.  Used to audit IOR_xfer_count</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>DCB_physical_dcb</TD>
+<TD width=12%>Read </TD>
+<TD width=59%>Used to access the DCB; except if an RMM device, the IOP_original_DCB is used.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>IOP_original_dcb</TD>
+<TD width=12%>Read </TD>
+<TD width=59%>Used to obtain pointer to logical DCB</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>IOR_buffer_ptr</TD>
+<TD width=12%>Read</TD>
+<TD width=59%>Points to either a linear buffer space, unless IORF_SCATTER_GATHER is set, in which case it points to a list of linear (logical) scatter-gather descriptors.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>IOR_flags &amp; IORF_CHAR_COMMAND</TD>
+<TD width=12%>Read</TD>
+<TD width=59%>If FALSE, the count specified in IOR_xfer_count is a block count, and must be shifted left by DCB_apparent_blk_shift to indicate the byte count</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>IOR_flags &amp; IORF_IO_TOO_BIG</TD>
+<TD width=12%>Write</TD>
+<TD width=59%>Set if IOR_xfer_count is too long (this bit is tested after the criteria routine fails)</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>IOR_flags &amp; IORF_PHYS_SGDS</TD>
+<TD width=12%>Write</TD>
+<TD width=59%>Set by criteria routine to indicate that the physical sgd (IOR_sgd_lin_phys) list was successfully set up.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>IOR_flags &amp; IORF_SCATTER_GATHER</TD>
+<TD width=12%>Read</TD>
+<TD width=59%>If set, criteria routine audits the actual number of logical SGD’s pointed to by IOR_buffer_ptr, against the legal maximum, which is DCB_max_sg_elements.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>IOR_func</TD>
+<TD width=12%>Read</TD>
+<TD width=59%>If IOR_func == IOR_SCSI_PASS_THROUGH, and IORF_SCATTER_GATHER==FALSE, the io_criteria routine will allow a “misaligned” address or count to succeed.  For example, a count of 7 (odd) will actually succeed if  the DCB_dmd_word_align bit is set and the start address is even. This is done to accommodate ASPI requests for example.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>IOR_ios_private_1 &amp; IOS_PR_FL_MAYBE_BAD_ALIGN</TD>
+<TD width=12%>Read/ Write</TD>
+<TD width=59%>Used as a temporary variable within the io_criteria routine.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>IOR_num_sgds</TD>
+<TD width=12%>Write</TD>
+<TD width=59%>If DCB_dmd_phys_sgd is TRUE, the criteria routine will fill in this field to provide you with the number of physical SGD elements in IOR_sgd_lin_phys.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>IOR_sgd_lin_phys</TD>
+<TD width=12%>Read</TD>
+<TD width=59%>Points to the physical scatter/gather descriptor list area. If DCB_dmd_phys_sgd is TRUE, the criteria routine will fill in this list to provide you with up to 17 physical addresses of the scatter-gather blocks.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%>IOR_xfer_count</TD>
+<TD width=12%>Read</TD>
+<TD width=59%>If IORF_SCATTER_GATHER=FALSE, this field contains the IOR_buffer_ptr’s block or byte count; this count is audited by the criteria routine.</TD>
+</TR>
+</TABLE><BR>
+
+<P>A successful call returns (zero).  A nonzero value indicates an error.  If an error occurs, use the following table to help pinpoint the cause of the error:</P>
+
+<P><B>Table 2. ILB_io_criteria_rtn error conditions</B></P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=47%>IOP state before the io_criteria routine is called</TH>
+<TH align=left width=31%>Error condition description</TH>
+<TH align=left width=22%>Other indicators returned by io_criteria when error exit occurs</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%>IORF_SCATTER_GATHER  = TRUE, 
+<P><I>and </I></P>
+
+<P>dmd_dword_align  or dmd_word_align demand flag(s) are TRUE</P>
+</TD>
+<TD width=31%>Either the start address or length of any of the linear scatter-gather descriptors failed the WORD or DWORD alignment check.  Alignment checking is NOT performed if physical SGDs are requested and only one physical SGD is produced (since all adapters which have restrictions only have them for multiple SGDs)</TD>
+<TD width=22%>None.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%>IORF_SCATTER_GATHER  = FALSE, 
+<P><I>and </I></P>
+
+<P>dmd_dword_align  or dmd_word_align demand flag(s) are TRUE</P>
+</TD>
+<TD width=31%>Either the start address (IOR_buffer_ptr) or length (IOR_xfer_count) failed the WORD or DWORD alignment check.  Alignment checking is NOT performed if IOR_func = IOR_SCSI_PASS_THROUGH (such as in an ASPI request)</TD>
+<TD width=22%>None.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%>&nbsp;</TD>
+<TD width=31%>The total transfer count (IOR_xfer_count; shifted left by DCB_apparent_blk_shift if IORF_CHAR_COMMAND is FALSE) is greater than DCB_max_xfer_len</TD>
+<TD width=22%>IOR_flags bit IORF_IO_TOO_BIG is set to TRUE. This generally indicates to IOS that it must perform double buffering (breaking the transfer into smaller chunks).</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%>DCB_dmd_phys_sgd = FALSE, <I>and</I> IORF_SCATTER_GATHER = TRUE</TD>
+<TD width=31%>The number of logical SGDs set up (at IOR_buffer_ptr) is greater than DCB_max_sg_elements</TD>
+<TD width=22%>None.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%>DCB_dmd_phys_sgd = TRUE</TD>
+<TD width=31%>The total transfer count (IOR_xfer_count; shifted left by DCB_apparent_blk_shift if IORF_CHAR_COMMAND is FALSE) is greater than 512 * 1024 (512K)</TD>
+<TD width=22%>IOR_flags bit IORF_IO_TOO_BIG is set to TRUE.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%>DCB_dmd_phys_sgd = TRUE</TD>
+<TD width=31%>The number of physical SGDs  that the io_criteria routine created from the logical (linear) SGDs  is greater than 17 or greater than DCB_max_sg_elements</TD>
+<TD width=22%>IOR_flags bit IORF_IO_TOO_BIG is set to TRUE.
+<P>IOR_num_sgds contains the offending count.</P>
+</TD>
+</TR>
+</TABLE><BR>
+
+<H4>See Also</H4>
+
+<P><B>ILB</B>, <B>IOP</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ILB_int_io_criteria_rtn"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

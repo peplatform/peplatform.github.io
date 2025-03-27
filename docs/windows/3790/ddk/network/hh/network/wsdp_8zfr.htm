@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Creating and Binding SAN Sockets</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Creating and Binding SAN Sockets">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_creating_and_binding_san_sockets_ng"></A>Creating and Binding SAN Sockets</H3>
+
+<P>If the Windows Sockets switch determines that it can route data through a SAN connection rather than through the TCP/IP stack, it requests the appropriate SAN service provider to create, bind, and set options for a socket on which the data can be transferred. </P>
+
+<P>The socket created by the SAN service provider is a <I>companion</I> to the socket that the TCP/IP service provider created at the request of the application, either from or to which the data is being transferred. The <I>companion socket </I>created by the SAN service provider has the same options as the socket created by the TCP/IP service provider, if the SAN service provider supports those options. </P>
+
+<P>The companion socket also has the same IP address and TCP port as the socket that was created by the TCP/IP service provider. The SAN data is transferred through the companion socket created by the SAN service provider rather than the socket created by the TCP/IP service provider. The SAN socket is not visible to the application. From the application’s perspective, the data is transferred on the socket that it requested to be created for the data transfer.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The switch always uses the TCP/IP service provider to transfer data over <I>raw sockets</I>. The switch therefore never requests a SAN service provider to create a raw socket.</P>
+
+<P>The following figure shows an overview of how the Windows Sockets switch creates a companion socket. The sequence in the sections that follow describe creating a companion socket in more detail.</P>
+
+<P><IMG SRC="images/apiflow2.gif" ALT="" BORDER=0></P>
+
+<P><B>Creating a Companion Socket</B></P>
+
+<H4>Initiating Creation of a TCP/IP Socket</H4>
+
+<OL>
+	<LI>After the Windows Sockets switch receives a <B>WSPSocket</B> call that was initiated by an application, the switch calls the TCP/IP provider's <B>WSPSocket</B> function to request the TCP/IP provider to create a socket. </LI>
+
+	<LI>The Windows Sockets switch returns the descriptor for the created socket to the application and stores this descriptor in a private data structure that is associated with the socket. 
+<P>From the application's perspective, the socket created by the TCP/IP provider is the socket used for data transfers, whether the switch uses the TCP/IP service provider or the SAN service provider to transfer the data. 
+</LI>
+</OL>
+
+<H4>Binding a TCP/IP Socket</H4>
+
+<OL start=3>
+	<LI>The switch receives a <B>WSPBind</B> call if an application requests to bind the socket to a specific network interface controller (NIC) or to the wildcard IP address (0.0.0.0). A socket bound to the wildcard IP address can listen for incoming connection requests from all NICs. </LI>
+
+	<LI>The switch forwards this call to the TCP/IP service provider by calling the TCP/IP provider's <B>WSPBind</B> function. </LI>
+</OL>
+
+<H4>Service Provider Determination</H4>
+
+<OL start=5>
+	<LI>The switch determines whether to use a SAN service provider for data transfer on a socket after the application initiates a <B>WSPListen</B> or <B>WSPConnect</B> call to the switch, as described in <A HREF="wsdp_9ch3.htm"><B>Setting Up a SAN Connection</B></A>. </LI>
+
+	<LI>If the switch determines that it cannot use a SAN service provider for a data transfer, the switch routes the data transfer through the TCP/IP service provider.</LI>
+
+	<LI>If the switch chooses a SAN service provider to service an application’s socket, the switch calls the SAN service provider’s <A HREF="wsdpref_6ir6.htm"><B>WSPSocket</B></A> function to create a companion socket. </LI>
+</OL>
+
+<H4>Initiating Creation of a Companion Socket</H4>
+
+<OL start=8>
+	<LI>The SAN service provider's <B>WSPSocket</B> function initializes an internal data structure in which it stores information about the companion socket. </LI>
+
+	<LI>The SAN service provider’s <B>WSPSocket</B> function must next call the <B>WPUCreateSocketHandle</B> function to acquire a socket descriptor from the switch. </LI>
+
+	<LI>The SAN service provider must store the switch's socket descriptor in its internal data structure for the companion socket and must return its own descriptor for the companion socket to complete the <B>WSPSocket</B> call. The socket descriptor returned by the SAN service provider can be any meaningful value, such as a pointer to a private data structure. </LI>
+
+	<LI>To perform an operation on the socket, the switch supplies the socket descriptor that was returned by the SAN service provider to the appropriate function of the SAN service provider. Similarly, the SAN service provider must supply the socket descriptor that was acquired from the switch in the <B>WPUCreateSocketHandle</B> call if the SAN service provider makes any of the following up calls:
+<P class=indent1><B>WPUQuerySocketHandleContext</B></P>
+
+<P class=indent1><B>WPUCloseSocketHandle</B></P>
+
+<P class=indent1><B>WPUCompleteOverlappedRequest</B></P>
+
+<P>For more information about these functions, see the Platform SDK documentation.
+</LI>
+</OL>
+
+<H4>Binding a Companion Socket</H4>
+
+<OL start=12>
+	<LI>If a SAN service provider's <B>WSPSocket</B> function completes successfully, the switch immediately calls the SAN service provider's <A HREF="wsdpref_5wfm.htm"><B>WSPBind</B></A> function to assign a local IP address and TCP port to the socket. </LI>
+
+	<LI>The switch assigns the same IP address and TCP port to the SAN socket as was assigned to the socket that was created by the TCP/IP provider. The SAN service provider must translate this TCP/IP address into its native format. </LI>
+
+	<LI>The switch supplies a fully qualified IP address and TCP port (that is, nonzero values) to the SAN service provider's <B>WSPBind</B> function unless an application requested to listen for incoming connections from all NICs. In the later case, the switch supplies the wildcard IP address to the SAN service provider's <B>WSPBind</B> function. </LI>
+</OL>
+
+<H4>Setting Options for a Companion Socket</H4>
+
+<OL start=15>
+	<LI>If the application specified any socket options, the switch stores those options. After creating the SAN socket, the switch calls the SAN service provider's <A HREF="wsdpref_6fea.htm"><B>WSPSetSockOpt</B></A> function for each supported option that was specified by the application to immediately set these options for the SAN socket.</LI>
+</OL>
+
+<H4>Failing a Companion Socket Call</H4>
+
+<OL start=16>
+	<LI>If a SAN service provider fails any of the preceding calls to its <B>WSPSocket</B>, <B>WSPBind</B>, or <B>WSPSetSockOpt</B> functions, the switch calls the SAN service provider's <A HREF="wsdpref_4fsi.htm"><B>WSPCloseSocket</B></A> function to destroy the SAN socket. The switch then uses the TCP/IP provider to continue servicing the application socket. Note that, after the switch establishes a connection using a SAN service provider, the switch cannot use the TCP/IP provider to service the application's socket. In this case, the switch returns the appropriate error to the application. </LI>
+</OL>
+
+<H4>Connecting the Companion Socket</H4>
+
+<OL start=17>
+	<LI>After the switch sets up the companion socket, the switch calls either the <B>WSPListen</B> or <B>WSPConnect</B> function for the SAN service provider to perform the operation that caused the SAN service provider to originally set up the socket. For example, if an application originally requested to listen for incoming connections, the switch calls the SAN service provider's <A HREF="wsdpref_4a5u.htm"><B>WSPListen</B></A> function.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Creating%20and%20Binding%20SAN%20Sockets"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

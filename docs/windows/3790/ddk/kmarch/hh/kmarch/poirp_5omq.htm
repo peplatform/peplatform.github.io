@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IRP_MN_POWER_SEQUENCE</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IRP_MN_POWER_SEQUENCE">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_irp_mn_power_sequence_dr"></A>IRP_MN_POWER_SEQUENCE</H1>
+
+<H4>Major Code</H4>
+
+<P><A HREF="k113_7jjm.htm">IRP_MJ_POWER</A></P>
+
+<H4>When Sent</H4>
+
+<P>A driver sends this IRP as an optimization to determine whether its device actually entered a specific power state. Support for this IRP is optional. </P>
+
+<P>To send this IRP, a driver must call <B>IoAllocateIrp </B>to allocate the IRP, specifying the major IRP code IRP_MJ_POWER and minor IRP code IRP_MN_POWER_SEQUENCE, and then call <B>PoCallDriver</B> to pass the IRP to the next lower driver. The Power Manager cannot send this IRP.</P>
+
+<P>Senders of this IRP must be running at IRQL&nbsp;&lt;= DISPATCH_LEVEL.</P>
+
+<H4>Input</H4>
+
+<P>None.</P>
+
+<H4>Output</H4>
+
+<P><B>Parameters.PowerSequence</B> points to a POWER_SEQUENCE structure with the following members:
+
+<DL>
+<DT><B>SequenceD1</B></DT>
+
+<DD>Number of times the device has been in power state D1 or lower.</DD>
+
+<DT><B>SequenceD2</B></DT>
+
+<DD>Number of times the device has been in power state D2 or lower.</DD>
+
+<DT><B>SequenceD3</B></DT>
+
+<DD>Number of times the device has been in power state D3.
+</DD>
+</DL>
+
+<P>The sequence values track the minimum number of times a device has been in the corresponding power state or a lower power state. </P>
+
+<P>The bus driver increments the values in <B>SequenceD1</B>, <B>SequenceD2</B>, and <B>SequenceD3</B> at least each time the device enters in the corresponding power state or a lower power state. </P>
+
+<H4>I/O Status Block</H4>
+
+<P>A driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS to indicate that it has returned the requested information, or to STATUS_NOT_IMPLEMENTED to indicate that it does not support this IRP.</P>
+
+<H4>Operation</H4>
+
+<P>This IRP returns the power sequence values for a device. Bus drivers can optionally handle it; function and filter drivers can optionally send it.</P>
+
+<P>For a device that takes a long time to change state, this IRP provides a useful optimization. Every time the device changes its power state, its bus driver increments the sequence value for that power state. The bus driver initializes the sequence values at boot time and continually increments them thereafter; they need not be reset to zero. </P>
+
+<P>A device policy owner can send this IRP once to get the sequence values before shutting off the device and once again to get new values when restoring power to the device. By comparing the two sets of values, the driver can determine whether the device actually entered the lower-powered state. If the device did not lose power, the driver can avoid a time-consuming reinitialization when the device returns to the D0 state.</P>
+
+<P>For example, if the device takes a long time to restore power upon reaching the D2 state, the driver can store the <B>SequenceD2</B> value before it sets the device state to D2 or lower. Later, when power is being restored to the device, the driver can compare the new <B>SequenceD2</B> value with its stored value to determine whether the device state actually dropped below D2. If the values match, the device did not actually enter power state D2 or a lower state, and the driver can avoid reinitializing the device.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IRP_MN_POWER_SEQUENCE"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

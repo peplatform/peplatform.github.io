@@ -1,0 +1,94 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Adding Document Feeder Support</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Adding Document Feeder Support">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_adding_document_feeder_support_si"></A>Adding Document Feeder Support</H1>
+
+<P>A document feeder is a unit attached to or built into a scanner that automatically feeds paper documents in a position to be scanned. For a scanner with a document feeder, the functionality is exposed and controlled through the addition of the properties contained in the following list. For Windows&nbsp;Me, Windows&nbsp;XP and later, the following properties are located on the root item.</P>
+
+<P class=indent1><A HREF="wia_proptable_11nt.htm">WIA_DPS_HORIZONTAL_SHEET_FEED_SIZE</A></P>
+
+<P class=indent1><A HREF="wia_proptable_19d5.htm">WIA_DPS_VERTICAL_SHEET_FEED_SIZE</A></P>
+
+<P class=indent1><A HREF="wia_proptable_7twp.htm">WIA_DPS_MIN_HORIZONTAL_SHEET_FEED_SIZE</A></P>
+
+<P class=indent1><A HREF="wia_proptable_3ui1.htm">WIA_DPS_MIN_VERTICAL_SHEET_FEED_SIZE</A></P>
+
+<P class=indent1><A HREF="wia_proptable_50h5.htm">WIA_DPS_SHEET_FEEDER_REGISTRATION</A></P>
+
+<P class=indent1><A HREF="wia_proptable_9c15.htm">WIA_DPS_DOCUMENT_HANDLING_CAPABILITIES</A></P>
+
+<P class=indent1><A HREF="wia_proptable_9rqh.htm">WIA_DPS_DOCUMENT_HANDLING_STATUS</A></P>
+
+<P class=indent1><A HREF="wia_proptable_5cmh.htm">WIA_DPS_DOCUMENT_HANDLING_SELECT</A></P>
+
+<P class=indent1><A HREF="wia_proptable_4drd.htm">WIA_DPS_PAGES</A></P>
+
+<P>For Windows&nbsp;Me, Windows&nbsp;XP and later, the  following optional document feeder properties are located on the child item:</P>
+
+<P class=indent1><A HREF="wia_proptable_5xrd.htm">WIA_DPS_PAGE_SIZE</A></P>
+
+<P class=indent1><A HREF="wia_proptable_576x.htm">WIA_DPS_PAGE_WIDTH</A></P>
+
+<P class=indent1><A HREF="wia_proptable_1ep5.htm">WIA_DPS_PAGE_HEIGHT</A></P>
+
+<P class=indent1><A HREF="wia_proptable_9t7t.htm">WIA_IPS_ORIENTATION</A></P>
+
+<P>If a device has a flatbed, a document feeder, and a duplexer, the driver reports the WIA_DPS_DOCUMENT_HANDLING_CAPABILITIES property as (FEED | FLAT | DUP). Make sure that the valid values for WIA_DPS_DOCUMENT_HANDLING_SELECT are set correctly. </P>
+
+<P>As an example, suppose an application intends to perform a duplex scan of three pages from the document feeder. To accomplish this, the application sets the WIA_DPS_DOCUMENT_HANDLING_SELECT property to (FEEDER | DUPLEX) and sets the WIA_DPS_PAGES property to 3. If the application intends to scan the front of the page first, it should set the WIA_DPS_DOCUMENT_HANDLING_SELECT property to (FEEDER | DUPLEX | FRONT_FIRST). After this is done, the application should navigate to the child item from which it should request a data transfer. The minidriver reports the front of the first page in the feeder as page one, the back of that page as page two, and the front of the second page in the feeder as page three.</P>
+
+<P>It is important to remember that if the device has a document feeder, it must support the document feeder properties.</P>
+
+<H4>Acquiring Data from a Document Feeder</H4>
+
+<P>There are a few changes that must be made in the implementation of the <A HREF="minidrv_1dpl.htm"><B>IWiaMiniDrv::drvAcquireItemData</B></A> method when the scanner acquires images from a document feeder.
+
+<OL>
+	<LI>An application reads the WIA_DPS_DOCUMENT_HANDLING_CAPABILITIES property to determine whether the scanner supports scanning using the document feeder.</LI>
+
+	<LI>An application reads the WIA_DPS_DOCUMENT_HANDLING_SELECT property to determine whether the scanner is configured to scan using the document feeder.</LI>
+
+	<LI>An application determines whether there is paper in the document feeder by reading WIA_DPS_DOCUMENT_HANDLING_STATUS. If there is no paper in the feeder, set the WIA_DPS_DOCUMENT_HANDLING_STATUS to the proper status code and return WIA_ERROR_PAPER_EMPTY from <B>IWiaMiniDrv::drvAcquireItemData</B> immediately after an acquisition takes place.</LI>
+
+	<LI>Check the WIA_DPS_PAGES property to determine the scanning behavior. If this property is zero, scan all pages until the feeder is empty. If it is positive, scan only the number of pages indicated by the value contained in the WIA_DPS_PAGES property.</LI>
+
+	<LI>Scan the requested number of pages by controlling a loop, continually scanning, and sending data (one page at a time) to the WIA application by calling the <A HREF="callback_0hpl.htm"><B>IWiaMiniDrvCallBack::MiniDrvCallback</B></A> method.
+<P>If <A HREF="wia_proptable_4uy1.htm">WIA_IPA_TYMED</A> is set to TYMED_CALLBACK or TYMED_MULTIPAGE_CALLBACK, then an extra message (IT_MSG_NEW_PAGE) must be sent after one page has been scanned and before the next one is to be scanned. This is done by calling the <A HREF="wiasfncs_4ch5.htm"><B>wiasSendEndOfPage</B></A> WIA service utility function.
+</LI>
+</OL>
+
+<P>The number of pages that a document feeder driver returns depends on the setting of the WIA_DPS_PAGES property. </P>
+
+<H4>If WIA_DPS_PAGES is zero:</H4>
+
+<OL>
+	<LI>If the scanner is unable to scan the first page, return an error code immediately. This includes paper jams and when the scanner runs out of paper.</LI>
+
+	<LI>If the scanner successfully scans the first page and is able to continue scanning but has run out of paper, return the success code WIA_STATUS_END_OF_MEDIA. This signals the application that the transfer was successful, but the scanner has run out of paper. Some applications respond to WIA_ERROR_PAPER_EMPTY in the same way as they would to WIA_STATUS_END_OF_MEDIA.</LI>
+
+	<LI>If the scanner successfully scans the first page and is able to continue scanning but encounters an error that <I>does not</I> result in data loss, return WIA_STATUS_END_OF_MEDIA. This allows the application to recover and to save any pages scanned before the error occurred. Any subsequent scans should return an error code immediately until the scanner has properly recovered from the failure.</LI>
+
+	<LI>If the scanner successfully scans the first page and is able to continue scanning but encounters an error that <I>does</I> result in data loss, return an error code immediately.</LI>
+</OL>
+
+<H4>If WIA_DPS_PAGES is positive:</H4>
+
+<OL>
+	<LI>All rules for which WIA_DPS_PAGES is zero apply.</LI>
+
+	<LI>If the scanner runs out of paper before the requested number of pages are scanned, return WIA_STATUS_END_OF_MEDIA. This allows the application to close the scanning session, thus preserving the number of pages it already scanned successfully. Some applications respond to WIA_ERROR_PAPER_EMPTY the same way as they would to WIA_STATUS_END_OF_MEDIA.</LI>
+</OL>
+
+<P>See the <I>wiascanr</I> sample (included with the DDK) for an example of proper document feeder implementation.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Adding%20Document%20Feeder%20Support"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,78 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IoGetDeviceObjectPointer</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IoGetDeviceObjectPointer">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_iogetdeviceobjectpointer_kr"></A>IoGetDeviceObjectPointer</H1>
+
+<P>The <B>IoGetDeviceObjectPointer</B> routine returns a pointer to a named device object and corresponding file object, if the requested access to the objects can be granted.</P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>IoGetDeviceObjectPointer(</B>
+<B>    IN PUNICODE_STRING</B>  <I>ObjectName</I><B>,</B>
+<B>    IN ACCESS_MASK</B>  <I>DesiredAccess</I><B>,</B>
+<B>    OUT PFILE_OBJECT</B>  <B>*</B><I>FileObject</I><B>,</B>
+<B>    OUT PDEVICE_OBJECT</B>  <B>*</B><I>DeviceObject</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>ObjectName</I></DT>
+
+<DD>Pointer to a buffer containing a Unicode string that is the name of the device object.</DD>
+
+<DT><I>DesiredAccess</I></DT>
+
+<DD>Specifies the <A HREF="k112_9sfm.htm">ACCESS_MASK</A> value that represents the desired access. Usually <I>DesiredAccess</I> is FILE_READ_DATA. Infrequently, the FILE_WRITE_DATA, or FILE_ALL_ACCESS access rights are specified.</DD>
+
+<DT><I>FileObject</I></DT>
+
+<DD>Pointer to the file object that represents the corresponding device object to user-mode code if the call is successful.</DD>
+
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the device object that represents the named logical, virtual, or physical device if the call is successful.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>IoGetDeviceObjectPointer</B> can return one of the following NTSTATUS values:</P>
+
+<P class=indent1>STATUS_SUCCESS<BR>
+STATUS_OBJECT_TYPE_MISMATCH<BR>
+STATUS_INVALID_PARAMETER<BR>
+STATUS_PRIVILEGE_NOT_HELD<BR>
+STATUS_INSUFFICIENT_RESOURCES<BR>
+STATUS_OBJECT_NAME_INVALID</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>IoGetDeviceObjectPointer</B> establishes a “connection” between the caller and the next-lower-level driver. A successful caller can use the returned device object pointer to initialize its own device objects. It can also be used as as an argument to <A HREF="k104_9tiq.htm"><B>IoAttachDeviceToDeviceStack</B></A>, <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A>, and any routine that creates IRPs for lower drivers. The returned pointer is a required argument to <B>IoCallDriver</B>.</P>
+
+<P>This routine also returns a pointer to the corresponding file object. When unloading, a driver can dereference the file object as a means of indirectly dereferencing the device object. To do so, the driver calls <A HREF="k107_6vg2.htm"><B>ObDereferenceObject</B></A> from its Unload routine, passing the file object pointer returned by <B>IoGetDeviceObjectPointer</B>. Failure to dereference the device object in a driver's Unload routine prevents the next-lower driver from being unloaded. However, drivers that close the file object before the unload process must take out an extra reference on the device object before dereferencing the file object. Otherwise, dereferencing the file object can lead to a premature deletion of the device object.</P>
+
+<P>To get a pointer to the highest-level driver in the file system driver stack, a driver must ensure that the file system is mounted; if it is not, this routine traverses the storage device stack. To ensure that the file system is mounted on the storage device, the driver must specify an appropriate access mask, such as FILE_READ_DATA or FILE_WRITE_ATTRIBUTES, in the <I>DesiredAccess</I> parameter. Specifying FILE_READ_ATTRIBUTES does not cause the file system to be mounted. </P>
+
+<P>After any higher-level driver has chained itself over another driver by successfully calling this routine, the higher-level driver must set the <B>StackSize</B> field in its device object to that of the next-lower-level driver’s device object plus one.</P>
+
+<P>Callers of <B>IoGetDeviceObjectPointer</B> must be running at IRQL&nbsp;= PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k112_9sfm.htm">ACCESS_MASK</A>, <A HREF="k112_32cy.htm">DEVICE_OBJECT</A>, <A HREF="k104_42pe.htm"><B>IoAllocateIrp</B></A>, <A HREF="k104_3zci.htm"><B>IoAttachDevice</B></A>, <A HREF="k104_9tiq.htm"><B>IoAttachDeviceToDeviceStack</B></A>, <A HREF="k107_6vg2.htm"><B>ObDereferenceObject</B></A>, <A HREF="k107_4b76.htm"><B>ObReferenceObjectByPointer</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IoGetDeviceObjectPointer"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

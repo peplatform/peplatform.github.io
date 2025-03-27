@@ -1,0 +1,54 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Managing Interlocked Queues with a Driver-Created Thread</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Managing Interlocked Queues with a Driver-Created Thread">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_managing_interlocked_queues_with_a_driver_created_thread_kg"></A>Managing Interlocked Queues with a Driver-Created Thread</H3>
+
+<P><I>New drivers should use the <A HREF="irps_4sdj.htm">cancel-safe IRP queue</A> framework in preference to the methods outlined in this section.</I></P>
+
+<P>Like the system floppy controller driver, a driver with a device-dedicated thread, rather than a <I>StartIo </I>routine, usually manages its own queuing of IRPs in a doubly linked interlocked queue. The driver’s thread pulls IRPs from its interlocked queue when there is work to be done on the device. </P>
+
+<P>In general, the driver must manage synchronization with its thread to any resources shared between the thread and other driver routines. The driver also must have some way to notify its driver-created thread that IRPs are queued. Usually, the thread waits on a dispatcher object, stored in the device extension, until the driver’s Dispatch routines set the dispatcher object to the Signaled state after inserting an IRP into the interlocked queue. </P>
+
+<P>When the driver’s Dispatch routines are called, each checks the parameters in the I/O stack location of the input IRP and, if they are valid, queues the request for further processing. For each IRP queued to a driver-dedicated thread, the dispatch routine should set up whatever context its thread needs to process that IRP before it calls <B>ExInterlockedInsert..List</B>. The driver’s I/O stack location in each IRP gives the driver’s thread access to the device extension of the target device object, where the driver can share context information with its thread, as the thread removes each IRP from the queue. </P>
+
+<P>A driver that queue cancelable IRPs must implement a <A HREF="drvrrtns_8y0i.htm"><I>Cancel</I></A> routine. Since IRPs are canceled asynchronously, you must ensure that your driver avoids the race conditions that can result. See <A HREF="irps_5nl3.htm">Synchronizing IRP Cancellation</A> for more information on race conditions associated with canceling IRPs and techniques to avoid them.</P>
+
+<P>Any driver-created thread runs at IRQL&nbsp;= PASSIVE_LEVEL and at a base run-time priority previously set when the driver called <B>PsCreateSystemThread</B>. The thread’s call to <B>ExInterlockedRemoveHeadList</B> temporarily raises the IRQL to DISPATCH_LEVEL on the current processor while the IRP is being removed from the driver’s internal queue. The original IRQL is restored to PASSIVE_LEVEL on return from this call.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Any driver thread (or driver-supplied worker-thread callback) must carefully manage the IRQLs at which it runs. For example, consider the following: </B>
+
+<UL>
+	<LI>Because system threads generally run at IRQL&nbsp;= PASSIVE_LEVEL, it is possible for a driver thread to wait on Kernel-defined dispatcher objects. 
+<P>For example, a device-dedicated thread might wait on an event for other driver routines to satisfy and complete some number of partial-transfer IRPs that the thread sets up with <B>IoBuildSynchronousFsdRequest</B>. 
+</LI>
+
+	<LI>However, such a device-dedicated thread must raise IRQL on the current processor before it calls certain support routines. 
+<P>For example, if a driver uses DMA, its device-dedicated thread must nest its calls to <B>AllocateAdapterChannel</B> and <B>FreeAdapterChannel</B> between calls to <B>KeRaiseIrql</B> and <B>KeLowerIrql</B> because these routines and certain other support routines for DMA operations must be called at IRQL&nbsp;= DISPATCH_LEVEL. 
+
+<P>Remember that <I>StartIo </I>routines are run at DISPATCH_LEVEL, so drivers that use DMA need not make calls to the <B>Ke..Irql</B> routines from their <I>StartIo </I>routines. 
+</LI>
+
+	<LI>A driver-created thread can access pageable memory because it runs in a nonarbitrary thread context (its own) at IRQL&nbsp;= PASSIVE_LEVEL, but many other standard driver routines run at raised IRQL. 
+<P>Consequently, if a driver-created thread allocates memory that can be accessed by other driver routines, it must allocate the memory from nonpaged pool. For example, if a device-dedicated thread allocates any buffer that will be accessed later by the driver’s ISR or <I>SynchCritSection</I>, <I>AdapterControl</I>, <I>AdapterListControl</I>, <I>ControllerControl</I>, <I>DpcForIsr</I>, <I>CustomDpc</I>, <I>IoTimer</I>, <I>CustomTimerDpc</I>, or, in a higher-level driver, <I>IoCompletion</I> routine, the thread-allocated memory <I>cannot</I> be pageable<I>.</I> 
+</LI>
+
+	<LI>If the driver maintains shared state information or resources in a device extension, a driver thread (like a <I>StartIo </I>routine) must synchronize its access to a physical device and to the shared data  with the driver’s other routines that access the same device, memory location, or resources. 
+<P>If the thread shares the device or state with the ISR, it must use <B>KeSynchronizeExecution</B> to call a driver-supplied <I>SynchCritSection</I> routine to program the device or to access the shared state. See <A HREF="intrupts_6g13.htm">Using Critical Sections</A>.
+
+<P>If the thread shares state or resources with routines other than the ISR, the driver must protect the shared state or resources with a driver-initialized executive spin lock for which the driver provides the storage. For more information, see <A HREF="synchro_8unb.htm">Spin Locks</A>.
+</LI>
+</UL>
+
+<P>For more information about the design tradeoffs of a using a driver thread for a slow device, see <A HREF="iputoput_7h5z.htm">Polling a Device</A>. See also <A HREF="intrupts_0kh3.htm">Managing Hardware Priorities</A>. For specific information about IRQLs for particular support routines, see the routine's reference page. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Managing%20Interlocked%20Queues%20with%20a%20Driver-Created%20Thread"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

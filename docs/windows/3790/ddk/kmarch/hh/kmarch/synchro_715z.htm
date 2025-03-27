@@ -1,0 +1,46 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using an IoTimer Routine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using an IoTimer Routine">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_using_an_iotimer_routine_kg"></A>Using an <I>IoTimer</I> Routine</H3>
+
+<P>While the timer for the associated device object is enabled, the <I>IoTimer</I> routine is called approximately once per second. However, the intervals at which each <I>IoTimer</I> routine is called depends on the resolution of the system clock, so you should not assume that an <I>IoTimer</I> routine will be called precisely on a one-second boundary. </P>
+
+<P>Perhaps the most common use for an <I>IoTimer</I> routine is to time-out device I/O operations for an IRP. Consider the following scenario for using an <I>IoTimer</I> routine as a running timer within a device driver:
+
+<OL>
+	<LI>When it starts the device, the driver initializes a timer counter in the device extension to minus one, indicating no current device I/O operations, and calls <A HREF="k104_6m5u.htm"><B>IoStartTimer</B></A> just before it returns STATUS_SUCCESS.
+<P>Each time the <I>IoTimer</I> routine is called, it checks whether the timer counter is minus one, and, if so, returns control. 
+</LI>
+
+	<LI>The driver’s <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A> routine initializes the timer counter in the device extension to an upper limit, plus an additional second in case the <I>IoTimer</I> routine has just been run. It then uses <A HREF="k105_99rm.htm"><B>KeSynchronizeExecution</B></A> to call a <I>SynchCritSection_1</I> routine, which programs the physical device for the operation requested by the current IRP.</LI>
+
+	<LI>The driver's ISR resets the timer counter to minus one before queuing the driver's <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> routine or a <A HREF="drvrrtns_3tbm.htm"><I>CustomDpc</I></A> routine.</LI>
+
+	<LI> Each time the <I>IoTimer</I> routine is called, it checks whether the timer counter has been reset by the ISR to minus one, and, if so, returns control. If not, the <I>IoTimer</I> routine uses <B>KeSynchronizeExecution</B> to call a <I>SynchCritSection_2</I> routine, which adjusts the timer counter by some driver-determined number of seconds.</LI>
+
+	<LI>The <I>SynchCritSection_2</I> routine returns TRUE to the <I>IoTimer</I> routine as long as the current request has not yet timed out. If the timer counter goes to zero, the <I>SynchCritSection_2</I> routine resets the timer counter to a driver-determined reset-time-out value, sets a reset-expected flag for itself (and for the <I>DpcForIsr</I>) in its context area, attempts to reset the device, and returns TRUE.
+<P>The <I>SynchCritSection_2</I> routine will be called again if its reset operation also times out on the device, when it returns FALSE. If its reset succeeds, the <I>DpcForIsr</I> routine determines that the device has been reset from the reset-expected flag and retries the request, repeating the actions of the <I>StartIo</I> routine as described in Step 2.
+</LI>
+
+	<LI>If the <I>SynchCritSection_2</I> routine returns FALSE, the <I>IoTimer</I> routine assumes the physical device is in an unknown state because an attempt to reset it has already failed. In these circumstances, the <I>IoTimer</I> routine queues a <I>CustomDpc</I> routine and returns. This <I>CustomDpc</I> routine logs a device I/O error, calls <A HREF="k104_7eb6.htm"><B>IoStartNextPacket</B></A>, fails the current IRP, and returns.</LI>
+</OL>
+
+<P>If this device driver’s ISR resets the shared timer counter to minus one, as described in Step 3, the driver’s <I>DpcForIsr</I> routine completes the interrupt-driven I/O processing of the current IRP. The reset timer counter indicates that this device I/O operation has not timed out, so the <I>IoTimer</I> routine does not need to change the timer counter.</P>
+
+<P>Under most circumstances, the preceding <I>SynchCritSection_2</I> routine simply decrements the timer counter. The <I>SynchCritSection_2</I> routine attempts to reset the device only if the current I/O operation has timed out, indicated when the timer counter goes to zero. And only if an attempt to reset the device has already failed does the <I>SynchCritSection_2</I> routine return FALSE to the <I>IoTimer</I> routine.</P>
+
+<P>Consequently, both the preceding <I>IoTimer</I> routine and its helper <I>SynchCritSection_2</I> routine take very little time to execute under normal circumstances. By using an <I>IoTimer</I> routine in this manner, a device driver ensures that each valid device I/O request can be retried, if necessary, and that a <I>CustomDpc</I> routine will fail an IRP only if an uncorrectable hardware failure prevents the IRP from being satisfied. Moreover, the driver provides this functionality at very little cost in execution time.</P>
+
+<P>The simplicity of the preceding scenario depends on a device that does only one operation at a time and on a driver that does not normally overlap I/O operations. A driver that carries out overlapped device I/O operations, or a higher-level driver that uses an <I>IoTimer</I> routine to time out a set of driver-allocated IRPs sent to more than one chain of lower drivers, would have more complex time-out scenarios to manage.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20an%20IoTimer%20Routine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

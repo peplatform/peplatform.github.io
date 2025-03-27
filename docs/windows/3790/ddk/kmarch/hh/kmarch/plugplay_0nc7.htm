@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling an IRP_MN_QUERY_REMOVE_DEVICE Request</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling an IRP_MN_QUERY_REMOVE_DEVICE Request">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_handling_an_irp_mn_query_remove_device_request_kg"></A>Handling an IRP_MN_QUERY_REMOVE_DEVICE Request</H2>
+
+<P>The PnP Manager sends this IRP to inform drivers that a device is about to be removed from the machine and to ask whether the device can be removed without disrupting the machine. It also sends this IRP when a user requests to update drivers for the device.</P>
+
+<P>The PnP Manager sends this IRP at IRQL PASSIVE_LEVEL in the context of a system thread.</P>
+
+<P>It does the following before sending this IRP to the drivers for a device:
+
+<UL>
+	<LI>Notifies all user-mode applications that registered for notification on the device (or a related device). 
+<P>This includes applications that registered for notification on the device, on one of the device's descendants (child device, child of child, and so forth.), or on one of the device's removal relations. An application registers for such notification by calling <B>RegisterDeviceNotifcation</B>. 
+
+<P>In response to this notification, an application either prepares for device removal (closes handles to the device) or fails the query.
+</LI>
+
+	<LI>Notifies all kernel-mode drivers that registered for notification on the device (or a related device).
+<P>This includes drivers that registered for notification on the device, on one of the device's descendants, or on one of the device's removal relations. A driver registers for this notification by calling <A HREF="k104_7diq.htm"><B>IoRegisterPlugPlayNotification</B></A> with an event category of <B>EventCategoryTargetDeviceChange</B>. 
+
+<P>In response to this notification, a driver either prepares for device removal (closes handles to the device) or fails the query.
+</LI>
+
+	<LI>Sends IRP_MN_QUERY_REMOVE_DEVICE IRPs to the drivers for the device's descendants.</LI>
+
+	<LI>(Windows&nbsp;2000 and later systems) If a file system is mounted on the device, the PnP Manager sends a query-remove request to the file system and any file system filters. If there are open handles to the device, the file system typically fails the query-remove request. If not, the file system typically locks the volume to prevent future creates from succeeding. If a mounted file system does not support a query-remove request, the PnP Manager fails the query-remove request for the device.</LI>
+</UL>
+
+<P>If all of the above steps succeed, the PnP Manager sends the IRP_MN_QUERY_REMOVE_DEVICE to the drivers for the device.</P>
+
+<P>An IRP_MN_QUERY_REMOVE_DEVICE request is handled first by the top driver in the device stack and then by each next lower driver. A driver handles remove IRPs in its <I>DispatchPnP</I> routine.</P>
+
+<P>In response to an IRP_MN_QUERY_REMOVE_DEVICE, a driver must do the following:
+
+<OL>
+	<LI>Determine whether the device can be removed from the machine without disrupting operation.
+<P>A driver <I>must</I> fail a query-remove IRP if any of the following are true:
+
+<UL>
+	<LI>If removing the device could result in losing data.</LI>
+
+	<LI>If a component has an open handle to the device. (This is an issue on Windows 98/Me only. Windows 2000 and later systems track open handles and fail the query if there are open handles after the IRP_MN_QUERY_REMOVE_DEVICE completes.)</LI>
+
+	<LI>If a driver has been notified (through an <A HREF="pnp-irps_1wmq.htm">IRP_MN_DEVICE_USAGE_NOTIFICATION</A> IRP) that the device is in the path for a paging, crash dump, or hibernation file.</LI>
+
+	<LI>If the driver has an outstanding interface reference against the device. That is, the driver provided an interface in response to an <A HREF="pnp-irps_9k36.htm">IRP_MN_QUERY_INTERFACE</A> request and the interface has not been de-referenced.</LI>
+</UL>
+</LI>
+
+	<LI>If the device cannot be removed, fail the query-remove IRP.
+<P>Set <B>Irp-&gt;IoStatus.Status</B> to an appropriate error status (typically STATUS_UNSUCCESSFUL), call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with IO_NO_INCREMENT, and return from the driver's <I>DispatchPnP</I> routine. Do not pass the IRP to the next lower driver. 
+</LI>
+
+	<LI>If the driver previously sent an IRP_MN_WAIT_WAKE request to enable the device for wake-up, cancel the wait-wake IRP. </LI>
+
+	<LI>Record the previous PnP state of the device.
+<P>A driver should record the PnP state that the device was in when the driver received the IRP_MN_QUERY_REMOVE_DEVICE request because the driver must return the device to that state if the query is canceled (IRP_MN_CANCEL_REMOVE_DEVICE). The previous state is typically "started", but it might not be if, for example, the device was disabled.
+</LI>
+
+	<LI>Finish the IRP:
+<P>In a function or filter driver:
+
+<UL>
+	<LI>Set <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS.</LI>
+
+	<LI>Set up the next stack location with <A HREF="k104_1ohe.htm"><B>IoSkipCurrentIrpStackLocation</B></A> and pass the IRP to the next lower driver with <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A>.</LI>
+
+	<LI>Propagate the status from <B>IoCallDriver</B> as the return status from the <I>DispatchPnP</I> routine.</LI>
+
+	<LI>Do not complete the IRP.</LI>
+</UL>
+
+<P>In a bus driver:
+
+<UL>
+	<LI>Set <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS.</LI>
+
+	<LI>Complete the IRP (<A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>) with IO_NO_INCREMENT.</LI>
+
+	<LI>Return from the <I>DispatchPnP</I> routine.</LI>
+</UL>
+</LI>
+</OL>
+
+<P>If any driver in the device stack fails an IRP_MN_QUERY_REMOVE_DEVICE, the PnP Manager sends an IRP_MN_CANCEL_REMOVE_DEVICE to the device stack. This prevents drivers from requiring an <A HREF="drvrrtns_4rsi.htm"><I>IoCompletion</I></A> routine for a query-remove IRP to detect whether a lower driver failed the IRP.</P>
+
+<P>Once a driver succeeds an IRP_MN_QUERY_REMOVE_DEVICE and it considers the device to be in the remove-pending state, the driver must fail any subsequent create requests for the device. The driver processes all other IRPs as usual, until the driver receives an IRP_MN_CANCEL_REMOVE_DEVICE or an IRP_MN_REMOVE_DEVICE.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20an%20IRP_MN_QUERY_REMOVE_DEVICE%20Request"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

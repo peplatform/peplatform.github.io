@@ -1,0 +1,56 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Making Outgoing Calls</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Making Outgoing Calls">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_making_outgoing_calls_ng"></A>Making Outgoing Calls</H2>
+
+<P>If an application attempts to make an outgoing call, it must first open a line. A line is opened as a result of an application calling the TAPI <B>lineOpen</B> function. To place a telephony call on the previously opened line, the application calls the TAPI <B>lineMakeCall</B> function and passes a pointer to the specific destination address. If anything but default call-setup parameters are requested, the application also passes a pointer to a LINECALLPARAMS structure. If the application uses default call-setup parameters, <B>lineMakeCall</B> provides those parameters in a LINECALLPARAMS structure. Members of this structure specify how the telephony call should be set up. </P>
+
+<P>These TAPI-function calls cause the NDPROXY driver to first create a virtual connection (VC) with the CoNDIS WAN miniport driver and then to encapsulate TAPI parameters in NDIS structures in order to make the outgoing call. The miniport driver will use these TAPI parameters to set up the outgoing call. The following describes how the outgoing call is connected, set up, and made: 
+
+<UL>
+	<LI>NDPROXY calls <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A> to initiate the creation of the VC with the miniport driver. After NDPROXY calls <B>NdisCoCreateVc</B>, NDIS calls, as a synchronous operation, the <I>ProtocolCoCreateVc</I> function of the call manager integrated into the miniport driver. NDIS passes to <I>ProtocolCoCreateVc</I> a handle that represents the VC. If the call to <B>NdisCoCreateVc</B> is successful, NDIS fills and returns the VC handle. <I>ProtocolCoCreateVc</I> performs any necessary allocations of dynamic resources and structures that the miniport call manager (MCM) driver requires to perform subsequent operations on the VC that will later be activated. Such resources include, but are not limited to, memory buffers, data structures, events, and other such similar resources. </LI>
+
+	<LI>NDPROXY specifies the TAPI parameters for an outgoing call in a <A HREF="105nstru_5bzm.htm">CO_AF_TAPI_MAKE_CALL_PARAMETERS</A> structure. NDPROXY fills this structure's members with the following information that was passed in the TAPI <B>lineMakeCall</B> function: 
+<UL>
+	<LI>the destination address in the <B>DestAddress</B> member </LI>
+
+	<LI>the open-line identifier in the <B>ulLineID</B> member </LI>
+
+	<LI>the LINECALLPARAMS structure in the <B>LineCallParams</B> member </LI>
+</UL>
+</LI>
+
+	<LI>NDPROXY overlays the CO_AF_TAPI_MAKE_CALL_PARAMETERS structure on the <B>Parameters</B> member of a <A HREF="105nstru_5zw2.htm">CO_SPECIFIC_PARAMETERS</A> structure and sets the <B>Length</B> member of CO_SPECIFIC_PARAMETERS to the size of CO_AF_TAPI_MAKE_CALL_PARAMETERS. </LI>
+
+	<LI>NDPROXY sets the CO_SPECIFIC_PARAMETERS structure to the <B>MediaSpecific</B> member of a <A HREF="105nstru_74oi.htm">CO_MEDIA_PARAMETERS</A> structure. </LI>
+
+	<LI>NDPROXY sets a pointer to the CO_MEDIA_PARAMETERS structure to the <B>MediaParameters</B> member of a <A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A> structure. </LI>
+
+	<LI>Once NDPROXY encapsulates TAPI parameters, NDPROXY calls the <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A> function to initiate the outgoing call. In this function call, NDPROXY passes a pointer to the filled CO_CALL_PARAMETERS structure. NDIS in turn calls the <A HREF="104tdlow_20oi.htm"><I>ProtocolCmMakeCall</I></A> function of the CoNDIS WAN miniport driver's call manager. The miniport driver should examine only the CO_AF_TAPI_MAKE_CALL_PARAMETERS structure embedded in CO_CALL_PARAMETERS. No other call parameters are meaningful in this case. If the miniport driver subsequently activates the VC for the outgoing call, the miniport driver calls the <A HREF="103ndisx_2xde.htm"><B>NdisMCmActivateVc</B></A> function and passes a pointer to the filled CO_CALL_PARAMETERS.</LI>
+
+	<LI>After the miniport driver has negotiated with the network to establish the telephony-call parameters for the VC and set up its NIC for those call parameters, the miniport driver calls the <A HREF="103ndisx_8a2a.htm"><B>NdisMCmMakeCallComplete</B></A> function to indicate that it is ready to make data transfers on the VC. In this call, the miniport driver must pass the handle to the VC and modifications made to telephony-call parameters. </LI>
+
+	<LI>The miniport driver must modify the <B>CallMgrParameters</B> member of the CO_CALL_PARAMETERS structure to specify the quality of service (QoS) of transferring packets, such as the bandwidth. To set this <B>CallMgrParameters</B> member, the miniport driver fills members of a <A HREF="105nstru_7vn6.htm">CO_CALL_MANAGER_PARAMETERS</A> structure and points this structure to <B>CallMgrParameters</B>. For example, to identify the transmit and receive speeds in bytes per second for the VC, the miniport driver must set the <B>PeakBandwidth</B> members of the <B>Transmit</B> and <B>Receive</B> members of CO_CALL_MANAGER_PARAMETERS. The <B>Transmit</B> and <B>Receive</B> members are FLOWSPEC structures. For more information on the FLOWSPEC structure, see the Platform SDK. </LI>
+
+	<LI>If the miniport driver has modified telephony-call parameters, it must set the <B>Flags</B> member in the CO_CALL_PARAMETERS structure with CALL_PARAMETERS_CHANGED. As a result of the <B>NdisMCmMakeCallComplete</B> call made by the miniport driver, NDIS calls NDPROXY's <I>ProtocolClMakeCallComplete</I> function to complete the asynchronous operations that were initiated with <B>NdisClMakeCall</B>. </LI>
+
+	<LI>After the miniport driver successfully completes the outgoing call, NDPROXY notifies a TAPI application that the call is connected. This TAPI application then calls the TAPI <B>lineGetID</B> function to inform NDPROXY to locate the appropriate CoNDIS client. In this <B>lineGetID</B> call, the TAPI application supplies a string for a particular TAPI device class to which the application requires a handle. NDPROXY uses this string to locate the CoNDIS client that previously registered a SAP for the particular TAPI device class. If the CoNDIS client is NDISWAN, the string is NDIS. If NDPROXY locates a SAP with a string that matches the string passed by the TAPI application, NDPROXY calls <A HREF="103ndisx_1fci.htm"><B>NdisMCmCreateVc</B></A> to set up a connection endpoint with NDISWAN on which it can dispatch notification of the outgoing call that was made. NDIS in turn calls NDISWAN's <I>ProtocolCoCreateVc</I> function and passes a handle that represents the VC.</LI>
+
+	<LI>After NDPROXY sets up the connection endpoint with NDISWAN, it calls the <A HREF="103ndisx_2v76.htm"><B>NdisCmDispatchIncomingCall</B></A> function to notify NDISWAN about the outgoing call. In this call, NDPROXY passes the encapsulated CO_AF_TAPI_MAKE_CALL_PARAMETERS structure that contains the outgoing call parameters. NDIS in turn calls NDISWAN's <I>ProtocolClIncomingCall</I> function, within which NDISWAN either accepts or rejects the requested connection. If NDISWAN changes the call parameters passed to it, it must set the <B>Flags</B> member in the CO_CALL_PARAMETERS structure with CALL_PARAMETERS_CHANGED. </LI>
+
+	<LI>After deciding whether to accept the connection and after possibly changing the call parameters, NDISWAN calls the <A HREF="103ndisx_3n5e.htm"><B>NdisClIncomingCallComplete</B></A> function. NDIS in turn calls the miniport driver's <I>ProtocolCmIncomingCallComplete</I> function. Depending on whether NDISWAN accepted the outgoing call and whether the miniport driver accepts or rejects NDISWAN's proposed changes to the call parameters, the miniport driver calls either <A HREF="103ndisx_9uk2.htm"><B>NdisCmDispatchCallConnected</B></A> or <A HREF="103ndisx_5w8i.htm"><B>NdisCmDispatchIncomingCloseCall</B></A> functions. <B>NdisCmDispatchCallConnected</B> notifies NDISWAN that data transfers can begin on the VC that NDPROXY created for the outgoing call. <B>NdisCmDispatchIncomingCloseCall</B> informs NDISWAN and NDPROXY to tear down the proposed outgoing call. </LI>
+
+	<LI>After NDISWAN accepts the outgoing call, NDPROXY calls the <A HREF="103ndisx_1aia.htm"><B>NdisCoGetTapiCallId</B></A> function to retrieve a string that identifies NDISWAN’s context for the VC. NDPROXY passes this string back to the TAPI application. The TAPI application uses this VC-context string to complete its call to <B>lineGetID</B>. </LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Making%20Outgoing%20Calls"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

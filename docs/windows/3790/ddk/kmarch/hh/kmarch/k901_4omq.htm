@@ -1,0 +1,134 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IRP_MN_REGINFO</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IRP_MN_REGINFO">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_irp_mn_reginfo_kr"></A>IRP_MN_REGINFO</H1>
+
+<P>Drivers that support WMI on Windows® 98 and Windows&nbsp;2000 must handle this IRP. (Drivers that support Windows&nbsp;XP as well must also handle the <A HREF="k901_9d4i.htm">IRP_MN_REGINFO_EX</A> IRP.)</P>
+
+<H4>Major Code</H4>
+
+<P><A HREF="k113_8hwy.htm">IRP_MJ_SYSTEM_CONTROL</A> </P>
+
+<H4>When Sent</H4>
+
+<P>On Windows&nbsp;98 and Windows&nbsp;2000, WMI sends this IRP to query or update a driver's registration information after the driver has called <A HREF="k104_5dbm.htm"><B>IoWMIRegistrationControl</B></A>.  On Windows&nbsp;XP and later, WMI sends the IRP_MN_REGINFO_EX request instead.</P>
+
+<P>WMI sends this IRP at IRQL = PASSIVE_LEVEL in the context of a system thread.</P>
+
+<H4>Input</H4>
+
+<P><B>Parameters.WMI.ProviderId</B> points to the device object of the driver that should respond to the request. This pointer is located in the driver's I/O stack location in the IRP.</P>
+
+<P><B>Parameters.WMI.DataPath</B> is set to WMIREGISTER to query registration information or WMIUPDATE to update it.</P>
+
+<P><B>Parameters.WMI.BufferSize</B> indicates the maximum size of the nonpaged buffer at <B>Parameters.WMI.Buffer</B>. The size must be greater than or equal to the total of <B>(sizeof(</B>WMIREGINFO<B>)</B> + <B>(</B><I>GuidCount</I> <B>* sizeof(</B>WMIREGGUID<B>))</B>, where <I>GuidCount</I><B> </B>is the number of data blocks and event blocks being registered by the driver, plus space for static instance names, if any. </P>
+
+<H4>Output </H4>
+
+<P>If the driver handles WMI IRPs by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, WMI gets registration information for a driver's data blocks by calling its <I>DpWmiQueryReginfo</I> routine.</P>
+
+<P>Otherwise, the driver fills in a <A HREF="k112_2j76.htm">WMIREGINFO</A> structure at <B>Parameters.WMI.Buffer</B> as follows:
+
+<UL>
+	<LI>Sets <B>BufferSize</B> to the size in bytes of the WMIREGINFO structure plus associated registration data.</LI>
+
+	<LI>If the driver handles WMI requests on behalf of another driver, sets <B>NextWmiRegInfo</B> to the offset in bytes from the beginning of this WMIREGINFO to the beginning of another WMIREGINFO structure that contains registration information from the other driver.</LI>
+
+	<LI>Sets <B>RegistryPath</B> to the registry path that was passed to the driver's <B>DriverEntry</B> routine.</LI>
+
+	<LI>If <B>Parameters.WMI.Datapath</B> is set to WMIREGISTER, sets <B>MofResourceName</B> to the offset from the beginning of this WMIREGINFO to a counted Unicode string that contains the name of the driver's MOF resource in its image file.</LI>
+
+	<LI>Sets <B>GuidCount</B> to the number of data blocks and event blocks to register or update.</LI>
+
+	<LI>Writes an array of <A HREF="k112_3ulu.htm">WMIREGGUID</A> structures, one for each data block or event block exposed by the driver, at <B>WmiRegGuid</B>.</LI>
+</UL>
+
+<P>The driver fills in each WMIREGGUID structure as follows:
+
+<UL>
+	<LI>Sets <B>Guid</B> to the GUID that identifies the block.</LI>
+
+	<LI>Sets <B>Flags</B> to provide information about instance names and other characteristics of the block. For example, if a block is being registered with static instance names, the driver sets <B>Flags</B> with the appropriate WMIREG_FLAG_INSTANCE_<I>XXX</I> flag.</LI>
+</UL>
+
+<P>If the block is being registered with static instance names, the driver:
+
+<UL>
+	<LI>Sets <B>InstanceCount</B> to the number of instances.</LI>
+
+	<LI>Sets one of the following members to an offset in bytes to static instance name data for the block:
+<UL>
+	<LI>If the driver sets <B>Flags</B> with WMIREG_FLAG_INSTANCE_LIST, it sets <B>InstanceNameList</B> to an offset to a list of static instance name strings. WMI specifies instances in subsequent requests by index into this list.</LI>
+
+	<LI>If the driver sets <B>Flags </B>with WMIREG_FLAG_INSTANCE_BASENAME, it sets <B>BaseNameOffset</B> to an offset to a base name string. WMI uses this string to generate static instance names for the block.</LI>
+
+	<LI>If the driver sets <B>Flags </B>with WMIREG_FLAG_INSTANCE_PDO, it sets <B>Pdo</B> to an offset to a pointer to the PDO passed to the driver's AddDevice routine. WMI uses the device instance path of the PDO to generate static instance names for the block.</LI>
+</UL>
+</LI>
+
+	<LI>Writes the instance name strings, the base name string, or a pointer to the PDO at the offset indicated by <B>InstanceNameList</B>, <B>BaseName</B>, or <B>Pdo</B>, respectively. </LI>
+</UL>
+
+<P>If the driver handles WMI registration on behalf of another driver (such as a miniclass or miniport driver), it fills in another WMIREGINFO structure with the other driver's registration information and writes it at <B>NextWmiRegInfo </B>in the previous structure.<B> </B></P>
+
+<P>If the buffer at <B>Parameters.WMI.Buffer</B> is too small to receive all of the data, a driver writes the needed size in bytes as a ULONG to <B>Parameters.WMI.Buffer</B> and fails the IRP and returns STATUS_BUFFER_TOO_SMALL. </P>
+
+<H4>I/O Status Block</H4>
+
+<P>If the driver handles the IRP by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, WMI sets <B>Irp-&gt;IoStatus.Status</B> and <B>Irp-&gt;IoStatus.Information</B> in the I/O status block.</P>
+
+<P>Otherwise, the driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS or to an appropriate error status such as the following:</P>
+
+<P class=indent1>STATUS_BUFFER_TOO_SMALL</P>
+
+<P>On success, a driver sets <B>Irp-&gt;IoStatus.Information</B> to the number of bytes written to the buffer at <B>Parameters.WMI.Buffer</B>.</P>
+
+<H4>Operation</H4>
+
+<P>A driver can handle WMI IRPs either by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A> or by handling the IRP itself, as described in <A HREF="wmi_9d47.htm">Handling WMI Requests</A>.</P>
+
+<P>If a driver handles WMI IRPs by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, that routine calls the driver's <A HREF="k903_196a.htm"><I>DpWmiQueryReginfo</I></A> routine. </P>
+
+<P>If a driver handles an IRP_MN_REGINFO request itself, it should do so only if <B>Parameters.WMI.ProviderId</B> points to the same device object as the pointer that the driver passed to <A HREF="k104_5dbm.htm"><B>IoWMIRegistrationControl</B></A>. Otherwise, the driver must forward the request to the next-lower driver.</P>
+
+<P>Before handling the request, the driver must check <B>Parameters.WMI.DataPath</B> to determine whether WMI is querying registration information (WMIREGISTER) or requesting an update (WMIUPDATE). </P>
+
+<P>WMI sends this IRP with WMIREGISTER after a driver calls <B>IoWMIRegistrationControl</B> with WMIREG_ACTION_REGISTER or WMIREG_ACTION_REREGISTER. In response, a driver should fill in the buffer at <B>Parameters.WMI.Buffer</B> with the following:
+
+<UL>
+	<LI>A <A HREF="k112_2j76.htm">WMIREGINFO</A> structure that indicates the driver's registry path, the name of its MOF resource, and the number of blocks to register.</LI>
+
+	<LI>One<A HREF="k112_3ulu.htm"> WMIREGGUID</A> structure for each block to register. If a block is to be registered with static instance names, the driver sets the appropriate WMIREG_FLAG_INSTANCE_<I>XXX</I> flag in the WMIREGGUID structure for that block.</LI>
+
+	<LI>Any strings WMI needs to generate static instance names.</LI>
+</UL>
+
+<P>WMI sends this IRP with WMIUPDATE after a driver calls <B>IoWmiRegistrationControl</B> with WMIREG_ACTION_UPDATE_GUID. In response, a driver should fill in the buffer at <B>Parameters.WMI.Buffer</B> with a WMIREGINFO structure as follows:
+
+<UL>
+	<LI>To remove a block, the driver sets WMIREG_FLAG_REMOVE_GUID in its WMIREGGUID structure. </LI>
+
+	<LI>To add or update a block (for example, to change its static instance names), the driver clears WMIREG_FLAG_REMOVE_GUID and provides new or updated registration values for the block.</LI>
+
+	<LI>To register a new or existing block with static instance names, the driver sets the appropriate WMIREG_FLAG_INSTANCE_<I>XXX</I> and supplies any strings WMI needs to generate static instance names.</LI>
+</UL>
+
+<P>A driver can use the same WMIREGINFO structures to remove, add, or update blocks as it used initially to register all of its blocks, changing only the flags and data for the blocks to be updated. If a WMIREGGUID in such a WMIREGINFO structure matches exactly the WMIREGGUID passed by the driver when it first registered that block, WMI skips the processing involved in updating the block. </P>
+
+<P>WMI does not send an IRP_MN_REGINFO request after a driver calls <A HREF="k104_5dbm.htm"><B>IoWMIRegistrationControl</B></A> with WMIREG_ACTION_DEREGISTER, because WMI requires no further information from the driver. A driver typically deregisters its blocks in response to an <A HREF="pnp-irps_4noy.htm">IRP_MN_REMOVE_DEVICE</A> request. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k903_196a.htm"><I>DpWmiQueryReginfo</I></A>,<A HREF="k104_5dbm.htm"><B> IoWMIRegistrationControl</B></A>, <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A>, <A HREF="k112_3ulu.htm">WMIREGGUID</A>, <A HREF="k112_2j76.htm">WMIREGINFO</A>, <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, <A HREF="k901_9d4i.htm">IRP_MN_REGINFO_EX</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IRP_MN_REGINFO"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

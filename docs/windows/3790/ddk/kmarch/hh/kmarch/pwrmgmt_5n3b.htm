@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Passing Power IRPs</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Passing Power IRPs">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_passing_power_irps_kg"></A>Passing Power IRPs</H2>
+
+<P>Power IRPs must be passed all the way down the device stack to the PDO to ensure that power transitions are managed cleanly. Drivers handle an IRP that reduces device power as the IRP travels down the device stack. Drivers handle an IRP that applies device power in <I>IoCompletion</I> routines as the IRP travels back up the device stack.</P>
+
+<P>The following figure shows the steps involved in passing down a power IRP. </P>
+
+<P><IMG SRC="images/passirp.gif" ALT="" BORDER=0></P>
+
+<P><B>Passing Down a Power IRP</B></P>
+
+<P>As the previous figure shows, a driver must do the following:
+
+<OL>
+	<LI>Depending on the type of driver, possibly call <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A>. For more information, see <A HREF="pwrmgmt_7tt3.htm">Calling <B>PoStartNextPowerIrp</B></A>.</LI>
+
+	<LI>Call <A HREF="k104_4fqq.htm"><B>IoCopyCurrentIrpStackLocationToNext</B></A> if setting an <I>IoCompletion</I> routine, or <A HREF="k104_1ohe.htm"><B>IoSkipCurrentIrpStackLocation</B></A> if not setting an <I>IoCompletion</I> routine.
+<P>These two routines set the IRP stack location for the next-lower driver. Copying the current stack location ensures that the IRP stack pointer is set to the correct location when the <I>IoCompletion</I> routine runs.
+</LI>
+
+	<LI>Call <A HREF="k104_5w6q.htm"><B>IoSetCompletionRoutine</B></A> to set an <I>IoCompletion</I> routine. In the <I>IoCompletion</I> routine, most drivers <A HREF="pwrmgmt_7tt3.htm">call <B>PoStartNextPowerIrp</B></A> to indicate that it is ready to handle the next power IRP.</LI>
+
+	<LI>Call <A HREF="portn_7tki.htm"><B>PoCallDriver</B></A> to pass the IRP to the next-lower driver in the stack.
+<P>Drivers must use <B>PoCallDriver</B>, rather than <B>IoCallDriver</B> (as for other IRPs) to ensure that the system synchronizes power IRPs properly. For more information, see <A HREF="pwrmgmt_1v3b.htm">Using <B>PoCallDriver</B></A>.
+</LI>
+</OL>
+
+<P>Remember that <I>IoCompletion</I> routines can be called at IRQL&nbsp;= DISPATCH_LEVEL. Therefore, if a driver requires additional processing at IRQL&nbsp;= PASSIVE_LEVEL after lower-level drivers have finished with the IRP, the driver's completion routine should queue a work item and then return STATUS_MORE_PROCESSING_REQUIRED. The worker thread must complete the IRP. </P>
+
+<P>Drivers on Windows 98/Me must complete power IRPs at IRQL&nbsp;= PASSIVE_LEVEL.</P>
+
+<H4>Do Not Block While Handling a Power IRP</H4>
+
+<P>Drivers must not cause long delays while handling power IRPs. </P>
+
+<P>When passing down a power IRP, a driver should return from its <I>DispatchPower</I> routine as soon as possible after calling <B>PoCallDriver</B>. A driver must not wait on a kernel event or otherwise delay before returning. If a driver cannot handle a power IRP in a brief time, it should return STATUS_PENDING and queue all incoming IRPs until the power IRP completes. (Note that this behavior is different from that of PnP IRPs and <I>DispatchPnP</I> routines, which are allowed to block.) </P>
+
+<P>If the driver must wait for a power action by another driver further down the device stack, it should return STATUS_PENDING from its <I>DispatchPower</I> routine and set an <I>IoCompletion</I> routine for the power IRP. In the <I>IoCompletion</I> routine, it can perform whatever tasks it requires, and then call <B>PoStartNextPowerIrp</B> and <B>IoCompleteRequest</B>.</P>
+
+<P>For example, the power policy owner for a device typically sends a device power IRP while holding a system power IRP in order to set the device power state appropriate for the requested system state. </P>
+
+<P>In this situation, the power policy owner should set an <I>IoCompletion</I> routine in the system power IRP, pass the system power IRP to the next-lower driver, and return STATUS_PENDING from its <I>DispatchPower</I> routine. </P>
+
+<P>In the <I>IoCompletion</I> routine, it calls <B>PoRequestPowerIrp</B> to send the device power IRP, passing a pointer to a callback routine in the request. The <I>IoCompletion</I> routine should return STATUS_MORE_PROCESSING_REQUIRED. </P>
+
+<P>Finally, the driver passes down the system IRP from the callback routine. The driver must not wait on a kernel event in its <I>DispatchPower</I> routine and signal with the <I>IoCompletion</I> routine for the IRP it is currently handling; a system deadlock might occur. For more information, see <A HREF="pwrmgmt_5g6f.htm">Handling a System Set-Power IRP in a Device Power Policy Owner</A>.</P>
+
+<P>In a similar situation, when the system is going to sleep, a power policy owner might need to complete some pending I/O before it sends the device IRP to power down its device. Instead of signaling an event when the I/O completes and waiting in its <I>DispatchPower</I> routine, the driver should queue a work item and return STATUS_PENDING from the <I>DispatchPower</I> routine. In the worker thread, it waits for I/O to complete and then sends the device power IRP. For more information, see <A HREF="k104_2w4y.htm"><B>IoAllocateWorkItem</B></A>. (This routine is not available on Windows&nbsp;98.)  </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Passing%20Power%20IRPs"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

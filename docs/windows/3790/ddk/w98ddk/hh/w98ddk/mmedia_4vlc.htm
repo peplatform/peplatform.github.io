@@ -1,0 +1,35 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Tips for Writing ACM Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_2690"></A>Tips for Writing ACM Drivers</H3>
+
+<P>This section provides some guidelines for writing ACM drivers. 
+
+<UL>
+	<LI>Allocate driver-instance data in response to the DRV_OPEN message. You will usually need some data throughout the life of the driver; for example, you need the module-instance handle in order to load resource strings. Define a structure containing this data, and allocate it in response to DRV_OPEN. Do not save this structure as a global variable. Instead, return a pointer to the structure as the return value for the DRV_OPEN message. This pointer will be passed back to the driver in every subsequent message, as the first parameter of the <B>DriverProc</B> function. Remember to free this driver-instance data in response to the DRV_CLOSE message. </LI>
+
+	<LI>Allocate stream-instance data in response to the ACMDM_STREAM_OPEN message. You will usually need some instance data for each open stream. Since there could be several streams open at the same time, you shouldn't store this data as a global variable. Instead, define a structure containing the required data, and allocate it in response to ACMDM_STREAM_OPEN. In that message, the driver is passed a pointer to an <B>ACMDRVSTREAMINSTANCE</B> structure. Store a pointer to the stream-instance data in the <B>dwDriver</B> member, and it will be available on every call involving that stream. Remember to free the stream-instance data in response to the ACMDM_STREAM_CLOSE message. </LI>
+
+	<LI>Avoid using global variables. Defining a single <B>DWORD</B> of global data will use up 4K of memory in every process which uses the ACM, because your driver is loaded into each process. There is no need to use global data; instead, use the instance data, as described earlier. </LI>
+
+	<LI>Make sure that your driver processes the ACMDM_STREAM_CONVERT message as quickly as possible. Perform as much processing as possible in the ACMDM_STREAM_OPEN message. </LI>
+
+	<LI>Don't link to CRTDLL.DLL. This DLL cannot be loaded into all contexts, and therefore your codec will not function correctly. In particular, your codec may not work correctly for system sounds produced using the <B>MessageBeep</B> function. Use Win32 functions or link to a static C runtime library such as LIBC.LIB or LIBCMT.LIB. </LI>
+
+	<LI>Handle Win32 error conditions correctly. You cannot always depend on the success of calls to the USER module (such as <B>LoadString</B> and <B>LoadIcon</B>). In particular, when your codec is used to play system sounds, it may be loaded into a context in which these calls are unable to succeed. Although there will be no opportunity for your codec to display icons or strings in this context, your code must be prepared handle this situation. </LI>
+
+	<LI>Store configuration data on a per-user basis. Each user should be able to configure an ACM driver according to personal preferences. Therefore, configuration information should be stored in the HKEY_CURRENT_USER section of the registry. </LI>
+
+	<LI>Provide a valid default configuration. Configuration data will normally be stored on a per-user basis; however, in some contexts (such as when playing system sounds) there will be no defined current user. In these situations, calls to the registry will fail. You must provide a reasonable default configuration to handle this failure. </LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Tips%20for%20Writing%20ACM%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

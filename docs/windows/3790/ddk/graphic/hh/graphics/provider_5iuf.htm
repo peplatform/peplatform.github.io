@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TCPMON Xcv Interface</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TCPMON Xcv Interface">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_tcpmon_xcv_interface_gg"></A>TCPMON Xcv Interface</H2>
+
+<P>This section describes the transceive (Xcv) interface for the standard TCP/IP port monitor (TCPMON). This interface, which is implemented using <A HREF="spoolfnc_2gtj.htm"><B>XcvData</B></A> and <A HREF="spoolfnc_5n6v.htm"><B>XcvDataPort</B></A> function calls, enables those using it to configure a TCP/IP printer port or to obtain information about a TCP/IP printer port configuration. The Xcv interface described in this section is specific to TCP/IP ports. Other Xcv interfaces might be available for other port types.</P>
+
+<P>To obtain a handle to an Xcv interface for either a local machine or a remote machine, call the <B>OpenPrinter</B> function (described in the Platform SDK documentation). The following code sample illustrates how to obtain an Xcv handle to a port:</P>
+
+<PRE>HANDLE hXcv = INVALID_HANDLE_VALUE;
+PRINTER_DEFAULTS Defaults = { NULL, NULL, &lt;Required Access&gt; };
+
+// Handle to a local machine
+if (OpenPrinter(“,XcvPort &lt;<I>PortName</I>&gt;“, &amp;hXcv, &amp;Defaults ) {
+// hXvc contains an Xcv data handle to a local TCPMON port
+}
+
+// Handle to a remote machine
+if (OpenPrinter(“&lt;<I>ServerName</I>&gt;\\,XcvPort &lt;<I>PortName</I>&gt;“, &amp;hXcv, &amp;Defaults ) {
+// hXvc contains an Xcv data handle to a TCPMON port on &lt;<I>ServerName</I>&gt;
+}</PRE>
+
+<P>In the code samples, <I>ServerName</I> and <I>PortName</I> represent server and port name strings. Once you have obtained the handle, you can query information that is specific to the TCPMON port monitor, or you can change the port configuration. Note that the access you require for the port monitor must be specified in the <B>DesiredAccess</B> member of the PRINTER_DEFAULTS structure (or pass NULL if no special security is required). For certain calls to the <A HREF="spoolfnc_2gtj.htm"><B>XcvData</B></A> function (such as when the <B>AddPort</B> and <B>DeletePort</B> commands are specified — see <A HREF="provider_7a5j.htm">TCPMON Xcv Commands</A>), SERVER_ACCESS_ADMINISTER privilege is required. For details about the <B>OpenPrinter</B> function and the access rights that may be requested in the PRINTER_DEFAULTS structure, see the Platform SDK documentation. </P>
+
+<P>If the port does not yet exist, the Xcv handle can be obtained from the server by specifying the monitor name. (In the case of the standard TCP/IP port monitor port, this is “Standard TCP/IP Port”.) The following code sample illustrates how to obtain an Xcv data handle to a port monitor:</P>
+
+<PRE>HANDLE hXcv = INVALID_HANDLE_VALUE;
+PRINTER_DEFAULTS Defaults = { NULL, NULL, &lt;Required Access&gt; };
+
+// Handle to a local machine
+if (OpenPrinter(“,XcvMonitor &lt;<I>MonitorName</I>&gt;“, &amp;hXcv, &amp;Defaults ) {
+// hXcv contains an Xcv data handle to the monitor &lt;<I>MonitorName</I>&gt;
+}
+
+// Handle to a remote machine
+if (OpenPrinter(“&lt;<I>ServerName</I>&gt;\\,XcvMonitor &lt;<I>MonitorName</I>&gt;“, &amp;hXcv, &amp;Defaults ) {
+// hXcv contains an Xcv data handle to the monitor 
+// &lt;<I>MonitorName</I>&gt; on the server &lt;<I>ServerName</I>&gt;
+}</PRE>
+
+<P>In the code samples, <I>ServerName</I> and <I>PortName</I> represent server and port name strings. Once you have obtained the Xcv data handle, you can issue instructions and requests to the monitor by calling the <A HREF="spoolfnc_2gtj.htm"><B>XcvData</B></A> function. </P>
+
+<P>Note that the return value from the <B>XcvData</B> function indicates only whether the data was correctly sent to the port monitor. A return value of TRUE does not indicate that the operation was successful. To determine whether the operation was successful, inspect the value in *<I>pdwStatus</I>. These status values are summarized in the following table:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=38%>Status Value</TH>
+<TH align=left width=62%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>NO_ERROR</TD>
+<TD width=62%>The operation was successful.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>ERROR_ACCESS_DENIED</TD>
+<TD width=62%>The user has insufficient privileges. The command requires SERVER_ACCESS_ADMINISTER privilege.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>ERROR_INSUFFICIENT_BUFFER</TD>
+<TD width=62%>An output buffer is required, but is smaller than required. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>ERROR_INVALID_DATA</TD>
+<TD width=62%>An input buffer is required, but the pointer to it is NULL, <I>or</I>
+<P>the size of the input buffer is smaller than required.</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>ERROR_INVALID_HANDLE</TD>
+<TD width=62%>The Xcv data handle is invalid.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>ERROR_INVALID_LEVEL</TD>
+<TD width=62%>The input or output data structure is not the correct version.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%> ERROR_INVALID_PARAMETER</TD>
+<TD width=62%>An output buffer is required, but it is NULL, <I>or</I>
+<P>the output required parameter is NULL and the output buffer is too small, <I>or</I></P>
+
+<P>the standard TCP/IP port monitor does not understand the command being issued. </P>
+</TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TCPMON%20Xcv%20Interface"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

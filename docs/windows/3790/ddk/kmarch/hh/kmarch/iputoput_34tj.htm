@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using Common-Buffer Bus-Master DMA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using Common-Buffer Bus-Master DMA">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_using_common_buffer_bus_master_dma_kg"></A>Using Common-Buffer Bus-Master DMA</H3>
+
+<P><I>Use common-buffer DMA economically</I>. Setting up a common buffer can tie up some (or all, depending on the size of the requested buffer) of the map registers associated with the adapter object that represents the bus-master adapter.</P>
+
+<P>Setting up common-buffer areas economically, such as using PAGE_SIZE chunks or a single allocation, leaves more map registers available for packet-based DMA operations. It also leaves more system memory free for other purposes, thus yielding better overall driver and system performance.</P>
+
+<P>To set up a common buffer for bus-master DMA, a bus-master DMA device driver must call <A HREF="kdma_6otu.htm"><B>AllocateCommonBuffer</B></A> with the adapter object pointer returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A>. Typically, a driver makes this call from its <A HREF="drvrrtns_8uya.htm"><I>DispatchPnP</I></A> routine for <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> requests. A driver should allocate a common buffer only if it will use the buffer repeatedly for its DMA operations while the driver remains loaded. The following figure illustrates such a call to <B>AllocateCommonBuffer</B>.</P>
+
+<P><B><IMG SRC="images/3halcbff.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Allocating a Common Buffer for Bus-Master DMA</B></P>
+
+<P>The requested size for the buffer, shown in the previous figure as LengthForBuffer, determines how many map registers must be used to provide a virtual-to-logical mapping for the common buffer. Use the <A HREF="k106_32gi.htm">BYTES_TO_PAGES</A> macro to determine the maximum number of pages needed (BYTES_TO_PAGES (LengthForBuffer)). This value cannot be greater than the <I>NumberOfMapRegisters</I> returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A>.</P>
+
+<P>In addition, the caller must supply the following:
+
+<UL>
+	<LI>A Boolean that indicates whether caching should be enabled</LI>
+
+	<LI>A pointer to a driver-defined variable that will contain the device-accessible base <I>Logical Address</I> for the buffer (BufferLogicalAddress in the previous figure) on return from <B>AllocateCommonBuffer</B></LI>
+</UL>
+
+<P>If the call succeeds, <B>AllocateCommonBuffer</B> returns a driver-accessible base virtual address for the buffer (BufferVirtualAddress in the previous figure), which the driver must save in its device extension, controller extension, or other driver-accessible resident storage area (nonpaged pool allocated by the driver).</P>
+
+<P><B>AllocateCommonBuffer</B> returns NULL if it cannot allocate memory for the buffer. If the returned base virtual address is NULL, the driver either must use the system's packet-based DMA support exclusively or the driver must fail the IRP_MN_START_DEVICE request, returning  STATUS_INSUFFICIENT_RESOURCES.</P>
+
+<P>Otherwise, the driver can use the allocated common buffer as a driver- and adapter-accessible storage area for DMA transfers.</P>
+
+<P>When the PnP Manager sends an IRP that stops or removes the device, the driver must call <A HREF="kdma_8h0y.htm"><B>FreeCommonBuffer</B></A> to release each common buffer it has allocated.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20Common-Buffer%20Bus-Master%20DMA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

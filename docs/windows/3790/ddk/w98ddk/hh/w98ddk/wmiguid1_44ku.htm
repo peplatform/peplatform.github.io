@@ -1,0 +1,360 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WMI Schema Description</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_wmiguid1_wmi_schema_description"></A>WMI Schema Description</H1>
+
+<P>All device drivers must provide a description for the data items provided by each data or event block. Collectively, this information is referred to as a schema. By making the schema available, a device driver allows general-purpose management and performance monitoring applications to access the data provided by the device driver and present it in an intelligible way. Schema information can be conveniently described in the managed object format (MOF) developed for the WBEM project.</P>
+
+<P>MOF syntax is described extensively in the WBEM documentation. The MOF syntax allows classes to be defined that are used to describe data blocks. Classes are similar to C language structure definitions in that they contain definitions for the properties or data items contained within them. Both classes and data items can have qualifiers associated with them. Qualifiers are contained within brackets ([]) and placed before the class or data item definition that they qualify. A qualifier may also have a value associated with it. WMI uses these qualifiers to provide additional information about the schema.</P>
+
+<P>All WMI classes have a class property named <I>Active</I>. This property is not part of the data block provided by the driver, but is exposed to clients of the WBEM data consumer. <I>Active</I> is a Boolean that denotes whether WMI is able to return data for the data block. Also note that each individual class definition must have a class property named <I>InstanceName</I> to hold the instance name for the data block returned in the <B>WNODE</B> data structure. It should be defined to be a key property so data consumers can select among the different instances of the data block. </P>
+
+<P>Properties can be a basic data type, an embedded class, or a fixed or variable length array of a basic data type or embedded class. </P>
+
+<P>MOF information is kept as a resource on the device driver’s image file. The resource is built by creating a text file containing the definitions for the data blocks associated with the GUIDs registered by the data provider. Next, this text file is compiled by the MofComp tool, which creates a binary representation of it in another file. If the WMI flag is specified, the binary file is run through the Wmimofck tool, which will verify that all class definitions are valid for WMI. Any MOF resource that is not valid will be completely rejected by Wmimofck and the binary MOF file deleted. This binary file should be referenced by the data provider’s resource script when building the data providers binary image. Following is the syntax for compiling File.mof into File.bmf:</P>
+
+<PRE>MofComp –WMI –B:file.bmf file.mof
+</PRE>
+
+<UL>
+	<LI>For this example, you need to add the following line to the resource script (.rc) file:</LI>
+</UL>
+
+<PRE>MofResource MOFDATA file.bmf
+</PRE>
+
+<UL>
+	<LI>Here is an example of a class definition: </LI>
+</UL>
+
+<PRE>// Standard class for reporting serial port information
+//
+[WMI, guid(“85F64E01-5A9B-11d0-A838-00AA0060D45C”),
+Dynamic, Provider(“WMIProv”),
+WmiExpense(1),
+Locale(“MS\\0x409”),
+Description(“Description of class”]
+class StandardSerialInformation {
+
+// InstanceName and Active are the required properties for WBEM to be able to
+// manage WMI data blocks. They must not have ID’s associated with them.
+    [key, read] 
+     string InstanceName;
+
+    [read]
+     boolean Active;
+
+// This is the first data item in the blob and is a 64 bit integer and is readonly
+    [read,
+     WmiDataId(1),
+     WmiScale(0),
+     WmiCounterType(0x00000000),
+     WmiComplexity(1),
+     WmiVolatility(1000),
+     Description(“Description of property”)]
+    uint64 BytesSent;                          // bytes sent on port
+
+//
+// This is the second data item in the blob and is also a 64 bit integer and is
+// readable or writable.
+    [read,
+     write,
+     WmiDataId(2),
+     WmiScale(0), 
+     WmiCounterType(0x00000000),
+     WmiVolatility(1000)]
+    uint64 BytesReceived;                      // Bytes received on port
+
+//
+// This data item is the 
+// fourth data item in the data block. It is a read only counted unicode string.
+    [read,
+     WmiDataId(4),
+     WmiScale(0),              
+     WmiCounterType(0x00000b00),
+     WmiVolatility(60000)] 
+    string Owner;                       // Who owns the port 
+
+//
+// This is the third data item in the data block 
+// It is a fixed length array of 16 bytes. Note that the order in 
+// the MOF class definition is not relevant to the order in the data block
+    [read, write,
+     WmiDataId(3),
+     WmiScale(0),
+    WmiCounterType(0x00000300)]
+    byte Status[16];                             // Status bit array
+
+    //
+    // This the fifth data item in the data block 
+    [read,
+     WmiDataId(5),
+     WmiScale(0),
+     WmiCounterType(0x00000000),
+     WmiComplexity(1),
+     WmiVolatility(1000)]
+    uint32 XmitDescriptorCount;
+
+    //
+    // This the sixth data item in the data block 
+    // It is a variable length array of XmitDescriptor structures.
+    // The number of elements in the array can be found in the XmitDescriptorCount 
+    // property.
+    [read,
+     WmiDataId(6),
+     WmiSizeIs(“XmitDescriptorCount”),
+     WmiScale(0),
+     WmiCounterType(0x00000000),
+     WmiComplexity(1),
+     WmiVolatility(1000)]
+    XmitDescriptor XmitBufferSize[];
+}
+
+//
+// Note that this class does not have InstanceName or Active properties since it is 
+// only used as an embedded class.
+[WMI, guid(“85F64E03-5A9B-11d0-A838-00AA0060D45C”),
+class XmitDescriptor {
+    [read, WmiDataId(1)] int32 DestinationIndex;
+    [read, WmiDataId(2)] int32 DestinationTarget;
+}
+
+ [WMI, guid(“85F64E02-5A9B-11d0-A838-00AA0060D45C”),
+ Dynamic, Provider(“WMIProv”),
+ locale(“MS\\0x409”),
+ Description(“Serial Send Event”),
+ WmiExpense(1)]
+class SerialSendEvent : WMIEvent
+{
+//
+// InstanceName and Active are the required properties for WBEM to be able to
+// manage WMI data blocks. The must not have ID’s associated with them.
+    [key, read] 
+     string InstanceName;              // Instance name returned from WMI
+
+    [read]
+     boolean Active;
+
+//
+// This data item is an event that can be enabled by a data consumer. The 
+// SendEventTrigger data item can be used to set or read the trigger for event 
+// generation while the SendEventRate data item can be set or read to regulate the 
+// event generation rate.
+    [read,
+     WmiDataId(1),
+     WmiScale(0),               
+     WmiCounterType(0x00000000),
+     WmiEventTrigger(“SendEventTrigger”),
+         WmiEventRate(“SendEventRate”)]
+        sint32 SendEventValue;
+
+    [read,
+     write,
+     WmiDataId(2)]
+    sint32 SendEventRate;
+
+    [read,
+     write,
+     WmiDataId(3)]
+    sint32 SendEventTrigger;
+}
+</PRE>
+
+<H4>Class Qualifiers</H4>
+
+<P>A class may have the following qualifiers.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=36%>Qualifier</TH>
+<TH align=left width=64%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[guid(“<I>guid-string</I>”)] </TD>
+<TD width=64%>Declares the GUID that represents the class within WMI. This qualifier is required.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[Description(“<I>description-text</I>”)] </TD>
+<TD width=64%>Specifies the description text for the class or property in the locale specified for the locale qualifier.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[WmiExpense(<I>expense-value</I>)] </TD>
+<TD width=64%>Specifies how much system resources is required in order to collect data in the data block. And, <I>expense-value</I> is defined to be the average number of CPU cycles needed to collect the data block. If this qualifier is not specified, then the <I>expense-value</I> is assumed to be zero.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[Dynamic]</TD>
+<TD width=64%>Specifies that the class is dynamic. This is required.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[Provider(“WMIProv”)] </TD>
+<TD width=64%>Specifies that the provider of the class is wmiprov.dll. This is required.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[WMI] </TD>
+<TD width=64%>Specifies that this is a WMI class. This is required.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Data Qualifiers</H4>
+
+<P>A data item may have the following qualifiers.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=36%>Qualifier</TH>
+<TH align=left width=64%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[read] </TD>
+<TD width=64%>Specifies that the data item may be read.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[write] </TD>
+<TD width=64%>Specifies that the data item may be written.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[WmiDataId(<I>data-item-id</I>)] </TD>
+<TD width=64%>Specifies the data item ID for the data item. This qualifier is required.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[WmiScale(<I>scale-factor</I>)] </TD>
+<TD width=64%>Specifies the scaling factor to use when displaying the data. Before displaying the data returned from a query of the data item it is multiplied by 10 to the power of <I>scale-factor</I>. If this qualifier is not specified, then the <I>scale-factor</I> is assumed to be zero.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[WmiTimeStamp] </TD>
+<TD width=64%>Specifies that the 64-bit data item is really a timestamp in units of 100 nanoseconds since January 1, 1601. This qualifier is only valid for 64 bit data items.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[WmiEventTrigger(“<I>data-item-name</I>”)] </TD>
+<TD width=64%>Specifies the name of the data item that can be used to trigger the event. And, <I>data-item-name </I>is the name of a data item that could be a trigger for the event. In the previous example, <B>SendEventValue</B> will fire an event when <B>SendEventTrigger</B> is reached. This is an optional qualifier and may only be used on those data items that have the [WmiEvent] qualifier.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[WmiEventRate(“<I>data-Item-name</I>”)] </TD>
+<TD width=64%>Specifies the name of the data item that can be used to specify a rate for the event. This is an optional qualifier and may only be used on those data items which have the [WmiEvent] qualifier.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[WmiComplexity(“<I>complexity-category</I>”)] </TD>
+<TD width=64%>Specifies the level of detail associated with the counter. And, <I>complexity-category</I> can have the value of “Novice” for the information that anyone can understand, “Advanced” for information that is useful for advanced users, “Expert” for information that is useful to only expert users, and “Wizard” for information that is useful for the data provider designer. If this qualifier is not specified, then a <I>complexity-category</I> of “Novice” is assumed.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[WmiVolatility(<I>validity-interval</I>)] </TD>
+<TD width=64%>Specifies how often the this data item value is updated internally. And, <I>validity-interval</I> is defined in units of milliseconds so a <I>validity-interval</I> of 1000 would mean that the data item is updated internally every second. Data consumers can use this measure to determine how frequently it should poll for changes in a data item. If this qualifier is not specified, then no assumption on the length of validity for a data item can be made.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=36%>[WmiSizeIs(“<I>property-name</I>”)] </TD>
+<TD width=64%>Specifies the property within the current class that has the count of the number of array elements (not bytes) contained in a variable length array.</TD>
+</TR>
+</TABLE><BR>
+
+<P>The order that the data items are laid out in the data block is controlled by the data item ID. Data item IDs must be allocated contiguously, starting with data item ID 1. The data item order specified in the MOF is not relevant. Data items must be aligned within the data block along natural alignment boundries — bytes on a byte boundary, words on a word boundary, and so on.</P>
+
+<P>The following table shows the different data types that MOF supports. MOF also supports arrays of these types as well. A variable sized array must have a WmiSizeIs qualifier that specifies the property that has number of elements in the array. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=39%>Data Types</TH>
+<TH align=left width=61%>Data Format</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=39%>string</TD>
+<TD width=61%>Counted Unicode string.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=39%>sint32   </TD>
+<TD width=61%>Signed 32-bit integer.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=39%>uint32</TD>
+<TD width=61%>Unsigned 32-bit integer.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=39%>sint16 </TD>
+<TD width=61%>Signed 16-bit integer.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=39%>uint16 </TD>
+<TD width=61%>Unsigned 16-bit integer.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=39%>sint64        </TD>
+<TD width=61%>Signed 64-bit integer.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=39%>uint64       </TD>
+<TD width=61%>Unsigned 64-bit integer.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=39%>sint8         </TD>
+<TD width=61%>Signed 8-bit character.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=39%>uint8        </TD>
+<TD width=61%>Unsigned 8-bit integer.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=39%>datetime</TD>
+<TD width=61%>25-character string used to specify absolute dates or time intervals. See the following discussion.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=39%>bool </TD>
+<TD width=61%>Byte where zero is FALSE and != 0 is TRUE.</TD>
+</TR>
+</TABLE><BR>
+
+<P>The Date property type is a fixed-length Unicode string and is not preceded by a count value. It is in the following fixed format:</P>
+
+<PRE>yyyymmddhhmmss.mmmmmmsutc
+</PRE>
+
+<P>Where <I>yyyy</I> is a 4-digit year, <I>mm</I> is the month, <I>dd</I> is the day, <I>hh</I> is the hour (24-hour clock), <I>mm</I> is the minute, <I>ss</I> is the second, and <I>mmmmmm</I> is the number of microseconds (typically all zeros). <I>S</I> is a plus (+) or a minus (-) sign indicating the sign of the UTC correction field, and <I>utc</I> is the offset from UTC in minutes (using the sign indicated by <I>S</I>). For example, Wednesday, May 25, 1994, at 1:30:15 PM EDT would be represented as:</P>
+
+<PRE>19940525133015.0000000-300
+ </PRE>
+
+<P>Values must be zero padded so the entire string is always the same 25-character length. Fields that are not significant must be replaced with asterisk (*) characters. Similarly, intervals use the same format, except that the interpretation of the fields is based on elapsed time. For example, an elapsed time of 1 day, 13 hours, 23 minutes, and 12 seconds would be: </P>
+
+<PRE>00000001132312.000000+000
+ </PRE>
+
+<P>An UTC offset of zero is always used for interval properties.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WMI%20Schema%20Description"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

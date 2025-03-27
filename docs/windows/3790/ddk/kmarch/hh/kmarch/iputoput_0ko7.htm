@@ -1,0 +1,65 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Allocating an Adapter Channel for Packet-Based DMA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_allocating_an_adapter_channel_for_packet_based_dma_kg"></A>Allocating an Adapter Channel for Packet-Based DMA</H4>
+
+<P>To prepare for packet-based system DMA, a driver calls <A HREF="k105_6asy.htm"><B>KeFlushIoBuffers</B></A> and <A HREF="kdma_92r6.htm"><B>AllocateAdapterChannel</B></A> after receiving an IRP_MJ_READ or IRP_MJ_WRITE request.</P>
+
+<P>Before the driver calls these routines, its <A HREF="drvrrtns_7s4y.htm"><I>DispatchRead</I></A> or <A HREF="drvrrtns_6mr6.htm"><I>DispatchWrite</I></A> routine (or any other dispatch routine that handles a DMA transfer) should already have checked the validity of the IRP's parameters. The dispatch routine might also have queued the IRP to another driver routine for further processing.</P>
+
+<P>The driver routine that calls <B>AllocateAdapterChannel</B> must be executing at IRQL DISPATCH_LEVEL. Along with a pointer to the adapter object returned by <B>IoGetDmaAdapter</B>, a driver must supply the following when it calls <B>AllocateAdapterChannel</B>:
+
+<UL>
+	<LI>A pointer to the target device object</LI>
+
+	<LI>The entry point for its <A HREF="drvrrtns_7vea.htm"><I>AdapterControl</I></A> routine</LI>
+
+	<LI>A pointer to any driver-determined context information the <I>AdapterControl</I> routine will use</LI>
+</UL>
+
+<P><B>AllocateAdapterChannel</B> queues the driver's <I>AdapterControl</I> routine, which runs when the system DMA controller is assigned to this driver and a set of <A HREF="memmgmt_5ag7.htm">map registers</A> has been allocated for the driver's DMA operation(s).</P>
+
+<P>On entry, the <I>AdapterControl</I> routine receives the <I>DeviceObject</I> and <I>Context</I> pointers passed in the call to <B>AllocateAdapterChannel</B>, as well as a handle (<I>MapRegisterBase</I>) for the allocated map registers.</P>
+
+<P>The <I>AdapterControl</I> routine also receives a pointer to the <B>DeviceObject-&gt;CurrentIrp</B> if the driver has a <I>StartIo</I> routine. If the driver manages its own queuing of IRPs (instead of having a <I>StartIo</I> routine), the driver should include a pointer to the current IRP as part of the context it passes when it calls <B>AllocateAdapterChannel</B>.</P>
+
+<P>The <I>AdapterControl</I> routine typically does the following:
+
+<OL>
+	<LI>Saves or initializes whatever context the driver maintains about DMA operations. The context might include the input <I>MapRegisterBase</I> handle the driver must pass to <A HREF="kdma_1hv6.htm"><B>MapTransfer</B></A> and <A HREF="kdma_9cxe.htm"><B>FlushAdapterBuffers</B></A> and, possibly, the <B>Length</B> of the requested transfer from its I/O stack location in the IRP.</LI>
+
+	<LI>Calls <A HREF="k106_5nhu.htm"><B>MmGetMdlVirtualAddress</B></A> followed by <B>MapTransfer. </B>See <A HREF="iputoput_0aef.htm">Setting Up the System DMA Controller for Packet-Based DMA</A>.</LI>
+
+	<LI>Sets up the slave device to start the transfer operation.</LI>
+
+	<LI>Returns the value <B>KeepObject</B>.</LI>
+</OL>
+
+<P>Every <I>AdapterControl</I> routine must return a system-defined value of type <A HREF="systypes_4boy.htm">IO_ALLOCATION_ACTION</A>. For drivers that use system DMA, the <I>AdapterControl</I> routine must return the value <B>KeepObject</B>. This allows the driver to retain "ownership" of the system DMA controller and allocated map registers until it has transferred all the requested data.</P>
+
+<P>Because an <I>AdapterControl</I> routine cannot wait for the slave device to carry out the DMA operation, each <I>AdapterControl</I> routine must, at a minimum, do the following:
+
+<OL>
+	<LI>Save context information, particularly the <I>MapRegisterBase</I> handle, in the driver's device extension, controller extension, or other driver-accessible resident storage area (nonpaged pool allocated by the driver).</LI>
+
+	<LI>Return <B>KeepObject</B>.</LI>
+</OL>
+
+<P>For additional information, see <A HREF="iputoput_1msn.htm">Writing <I>AdapterControl</I> Routines</A>.</P>
+
+<P>Another driver routine (probably the <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> routine) must call <A HREF="kdma_9cxe.htm"><B>FlushAdapterBuffers</B></A> when each DMA transfer operation is complete. This routine also must call <B>MapTransfer</B> and <B>FlushAdapterBuffers</B> again if it is necessary to set up the DMA controller more than once to satisfy the current IRP's transfer request.</P>
+
+<P>When a driver has satisfied the current IRP's request, it must call <A HREF="kdma_3bua.htm"><B>FreeAdapterChannel</B></A>. This support routine should be called immediately following the last call to <B>FlushAdapterBuffers</B> for the current IRP so that the system DMA controller can be made available for use (by any driver) to satisfy other transfer requests expeditiously.</P>
+
+<P>The driver of a slave device with scatter/gather capabilities should also return <B>KeepObject</B> from its <I>AdapterControl</I> routine. The device must be capable of waiting while the system DMA controller is reprogrammed between DMA operations when the driver must split up a given DMA request. On some Windows platforms, such devices can transfer at most a page of data per DMA operation because the HAL can assign only a single map register to the driver of that device.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Allocating%20an%20Adapter%20Channel%20for%20Packet-Based%20DMA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

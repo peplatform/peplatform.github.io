@@ -1,0 +1,35 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DispatchDeviceControl in Higher-Level Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DispatchDeviceControl in Higher-Level Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_dispatchdevicecontrol_in_higher_level_drivers_kg"></A><I>DispatchDeviceControl</I> in Higher-Level Drivers</H3>
+
+<P>Usually, the <I>DispatchDeviceControl</I> routine of a higher-level driver simply sets up the I/O stack location for the next-lower-level driver and passes the IRP it on with <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A>. The <I>DispatchDeviceControl</I> routine seldom checks the validity of parameters in the input IRP because the underlying device driver is assumed to have better information about how to handle each device-type-specific I/O control request.</P>
+
+<P>A possible exception to this general rule is the <I>DispatchDeviceControl</I> routine in the class driver of a class/port driver pair. For more information about handling device control requests in paired class/port drivers, see <A HREF="drvcomps_9413.htm">Dispatch(Internal)DeviceControl in Class/Port Drivers</A>.</P>
+
+<P>Any new higher-level driver that is not closely associated with a particular device driver should simply set up the <A HREF="irps_8lgn.htm">I/O stack location</A> for the next-lower-level driver and pass the IRP_MJ_DEVICE_CONTROL request on for further processing. </P>
+
+<P>A device control request is usually handled synchronously. That is, a higher-level driver’s <I>DispatchDeviceControl</I> routine can frequently return control to the system as follows:</P>
+
+<PRE>        :    : 
+    return IoCallDriver(DeviceObject-&gt;NextDeviceObject, Irp); </PRE>
+
+<P>However, a higher-level driver cannot use the preceding technique if a lower driver might return STATUS_PENDING for such a request. In that case, the higher-level driver should call <A HREF="k104_5w6q.htm"><B>IoSetCompletionRoutine</B></A> to register an <I>IoCompletion</I> routine. When the <I>IoCompletion</I> routine is called, it can check the I/O status block to determine whether the IRP is still pending. If it is, the <I>IoCompletion</I> routine might retry the request or, possibly, call <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A> before it calls <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> and returns STATUS_PENDING. A higher-level driver must not complete an IRP with STATUS_PENDING unless it has called <B>IoMarkIrpPending</B> for that IRP first.  </P>
+
+<P>If the underlying device driver must process much data transferred from the device before it completes the request, then a higher-level driver might handle such a device control request asynchronously. That is, the higher-level driver might call <A HREF="k104_5w6q.htm"><B>IoSetCompletionRoutine</B></A> to register an <I>IoCompletion</I> routine, pass the IRP on to lower drivers, and return control from its own <I>DispatchDeviceControl</I> routine. </P>
+
+<P>Almost all system-defined I/O control codes require the underlying device driver to transfer only modest amounts of data, usually much less than a PAGE_SIZE amount. As a general rule, higher-level drivers should handle these requests synchronously, as shown in the preceding code fragment, because the lower drivers return control so quickly. That is, the overhead of calling the higher-level driver’s <I>IoCompletion</I> routine does not compensate for whatever additional IRP processing that driver can get done in such a short interval. </P>
+
+<P>A higher-level driver that allocates IRPs with <A HREF="k104_8ble.htm"><B>IoBuildDeviceIoControlRequest</B></A> for an underlying device driver can handle these device control requests synchronously. The higher-level driver can wait on an optional event object that is passed to <B>IoBuildDeviceIoControlRequest</B> and associated with the driver-allocated IRP.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DispatchDeviceControl%20in%20Higher-Level%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

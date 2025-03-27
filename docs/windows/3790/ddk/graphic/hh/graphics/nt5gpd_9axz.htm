@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Enabling HP-GL/2 Vector Graphics Support (PCL-5e) in the GPD</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Enabling HP-GL/2 Vector Graphics Support (PCL-5e) in the GPD">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_enabling_hp_gl_2_vector_graphics_support_pcl_5e_in_the_gpd_gg"></A>Enabling HP-GL/2 Vector Graphics Support (PCL-5e) in the GPD</H3>
+
+<P>To enable HP-GL/2 vector support on Windows XP, you must do two things:
+
+<OL>
+	<LI>Set the <A HREF="nt5gpd_64vb.htm#ddk__personality_gg">*<B>Personality</B></A> attribute to PERSONALITY_HPGL2.</LI>
+
+	<LI>Define a <B>GraphicsMode</B> customized feature that has an HPGL2MODE option. To provide raster graphics support as well, include a RASTERMODE option.</LI>
+</OL>
+
+<P>You can set the personality attribute in this way:</P>
+
+<PRE>*Personality: =PERSONALITY_HPGL2</PRE>
+
+<P>The PERSONALITY_HPGL2 constant is defined in <I>stdnames.gpd</I>.</P>
+
+<P>The following GPD example demonstrates setting the *<B>Personality</B> attribute and defining a <B>GraphicsMode</B> customized feature with both a vector graphics mode, as well as a raster graphics mode. Note that the entire block is guarded by an <A HREF="nt5gpd_1d0n.htm#ddk__ifdef_gg">*<B>Ifdef:</B></A> GPD compiler directive.</P>
+
+<PRE>*Ifdef: WINNT_51
+*Personality: =PERSONALITY_HPGL2
+*Feature: GraphicsMode
+{
+    *rcNameID: =GRAPHICSMODE_DISPLAY
+    *FeatureType: DOC_PROPERTY
+    *HelpIndex: 12000
+    *DefaultOption: HPGL2MODE
+    *Option: HPGL2MODE
+    {
+        *rcNameID: =GRAPHICSMODE_HPGL2_DISPLAY
+    }
+    *Option: RASTERMODE
+    {
+        *rcNameID: =GRAPHICSMODE_RASTER_DISPLAY
+    }
+}
+*Endif:
+</PRE>
+
+<P>The WINNT_51 parameter used in the above directive applies to versions of Unidrv, rather than operating system versions. For a Windows&nbsp;XP Unidrv printer driver running on Windows&nbsp;2000, the WINNT_51 parameter is defined and the block is compiled. For earlier Unidrv versions, regardless of operating system version, this parameter is undefined, and the block is not compiled.</P>
+
+<P>A GPD file for a color printer should also define a <B>ColorMode</B> feature, as shown in the following generic sample. Note that specific details of your printer might require changes to certain values. </P>
+
+<PRE>*Feature: ColorMode
+{
+  *rcNameID: =COLOR_PRINTING_MODE_DISPLAY
+  *HelpIndex: 12004
+  *DefaultOption: 24bpp
+  *Option: Mono
+   {
+     *rcNameID: =MONO_DISPLAY
+     *DevNumOfPlanes: 1
+     *DevBPP: 1
+     *Color?: FALSE
+     *Command: CmdSelect
+      {
+        *Order: PAGE_SETUP.16 
+        *Cmd: "&lt;1B&gt;&amp;b1M"
+      }
+   }
+  *Option: 24bpp
+   {
+     *rcNameID: =24BPP_DISPLAY
+     *DevNumOfPlanes: 1
+     *DevBPP: 24
+     *DrvBPP: 24
+     *PaletteSize: 256
+     *PaletteProgrammable?: TRUE
+     *Command: CmdDefinePaletteEntry
+      {
+        *Cmd : "&lt;1B&gt;*v" %d{RedValue}"a"
++                       %d{GreenValue}"b"
++                       %d{BlueValue}"c"
++                       %d{PaletteIndexToProgram}"I"
+      }
+     *Command: CmdSelectPaletteEntry { *Cmd : "&lt;1B&gt;*v" 
++                        %d{CurrentPaletteIndex}"S" }
+     *Command: CmdSetSrcBmpWidth { *Cmd : "&lt;1B&gt;*r" 
++                        %d{RasterDataWidthInBytes / 3}"S" }
+     *Command: CmdSelect
+      {
+        *Order: PAGE_SETUP.16
+        *Cmd: "&lt;1B&gt;*v1N&lt;1B&gt;*v1O&lt;1B&gt;*l184O&lt;1B&gt;*v6W&lt;000308080808&gt;
++              &lt;1B&gt;*v0a0b0c7i255a255b255c"
+      }
+   }
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Enabling%20HP-GL%2F2%20Vector%20Graphics%20Support%20(PCL-5e)%20in%20the%20GPD"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

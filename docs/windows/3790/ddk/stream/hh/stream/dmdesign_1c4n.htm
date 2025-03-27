@@ -1,0 +1,34 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>MIDI to Wave</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="MIDI to Wave">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_midi_to_wave_ksg"></A>MIDI to Wave</H3>
+
+<P>The main work of the synthesizer is done in two steps: 
+
+<UL>
+	<LI>Getting MIDI messages</LI>
+
+	<LI>Mixing the rendered notes into the wave audio stream</LI>
+</UL>
+
+<P>This section details generally how this is done in user mode, although the concepts are essentially the same in kernel mode. See <A HREF="dmdesign_4rzb.htm">Kernel Mode Hardware Acceleration DDI</A> for specifics on how to do the same with a kernel-mode miniport driver.</P>
+
+<P>In user mode, the application calls <A HREF="audmp-routines_5a2b.htm"><B>IDirectMusicSynth::PlayBuffer</B></A> when it has MIDI messages ready to play. The application is responsible for calling <B>PlayBuffer</B> in a timely fashion and for time-stamping the buffer correctly, taking the <A HREF="dmdesign_15ev.htm">synthesizer's latency</A> into account. Your implementation of this method retrieves the waiting messages and stores them in an internal format, which is stamped with a time that is based on the reference time that is passed in with the buffer.</P>
+
+<P>The synth sink calls <A HREF="audmp-routines_3y2b.htm"><B>IDirectMusicSynth::Render</B></A> whenever it is ready to receive data. For example, if the destination for the rendered data is a DirectSound&reg; secondary buffer, your implementation of <A HREF="audmp-routines_75ir.htm"><B>IDirectMusicSynthSink::Activate</B></A> might set up a thread that waits for a DirectSound <B>PlayBuffer</B> notification. When the DirectSound buffer requires data, DirectSound notifies the thread, which in turn calls <B>Render</B>, passing in a pointer to the <B>IDirectSoundBuffer</B> object (described in the Platform SDK documentation) and the number and position of the samples that are to be rendered. </P>
+
+<P>The DirectSound buffer is circular. Because wraparound occurs at the end of the buffer, the possibility of a virtually contiguous region being split into two pieces must be taken into account. The synth sink typically handles the split by calling <B>Render</B> twice, once for each part of the locked portion of the DirectSound buffer, so that the <B>Render</B> method only has to deal with contiguous blocks of memory. The synth sink calls <B>IDirectSoundBuffer::Lock</B> on a DirectSound buffer to ask for write permission to a region within the buffer. For example, if the synth sink calls <B>Lock</B> on 2 kilobytes (KB) of data starting 1 KB from the end of the buffer, then the call locks the last 1 KB up to the end of the buffer and another 1 KB starting at the beginning of the buffer. In this case, <B>Lock</B> actually returns two pointers and corresponding lengths, which together describe the region of the buffer that is locked. Each pointer is guaranteed to point to a contiguous block of memory.</P>
+
+<P>Your implementation of the <B>Render</B> method is responsible for determining what must be done in response to the MIDI messages that are retrieved in <B>PlayBuffer</B>. From the <I>dwLength</I> parameter values of successive calls to <B>Render</B>, the method can keep track of the sample time and act on messages that are valid for the current rendering period. When a note-on message is processed, the note can be stored internally and rendered again on each pass through the method until a corresponding note-off message is received.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: MIDI%20to%20Wave"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

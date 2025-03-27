@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IRP_MN_EXECUTE_METHOD</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IRP_MN_EXECUTE_METHOD">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_irp_mn_execute_method_kr"></A>IRP_MN_EXECUTE_METHOD</H1>
+
+<P>All drivers that support methods within data blocks must handle this IRP.</P>
+
+<H4>Major Code</H4>
+
+<P><A HREF="k113_8hwy.htm">IRP_MJ_SYSTEM_CONTROL</A> </P>
+
+<H4>When Sent</H4>
+
+<P>WMI sends this IRP to execute a method associated with a data block.</P>
+
+<P>WMI sends this IRP at IRQL = PASSIVE_LEVEL in an arbitrary thread context.</P>
+
+<P>WMI will send an <A HREF="k901_1bua.htm">IRP_MN_QUERY_SINGLE_INSTANCE</A> prior to sending an IRP_MN_EXECUTE_METHOD. If a driver supports IRP_MN_EXECUTE_METHOD it must have a IRP_MN_QUERY_SINGLE_INSTANCE handler for the same data block whose method is being executed<I>.</I></P>
+
+<P><B>Input</B></P>
+
+<P><B>Parameters.WMI.ProviderId</B> points to the device object of the driver that should respond to the request. This pointer is located in the driver's I/O stack location in the IRP.</P>
+
+<P><B>Parameters.WMI.DataPath</B> points to a GUID that identifies the data block associated with the method to execute. </P>
+
+<P><B>Parameters.WMI.BufferSize</B> indicates the size of the nonpaged buffer at <B>Parameters.WMI.Buffer </B>which must be &gt;= <B>sizeof(</B>WNODE_METHOD_ITEM<B>)</B> plus the size of any output data for the method.</P>
+
+<P><B>Parameters.WMI.Buffer</B> points to a <A HREF="k112_8mya.htm">WNODE_METHOD_ITEM</A> structure in which <B>MethodID</B> indicates the identifier of the method to execute and <B>DataBlockOffset </B>indicates the offset in bytes from the beginning of the structure to the first byte of input data, if any. <B>Parameters.WMI.Buffer-&gt;SizeDataBlock</B> indicates the size in bytes of the input WNODE_METHOD_ITEM including input data, or zero if there is no input.</P>
+
+<H4>Output </H4>
+
+<P>If the driver handles WMI IRPs by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, WMI fills in the <A HREF="k112_8mya.htm">WNODE_METHOD_ITEM</A> with data returned by the driver's <A HREF="k903_26nm.htm"><I>DpWmiExecuteMethod</I></A> routine.</P>
+
+<P>Otherwise, the driver fills in the WNODE_METHOD_ITEM structure that <B>Parameters.WMI.Buffer</B> points to as follows:
+
+<UL>
+	<LI>Updates <B>WnodeHeader.BufferSize </B>with the size of the output WNODE_METHOD_ITEM, including any output data.</LI>
+
+	<LI>Updates <B>SizeDataBlock </B>with the size of the output data, or zero if there is no output data.</LI>
+
+	<LI>Checks <B>Parameters.WMI.Buffersize</B> to determine whether the buffer is large enough to receive the output WNODE_METHOD_ITEM including any output data. If the buffer is not large enough, the driver fills in the needed size in a <A HREF="k112_3642.htm">WNODE_TOO_SMALL</A> structure pointed to by <B>Parameters.WMI.Buffer</B>. If the buffer is smaller than <B>sizeof(</B>WNODE_TOO_SMALL<B>)</B>, the driver fails the IRP and returns STATUS_BUFFER_TOO_SMALL. </LI>
+
+	<LI>Writes output data, if any, over input data starting at <B>DataBlockOffset</B>. The driver must not change the input value of <B>DataBlockOffset</B>.</LI>
+</UL>
+
+<H4>I/O Status Block</H4>
+
+<P>If the driver handles the IRP by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, WMI sets <B>Irp-&gt;IoStatus.Status</B> and <B>Irp-&gt;IoStatus.Information</B> in the I/O status block.</P>
+
+<P>Otherwise, the driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS or to an appropriate error status such as the following:</P>
+
+<P class=indent1>STATUS_BUFFER_TOO_SMALL</P>
+
+<P class=indent1>STATUS_WMI_GUID_NOT_FOUND</P>
+
+<P class=indent1>STATUS_WMI_INSTANCE_NOT_FOUND</P>
+
+<P class=indent1>STATUS_WMI_ITEMID_NOT_FOUND</P>
+
+<P>On success, a driver sets <B>Irp-&gt;IoStatus.Information</B> to the number of bytes written to the buffer at <B>Parameters.WMI.Buffer</B>.</P>
+
+<H4>Operation</H4>
+
+<P>A driver can handle WMI IRPs either by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A> or by handling the IRP itself, as described in <A HREF="wmi_9d47.htm">Handling WMI Requests</A>.</P>
+
+<P>If a driver handles WMI IRPs by calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, that routine calls the driver's <A HREF="k903_26nm.htm"><I>DpWmiExecuteMethod</I></A> routine, or returns STATUS_INVALID_DEVICE_REQUEST if the driver does not define the routine. </P>
+
+<P>If a driver handles an IRP_MN_EXECUTE_METHOD request itself, it must do so only if <B>Parameters.WMI.ProviderId</B> points to the same device object as the pointer that the driver passed to <A HREF="k104_5dbm.htm"><B>IoWMIRegistrationControl</B></A>. Otherwise, the driver must forward the request to the next-lower driver.</P>
+
+<P>The driver is responsible for validating all input values. Specifically, the driver must do the following if it handles the IRP request itself:
+
+<UL>
+	<LI>For static names, verify that the <B>InstanceIndex</B> member of the <A HREF="k112_8mya.htm">WNODE_METHOD_ITEM</A> structure is within the range of instance indexes supported by the driver for the data block.</LI>
+
+	<LI>For dynamic names, verify that the instance name string identifies a data block instance supported by the driver.</LI>
+
+	<LI>Verify that the <B>MethodId</B> member of the <A HREF="k112_8mya.htm">WNODE_METHOD_ITEM</A> structure is within the range of method identifiers supported by the driver for the data block, and that the caller is allowed to execute the method.</LI>
+
+	<LI>Verify that the <B>DataBlockOffset</B> and <B>SizeDataBlock</B> members of the <A HREF="k112_8mya.htm">WNODE_METHOD_ITEM</A> structure describe a buffer that is large enough to contain the specified method's parameters, and that the parameters are valid for the method.</LI>
+
+	<LI>Verify that <B>Parameters.WMI.Buffersize</B> specifies a buffer that is large enough to receive the WNODE_METHOD_ITEM structure after it has been updated with output data.</LI>
+</UL>
+
+<P>Do not assume the thread context is that of the initiating user-mode application – a higher-level driver might have changed it.</P>
+
+<P>Before handling the request, the driver must determine whether <B>Parameters.WMI.DataPath</B> points to a GUID supported by the driver. If not, the driver must fail the IRP and return STATUS_WMI_GUID_NOT_FOUND.</P>
+
+<P>If the driver supports the data block, it checks the input <A HREF="k112_8mya.htm">WNODE_METHOD_ITEM</A> at <B>Parameters.WMI.Buffer</B> for the instance name, as follows: 
+
+<UL>
+	<LI>If WNODE_FLAG_STATIC_INSTANCE_NAMES is set in <B>WnodeHeader.Flags</B>, the driver uses <B>InstanceIndex</B> as an index into the driver's list of static instance names for that block. WMI obtains the index from registration data that was provided by the driver when it registered the block.</LI>
+
+	<LI>If WNODE_FLAG_STATIC_INSTANCE_NAMES is clear in <B>WnodeHeader.Flags,</B> the driver uses the offset at <B>OffsetInstanceName</B> to locate the instance name string in the input WNODE_METHOD_ITEM. <B>OffsetInstanceName</B> is the offset in bytes from the beginning of the structure to a USHORT which is the length of the instance name string in bytes (not characters), including the NULL terminator if present, followed by the instance name string in Unicode. </LI>
+</UL>
+
+<P>If the driver cannot locate the specified instance, it must fail the IRP and return STATUS_WMI_INSTANCE_NOT_FOUND. For an instance with a dynamic instance name, this status indicates that the driver does not support the instance. WMI can therefore continue to query other data providers, and return an appropriate error to the data consumer if another provider finds the instance but cannot handle the request for some other reason.</P>
+
+<P>The driver then checks the method ID in the input WNODE_METHOD_ITEM to determine whether it is a valid method for that data block. If not, the driver fails the IRP and returns STATUS_WMI_ITEMID_NOT_FOUND.</P>
+
+<P>If the method generates output, the driver should check the size of the output buffer in <B>Parameters.WMI.BufferSize </B>before performing any operation that might have side effects or that should not be performed twice. For example, if a method returns the values of a group of counters and then resets the counters, the driver should check the buffer size (and fail the IRP if the buffer is too small) before resetting the counters. This ensures that WMI can safely resend the request with a larger buffer.</P>
+
+<P>If the instance and method ID are valid and the buffer is adequate in size, the driver executes the method. If <B>SizeDataBlock</B> in the input WNODE_METHOD_ITEM is nonzero, the driver uses the data starting at <B>DataBlockOffset</B> as input for the method. </P>
+
+<P>If the method generates output, the driver writes the output data to the buffer starting at <B>DataBlockOffset</B> and sets <B>SizeDataBlock</B> in the output WNODE_METHOD_ITEM to the number of bytes of output data. If the method has no output data, the driver sets <B>SizeDataBlock</B> to zero. The driver must not change the input value of <B>DataBlockOffset</B>.</P>
+
+<P>If the instance is valid but the driver cannot handle the request, it can return any appropriate error status.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k903_26nm.htm"><I>DpWmiExecuteMethod</I></A>, <A HREF="k104_5dbm.htm"><B>IoWMIRegistrationControl</B></A>, <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A>, <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, <A HREF="k112_8mya.htm">WNODE_METHOD_ITEM</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IRP_MN_EXECUTE_METHOD"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

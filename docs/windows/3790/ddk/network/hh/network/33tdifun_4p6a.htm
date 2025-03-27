@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TdiPnPPowerRequest</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TdiPnPPowerRequest">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdipnppowerrequest_nr"></A>TdiPnPPowerRequest</H1>
+
+<P>The <B>TdiPnPPowerRequest</B> function forwards a power-state change notification from the transport to all its clients on a particular transport-to-NIC binding. </P>
+
+<PRE class=syntax><B>NTSTATUS</B>
+  <B>TdiPnPPowerRequest(</B>
+    <B>IN PUNICODE_STRING</B>  <I>DeviceName</I><B>,</B>
+    <B>IN PNET_PNP_EVENT</B>  <I>PowerEvent</I><B>,</B>
+    <B>IN PTDI_PNP_CONTEXT</B>  <I>Context1</I><B>,</B>
+    <B>IN PTDI_PNP_CONTEXT</B>  <I>Context2</I><B>,</B><I>
+    </I><B>IN ProviderPnPPowerComplete</B>  <I>ProtocolCompletionHandler</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceName</I></DT>
+
+<DD>Pointer to a caller-supplied buffered Unicode string identifying the transport-created device object that represents this transport-to-NIC binding. The transport previously registered this device object with TDI, using this name, when it called <B>TdiRegisterDeviceObject</B>. </DD>
+
+<DT><I>PowerEvent</I></DT>
+
+<DD>Pointer to a NET_PNP_EVENT structure, supplied by NDIS when it indicated this power-state event to the <I>ProtocolPnPEvent</I> function of the (monolithic) transport or of the lowest driver in the (multidriver) transport stack. The <B>NetEvent</B> member of this structure is set to one of the following NDIS-defined NET_PNP_EVENT_CODE values: 
+
+<P class=indent1><B>NetEventSetPower</B></P>
+
+
+<P class=indent1><B>NetEventQueryPower</B></P>
+
+
+<P class=indent1><B>NetEventQueryRemoveDevice</B></P>
+
+
+<P class=indent1><B>NetEventCancelRemoveDevice</B></P>
+</DD>
+
+<DT><I>Context1</I></DT>
+
+<DD>Pointer to a transport-determined context associated with this type of power-state indication. This transport-supplied context information is protocol-specific in nature and intended to give clients a hint about how to interpret and handle the indication. 
+
+<P>For example, TCP/IP passes a pointer to a list of addresses associated with the context of this notification. 
+</DD>
+
+<DT><I>Context2</I></DT>
+
+<DD>Pointer to a transport-determined context associated with this type of power-state indication. 
+
+<P>For example, TCP/IP passes a pointer to the PDO representing the physical device on which or for which this notification was generated. 
+</DD>
+
+<DT><I>ProtocolCompletionHandler</I></DT>
+
+<DD>Specifies the entry point of the transport-supplied completion routine, which TDI calls if any client handles this notification asynchronously and later returns something other than STATUS_SUCCESS for this indication. This TDI-defined handler can be declared as follows:
+
+<PRE>VOID
+    MyPnPPowerCompletionCallback(
+        IN PNET_PNP_EVENT  NetEvent,
+        IN NTSTATUS  FinalStatus
+        ); </PRE>
+
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>TdiPnPPowerRequest</B> returns STATUS_SUCCESS if all notified clients both handled this notification synchronously and returned STATUS_SUCCESS to indicate their acceptance of the power-state change. Otherwise, it can return one of the following:
+
+<DL>
+<DT>STATUS_PENDING</DT>
+
+<DD>At least one client will handle this notification asynchronously. TDI will call the transport-supplied routine at <I>ProtocolCompletionHandler</I> when all clients have completed their processing of this notification. </DD>
+
+<DT>STATUS_INSUFFICIENT_RESOURCES</DT>
+
+<DD>TDI currently cannot allocate sufficient resources to notify all clients of this power-state change. Because the availability of system resources is dynamic, a subsequent call from the same transport can succeed. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>TdiKrnl.h</I>. Include <I>TdiKrnl.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>When NDIS notifies a transport of a power-state-change event with a call to the <I>ProtocolPnPEvent</I> function at the lower edge of the transport driver or transport stack, the transport is responsible for notifying its higher level clients of any power-state changes that might affect their current network operations with a call to <B>TdiPnPPowerRequest</B>. </P>
+
+<P>Note that the transport does not make this call with certain PnP-type events, in particular the NDIS-defined types <B>NetEventReconfigure</B> and <B>NetEventBindingList</B>. Instead, NDIS calls TDI with these notifications and TDI, in turn, calls the registered ClientPnPBindingChange functions of all TDI clients. Depending on the status returned by each client, NDIS calls the <I>ProtocolBindAdapter </I>or <I>ProtocolUnbindAdapter</I> functions of those transports affected by such a PnP event notification. </P>
+
+<P>Such a transport might call other <B>Tdi</B><I>Xxx</I> routines as a consequence of these notifications from NDIS through TDI to registered clients. For example, the transport might call <B>TdiRegisterDeviceObject</B> and <B>TdiRegisterNetAddress</B> as a consequence of a <B>NetEventBindingList</B>-type notification, which originates with a change by the end user in the Connections folder. </P>
+
+<P>A transport calls <B>TdiProviderReady</B> during system setup as a consequence of the <B>NetEventBindsComplete</B>-type notification from NDIS to the <I>ProtocolBindAdapter</I> function at the lower edge of the transport stack. </P>
+
+<P>Callers of <B>TdiPnPPowerRequest</B> must be running at IRQL &lt; DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_4h9u.htm"><B>ClientPnPPowerChange</B></A>, <A HREF="105nstru_6c1e.htm"><B>NET_PNP_EVENT</B></A>, <A HREF="104tdlow_2bqq.htm"><B>ProtocolBindAdapter</B></A>, <A HREF="104tdlow_5muq.htm"><B>ProtocolPnPEvent</B></A>, <A HREF="104tdlow_1l6a.htm"><B>ProtocolUnbindAdapter</B></A>, <A HREF="33tdifun_63ci.htm"><B>TdiPnPPowerComplete</B></A>, <A HREF="33tdifun_9r02.htm"><B>TdiProviderReady</B></A>, <A HREF="33tdifun_2d0y.htm"><B>TdiRegisterDeviceObject</B></A>, <A HREF="33tdifun_6uia.htm"><B>TdiRegisterNetAddress</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TdiPnPPowerRequest"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

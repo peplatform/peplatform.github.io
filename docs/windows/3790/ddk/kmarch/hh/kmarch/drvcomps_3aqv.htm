@@ -1,0 +1,54 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DriverEntry's Optional Responsibilities</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DriverEntry's Optional Responsibilities">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_driverentry_s_optional_responsibilities_kg"></A>DriverEntry's Optional Responsibilities</H2>
+
+<P>Depending on the position of a particular driver in a chain of layered drivers, the nature of the underlying device, and the design of the driver, a <A HREF="drvrrtns_6r76.htm"><B>DriverEntry</B></A> routine also can be responsible for the following: 
+
+<UL>
+	<LI>Calling <A HREF="k104_1po2.htm"><B>IoAllocateDriverObjectExtension</B></A> to create and initialize a driver object extension, if the driver requires storage for data on a driver-wide basis. The driver object extension is a driver-specific data structure. For example, a driver might use its driver object extension to store a registry path or other global information. </LI>
+
+	<LI>Calling <A HREF="k108_0q42.htm"><B>PsCreateSystemThread</B></A> to create executive worker threads, if the driver is a highest-level driver (such as a file system driver) that uses such threads. In this case, the driver must also have a callback routine of type WORKER_THREAD_ROUTINE, which takes a single input PVOID <I>Parameter</I>. </LI>
+
+	<LI>Registering a <A HREF="drvrrtns_2i0i.htm"><I>Reinitialize</I></A> routine. (See <A HREF="drvcomps_94br.htm">Writing a Reinitialize Routine</A>.)</LI>
+
+	<LI>Handling class-specific initialization requirements that differ from those discussed here, such as those that a device-specific miniport or miniclass driver working in tandem with a port or class driver might have. See the device-type specific documentation in this DDK for details.</LI>
+</UL>
+
+<H4>Providing Storage for System Resources</H4>
+
+<P>Per-device objects should be allocated in the <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine or in the Dispatch routine that handles the PnP <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> request, not in <B>DriverEntry</B>. </P>
+
+<P>However, a driver might need to allocate additional system-space memory for other driver-wide uses. If so, the <B>DriverEntry</B> routine can call one (or more) of the following routines:
+
+<UL>
+	<LI><A HREF="k104_1po2.htm"><B>IoAllocateDriverObjectExtension</B></A>, to create a context area associated with the driver object</LI>
+
+	<LI><A HREF="k102_2omq.htm"><B>ExAllocatePoolWithTag</B></A> for paged or nonpaged system-space memory</LI>
+
+	<LI><A HREF="k106_5j1u.htm"><B>MmAllocateNonCachedMemory</B></A> or <A HREF="k106_8qpe.htm"><B>MmAllocateContiguousMemory</B></A> for cache-aligned nonpaged system-space memory (used for I/O buffers)</LI>
+</UL>
+
+<P>Every <B>DriverEntry</B> routine is run in the context of a system thread at IRQL = PASSIVE_LEVEL. Therefore, any memory allocated with <B>ExAllocatePoolWithTag</B> for use exclusively during initialization can be from paged pool, as long as the driver does not control the device that holds the system page file. The allocated memory must be released with <B>ExFreePool</B> before <B>DriverEntry</B> returns control. However, a driver that sets a <I>Reinitialize</I> routine can pass a pointer to this memory when it calls <B>IoRegisterDriverReinitialization</B>, thus making the driver’s <I>Reinitialize</I> routine responsible for freeing the memory allocation.</P>
+
+<H4>Claiming Hardware Resources </H4>
+
+<P>Older, non-PnP drivers claimed resources from the registry. PnP drivers, on the other hand, neither claim device resources from nor directly write resource requirements to the registry. Instead, these drivers report requirements in response to certain PnP IRPs, as part of the PnP Manager's enumeration process. A PnP driver receives its allocated resources in a PnP IRP_MN_START_DEVICE request. </P>
+
+<P>Drivers that do not interact directly with the PnP Manager, such as certain miniport drivers, might have different reporting requirements imposed by a class or port driver that does interact with the PnP Manager. Such requirements are specific to the device class. For device-specific and class-specific details, see the documentation for the relevant device class in this DDK.</P>
+
+<H4>Using the Registry</H4>
+
+<P>A <B>DriverEntry</B> routine might use the registry to get some of the information it needs to initialize the driver, or it might set information in the registry for other drivers or protected subsystems to use. The nature of the information depends on the type of device. Drivers can access the registry using <B>Zw</B><I>Xxx</I> and <B>Rtl</B><I>Xxx</I> routines. The <B>DriverEntry</B> routine's <I>RegistryPath</I> parameter points to a counted Unicode string that specifies a path to the driver's registry key, <B>\Registry\Machine\System\CurrentControlSet\Services\</B><I>DriverName</I>. The routine should save a copy of the string, not the pointer itself, since the pointer is no longer valid after <B>DriverEntry</B> returns.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DriverEntry's%20Optional%20Responsibilities"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,63 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Creating IOCTL Requests in Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Creating IOCTL Requests in Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_engdeviceiocontrol_gg">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_video_miniport_drivers_gg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_creating_ioctl_requests_in_drivers_kg"></A>Creating IOCTL Requests in Drivers</H2>
+
+<P>A class driver or other higher-level driver can allocate IRPs for I/O control requests and send them to the next-lower driver as follows:
+
+<OL>
+	<LI>Call <A HREF="k104_8ble.htm"><B>IoBuildDeviceIoControlRequest</B></A> to allocate an IRP with the major function code IRP_MJ_DEVICE_CONTROL or IRP_MJ_INTERNAL_DEVICE_CONTROL.</LI>
+
+	<LI>Set up the lower driver’s I/O stack location for the IRP with the IOCTL_<I>XXX</I> code and appropriate parameters.</LI>
+
+	<LI>Call <A HREF="k104_5w6q.htm"><B>IoSetCompletionRoutine</B></A> with the IRP, so that the upper driver can supply an <I>IoCompletion</I> routine, if necessary, to:
+<UL>
+	<LI>Determine how the lower driver handled a given request.</LI>
+
+	<LI>Reuse the IRP to send another request or dispose of the driver-created IRP, after the lower driver completes a requested operation.</LI>
+</UL>
+</LI>
+
+	<LI>Call <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A> to pass the request on to the lower driver.</LI>
+</OL>
+
+<P>To avoid synchronization problems and possible access violations, parameters for I/O control codes rarely include embedded pointers. With the exception of certain SCSI requests, the buffers at<B> Irp-&gt;AssociatedIrp.SystemBuffer</B>, at <B>Irp-&gt;MdlAddress</B>, and at <B>Parameters.DeviceIoControl.Type3InputBuffer</B> in a driver's I/O stack location do not contain pointers to other data buffers, nor do they contain structures that contain pointers, for system-defined I/O control codes. For more information about how data buffers are used with IRPs that contain I/O control codes, see <A HREF="irps_7j53.htm">Buffer Descriptions for I/O Control Codes</A>.</P>
+
+<P>Nevertheless, a pair of class/port drivers that define internal I/O control codes <I>can</I> pass an embedded pointer to driver-allocated memory from the higher-level driver to the lower-level driver. Such a pair of class/port drivers is responsible for ensuring that:
+
+<UL>
+	<LI>Only one driver at a time can access the data.</LI>
+
+	<LI>Private data buffers are accessible in an arbitrary thread context by the port driver.</LI>
+</UL>
+
+<P>Display drivers can call the GDI function <A HREF="JavaScript:hhobj_1.Click()"><B>EngDeviceIoControl</B></A> to send privately defined, device-specific I/O control requests, as well as system-defined public I/O control requests, through the system video port driver down to the corresponding adapter-specific <A HREF="JavaScript:hhobj_2.Click()">video miniport driver</A>.</P>
+
+<P>Any user-mode component of a driver package can call <B>DeviceIoControl</B> to send I/O control requests to a driver stack. The I/O Manager creates an IRP_MJ_DEVICE_CONTROL request and delivers it to the highest-level driver.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Creating%20IOCTL%20Requests%20in%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

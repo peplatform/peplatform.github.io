@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AddDevice Routines in Function or Filter Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="AddDevice Routines in Function or Filter Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_interface_classes_dg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_adddevice_routines_in_function_or_filter_drivers_kg"></A><I>AddDevice</I> Routines in Function or Filter Drivers</H2>
+
+<P>An <I>AddDevice</I> routine in a function or filter driver should take the following steps:
+
+<OL>
+	<LI>Call <A HREF="k104_8piq.htm"><B>IoCreateDevice</B></A> to create a functional or filter device object (an FDO or filter DO) for the device being added. 
+<P>Do not specify a <I>DeviceName</I> for the device object, because doing so bypasses the PnP Manager's security. If a user-mode component needs a symbolic link to the device, register a device interface (see the next step below). If a kernel-mode component needs a legacy device name, the driver must name the device object, but naming is not recommended. 
+
+<P>Include FILE_DEVICE_SECURE_OPEN in the <I>DeviceCharacteristics</I> parameter. This characteristic directs the I/O Manager to perform security checks against the device object for all open requests, including relative opens and trailing file name opens.
+</LI>
+
+	<LI>[optional] Create one or more symbolic links to the device. 
+<P>Call <A HREF="k104_27n6.htm"><B>IoRegisterDeviceInterface</B></A> to register device functionality and create a symbolic link that applications or system components can use to open the device. The driver should enable the interface by calling <A HREF="k104_3epe.htm"><B>IoSetDeviceInterfaceState</B></A> when it handles the <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> request. For more information, see <A HREF="JavaScript:hhobj_1.Click()">Device Interface Classes</A>.
+</LI>
+
+	<LI>Store the pointer to the device's PDO in the device extension.
+<P>The PnP Manager supplies a pointer to the PDO as the <I>PhysicalDeviceObject</I> parameter to <I>AddDevice</I>. Drivers use the PDO pointer in calls to routines such as <A HREF="k104_7pgy.htm"><B>IoGetDeviceProperty</B></A>.
+</LI>
+
+	<LI>Define flags in the device extension to track certain PnP states of the device, such as device paused, removed, and surprise-removed. 
+<P>For example, define one flag to indicate that incoming IRPs should be held while the device is in a paused state. Create a queue for holding IRPs, if the driver does not already have a mechanism for queuing IRPs. See <A HREF="irps_4mqv.htm">Queuing and Dequeuing IRPs</A> for more information.
+
+<P>Also allocate an IO_REMOVE_LOCK structure in the device extension and call <A HREF="k104_814i.htm"><B>IoInitializeRemoveLock</B></A> to initialize this structure. 
+</LI>
+
+	<LI>Set the DO_POWER_INRUSH or DO_POWER_PAGABLE flag for power management, if necessary. Drivers that are pageable must set the DO_POWER_PAGABLE flag. The device object flags are typically set by the bus driver when it creates the PDO for the device. However, higher-level drivers may occasionally need to alter the values of these flags in their <I>AddDevice</I> routines when they create the FDO or filter DO. See <A HREF="pwrmgmt_7qjr.htm">Setting Device Object Flags for Power Management</A> for details.</LI>
+
+	<LI>Create and/or initialize any other software resources the driver uses to manage this device, such as events, spin locks, or other objects. (Hardware resources, such as I/O ports, are configured later, in response to an <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> request.)
+<P>Because an <I>AddDevice</I> routine runs in a system thread context at IRQL = PASSIVE_LEVEL, any memory allocated with <A HREF="k102_2omq.htm"><B>ExAllocatePoolWithTag</B></A> for use exclusively during initialization can be from paged pool, as long as the driver does not control the device that holds the system page file. Such a memory allocation must be released with <A HREF="k102_6uuq.htm"><B>ExFreePool</B></A> before <I>AddDevice</I> returns control.
+</LI>
+
+	<LI>Attach the device object to the device stack (<A HREF="k104_9tiq.htm"><B>IoAttachDeviceToDeviceStack</B></A>).
+<P>Specify a pointer to the device's PDO in the <I>TargetDevice</I> parameter. 
+
+<P>Store the pointer returned by <B>IoAttachDeviceToDeviceStack</B>. This pointer, which points to the device object of the next-lower driver for the device, is a required parameter to <B>IoCallDriver</B> and <B>PoCallDriver</B> when passing IRPs down the device stack.
+</LI>
+
+	<LI>Clear the DO_DEVICE_INITIALIZING flag in the FDO or filter DO with a statement like the following: 
+<PRE>FunctionalDeviceObject-&gt;Flags &amp;= ~DO_DEVICE_INITIALIZING;</PRE>
+</LI>
+
+	<LI>Be prepared to handle PnP IRPs for the device (such as <A HREF="pnp-irps_9jhu.htm">IRP_MN_QUERY_RESOURCE_REQUIREMENTS</A> and <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A>).</LI>
+</OL>
+
+<P>A driver must not start controlling the device until it receives an IRP_MN_START_DEVICE containing the list of hardware resources assigned to the device by the PnP Manager.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: AddDevice%20Routines%20in%20Function%20or%20Filter%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

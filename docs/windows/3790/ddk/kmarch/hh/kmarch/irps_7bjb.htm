@@ -1,0 +1,46 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>How to Complete an IRP in a Dispatch Routine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="How to Complete an IRP in a Dispatch Routine">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_how_to_complete_an_irp_in_a_dispatch_routine_kg"></A>How to Complete an IRP in a Dispatch Routine</H3>
+
+<P>If an input IRP can be completed immediately, a dispatch routine does the following:
+
+<OL>
+	<LI>Sets the <B>Status</B> and <B>Information</B> members of the IRP’s I/O status block with appropriate values, in general: 
+<UL>
+	<LI>The dispatch routine sets <B>Status</B> either to STATUS_SUCCESS or to an appropriate error STATUS_<I>XXX</I>, which can be the value returned by a call to a support routine or, for certain synchronous requests, by a lower driver. 
+<P>If a lower-level driver returns STATUS_PENDING, a higher-level driver should not call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with an IRP unless it calls <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A> with that IRP first. However, a higher-level driver’s dispatch routine is unlikely to complete any IRP for which lower driver(s) return STATUS_PENDING. 
+</LI>
+
+	<LI>It sets <B>Information</B> to the number of bytes successfully transferred if a request to transfer data, such as a read or write request, was satisfied. </LI>
+
+	<LI>It sets <B>Information</B> to a value that varies according to the specific request for other IRPs that it completes with STATUS_SUCCESS. </LI>
+
+	<LI>It sets <B>Information</B> to a value that varies according to the specific request for IRPs that it completes with a warning STATUS_<I>XXX</I>. For example, it would set <B>Information</B> to the number of bytes transferred for such a warning as STATUS_BUFFER_OVERFLOW. </LI>
+
+	<LI>Usually, it sets <B>Information</B> to zero for requests that it completes with an error STATUS_<I>XXX</I>. </LI>
+</UL>
+</LI>
+
+	<LI>Calls <B>IoCompleteRequest</B> with the IRP and the <I>PriorityBoost</I> IO_NO_INCREMENT.</LI>
+
+	<LI>Returns the appropriate STATUS_<I>XXX</I> that it already set in the I/O status block. Note that a call to <B>IoCompleteRequest</B> makes the given IRP inaccessible by the caller, so the return value from a dispatch routine <I>cannot</I> be set from the I/O status block of an already completed IRP. </LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Follow this implementation guideline for calling IoCompleteRequest with an IRP: </B></P>
+
+<P class=indent1><I>Always</I> release any spin lock(s) the driver is holding <I>before</I> calling <B>IoCompleteRequest</B>. </P>
+
+<P>It takes an indeterminate amount of time to complete an IRP, particularly in a chain of layered drivers. Moreover, a deadlock can occur if a higher-level driver’s <I>IoCompletion</I> routine sends an IRP back down to a lower driver that is holding a spin lock. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: How%20to%20Complete%20an%20IRP%20in%20a%20Dispatch%20Routine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,145 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Data Transfer Model For Streaming Video Input</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_2644"></A>Data Transfer Model For Streaming Video Input</H3>
+
+<P>The data transfer model for streaming video input is similar to the model defined for the waveform device drivers. If you have worked with the waveform device drivers, many of the concepts used there will be usable with video capture device drivers. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>The following sequence of operations occurs when streaming video data between a video capture device driver and a client-application</B>
+
+<OL>
+	<LI>The client allocates the memory buffers for the video data. </LI>
+
+	<LI>The client initializes the data stream (DVM_STREAM_INIT). </LI>
+
+	<LI>The client requests that the driver prepare the data buffers (DVM_STREAM_PREPAREHEADER). </LI>
+
+	<LI>The client sends the empty data buffers to the driver (DVM_STREAM_ADDBUFFER). </LI>
+
+	<LI>The driver puts the data buffers in its input queue. </LI>
+
+	<LI>When the streaming operation begins with DVM_STREAM_START, the driver fills a data buffer and sets the done bit for the data buffer. The driver will then release the buffer from its queue and proceed to fill the next buffer. </LI>
+
+	<LI>When the client is ready for data, it uses the done bit or callback to see if the data in the buffer is ready. </LI>
+
+	<LI>After the client empties the buffer, it resets the done bit and sends the empty buffer back to the driver for it to add to its queue (DVM_STREAM_ADDBUFFER). </LI>
+</OL>
+
+<P>Once the stream starts, the client-application and the video capture driver do not communicate directly. The video capture driver fills the data buffers at the rate specified by the client-application using the frame rate information provided with the DVM_STREAM_INIT message. It fills the buffers without waiting for any synchronization signal from the application as long as buffers are available and it is not paused or stopped by the application. The buffers are filled in the order that the driver receives them from the application. (If the device driver runs out of buffers, it should set an error flag. A client-application can use the DVM_STREAM_GETERROR message to test for this condition.) </P>
+
+<P>The client-application expects the buffers back in the order that it sends them to the device driver. When it is ready for more data, it will check the done bit of the next buffer it expects to receive from the device driver. If the done bit is set, the application continues operation with that buffer. If the done bit is not set, the application will periodically check the done bit while it waits for the buffer. </P>
+
+<P>Streaming continues until it is stopped by the application. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>The following sequence of operations occurs when the application has finished capturing data</B>
+
+<OL>
+	<LI>When the client stops the streaming operation with DVM_STREAM_STOP, the driver stops filling buffers. </LI>
+
+	<LI>If the client wants to restart streaming, it sends DVM_STREAM_START. If the client is finished streaming, it requests that the driver unprepare the data buffers (DVM_STREAM_UNPREPAREHEADER). </LI>
+
+	<LI>The client releases the data stream (DVM_STREAM_FINI) and frees the memory allocated for the video data. </LI>
+</OL>
+
+<H4>Initializing the Data Stream</H4>
+
+<P>The DVM_STREAM_INIT message initializes a video device for data streaming. This message must precede all other streaming messages for a channel. </P>
+
+<P>The <I>lParam1</I> parameter of DVM_STREAM_INIT specifies a far pointer to a VIDEO_STREAM_INIT_PARMS structure and the <I>lParam2</I> specifies its size in bytes. The VIDEO_STREAM_INIT_PARMS structure has the following members: </P>
+
+<PRE>typedef struct tag_video_stream_init_parms {
+    DWORD  dwMicroSecPerFrame;
+    DWORD  dwCallback;
+    DWORD  dwCallbackInst;
+    DWORD  dwFlags;
+    DWORD  hVideo;
+} VIDEO_STREAM_INIT_PARMS;
+ </PRE>
+
+<P>The different channels handle the message and data structure in different ways. </P>
+
+<P>For external in channels, DVM_STREAM_INIT enables capture of images into the frame buffer. External in channels should expect this message at any time. They can ignore the <B>dwMicroSecPerFrame</B>, <B>dwCallback</B>, and <B>dwCallbackInst</B> members. The <B>dwFlags</B> member must contain the VIDEO_ALLOWSYNC flag for synchronous devices. </P>
+
+<P>For video in channels, DVM_STREAM_INIT sets the capture rate and callback information. The <B>dwMicroSecPerFrame</B> member specifies the number of microseconds between successive capture frames. The <B>dwCallback</B> member contains the address of a callback function or the handle to a window called during video streaming. (This parameter is set to NULL if a callback function or window is not used.) The callback procedure processes any messages related to the progress of recording. If a callback function address is specified, <B>dwFlags</B> is set to CALLBACK_FUNCTION. If the application has any data to pass to the callback function, it specifies the data in <B>dwCallbackInst</B>. If a callback window handle is specified, <B>dwFlags</B> is set to CALLBACK_WINDOW. Drivers can also use <B>DriverCallback</B> to send a message to a window or callback function. </P>
+
+<P>For external out channels, DVM_STREAM_INIT enables overlay display. External out channels should expect this message at any time. They can ignore the <B>dwMicroSecPerFrame</B>, <B>dwCallback</B>, and <B>dwCallbackInst</B> members. The <B>dwFlags</B> member contains any flags that might affect the external out channel. </P>
+
+<P>All channels return DV_ERR_OK if the message was processed successfully. All channels should return DV_ERR_ALLOCATED if the channel is already allocated or DV_ERR_NOMEM if they are unable to allocate or lock memory. </P>
+
+<H4>Preparing Data Buffers</H4>
+
+<P>Because video data buffers must be accessed at interrupt time, the memory allocated for them is subject to the requirements for interrupt driven drivers. Rather than have the client-application prepare the memory before sending data blocks to the driver, the client requests that the driver do the preparation. </P>
+
+<P>Most drivers can respond to the DVM_STREAM_PREPAREHEADER and DVM_STREAM_UNPREPAREHEADER messages) by returning a DV_ERR_UNSUPPORTED error. When your driver returns DV_ERR_UNSUPPORTED, the system will perform the necessary preparation on the data block. This consists of page locking the header and data sections so the driver can access them at interrupt time. </P>
+
+<P>If your device driver does not need the data to be page locked (for example, if you immediately copy the data to an on-card buffer) or if you have additional preparation to do to the buffer, you might respond to these messages yourself instead of having the system handle them. You should respond to both DVM_STREAM_PREPAREHEADER and DVM_STREAM_UNPREPAREHEADER, or to neither. </P>
+
+<H4>Starting and Stopping Streaming</H4>
+
+<P>DVM_STREAM_START starts a video stream. For video in channels, this message begins transferring the contents of the frame buffer to the system supplied buffers. In response to DVM_STREAM_START, your driver should enable the interrupts it needs and begin capturing the images and copying them to the application supplied buffers. </P>
+
+<P>DVM_STREAM_STOP stops a video stream. When a video in channel receives this message, it stops filling buffers and retains any empty buffers remaining in the queue. Your driver can disable any interrupts it needs to capture data, however, it should be prepared to receive the DVM_STREAM_START message to resume capturing data. If data capture has not started, this message has no effect and the device driver returns DV_ERR_OK. </P>
+
+<P>Neither DVM_STREAM_START nor DVM_STEAM_STOP use <I>lParam1</I> or <I>lParam2</I>. Your driver should return DV_ERR_OK if it processed the message successfully. It should return DV_ERR_NOTSUPPORTED if it does not support the message. </P>
+
+<H4>Ending Capture</H4>
+
+<P>The DVM_STREAM_FINI message terminates data streaming. This should always be the last streaming message received by a channel. </P>
+
+<P>For external in channels, DVM_STREAM_FINI disables capture of images into the frame buffer. External in channels should expect this message at any time. DVM_STREAM_FINI might not have a corresponding DVM_STREAM_INIT message. </P>
+
+<P>For video in channels, DVM_STREAM_FINI finishes data streaming process. Your driver can free any resources that it used to capture data. </P>
+
+<P>For external out channels, DVM_STREAM_FINI disables overlay display. External out channels should expect this message at any time. DVM_STREAM_FINI might not have a corresponding DVM_STREAM_INIT message. </P>
+
+<P>All channels return DV_ERR_OK if the message was processed successfully. The video in channels should return DV_ERR_STILLPLAYING if there are still buffers in its queue. </P>
+
+<H4>Additional Stream Messages</H4>
+
+<P>The client-application uses DVM_STREAM_RESET to stop data streaming and release all buffers. When your driver gets this message it should return to the state set with DVM_STREAM_INIT. </P>
+
+<P>The client-application uses DVM_STREAM_GETERROR to obtain the error status of a channel. The <I>lParam1</I> and <I>lParam2</I> parameters point to two DWORDS your driver should use to return error information. Fill the DWORD specified by <I>lParam1</I> with the value of the most recent error. Typically, the error encountered is DV_ERR_NO_BUFFERS. If your driver has not encountered an error or if it receives this message when a stream is not initialized, set the DWORD to DV_ERR_OK. Fill the DWORD specified by <I>lParam2</I> with the number of frames dropped because of the error. </P>
+
+<P>After processing this message your driver should reset its error value and count of frames dropped. Drivers that do not have access to interrupts might use this message to trigger buffer processing. </P>
+
+<P>Return DV_ERR_OK if your driver processes the message without an error. If your driver does not support this message, return DV_ERR_NOTSUPPORTED. </P>
+
+<P>Applications use the DVM_STREAM_GETPOSITION message to retrieve the current position of the video in stream. The <I>lParam1</I> parameter specifies a far pointer to a <B>MMTIME</B> data structure and the <I>lParam2</I> parameter specifies its size. The <B>MMTIME</B> structure has the following members: </P>
+
+<PRE>typedef struct mmtime_tag {
+    UINT  wType;
+    union {
+        DWORD  ms;
+        DWORD  sample;
+        DWORD  cb;
+        struct {
+            BYTE  hour;
+            BYTE  min;
+            BYTE  sec;
+            BYTE  frame;
+            BYTE  fps;
+            BYTE  dummy;
+        } smpte;
+        struct {
+            DWORD  songptrpos;
+        } midi;
+    } u;
+} MMTIME;
+ </PRE>
+
+<P>When your device gets DVM_STREAM_POSITION, it should check the <B>wtype</B> member. If your driver does not support the format specified, it specifies its current time format in the member. The application checks the format specified in this member when the message returns. </P>
+
+<P>Video capture drivers typically return time in the millisecond format. Normally, your driver sets the position to zero when streaming starts with DVM_STREAM_START. </P>
+
+<P>Your driver should returns DV_ERR_OK if it processed the message successfully. It can return DV_ERR_PARM1 if the data structure supplied for the format has invalid data or DV_ERR_SIZEFIELD if the data structure is too small. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Data%20Transfer%20Model%20For%20Streaming%20Video%20Input"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

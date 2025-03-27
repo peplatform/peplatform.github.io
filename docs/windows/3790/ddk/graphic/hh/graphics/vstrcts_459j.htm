@@ -1,0 +1,185 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>VIDEO_PORT_CONFIG_INFO</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="VIDEO_PORT_CONFIG_INFO">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_video_port_config_info_gg"></A>VIDEO_PORT_CONFIG_INFO</H1>
+
+<P>The VIDEO_PORT_CONFIG_INFO structure contains bus-specific adapter configuration information. This structure is used to set up the video hardware and to supply the video port driver with configuration information. The video port driver can then allocate necessary system resources for the miniport driver and its adapter.</P>
+
+<PRE class=syntax>typedef struct _VIDEO_PORT_CONFIG_INFO {
+  ULONG  Length;
+  ULONG  SystemIoBusNumber;
+  INTERFACE_TYPE  AdapterInterfaceType;
+  ULONG  BusInterruptLevel;
+  ULONG  BusInterruptVector;
+  KINTERRUPT_MODE  InterruptMode;
+  ULONG  NumEmulatorAccessEntries;
+  PEMULATOR_ACCESS_ENTRY  EmulatorAccessEntries;
+  ULONG_PTR  EmulatorAccessEntriesContext;
+  PHYSICAL_ADDRESS  VdmPhysicalVideoMemoryAddress;
+  ULONG  VdmPhysicalVideoMemoryLength;
+  ULONG  HardwareStateSize;
+  ULONG  DmaChannel;
+  ULONG  DmaPort;
+  UCHAR  DmaShareable;
+  UCHAR  InterruptShareable;
+  BOOLEAN  Master;
+  DMA_WIDTH  DmaWidth;
+  DMA_SPEED  DmaSpeed;
+  BOOLEAN  bMapBuffers;
+  BOOLEAN  NeedPhysicalAddresses;
+  BOOLEAN  DemandMode;
+  ULONG  MaximumTransferLength;
+  ULONG  NumberOfPhysicalBreaks;
+  BOOLEAN  ScatterGather;
+  ULONG  MaximumScatterGatherChunkSize;
+  PVIDEO_PORT_GET_PROC_ADDRESS VideoPortGetProcAddress;
+  PWSTR  DriverRegistryPath;
+  ULONGLONG  SystemMemorySize;
+} VIDEO_PORT_CONFIG_INFO, *PVIDEO_PORT_CONFIG_INFO;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>Length</B></DT>
+
+<DD>Is the size in bytes of this structure. The video port driver always initializes the <B>Length</B> member. In effect, its value indicates the version of VIDEO_PORT_CONFIG_INFO being used by the system. Because this structure might grow from one version of the system to the next, a miniport driver should check this member to determine whether it is at least <B>sizeof</B>(VIDEO_PORT_CONFIG_INFO) that the miniport driver uses to configure its adapter.</DD>
+
+<DT><B>SystemIoBusNumber</B></DT>
+
+<DD>Specifies the system-assigned number of the I/O bus on which the miniport driver's adapter might be connected. The video port driver always initializes this member.</DD>
+
+<DT><B>AdapterInterfaceType</B></DT>
+
+<DD>Specifies the type of bus interface. The video port driver always sets this member based on the bus on which the PnP Manager detected the device.</DD>
+
+<DT><B>BusInterruptLevel</B></DT>
+
+<DD>This member is irrelevant if the video hardware does not generate interrupts, indicated by setting the <B>HwInterrupt</B> member in the <A HREF="vstrcts_750n.htm">VIDEO_HW_INITIALIZATION_DATA</A> structure to NULL. Otherwise, it specifies the bus-relative IRQL that corresponds to the interrupt request on <B>Isa</B> or <B>MicroChannel</B> type buses. The preset default value for this member is zero. A miniport driver must supply the correct value if it handles interrupts for a video adapter on an <B>Isa</B> or <B>MicroChannel</B> type bus, or for a video adapter configured for level-sensitive interrupts on an <B>Eisa</B> type bus.
+
+<P>If a miniport driver's <A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A> function finds that the video adapter does not generate interrupts or that it cannot determine a valid interrupt vector/level for the adapter, <I>HwVidFindAdapter</I> should set both <B>BusInterruptLevel</B> and <B>BusInterruptVector</B> to zero.
+</DD>
+
+<DT><B>BusInterruptVector</B></DT>
+
+<DD>This member is irrelevant if the video hardware does not generate interrupts, indicated by setting the <B>HwInterrupt</B> member in the VIDEO_HW_INITIALIZATION_DATA structure to NULL. Otherwise, it specifies the bus-relative vector used by the video hardware on I/O buses that use interrupt vectors, such as PCI buses. The preset default value for this member is zero.
+
+<P>If a miniport driver's <I>HwVidFindAdapter</I> function finds that the video adapter does not generate interrupts or that it cannot determine a valid interrupt vector/level for the adapter, <I>HwVidFindAdapter</I> should set both <B>BusInterruptVector</B> and <B>BusInterruptLevel</B> to zero.
+</DD>
+
+<DT><B>InterruptMode</B></DT>
+
+<DD>Indicates whether the video hardware uses <B>Latched</B> or <B>LevelSensitive</B> interrupts. The video port driver initializes this member if it is relevant, but a miniport driver with an ISR should check that it contains the correct value and reset it if necessary.</DD>
+
+<DT><B>NumEmulatorAccessEntries</B></DT>
+
+<DD>This member and all subsequent members through <B>HardwareStateSize</B> are irrelevant to miniport drivers that do not declare themselves to be VGA-compatible miniport drivers on x86-based NT-based operating system platforms. For miniport drivers that do not support VGA-compatible SVGA adapters on x86-based machines, this member should be zero. Otherwise, it specifies the number of EMULATOR_ACCESS_RANGE-type elements in the following array.</DD>
+
+<DT><B>EmulatorAccessEntries</B></DT>
+
+<DD>Pointer to an array of emulator access ranges set up by the VGA-compatible miniport driver. Each emulator access range must be a proper subset of the miniport driver's <A HREF="vstrcts_6h0n.htm">VIDEO_ACCESS_RANGE</A>-type array. Each element specifies a range of I/O ports to be hooked out by the V86 emulator and, possibly, monitored by a driver-supplied <I>SvgaHwIoPortXxx</I> function whenever an MS-DOS application, running full screen, attempts to write directly to the video adapter registers. Usually, this array describes all I/O port ranges in the corresponding access ranges array. If the miniport driver defines its array of emulator access entries statically in the driver itself, the port driver initializes this pointer to that array. If <B>NumEmulatorAccessEntries</B> is zero, this member is NULL.</DD>
+
+<DT><B>EmulatorAccessEntriesContext</B></DT>
+
+<DD>Specifies a value passed with each call to an <I>SvgaHwIoPortXxx</I> function described in the <B>EmulatorAccessEntries</B> array. Usually, a VGA-compatible miniport driver sets the value of this member to the <B>HwDeviceExtension</B> pointer, or to an offset within the device extension, so the miniport driver can maintain state, such as batched application-issued instructions, in its <I>SvgaHwIoPortXxx</I> functions.</DD>
+
+<DT><B>VdmPhysicalVideoMemoryAddress</B></DT>
+
+<DD>Specifies the base (mapped) logical address of a range of video memory to be mapped into a VDM's address space for x86 BIOS INT10 support. For miniport drivers that do not support VGA-compatible adapters on x86-based machines, this member should be NULL.</DD>
+
+<DT><B>VdmPhysicalVideoMemoryLength</B></DT>
+
+<DD>Specifies the size in bytes of the range be mapped into a VDM's address space for x86 BIOS support. For miniport drivers that do not support VGA-compatible adapters on x86-based machines, this member should be zero.</DD>
+
+<DT><B>HardwareStateSize</B></DT>
+
+<DD>Specifies the minimum size in bytes required to store hardware state information in response to an <A HREF="virqs_7tpj.htm">IOCTL_VIDEO_SAVE_HARDWARE_STATE</A> request, which must be supported only by VGA-compatible miniport drivers on x86-based machines. The initialized value for this member is zero. A VGA-compatible miniport driver must set this member to the number of bytes it requires to hold saved adapter state.</DD>
+
+<DT><B>DmaChannel</B></DT>
+
+<DD>Reserved for system use. <B> </B></DD>
+
+<DT><B>DmaPort</B></DT>
+
+<DD>Reserved for system use. <B> </B></DD>
+
+<DT><B>DmaShareable</B></DT>
+
+<DD>Reserved for system use. <B> </B></DD>
+
+<DT><B>InterruptShareable</B></DT>
+
+<DD>If the miniport driver's device interrupts, this member should be set to zero if the interrupt cannot be shared with another device, or set to one if the interrupt can be shared. Otherwise, a miniport driver can ignore this member.</DD>
+
+<DT><B>Master</B></DT>
+
+<DD>Reserved for system use. <B> </B></DD>
+
+<DT><B>DmaWidth</B></DT>
+
+<DD>Reserved for system use. <B> </B></DD>
+
+<DT><B>DmaSpeed</B></DT>
+
+<DD>Reserved for system use.<B> </B></DD>
+
+<DT><B>bMapBuffers</B></DT>
+
+<DD>Reserved for system use. <B> </B></DD>
+
+<DT><B>NeedPhysicalAddresses</B></DT>
+
+<DD>Reserved for system use. <B> </B></DD>
+
+<DT><B>DemandMode</B></DT>
+
+<DD>Reserved for system use. <B> </B></DD>
+
+<DT><B>MaximumTransferLength</B></DT>
+
+<DD>Reserved for system use. <B> </B></DD>
+
+<DT><B>NumberOfPhysicalBreaks</B></DT>
+
+<DD>Reserved for system use. <B> </B></DD>
+
+<DT><B>ScatterGather</B></DT>
+
+<DD>Reserved for system use. <B> </B></DD>
+
+<DT><B>MaximumScatterGatherChunkSize</B></DT>
+
+<DD>Reserved for system use. <B> </B></DD>
+
+<DT><B>VideoPortGetProcAddress</B></DT>
+
+<DD>Pointer to the <A HREF="vpfncs_7c13.htm"><I>VideoPortGetProcAddress</I></A> callback routine. This member is used to find the address of a video port driver function that the video miniport driver can use without linking to it directly. This enables a driver binary to run on an earlier version of Windows. For details, see <A HREF="vmport_2ujr.htm">Using <I>VideoPortGetProcAddress</I></A>.  </DD>
+
+<DT><B>DriverRegistryPath</B></DT>
+
+<DD>Pointer to the registry path containing the device's service. The display driver can use this information in any way it deems useful. </DD>
+
+<DT><B>SystemMemorySize</B></DT>
+
+<DD>Indicates to a driver the amount, in bytes, of physical memory in the system.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>video.h</I>. Include <I>video.h</I>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A>, <A HREF="virqs_7tpj.htm">IOCTL_VIDEO_SAVE_HARDWARE_STATE</A>, <A HREF="vstrcts_6h0n.htm">VIDEO_ACCESS_RANGE</A>, <A HREF="vstrcts_750n.htm">VIDEO_HW_INITIALIZATION_DATA</A>, <A HREF="vpfncs_7c13.htm"><I>VideoPortGetProcAddress</I></A>, <A HREF="vpfncs_22lj.htm"><B>VideoPortGetAccessRanges</B></A>, <A HREF="vpfncs_87mv.htm"><B>VideoPortGetDeviceBase</B></A>, <A HREF="vpfncs_9353.htm"><B>VideoPortGetDeviceData</B></A>, <A HREF="vpfncs_0x7r.htm"><B>VideoPortVerifyAccessRanges</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: VIDEO_PORT_CONFIG_INFO"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

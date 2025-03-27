@@ -1,0 +1,74 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Semaphore Objects</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Semaphore Objects">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_semaphore_objects_kg"></A>Semaphore Objects</H2>
+
+<P>Any driver can use a semaphore object to synchronize operations between its driver-created threads and other driver routines. For example, a driver-dedicated thread might put itself into a wait state when there are no outstanding I/O requests for the driver, and the driver's dispatch routines might set the semaphore to the Signaled state just after they queue an IRP.</P>
+
+<P>The dispatch routines of highest-level drivers, which are run in the context of the thread requesting an I/O operation, might use a semaphore to protect a resource shared among the dispatch routines. Lower-level driver dispatch routines for synchronous I/O operations also might use a semaphore to protect a resource shared among that subset of dispatch routines or with a driver-created thread.</P>
+
+
+
+<P><A NAME="ddk_figure_3..24_kg"></A>Any driver that uses a semaphore object must call <A HREF="k105_4zhu.htm"><B>KeInitializeSemaphore</B></A> before it waits on or releases the semaphore. The following figure illustrates how a driver with a thread can use a semaphore object.</P>
+
+<P><B><IMG SRC="images/3semobj.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Waiting on a Semaphore Object</B></P>
+
+<P>As the previous figure shows, such a driver must provide the storage for the semaphore object, which should be resident. The driver can use the <A HREF="devobjts_1gdj.htm">device extension</A> of a driver-created device object, the controller extension if it uses a <A HREF="iputoput_5xd3.htm">controller object</A>, or nonpaged pool allocated by the driver.</P>
+
+<P>When the driver's AddDevice routine calls <B>KeInitializeSemaphore</B>, it must pass a pointer to the driver's resident storage for the semaphore object. In addition, the caller must specify a <I>Count</I> for the semaphore object, as shown in the previous figure, that determines its initial state (nonzero for Signaled).</P>
+
+<P>The caller also must specify a <I>Limit</I> for the semaphore, which can be either of the following:
+
+<UL>
+	<LI><B><I>Limit</I> = 1</B>
+<P>When this semaphore is set to the Signaled state, a single thread waiting on the semaphore becomes eligible for execution and can access whatever resource is protected by the semaphore.
+
+<P>This type of semaphore is also called a <I>binary semaphore</I> because a thread either has or does not have exclusive access to the semaphore-protected resource.
+</LI>
+
+	<LI><B><I>Limit</I> &gt; 1</B>
+<P>When this semaphore is set to the Signaled state, some number of threads waiting on the semaphore object become eligible for execution and can access whatever resource is protected by the semaphore.
+
+<P>This type of semaphore is called a <I>counting semaphore</I> because the routine that sets the semaphore to the Signaled state also specifies how many waiting threads can have their states changed from waiting to ready. The number of such waiting threads can be the <I>Limit</I> set when the semaphore was initialized or some number less than this preset <I>Limit</I>.
+</LI>
+</UL>
+
+<P>Few device or intermediate drivers have a single driver-created thread; even fewer have a set of threads that might wait on a semaphore. Few system-supplied drivers use semaphore objects, and, of those that do, even fewer use a binary semaphore. Although a binary semaphore might seem to be similar in functionality to a <A HREF="synchro_7c4n.htm">mutex object</A>, a binary semaphore does not provide the built-in protection against deadlocks that a mutex object has for system threads running in SMP machines. </P>
+
+<P>After a driver with an initialized semaphore is loaded, it can synchronize operations on the semaphore that protects a shared resource. For example, a driver with a device-dedicated thread that manages the queuing of IRPs, such as the system floppy controller driver, might synchronize IRP queuing on a semaphore, as shown in the previous figure:
+
+<OL>
+	<LI>The thread calls <A HREF="k105_40c2.htm"><B>KeWaitForSingleObject</B></A> with a pointer to the driver-supplied storage for the initialized semaphore object to put itself into a wait state.</LI>
+
+	<LI>IRPs begin to come in that require device I/O operations. The driver's dispatch routines insert each such IRP into an interlocked queue under spin-lock control and call <A HREF="k105_1cmq.htm"><B>KeReleaseSemaphore</B></A> with a pointer to the semaphore object, a driver-determined priority boost for the thread (<I>Increment</I>, as shown in the previous figure), an <I>Adjustment</I> of 1 that is added to the semaphore's Count as each IRP is queued, and a Boolean <I>Wait</I> set to FALSE. A nonzero semaphore Count sets the semaphore object to the Signaled state, thereby changing the waiting thread's state to ready.</LI>
+
+	<LI>The kernel dispatches the thread for execution as soon as a processor is available: that is, no other thread with a higher priority is currently in the ready state and there are no kernel-mode routines to be run at raised IRQL (greater than PASSIVE_LEVEL).
+<P>The thread removes an IRP from the interlocked queue under spin-lock control, passes it on to other driver routines for further processing, and calls <A HREF="k105_40c2.htm"><B>KeWaitForSingleObject</B></A> again. If the semaphore is still set to the Signaled state (that is, its Count remains nonzero, indicating that more IRPs are in the driver's interlocked queue), the kernel again changes the thread's state from waiting to ready.
+
+<P>By using a counting semaphore in this manner, such a driver thread "knows" there is an IRP to be removed from the interlocked queue whenever that thread is run.
+</LI>
+</OL>
+
+<P>Calling <A HREF="k105_1cmq.htm"><B>KeReleaseSemaphore</B></A> with the <I>Wait</I> parameter set to TRUE indicates the caller's intention to immediately call a <B>KeWait..Object(s)</B> support routine on return from <B>KeReleaseSemaphore</B>.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Consider the following guidelines for setting the <I>Wait</I> parameter to KeReleaseSemaphore: </B></P>
+
+<P class=indent1>A pageable thread or pageable driver routine that runs at IRQL PASSIVE_LEVEL should <I>never</I> call <B>KeReleaseSemaphore</B> with the <I>Wait</I> parameter set to TRUE. Such a call causes a fatal page fault if the caller happens to be paged out between the calls to <B>KeReleaseSemaphore</B> and <B>KeWait..Object(s)</B>.</P>
+
+<P class=indent1>Any standard driver routine that runs at an IRQL greater than PASSIVE_LEVEL <I>cannot</I> wait for a nonzero interval on any dispatcher objects without bringing down the system; see <A HREF="synchro_4s9z.htm">Kernel Dispatcher Objects</A> for details. However, such a routine can call <B>KeReleaseSemaphore</B> while running at an IRQL less than or equal to DISPATCH_LEVEL.</P>
+
+<P>For a summary of the IRQLs at which standard driver routines run, see <A HREF="intrupts_0kh3.htm">Managing Hardware Priorities</A>. For IRQL requirements of a specific support routine, see the routine's reference page.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Semaphore%20Objects"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

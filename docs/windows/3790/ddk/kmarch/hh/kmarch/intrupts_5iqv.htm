@@ -1,0 +1,30 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling Overlapped I/O Operations</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling Overlapped I/O Operations">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_handling_overlapped_i_o_operations_kg"></A>Handling Overlapped I/O Operations</H2>
+
+<P>The <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> or <A HREF="drvrrtns_3tbm.htm"><I>CustomDpc</I></A> routine of a driver that overlaps operations on its device cannot rely on a one-to-one correspondence between requests input to the <I>StartIo</I> routine and the ISR’s calls to <A HREF="k104_3mb6.htm"><B>IoRequestDpc</B></A> or <A HREF="k105_75iq.htm"><B>KeInsertQueueDpc</B></A>. Such a driver’s <I>DpcForIsr</I> or <I>CustomDpc</I> cannot necessarily use the input pointers to the IRP and ISR-supplied context, or the <B>CurrentIrp</B> pointer in the target device object, to complete only that IRP.</P>
+
+<P>At any given moment, the same DPC object cannot be queued twice. If an ISR calls <B>IoRequestDpc</B> or <B>KeInsertQueueDpc</B> more than once before the corresponding <I>DpcForIsr</I> or <I>CustomDpc</I> executes, the DPC routine runs only once when the IRQL on a processor falls below DISPATCH_LEVEL. On the other hand, if the ISR calls <B>IoRequestDpc</B> or <B>KeInsertQueueDpc</B> while the corresponding <I>DpcForIsr</I> or <I>CustomDpc</I> is running on another processor, the DPC routine can run on two processors concurrently. </P>
+
+<P>Therefore, any driver that overlaps interrupt-driven I/O operations on its device must have the following:
+
+<UL>
+	<LI>A <I>DpcForIsr</I> or <I>CustomDpc</I> routine that can complete some driver-maintained count of outstanding requests each time it is called</LI>
+
+	<LI>An ISR that never overwrites the context information that it passes to a <I>DpcForIsr</I> or <I>CustomDpc</I> routine, until that routine has used the context information and completed the IRP to which the context information belongs</LI>
+
+	<LI>A <I>SynchCritSection</I> routine that accesses the ISR’s context area on behalf of the <I>DpcForIsr</I> or <I>CustomDpc</I> routine</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20Overlapped%20I%2FO%20Operations"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

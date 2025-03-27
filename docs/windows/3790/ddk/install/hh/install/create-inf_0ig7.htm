@@ -1,0 +1,150 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>General Syntax Rules for INF Files</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="General Syntax Rules for INF Files">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_general_syntax_rules_for_inf_files_dg"></A>General Syntax Rules for INF Files</H1>
+
+<P>An INF file is a text file organized into named sections. Some sections have system-defined names and some sections have names determined by the writer of the INF file.</P>
+
+<P>Each section contains section-specific entries, which are interpreted by Setup software (class installers, co-installers, SetupAPI). Some entries begin with a predefined keyword. These entries are called <I>directives</I>. </P>
+
+<P>Some INF file entries are essentially pointers from one section to another, for a specific purpose. For example, an <A HREF="inf-format_2v02.htm">INF <B>AddReg</B> directive</A> identifies a section containing entries that instruct Setup to modify the registry. These entries sometimes include additional arguments (required or optional) for Setup to interpret during installation. </P>
+
+<P>Other INF file entries do not point to other sections, but simply supply information that Setup uses during installation, such as filenames, registry values, hardware configuration information, flags, and so on. For example, an <A HREF="inf-format_0a5u.htm">INF <B>DriverVer</B> directive</A> supplies driver version information.</P>
+
+<P>When Setup begins an installation, it first looks for an <A HREF="inf-format_2fzm.htm">INF <B>Version</B> section</A> to verify the validity of the INF file and to determine where installation files are located. It then starts the installation by finding an <A HREF="inf-format_816a.htm">INF <B>Manufacturer</B> section</A>, which will contain directives to <A HREF="inf-format_3ywi.htm">INF <I>Models</I> sections</A>, which in turn provide directives leading to various <A HREF="inf-format_2k8i.htm">INF <I>DDInstall</I> sections</A>, based on the hardware ID of the device being installed.</P>
+
+<P>Following are syntax rules that govern the required and optional contents of INF files, the format of section names, using string tokens, and line format, continuation, and comments. 
+
+<DL>
+<DT><B>Required and Optional Contents</B></DT>
+
+<DD>
+
+<UL>
+	<LI>The set of required and optional sections, entries, and directives in any particular INF file depends on the type of device/driver or component (such as an application or device class installer DLL) to be installed. </LI>
+
+	<LI>The set of sections, section-specific entries, and directives required to install any particular device and its drivers also depends somewhat on the corresponding class installer. For more information about how the system-supplied class installers handle device-type-specific INF files, see device-type specific documentation in this DDK.</LI>
+
+	<LI>Within syntax definitions, optional entries are delimited by <I>unbolded</I> brackets ([,]). On the other hand, <I>bolded</I> brackets (<B>[</B>, <B>]</B>) are required elements of the entry in which they are contained. In the following example, the brackets around <B>Version</B> are required, while the brackets around <B>Class</B>=<I>class-name</I> indicate this entry is optional.
+<P><B>[Version]<BR>
+&nbsp;</B><BR>
+<B>Signature="</B><I>signature-name</I><B>"</B><BR>
+[<B>Class=</B><I>class-name</I>]<BR>
+...<I><BR>
+</I>
+</LI>
+</UL>
+</DD>
+
+<DT><B>Section Names</B></DT>
+
+<DD>
+
+<UL>
+	<LI>Sections can be specified in any order. Most INF files list sections in a particular order, by convention, but Setup finds sections by name, not by location within the INF file.</LI>
+
+	<LI>Each section in an INF file begins with the section name enclosed in brackets (<B>[</B>&nbsp;<B>]</B>). The section name can be system-defined or INF-writer-defined. 
+<P>For example, <B>[Manufacturer]</B> specifies the start of the system-named <B>Manufacturer</B> section, while <B>[</B>Std.Mfg<B>]</B> represents a particular INF-writer-defined <I>Models</I> section name.
+
+<P>A section name has a maximum length of 255 characters on NT-based operating systems. On Windows 98/Me, section names should be no longer than 28 characters. INF files designed to work on both platforms must adhere to the smaller limit. 
+
+<P>Each section ends at the beginning of a new <B>[</B><I>section-name</I><B>]</B> or at the end-of-file mark.
+</LI>
+
+	<LI>If more than one section in an INF file has the same name, the system merges their entries and directives into a single section.</LI>
+
+	<LI>Section names, entries, and directives are case-insensitive, so <B>version</B>, <B>VERSION</B>, and <B>Version</B> are equally valid section-name specifications within an INF file. </LI>
+
+	<LI>Unless it is enclosed in double quotation marks characters (<B>"</B>), an INF-writer-defined section name must be a unique-to-the-INF unquoted string of explicitly visible characters, excluding certain characters with INF-specific meanings. In particular, an unquoted section name referenced by a section entry or directive cannot have leading or trailing spaces, a linefeed character, a return character, or any invisible control character, and it should not contain tabs. In addition, it cannot contain either of the bracket (<B>[</B> <B>]</B>) characters, a single percent (<B>%</B>) character, a semicolon (<B>;</B>), or any internal double quotation marks (<B>"</B>) characters, and it cannot have a backslash (<B>\</B>) as its last character. 
+<P>For example, Std.Mfg and Std_Mfg are unique and valid section names when referenced by an INF file entry or directive, but Std;Mfg (with its internal semicolon) is invalid unless it is enclosed by double quotation marks (<B>"</B>). 
+
+<P>Specifying an INF-writer-defined section name as a <B>"</B><I>quoted&nbsp;string</I><B>"</B> overrides most of the preceding restrictions on characters in referenced section names. Such a delimited section name can contain almost any explicitly or implicitly visible characters except the closing bracket (<B>]</B>) as long as the corresponding section in the INF file matches this <B>"</B><I>quoted&nbsp;string</I><B>"</B> exactly. 
+
+<P>For example, <B>"</B>;;&nbsp;&nbsp;&nbsp;Std&nbsp;Mfg&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B>"</B> is a valid section-name reference if the corresponding section declaration in the INF file exactly matches the name inside the double quotation marks with respect to its space and semicolon characters as <B>[</B>;;&nbsp;&nbsp;&nbsp;Std&nbsp;Mfg&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<B>]</B>.
+</LI>
+</UL>
+</DD>
+
+<DT><B>Using String Tokens</B></DT>
+
+<DD>
+
+<UL>
+	<LI>Many values in an INF file, including INF-writer-defined section names, can be expressed as string key tokens of the form <B>%</B><I>strkey</I><B>%</B>. In the INF <B>Strings</B> section of the INF file, each string key must be associated with a string value consisting of a sequence of explicitly visible characters, which the setup code converts, if necessary, into Unicode. 
+<P>(See the description of the <A HREF="inf-format_3uuq.htm">INF <B>Strings</B> section</A> for more information about how to define <B>%</B><I>strkey</I><B>%</B> tokens and their respective values.) 
+</LI>
+</UL>
+</DD>
+
+<DT><B>Line Format, Continuation, and Comments</B></DT>
+
+<DD>
+
+<UL>
+	<LI>Each entry and directive in a section ends with a return or linefeed character. Consequently, the text editor used to create an INF file must not insert return or linefeed characters after some arbitrary, editor-determined number of characters. </LI>
+
+	<LI>The backslash character (<B>\</B>) can be used as an explicit line continuator in an entry or directive. However, backslash characters are used also in path specifications. To ensure that a backslash character that appears in a path specification is not misinterpreted as a line continuator, use the following strategy:
+<P>For a directive that spans two lines, one of which is an entry that contains a backslash, use quotation marks to delimit the entry that contains the backslash. 
+
+<PRE>CopyFiles = "SomeDirectory\"\
+,SomeFile
+</PRE>
+
+<P>Avoid using the backslash character in the manner shown in the following example. To remain compatible with Windows&nbsp;NT 4.0 and Windows&nbsp;2000, Windows&nbsp;XP and later operating system versions ignore the first backslash, and interpret the second as a line continuator. 
+
+<PRE>CopyFiles = SomeDirectory\\
+,SomeFile
+</PRE>
+</LI>
+
+	<LI>Comments begin with a semicolon (<B>;</B>) character. When parsing and interpreting an INF file, the system assumes that the following have no relevance to the installation process:
+<P>(1)  Any characters following a semicolon on the same line, unless the semicolon appears within a <B>"</B><I>quoted&nbsp;string</I><B>"</B> or <B>%</B><I>strkey</I><B>%</B> token
+
+<P>(2)  Any empty line containing nothing except a linefeed or return character
+</LI>
+
+	<LI>Commas separate the values supplied in section entries and directives.
+<P>An INF file entry or directive can omit an optional value in the middle of a list of values, but the commas must remain.  INF files for NT-bases systems can omit trailing commas, but Windows 9x INF files must not. Dual-OS INF files should specify trailing commas in any sections that are used on Windows 9x machines. Dual-OS INF files can omit trailing commas in sections that are only used for NT-based systems (that is, sections whose names are decorated with <B>.nt</B>, <B>.ntx86</B>, and so forth). 
+
+<P>For example, consider the syntax for a <B>SourceDisksFiles</B> section entry:
+
+<P><I>&nbsp;&nbsp;&nbsp;&nbsp;filename</I> <B>=</B> <I>diskid</I>[<B>,</B>[<I>subdir</I>][<B>,</B><I>size</I>]]
+
+<P>An entry that omits the <I>subdir</I> value but supplies the <I>size</I> value must specify both delimiting internal commas, as follows:
+
+<P><I>&nbsp;&nbsp;&nbsp;&nbsp;filename</I> <B>=</B> <I>diskid</I><B>,,</B><I>size</I>
+
+<P>An entry in an INF file for an NT-based OS that omits the two optional values can have this format: 
+
+<P><I>&nbsp;&nbsp;&nbsp;&nbsp;filename</I> <B>=</B> <I>diskid</I>
+
+<P>An entry in a Windows9x INF file that omits the two optional values must specify the trailing commas, as follows: 
+
+<P><I>&nbsp;&nbsp;&nbsp;&nbsp;filename</I> <B>=</B> <I>diskid</I><B>,,</B>
+</LI>
+</UL>
+</DD>
+
+<DT><B>INF Size Limits</B></DT>
+
+<DD>
+
+<UL>
+	<LI>A Windows 9x/Me INF file cannot be larger than 64 kilobytes. There is no practical limit to the size of an INF file for NT-based systems.</LI>
+
+	<LI>Unless otherwise restricted in this documentation, the maximum length of any INF file field is 512 characters (including a terminating NULL character). Note, however, that Plug and Play may impose a more restrictive limit for certain INF file fields that it recognizes or uses, such as device description, driver provider, and device manufacturer. </LI>
+</UL>
+</DD>
+</DL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: General%20Syntax%20Rules%20for%20INF%20Files"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

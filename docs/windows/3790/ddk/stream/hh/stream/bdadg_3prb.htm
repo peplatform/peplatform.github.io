@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Changing BDA Filter Properties</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Changing BDA Filter Properties">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_changing_bda_filter_properties_ksg"></A>Changing BDA Filter Properties</H2>
+
+<P>Because multiple instances of an application that views media broadcasts can run simultaneously on a system, you should write a BDA minidriver to accommodate multiple instances of a filter. Each filter instance can contain different information. For example, one instance of a tuner filter can contain a request to tune to channel 5, while another instance can contain a request to tune to channel 8. As control transitions from one instance to another, the BDA minidriver must instruct the underlying tuning device to change the way resources are configured. A BDA minidriver processes method requests of the <A HREF="bdaref_3mlv.htm">KSMETHODSETID_BdaChangeSync</A> method set to coordinate a list of property requests on one the minidriver's filter instances. </P>
+
+<P>The primary purpose of the KSMETHODSETID_BdaChangeSync method set is to provide trigger points at which the underlying minidriver for a filter can acquire and release resources from the minidriver's device object. The minidriver must coordinate these trigger points with the filter's transition to and from a stopped state. For example, if the filter is in a stopped state, the minidriver should assign new resources to the filter but not acquire those resources whenever the network provider specifies to commit BDA topology changes. When the filter subsequently transitions out of its stopped state, the minidriver should then attempt to acquire those resources from the underlying device. </P>
+
+<P>On the other hand, if the filter is already active, the minidriver should attempt to acquire new resources from the underlying device whenever the network provider specifies to commit BDA topology changes. Only one instance of the filter can be active—in the running state and holding the same resources—at any given time. When a filter transitions to the stopped state, it should therefore release all its resources, including those resources that were allocated for any of its pins, so that the resources are available to another filter graph that transitions to the running state. </P>
+
+<P>Typically, a BDA minidriver's filter object intercepts and supplies methods for the methods of the KSMETHODSETID_BdaChangeSync method set. For example, the minidriver supplies methods for starting, checking, and committing filter changes and for getting the change state of a filter. In addition, the following minidriver-supplied methods should call the corresponding BDA support library functions to synchronize changes on the structures that the minidriver previously registered with the BDA support library: 
+
+<UL>
+	<LI>Start-changes method calls the <A HREF="bdaref_29tf.htm"><B>BdaStartChanges</B></A> function.</LI>
+
+	<LI>Check-changes method calls the <A HREF="bdaref_7qk3.htm"><B>BdaCheckChanges</B></A> function.</LI>
+
+	<LI>Commit-changes method calls the <A HREF="bdaref_1ub7.htm"><B>BdaCommitChanges</B></A> function.</LI>
+
+	<LI>Get-changed-state method calls the <A HREF="bdaref_9w6r.htm"><B>BdaGetChangeState</B></A> function.</LI>
+</UL>
+
+<P>The following code snippet shows how to intercept method requests of the KSMETHODSETID_BdaChangeSync method set using an internal method:</P>
+
+<PRE>//
+//  BDA Change Sync Method Set
+//
+//  Defines the dispatch routines for the filter level
+//  Change Sync methods
+//
+DEFINE_KSMETHOD_TABLE(BdaChangeSyncMethods)
+{
+    DEFINE_KSMETHOD_ITEM_BDA_START_CHANGES(
+        CFilter::StartChanges,
+        NULL
+        ),
+    DEFINE_KSMETHOD_ITEM_BDA_CHECK_CHANGES(
+        CFilter::CheckChanges,
+        NULL
+        ),
+    DEFINE_KSMETHOD_ITEM_BDA_COMMIT_CHANGES(
+        CFilter::CommitChanges,
+        NULL
+        ),
+    DEFINE_KSMETHOD_ITEM_BDA_GET_CHANGE_STATE(
+        CFilter::GetChangeState,
+        NULL
+        )
+};</PRE>
+
+<P>The following code snippet shows how the internal start-changes method in a BDA minidriver resets pending resource changes after the minidriver calls the <B>BdaStartChanges</B> support function to initiate the setting of new BDA topology changes:</P>
+
+<PRE>//
+// StartChanges ()
+//
+//    Puts the filter into change state.  All changes to BDA topology
+//    and properties changed after this will be in effect only after
+//    CommitChanges.
+//
+NTSTATUS
+CFilter::
+StartChanges(
+    IN PIRP         pIrp,
+    IN PKSMETHOD    pKSMethod,
+    OPTIONAL PVOID  pvIgnored
+    )
+{
+    NTSTATUS        Status = STATUS_SUCCESS;
+    CFilter *       pFilter;
+
+    ASSERT( pIrp);
+    ASSERT( pKSMethod);
+
+    // Obtain a "this" pointer for the method.
+    //
+    // Because this function is called directly from the property 
+    // dispatch table, must get pointer to the underlying object.
+    //
+    pFilter = FilterFromIRP( pIrp);
+    ASSERT( pFilter);
+    if (!pFilter)
+    {
+        Status = STATUS_INVALID_PARAMETER;
+        goto errExit;
+    }
+
+    //  Reset any pending BDA topology changes.
+    //
+    Status = BdaStartChanges( pIrp);
+    if (!NT_SUCCESS( Status))
+    {
+        goto errExit;
+    }
+
+    //  Reset any pending resource changes.
+    //
+    pFilter-&gt;m_NewTunerResource = pFilter-&gt;m_CurTunerResource;
+    pFilter-&gt;m_BdaChangeState = BDA_CHANGES_COMPLETE;
+
+errExit:
+    return Status;
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Changing%20BDA%20Filter%20Properties"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

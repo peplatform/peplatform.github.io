@@ -1,0 +1,180 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Software Architecture</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_gart_software_architecture"></A>Software Architecture</H2>
+
+<P>Support for the new AGP architecture in the Microsoft® Windows® 98 operating system consists of several Microsoft-supplied components, and a miniport driver supplied either by Microsoft or by the hardware manufacturer. The miniport component, residing at the lowest level of the AGP architecture, is the subject of this documentation; developers of new AGP hardware have no need to modify any of the higher level components.</P>
+
+<P>Application programmers typically access AGP features through Microsoft® Direct Draw® 5.0. The system satisfies certain DirectDraw 5.0 requests, like <B>CreateSurface</B>, by calling the PCI class driver through the virtual machine manager (VMM). In turn, the PCI class driver calls the appropriate PCI miniport driver. An application can determine whether or not there is AGP hardware installed by calling DirectDraw’s <B>GetCaps</B> function and examining the DDCAPS2_NONLOCALVIDMEM bit returned in the ddCaps.dwCaps2 field. For example, the following is a small Windows program that will report the existence of an AGP-capable memory controller:</P>
+
+<PRE>#include &lt;windows.h&gt;
+#include &lt;ddraw.h&gt;
+ 
+int WINAPI WinMain
+(
+    HINSTANCE hInstance,
+    HINSTANCE hPrevInstance,
+    LPSTR sCmdLine,
+    int nCmdShow
+)
+{
+    LPDIRECTDRAW lpDD;
+    DDCAPS ddCaps;
+    DirectDrawCreate( NULL, &amp;lpDD, NULL );
+    if( lpDD != NULL )
+    {
+        ddCaps.dwSize = sizeof(ddCaps);
+        lpDD-&gt;GetCaps( &amp;ddCaps, NULL ); 
+        MessageBox( NULL, (ddCaps.dwCaps2 &amp; DDCAPS2_NONLOCALVIDMEM) ? "YES!" : "NO!", "AGP?", MB_OK ); 
+        lpDD-&gt;Release();
+    }
+    else
+    {
+        MessageBox( NULL, "DirectDrawCreate failed.", "AGP?", MB_OK );
+    }
+    return 0;
+}</PRE>
+
+<P>When calling DirectDraw to allocate a surface using <B>CreateSurface</B> with the DDSCAPS_LOCALVIDEOMEMORY bit turned on, an application can further specify what kind of heap allocation is made by setting either the DDSCAPS_LOCALVIDMEM or DDSCAPS_NONLOCALVIDMEM flags in the ddsCaps.dwCaps field. In addition, the underlying graphics driver can request uncacheable or write-combining memory.</P>
+
+<P>Unless the target hardware has special circuitry, the GART should be allocated as uncached memory. </P>
+
+<P>A GART driver is a PCI miniport driver. That is, it is called only by the PCI class driver and provides a well-known interface in the form of a predefined set of entry points. The responsibilities of the miniport driver are to initialize the hardware when loaded, shutdown the hardware when unloaded, and manage the GART. A complete list of GART miniport driver entry points is shown in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Name</TH>
+<TH align=left width=66%>Purpose</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><B>DriverEntry</B></TD>
+<TD width=66%>Called by the operating system when the driver is loaded.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><B>PCIMP_GARTInit</B></TD>
+<TD width=66%>Initializes hardware and internal structures.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><B>PCIMP_GARTExit</B></TD>
+<TD width=66%>Shuts down the miniport driver.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><B>PCIMP_GARTReset</B></TD>
+<TD width=66%>Reinitializes.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><B>PCIMP_GARTReserve</B></TD>
+<TD width=66%>Reserves GART entries.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><B>PCIMP_GARTMap</B></TD>
+<TD width=66%>Maps GART entries to physical addresses.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><B>PCIMP_GARTUnMap</B></TD>
+<TD width=66%>Unmaps GART entries.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><B>PCIMP_GARTFree</B></TD>
+<TD width=66%>Releases GART entries.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><B>PCIMP_GARTFlush</B></TD>
+<TD width=66%>Flushes specific pages.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Parameters</H4>
+
+<P>Each of these routines requires a distinct set of parameters, but all the <B>PCIMP_GART<I>xxx</I></B> routines share two parameters: <I>pHandle</I> and <I>refData</I>. The <I>pHandle</I> parameter is always an input; <I>refData</I> is an input except in <B>PCIMP_GARTInit</B>, in which it is an output.</P>
+
+<P>The <I>pHandle</I> parameter is a handle to the PCI driver. The miniport uses this value as a parameter to <B>PCIGetHandleInfo</B> to retrieve registry values. </P>
+
+<P>The <I>refData</I> parameter is a miniport-generated value, passed back to the PCI driver in <B>PCIMP_Init</B>, that the PCI driver uses in all subsequent calls to the miniport driver. Typically, it is a pointer to an internal structure describing the GART for a particular miniport driver instance, but it can in fact be any value that uniquely distinguishes the instance.</P>
+
+<H4>Return Values</H4>
+
+<P>Except for <B>DriverEntry</B>, which returns an NTSTATUS code, each of these functions that can report errors returns a value of type PCIMPRET, defined in PCI.H. As with NTSTATUS, the PCIMPRET data type indicates either the operation’s success or describes the reason for failure. The functions that return a PCIMPRET are <B>PCIMP_GARTInit</B>, <B>PCIMP_GARTReset</B>, and <B>PCIMP_GARTReserve</B>; the others return VOID.</P>
+
+<P>The possible PCIMP return codes are shown in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=50%>Return Code</TH>
+<TH align=left width=50%>Value</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%>PCIMP_SUCCESS</TD>
+<TD width=50%>0x00000000</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%>PCIMP_FAILURE</TD>
+<TD width=50%>0x00000001</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%>PCIMP_NOT_INITIALIZED</TD>
+<TD width=50%>0x00000002</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%>PCIMP_ALREADY_INITIALIZED</TD>
+<TD width=50%>0x00000003</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%>PCIMP_NO_INSTANCE</TD>
+<TD width=50%>0x00000004</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%>PCIMP_INVALID_INSTANCE</TD>
+<TD width=50%>0x00000005</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%>PCIMP_INVALID_IRQ</TD>
+<TD width=50%>0x00000006</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%>PCIMP_INVALID_LINK</TD>
+<TD width=50%>0x00000007</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%>PCIMP_INVALID_PARAMETER</TD>
+<TD width=50%>0x00000008</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%>PCIMP_NO_NEW_CAPABILITIES</TD>
+<TD width=50%>0x00000009 </TD>
+</TR>
+</TABLE><BR>
+
+<P>Although the numeric value of the error codes are shown, you should not use these values directly. They are included here as a debugging aid. If the miniport driver encounters an error, it should return the error code in the preceding table that best matches the specific error; PCIMP_FAILURE indicates a generic failure and should be returned for all other errors. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Software%20Architecture"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Reporting Device Online Status</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Reporting Device Online Status">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_reporting_device_online_status_si"></A>Reporting Device Online Status</H4>
+
+<P>The WIA service checks a WIA device’s online status by calling the <A HREF="stifnc_1qcp.htm"><B>IStiUSD::GetStatus</B></A> method. The WIA minidriver should check the hardware’s current online state and report the results.</P>
+
+<P>The <B>IStiUSD::GetStatus</B> method is called by the WIA service for two major operations:
+
+<UL>
+	<LI>Checking the device's online status.</LI>
+
+	<LI>Polling for device events, such as a push button event.</LI>
+</UL>
+
+<P>Determining the operation request can be done by checking the <B>StatusMask</B> member of the <A HREF="stifnc_8rl5.htm">STI_DEVICE_STATUS</A> structure. The <B>StatusMask</B> member can be either of the following requests.
+
+<DL>
+<DT>STI_DEVSTATUS_ONLINE_STATE</DT>
+
+<DD>Check whether the device is online.</DD>
+
+<DT>STI_DEVSTATUS_EVENTS_STATE</DT>
+
+<DD>Check for device events.
+</DD>
+</DL>
+
+<H4>STI_DEVSTATUS_ONLINE_STATE</H4>
+
+<P>This operation request should be carried out by setting the <B>dwOnlineState</B> member of the STI_DEVICE_STATUS structure.</P>
+
+<H4>STI_DEVSTATUS_EVENTS_STATE</H4>
+
+<P>This operation request should be carried out by setting the <B>dwEventHandlingState</B> member of the STI_DEVICE_STATUS structure. The value that should be used is STI_EVENTHANDLING_PENDING. (The device has an event pending and is waiting to report it to the WIA service.)</P>
+
+<P>When STI_EVENTHANDLING_PENDING is set, the WIA service is signaled that an event has occurred in the WIA driver. The WIA service calls the <A HREF="stifnc_1zft.htm"><B>IStiUSD::GetNotificationData</B></A> method to get more information about the event.</P>
+
+<P>The <B>IStiUSD::GetNotificationData</B> method is called for polled events and interrupt events. It is in this method that you should fill out the proper event information to return to the WIA service.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Always clear the STI_EVENTHANDLING_PENDING flag in the <B>dwEventHandlingState</B> member to ensure that it is properly set when a device event occurs.</P>
+
+<P>The following example shows an implementation of the <B>IStiUSD::GetStatus</B> method.</P>
+
+<PRE>STDMETHODIMP CWIADevice::GetStatus(PSTI_DEVICE_STATUS pDevStatus)
+{
+  //
+  // If the caller did not pass in the correct parameters,
+  // then fail the call with E_INVALIDARG.
+  //
+
+  if(!pDevStatus)
+  {
+      return E_INVALIDARG;
+  }
+
+  HRESULT hr = S_OK;
+
+  //
+  // If we are asked, verify the device is online.
+  //
+
+  if (pDevStatus-&gt;StatusMask &amp; STI_DEVSTATUS_ONLINE_STATE) {
+
+    //
+    // assume the device is OFF-LINE before continuing. This will
+    // validate that the online check was successful.
+    //
+
+    pDevStatus-&gt;dwOnlineState = STI_ONLINESTATE_OFFLINE;
+
+    if(MyDeviceIsOnlineStatus()) {
+    
+      //
+      // device is ON-LINE and operational
+      //
+
+      pDevStatus-&gt;dwOnlineState |= STI_ONLINESTATE_OPERATIONAL;
+    } else {
+
+      //
+      // device is OFF-LINE and NOT operational
+      //
+
+    }
+  }
+  return S_OK;
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Reporting%20Device%20Online%20Status"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

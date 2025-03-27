@@ -1,0 +1,54 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Calling WmiSystemControl to Handle WMI IRPs</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Calling WmiSystemControl to Handle WMI IRPs">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_calling_wmisystemcontrol_to_handle_wmi_irps_kg"></A>Calling WmiSystemControl to Handle WMI IRPs</H2>
+
+<P>WMI library routines simplify handling of WMI requests because instead of processing each such request, a driver calls <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>. In the <B>WmiSystemControl</B> call, the driver passes an initialized <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure that contains entry points to the driver's <A HREF="k903_7cj6.htm">WMI library callback routines</A> (<I>DpWmiXxx</I> routines) and information about the driver's data blocks and event blocks.</P>
+
+<P>Because the WMI library provides no mechanism for passing dynamic instance names or a static instance name list, a driver can use the WMI library to handle requests involving only data blocks with static instance names based on a PDO or a single base name string. For more information about static and dynamic instance names, see <A HREF="wmi_5ijr.htm">Defining WMI Instance Names</A>. Nothing prevents a driver from using the WMI library to handle requests for such blocks and processing requests for other blocks in its <A HREF="drvrrtns_9v76.htm"><I>DispatchSystemControl</I></A> routine. For more information, see <A HREF="wmi_5ycn.htm">Processing WMI IRPs in a <I>DispatchSystemControl</I> Routine</A>.</P>
+
+<P>To handle WMI IRPs by calling <B>WmiSystemControl</B>, a driver must implement certain required <I>DpWmiXxx</I> callback routines, and might implement additional optional <I>DpWmiXxx</I> callback routines:
+
+<UL>
+	<LI><A HREF="k903_196a.htm"><I>DpWmiQueryReginfo</I></A>—(Required) Provides information about the data and event blocks being registered by the driver. WMI calls a driver's <I>DpWmiQueryReginfo</I> routine to process an <A HREF="k901_4omq.htm">IRP_MN_REGINFO</A> or <A HREF="k901_9d4i.htm">IRP_MN_REGINFO_EX</A> request. For more information, see <A HREF="wmi_81ev.htm">Using the WMI Library to Register Blocks</A>.</LI>
+
+	<LI><A HREF="k903_2raq.htm"><I>DpWmiQueryDataBlock</I></A>—(Required) Returns either a single instance or all instances of a data block. WMI calls a driver's <I>DpWmiQueryDataBlock</I> routine to process an <A HREF="k901_1bua.htm">IRP_MN_QUERY_SINGLE_INSTANCE</A> or <A HREF="k901_1nhu.htm">IRP_MN_QUERY_ALL_DATA</A> request.</LI>
+
+	<LI><A HREF="k903_9zqq.htm"><I>DpWmiSetDataBlock</I></A>—(Optional) Changes all data items in a single instance of a data block. WMI calls a driver's <I>DpWmiSetDataBlock</I> routine to process an <A HREF="k901_8a7m.htm">IRP_MN_CHANGE_SINGLE_INSTANCE</A> request.</LI>
+
+	<LI><A HREF="k903_1hv6.htm"><I>DpWmiSetDataItem</I></A>—(Optional) Changes a single data item in an instance of a data block. WMI calls a driver's <I>DpWmiSetDataItem</I> routine to process an <A HREF="k901_9b5e.htm">IRP_MN_CHANGE_SINGLE_ITEM</A> request.</LI>
+
+	<LI><A HREF="k903_11rm.htm"><I>DpWmiFunctionControl</I></A>—(Optional) Enables and disables event notification and data collection for blocks registered as expensive to collect. WMI calls a driver's <I>DpWmiFunctionControl</I> routine to process an <A HREF="k901_97le.htm">IRP_MN_ENABLE_COLLECTION</A>, <A HREF="k901_0xf6.htm">IRP_MN_DISABLE_COLLECTION</A>, <A HREF="k901_10du.htm">IRP_MN_ENABLE_EVENTS</A>, or <A HREF="k901_0drm.htm">IRP_MN_DISABLE_EVENTS</A> request.</LI>
+
+	<LI><A HREF="k903_26nm.htm"><I>DpWmiExecuteMethod</I></A>—(Optional) Executes a method associated with a data block. WMI calls a driver's <I>DpWmiExecuteMethod</I> routine to process an <A HREF="k901_6hf6.htm">IRP_MN_EXECUTE_METHOD</A> request.</LI>
+</UL>
+
+<P>A driver's <I>DpWmiXxx</I> routines can have any names chosen by the driver writer.</P>
+
+<P>Before calling <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>, the driver must initialize a <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure with entry points to its <I>DpWmiXxx</I> routines and information about its data blocks and event blocks. </P>
+
+<P>When the driver receives a WMI request:
+
+<OL>
+	<LI>The driver calls <B>WmiSystemControl</B> with a pointer to its initialized WMILIB_CONTEXT structure, a pointer to its device object, and a pointer to the IRP.</LI>
+
+	<LI>WMI validates the IRP parameters and calls the driver's <I>DpWmiXxx</I> routine that processes the request. If the driver set no entry point in its WMILIB_CONTEXT for an optional <I>DpWmiXxx</I> routine, WMI completes the IRP with default values and status.</LI>
+
+	<LI>In its <I>DpWmiXxx</I> routine, the driver processes the request and writes any output to the caller-supplied buffer. For example, a driver's <A HREF="k903_2raq.htm"><I>DpWmiQueryDataBlock</I></A> routine would write the requested instance(s) of the specified block to the buffer.</LI>
+
+	<LI>In all <I>DpWmiXxx</I> routines except <A HREF="k903_196a.htm"><I>DpWmiQueryReginfo</I></A>, the driver calls <A HREF="k902_0wtu.htm"><B>WmiCompleteRequest</B></A> to complete the request, or returns STATUS_PENDING to postpone completion, as for any IRP.</LI>
+
+	<LI>WMI performs any necessary post-processing, packages any output in an appropriate WNODE_XXX structure, and passes the output and status to the data consumer.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Calling%20WmiSystemControl%20to%20Handle%20WMI%20IRPs"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

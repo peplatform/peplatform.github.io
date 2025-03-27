@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Overview of Wait/Wake Operation</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Overview of Wait/Wake Operation">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_overview_of_wait_wake_operation_kg"></A>Overview of Wait/Wake Operation</H2>
+
+<P>In essence, the operating system's wake-up mechanism works as shown in the following figure:</P>
+
+<P><IMG SRC="images/send-waitwake.gif" ALT="" BORDER=0></P>
+
+<P><B>Overview of IRP_MN_WAIT_WAKE Processing</B>
+
+<OL>
+	<LI>While the system and device are in the working state, the power policy owner for a device determines that its device should be enabled ("armed") for wake-up. The power policy owner requests a power IRP (<A HREF="portn_55gy.htm"><B>PoRequestPowerIrp</B></A> with minor code <A HREF="poirp_44fm.htm">IRP_MN_WAIT_WAKE</A>) to be sent to its PDO to inform all drivers in its device stack. In the request, the policy owner specifies a callback routine (not the same as an<I> IoCompletion</I> routine).</LI>
+
+	<LI>The Power Manager, through the I/O Manager, sends the IRP to the top of the device stack. </LI>
+
+	<LI>Drivers set<I> IoCompletion</I> routines and pass the IRP down until it reaches the bus driver.</LI>
+
+	<LI>The bus driver enables wake-up on the physical device, if it can, and marks the IRP pending. If necessary, it also requests a wait/wake IRP for its parent.</LI>
+
+	<LI>Sometime later, an external wake-up signal arrives. </LI>
+
+	<LI>The bus driver completes the IRP_MN_WAIT_WAKE.</LI>
+
+	<LI>I/O Manager calls<I> IoCompletion</I> routines that were set as drivers passed the IRP down the stack.</LI>
+
+	<LI>I/O Manager calls the callback routine set by the policy owner when it requested the IRP. </LI>
+</OL>
+
+<P>The IRP_MN_WAIT_WAKE request does not change the power state of the device or the system. It merely enables wake-up on the device so that later, if the device enters an appropriate sleep state, an external signal will cause the device (and possibly the system) to awaken.  </P>
+
+<P>When a wake-up signal arrives, the drivers' behavior is the same whether the device wakes the system or only itself. If the device is enabled for wake-up and the system is in a sleep state from which the device can awaken it, the device will awaken the system. If the device is enabled for wake-up and the system is in the working state, only the device will awaken. </P>
+
+<P>Because computers and devices vary in design, particularly with respect to power planes, the supported system and device power states — and thus the states that can support wait/wake — are not the same on all hardware configurations. Therefore, any driver that owns power policy for its device — and every bus driver — must pay careful attention to the capabilities of the individual configuration on which it is running. For further information, see <A HREF="pwrmgmt_2g13.htm">Determining Whether a Device Can Wake the System</A>. </P>
+
+<P>For further details on wait/wake operations, see <A HREF="pwrmgmt_8vjb.htm">Understanding the Path of Wait/Wake IRPs through a Device Tree</A> and <A HREF="pwrmgmt_2trc.htm">Overview of Wait/Wake IRP Completion</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Overview%20of%20Wait%2FWake%20Operation"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

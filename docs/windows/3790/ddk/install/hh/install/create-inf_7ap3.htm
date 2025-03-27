@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Specifying Driver Load Order</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Specifying Driver Load Order">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ioreportdetecteddevice_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_tree_kg">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_devnode_dg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_specifying_driver_load_order_dg"></A>Specifying Driver Load Order</H1>
+
+<P>For most devices, the physical hierarchy of the devices on a machine determines the order in which Setup and the PnP Manager load drivers. Setup and the PnP Manager configure devices starting with the system root device, and then they configure the child devices of the root device (for example, a PCI adapter), the children of those devices, and so on. The PnP Manager loads the drivers for each device as the device is configured, if the drivers were not previously loaded for another device. </P>
+
+<P>Settings in the INF file can influence driver load order. This topic describes the relevant values that vendors should specify in the <I>service-install-section</I> referenced by a driver's <A HREF="inf-format_79te.htm">INF <B>AddService</B> directive</A>. Specifically, this topic discusses the <B>StartType</B>, <B>LoadOrderGroup</B>, and <B>Dependencies</B> entries.</P>
+
+<P>Drivers should follow these rules for specifying <B>StartType</B>:
+
+<UL>
+	<LI>PnP driver
+<P>A PnP driver should have a start type of SERVICE_DEMAND_START (0x3), specifying that the PnP Manager can load the driver whenever the PnP Manager finds a device that the driver services. 
+</LI>
+
+	<LI>Driver for a device required to boot the machine
+<P>If a device is required to boot the machine, the drivers for the device should have a start type of SERVICE_BOOT_START (0x0).
+</LI>
+
+	<LI>Non-boot driver that detects device(s) that are not PnP-enumerable
+<P>For a device that is not PnP-enumerable, a driver reports the device to the PnP Manager by calling <A HREF="JavaScript:hhobj_1.Click()"><B>IoReportDetectedDevice</B></A>. Such a driver should have the start type SERVICE_SYSTEM_START (0x01) so Setup will load the driver during system initialization. 
+
+<P>Only drivers that report non-PnP hardware should set this start type. If a driver services both PnP and non-PnP devices, it should set this start type.
+</LI>
+
+	<LI>Non-PnP driver that must be started by the Service Control Manager
+<P>Such a driver should have the start type SERVICE_AUTO_START (0x02). PnP drivers must not set this start type. 
+</LI>
+</UL>
+
+<P>A PnP driver should be written so that it can be loaded whenever Setup configures a device that the driver services. Conversely, a driver should be able to be unloaded any time the PnP Manager determines that there are no longer devices present that the driver services. The only driver load orderings that PnP drivers should depend on are the following:
+
+<OL>
+	<LI>The drivers for a child device can depend on the fact that the drivers for the parent device have been loaded.</LI>
+
+	<LI>A driver in the device stack can depend on the fact that any drivers below it have been loaded. For example, the function driver can be certain that any lower-filter drivers have been loaded. 
+<P>Note, however, that a driver in the device stack cannot depend on being loaded sequentially after a device's lower drivers, because the driver might have been loaded previously when another device was configured. 
+</LI>
+</OL>
+
+<P>Filter drivers within a filter group cannot predict their load ordering. For example, if a device has three registered upper-filter drivers, those three drivers will all be loaded after the function driver but could be loaded in any order within their upper-filter group. </P>
+
+<P>If a driver has an explicit load-order dependency on another driver, that dependency should be implemented through a parent/child relationship. A driver for a child device can depend on the drivers for the parent device being loaded before the child drivers are loaded. </P>
+
+<P>To reinforce the importance of setting the correct <B>StartType</B> value, the following list describes how Setup and the PnP Manager use the <B>StartType</B> entries in INF files:
+
+<OL>
+	<LI>On system boot, the operating system loader loads drivers of type SERVICE_BOOT_START before it transfers control to the kernel. These drivers are in memory when the kernel gets control. 
+<P>Boot-start drivers can use INF <B>LoadOrderGroup</B> entries to order their loading. (Boot-start drivers are loaded before most of the devices are configured, so their load order cannot be determined by device hierarchy.) The operating system ignores INF <B>Dependencies</B> entries for boot-start drivers. 
+</LI>
+
+	<LI>The PnP Manager calls the <B>DriverEntry</B> routines of the SERVICE_BOOT_START drivers so the drivers can service the boot devices. 
+<P>If a boot device has child devices, those devices are enumerated. The child devices are configured and started if their drivers are also boot-start drivers. If a device's drivers are not all boot-start drivers, the PnP Manager creates a devnode for the device but does not start the device yet. 
+</LI>
+
+	<LI>After all the boot drivers have loaded and the boot devices are started, the PnP Manager configures the rest of the PnP devices and loads their drivers.
+<P>The PnP Manager walks the <A HREF="JavaScript:hhobj_2.Click()">device tree</A> and loads the drivers for the <A HREF="JavaScript:hhobj_3.Click()">devnodes</A> that are not yet started (that is, any nonstarted devnodes from the previous step). As each device starts, the PnP Manager enumerates the children of the device, if any. 
+
+<P>As it configures these devices, the PnP Manager loads the drivers for the devices, <I>regardless</I> of the drivers' <B>StartType</B> values, and starts the devices. Many of these drivers are SERVICE_DEMAND_START drivers, but they can have any <B>StartType</B>. 
+
+<P>The PnP Manager ignores registry entries that were created as a result of INF <B>Dependencies</B> entries and <B>LoadOrderGroup</B> entries for drivers that it loads in this step. The load ordering is based on the physical device hierarchy.
+
+<P>At the end of this step, all of the devices have been configured, except devices that are not PnP-enumerable and the descendants of those devices. (The descendants might or might not be PnP-enumerable.)
+</LI>
+
+	<LI>The PnP Manager loads drivers of <B>StartType</B> SERVICE_SYSTEM_START that are not yet loaded. 
+<P>These drivers detect and report their non-PnP devices. The PnP Manager processes registry entries that are the result of INF <B>LoadOrderGroup</B> entries for these drivers. It ignores registry entries that were created as a result of INF <B>Dependencies</B> entries for these drivers. 
+</LI>
+
+	<LI>The Service Control Manager loads drivers of <B>StartType</B> SERVICE_AUTO_START that are not yet loaded.
+<P>The Service Control Manager processes the service database information with respect to the services’ <B>DependOnGroup</B> and <B>DependOnServices</B>. This information is from <B>Dependencies</B> entries in INF <B>AddService</B> entries. Note that the <B>Dependencies</B> information is only processed for non-PnP drivers because any necessary PnP drivers were loaded in an earlier step of system startup. The Service Control Manager ignores INF <B>LoadOrderGroup</B> information.
+
+<P>See the Platform SDK documentation for more information on the Service Control Manager.
+</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Specifying%20Driver%20Load%20Order"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

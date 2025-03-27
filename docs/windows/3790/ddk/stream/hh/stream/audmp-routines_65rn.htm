@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IAdapterPowerManagement::PowerChangeState</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IAdapterPowerManagement::PowerChangeState">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_set_power_dr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_set_power_dr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_iadapterpowermanagement_powerchangestate_ks"></A>IAdapterPowerManagement::PowerChangeState</H1>
+
+<P>The <B>PowerChangeState</B> method requests that the device change to a new power state.</P>
+
+<PRE class=syntax><B>void
+  PowerChangeState(
+    IN POWER_STATE  </B><I>NewState</I><B>
+    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>NewState</I></DT>
+
+<DD>Specifies the new power state being requested for the device. This parameter is a union of type POWER_STATE. The new power state (<I>NewState.DeviceState</I>) can be one of the DEVICE_POWER_STATE enumeration values shown in the following table.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=28%>Power State</TH>
+<TH align=left width=72%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=28%><B>PowerDeviceD0</B></TD>
+<TD width=72%>Full power state (D0). This code may be a function of the current power state. Save the new state. This local value is used to determine when to cache property accesses and when to permit the driver from accessing the hardware.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=28%><B>PowerDeviceD1</B></TD>
+<TD width=72%>The sleep state having the lowest latency with respect to the latency time required to return to D0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=28%><B>PowerDeviceD2</B></TD>
+<TD width=72%>A medium latency sleep state. In this state, the device driver cannot assume that it can touch the hardware, so any accesses need to be cached and the hardware restored upon entering D0.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=28%><B>PowerDeviceD3</B></TD>
+<TD width=72%>A full hibernation state and is the longest latency sleep state. The driver cannot access the hardware in this state and must cache any hardware accesses and restore the hardware upon returning to D0 or D1</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>None</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>portcls.h</I>. Include <I>portcls.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>PortCls calls the <B>PowerChangeState</B> method in response to an <A HREF="JavaScript:hhobj_1.Click()">IRP_MN_SET_POWER</A> power IRP. This call must not fail. PortCls and the system use the <B>PowerChangeState</B> call to place the device in the desired power state. When the system attempts to suspend or resume an active audio stream, the driver must be capable of saving or restoring its device context appropriately.</P>
+
+<P>To assist the driver, PortCls will pause any active audio streams prior to calling this method to place the device in a sleep state. After calling this method, PortCls will unpause active audio streams, to wake the device up. Miniports can opt for additional notification by utilizing the <A HREF="audmp-routines_32k3.htm"><B>IPowerNotify</B></A> interface.</P>
+
+<P>The miniport driver must perform the requested change to the device's power state before it returns from the <B>PowerChangeState</B> call. If the miniport driver needs to save or restore any device state before a power-state change, the miniport driver should support the <B>IPowerNotify</B> interface, which allows it to receive advance warning of any such change. Before returning from a successful <B>PowerChangeState</B> call, the miniport driver should cache the new power state.</P>
+
+<P>While the miniport driver is in one of the sleep states (any state other than <B>PowerDeviceD0</B>), it must avoid writing to the hardware. The miniport driver must cache any hardware accesses that need to be deferred until the device powers up again. If the power state is changing from one of the sleep states to <B>PowerDeviceD0</B>, the miniport driver should perform any deferred hardware accesses after it has powered up the device. If the power state is changing from <B>PowerDeviceD0</B> to a sleep state, the miniport driver can perform any necessary hardware accesses during the <B>PowerChangeState</B> call before it powers down the device.</P>
+
+<P>While powered down, a miniport driver is never asked to create a miniport object or stream object. PortCls always places the device in the <B>PowerDeviceD0</B> state before calling the miniport driver's <B>NewStream</B> method.</P>
+
+<P>The code for this method must reside in paged memory.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="JavaScript:hhobj_2.Click()">IRP_MN_SET_POWER</A>, <A HREF="audmp-routines_32k3.htm"><B>IPowerNotify</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IAdapterPowerManagement::PowerChangeState"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

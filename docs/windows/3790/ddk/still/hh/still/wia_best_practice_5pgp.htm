@@ -1,0 +1,131 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WIA Driver Registry Access</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WIA Driver Registry Access">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_wia_driver_registry_access_si"></A>WIA Driver Registry Access</H3>
+
+<P>Driver developers should know the permissions for the registry keys they need to access. Much of the registry is available for the driver to read. However, WIA drivers should write only to the registry key handed to them in the <A HREF="stifnc_0lrd.htm"><B>IStiUSD::Initialize</B></A> method.</P>
+
+<P>Although writing to other registry keys is possible in Windows&nbsp;XP, because the WIA service runs under the high-privilege <B>LocalSystem</B> account, this is no longer possible under the low-privilege <B>LocalService</B> account in Windows&nbsp;Server 2003 and later.</P>
+
+<P>Drivers often need write access to their registry key outside of <B>IStiUSD::Initialize</B>. Because most drivers store data in the <B>DeviceData</B> subkey, it is easy to open the <B>DeviceData</B> subkey and store the handle to the open key to be used later. The driver should close the registry key only when it no longer needs the key.</P>
+
+<P>The following code example illustrates using the <B>DeviceData</B> registry subkey.</P>
+
+<PRE>STDMETHODIMP CWIADevice::Initialize(
+  PSTIDEVICECONTROL   pIStiDevControl,
+  DWORD               dwStiVersion,
+  HKEY                hParametersKey)
+{
+  .
+  .
+  .
+  //
+  // Open the DeviceData key since this is where the
+  // driver-specific settings will be stored.
+  //
+  DWORD dwError = RegOpenKeyEx(
+                 hParametersKey,     // handle to open key
+                 TEXT("DeviceData"), // subkey to open
+                 0,                  // options (must be NULL)
+                 KEY_READ|KEY_WRITE, // requesting read/write access
+                 &amp;<B>m_hMyWritableRegistryKey</B>);
+  if (dwError == ERROR_SUCCESS)
+  {
+      //
+      //  m_hMyWritableRegistryKey now contains a handle to the
+      //  DeviceData sub-key which can be used to store information
+      //  in the registry.
+      //  Notice that it isn't closed here, but instead,
+      //  kept open because it is needed later.
+     //
+  }
+  else 
+  {
+      // Handle error
+      .
+      .
+      .
+  }
+  .
+  .
+  .
+}
+
+STDMETHODIMP CWIADevice::SomeDriverMethod()
+{
+  .
+  .
+  .
+  //
+  //  We need to store some setting in the registry here.
+  //
+  DWORD dwError = RegSetValueEx(
+                     m_hMyWritableRegistryKey,
+                     TEXT("MyDriverValueName"),
+                     0,
+                     REG_DWORD,
+                     (BYTE*)&amp;dwValue,
+                     sizeof(dwValue));
+  if (dwError == ERROR_SUCCESS)
+  {
+      //
+      //  We successfully stored dwValue in the registry
+      //
+  }
+  else 
+  {
+      // Handle error
+      .
+      .
+      .
+  }
+  .
+  .
+  .
+}
+
+CWIADevice:: CWIADevice () :
+  m_hMyWritableRegistryKey(NULL),
+  .
+  .
+  .
+{
+  //  Rest of constructor goes here.  Ensure that the
+  //   handle to the registry key is initialized to NULL.
+}
+
+CWIADevice::~CWIADevice(void)
+{
+  .
+  .
+  .
+  //
+  // If the writable registry key isn't closed  yet, do it now,
+  // because the driver is about to be unloaded.
+  //
+  if (m_hMyWritableRegistryKey) 
+  {
+      RegCloseKey(m_hMyWritableRegistryKey);
+      m_hMyWritableRegistryKey = NULL;
+  }
+
+  .
+  .
+  .
+}</PRE>
+
+<P>The<B> DeviceData</B> registry subkey is open for read/write access to the driver on Windows&nbsp;Me, and Windows&nbsp;XP and later. The device key itself (for example, the parent registry key to <B>DeviceData</B>) may or may not be open for write access by the driver, depending on the operating system version.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The driver <I>must</I> close any registry keys it opened when they are no longer needed, and must close all registry keys prior to unloading.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WIA%20Driver%20Registry%20Access"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

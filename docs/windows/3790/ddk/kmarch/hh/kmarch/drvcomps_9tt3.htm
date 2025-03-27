@@ -1,0 +1,42 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DispatchReadWrite Using Buffered I/O</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DispatchReadWrite Using Buffered I/O">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_dispatchreadwrite_using_buffered_i_o_kg"></A><I>DispatchReadWrite</I> Using Buffered I/O</H3>
+
+<P>Any lowest-level device driver that sets up its device objects for buffered I/O satisfies a read request by returning data transferred from its device into a locked down system-space buffer at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B>. It satisfies a write request by transferring data from the same buffer out to its device. </P>
+
+<P>Consequently, the <I>DispatchReadWrite</I> routine of such a device driver usually does the following on receipt of a transfer request:
+
+<OL>
+	<LI>Calls <A HREF="k104_89pu.htm"><B>IoGetCurrentIrpStackLocation</B></A> and determines the direction of the transfer request. </LI>
+
+	<LI>Checks the validity of the parameters for the request. 
+<UL>
+	<LI>For a read request, the routine usually checks the driver’s <I>IoStackLocation</I><B>-&gt;Parameters.Read.Length</B> value to determine whether the buffer is large enough to receive data transferred from the device. 
+<P>For example, the system keyboard class driver processes read requests that come only from the Win32® user input thread. This driver defines a structure, KEYBOARD_INPUT_DATA, in which to store keystrokes from the device and, at any given moment, holds some number of these structures in an internal ring buffer in order to satisfy read requests as they come in. 
+</LI>
+
+	<LI>For a write request, the routine usually checks the value at <B>Parameters.Write.Length</B>, and checks the data at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B> for validity if necessary: that is, if its device accepts only structured data packets containing members with defined value ranges. </LI>
+</UL>
+</LI>
+
+	<LI>If any parameters are invalid, the <I>DispatchReadWrite</I> routine completes the IRP immediately, as already described in <A HREF="irps_6crr.htm">Completing IRPs</A>. Otherwise, the routine passes the IRP on for further processing by other driver routines, as described in <A HREF="irps_1oh3.htm">Passing IRPs Down the Driver Stack</A>. </LI>
+</OL>
+
+<P>Lowest-level device drivers that use buffered I/O usually must satisfy a transfer request by reading or writing data of a size specified by that the originator of the request. Such a driver is likely to define a structure for data coming in from or being sent to its device and is likely to buffer structured data internally, as the system keyboard class driver does.</P>
+
+<P>Drivers that buffer data internally should support <A HREF="k113_4a0i.htm">IRP_MJ_FLUSH_BUFFERS</A> requests, and can also support <A HREF="k113_1wz6.htm">IRP_MJ_SHUTDOWN</A> requests.</P>
+
+<P>The highest-level driver in a chain is usually responsible for checking the input IRP’s parameters before passing a read/write request on to lower drivers. Consequently, many lower-level drivers can assume that their I/O stack locations in a read/write IRP have valid parameters. If a lowest-level driver in a chain is aware of device-specific constraints on data transfers, that driver is required to check the validity of the parameters in its I/O stack location</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DispatchReadWrite%20Using%20Buffered%20I%2FO"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

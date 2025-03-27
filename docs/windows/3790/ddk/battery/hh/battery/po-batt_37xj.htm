@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Creating an FDO in the Battery Miniclass Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Creating an FDO in the Battery Miniclass Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iocreatedevice_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ioattachdevicetodevicestack_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Battery&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_creating_an_fdo_in_the_battery_miniclass_driver_dg"></A>Creating an FDO in the Battery Miniclass Driver</H2>
+
+<P>The miniclass driver should create an FDO and attach it to the device stack for the device, as follows:
+
+<OL>
+	<LI>Call <A HREF="JavaScript:hhobj_1.Click()"><B>IoCreateDevice</B></A> to create an FDO for the current device, as follows:
+<PRE>Status = IoCreateDevice(
+         DriverObject,
+         sizeof (DeviceExtension),
+         NULL,
+         FILE_DEVICE_BATTERY,
+         0,
+         FALSE,
+         &amp;Fdo
+         );</PRE>
+
+<P>The input parameters to <B>IoCreateDevice</B> are a pointer to the driver object that was passed to the <I>AddDevice</I> routine, the size of the device extension, NULL in place of a device name, and the system-defined device type (FILE_DEVICE_BATTERY). Battery miniclass drivers can specify zero for the <I>DeviceCharacteristics</I> parameter, which is irrelevant to these drivers. More than one thread can send I/O requests to the battery, so the miniclass driver passes FALSE as the <I>Exclusive</I> parameter. <B>IoCreateDevice</B> returns a pointer to the created FDO.
+</LI>
+
+	<LI>In the returned FDO, set flags and the stack size. For example:
+<PRE>Fdo-&gt;Flags |= DO_BUFFERED_IO;
+Fdo-&gt;Flags |= DO_POWER_PAGABLE;
+Fdo-&gt;StackSize = Pdo-&gt;StackSize + 2;</PRE>
+
+<P>Setting the DO_BUFFERED_IO flag allows the miniclass driver to use buffered I/O for IRPs. Setting the DO_POWER_PAGABLE flag indicates that the driver is pageable and prevents it from getting power IRPs at IRQL &gt;= DISPATCH_LEVEL. Finally, because battery IRPs require an additional stack location, miniclass drivers should set <B>StackSize</B> to the PDO stack size plus two, so that the driver can pass the IRP down to the PDO.
+</LI>
+
+	<LI>Store the pointer to the device's PDO, the pointer to the FDO, the device type, the device name, and any other necessary state in the device extension. For example:
+<PRE>NewBatt = (PNEW_BATT) Fdo-&gt;DeviceExtension;
+NewBatt-&gt;Type = NEW_BATTERY_TYPE;
+NewBatt-&gt;Fdo = Fdo;
+NewBatt-&gt;Pdo = Pdo;
+NewBatt-&gt;IsCacheValid = FALSE;</PRE>
+
+<P>The example stores the pointers to the FDO and PDO in the device extension. (The PnP Manager supplied a pointer to the PDO as the <I>PhysicalDeviceObject</I> pointer input to <I>AddDevice</I>.) In addition, the example above keeps track of its own battery type (NEW_BATTERY_TYPE, defined elsewhere in this hypothetical miniclass driver) and whether any cached information is valid. 
+
+<P>You determine the information stored in the device extension. For example, a smart battery driver might retain the number of batteries, a Boolean value indicating whether a battery selector is present, and, optionally, information about that battery selector.
+</LI>
+
+	<LI>Call <A HREF="JavaScript:hhobj_2.Click()"><B>IoAttachDeviceToDeviceStack</B></A> to attach the FDO to the device stack, then store the returned pointer, as follows:
+<PRE>NewBatt-&gt;LowerDO = IoAttachDeviceToDeviceStack(Fdo,Pdo);</PRE>
+
+<P>The call returns a pointer to the next-lower device object, which this example stores in the device extension.
+</LI>
+
+	<LI>Clear the DO_DEVICE_INITIALIZING flag in the FDO, as follows:
+<PRE>Fdo-&gt;Flags &amp;= ~DO_DEVICE_INITIALIZING;</PRE>
+
+<P>Clearing the DO_DEVICE_INITIALIZING flag allows the device object to be opened subsequently by components higher in the device stack. 
+</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Creating%20an%20FDO%20in%20the%20Battery%20Miniclass%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

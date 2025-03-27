@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Power IRPs for the System</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Power IRPs for the System">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_power_irps_for_the_system_kg"></A>Power IRPs for the System</H3>
+
+<P>A <I>system power IRP</I> specifies major IRP code <A HREF="k113_7jjm.htm">IRP_MJ_POWER</A>, one of the minor power IRP codes listed below, and the value <B>SystemPowerState </B>in the <B>Power.Type </B>member of the IRP stack. Only the Power Manager can send such an IRP; a driver cannot send a system power IRP.</P>
+
+<P>The Power Manager sends a system power IRP for one of the following reasons:
+
+<UL>
+	<LI>To change the system power state in response to an idle time-out, a change in system activity, a user request, or an expiring battery (<A HREF="poirp_6hde.htm">IRP_MN_SET_POWER</A>) </LI>
+
+	<LI>To query devices to determine whether the system can go to sleep (<A HREF="poirp_9e9e.htm">IRP_MN_QUERY_POWER</A>)</LI>
+
+	<LI>To reaffirm the current system power state after a query (IRP_MN_SET_POWER) </LI>
+</UL>
+
+<P>The Power Manager sends IRP_MN_QUERY_POWER and IRP_MN_SET_POWER requests on behalf of the system. A driver can fail an IRP_MN_QUERY_POWER request but cannot fail IRP_MN_SET_POWER.</P>
+
+<P>For example, to change the system power state, the Power Manager sends a system power IRP to the top driver in the stack at each device node of the device tree. The following figure shows how drivers within a single device stack handle a system power IRP. </P>
+
+<P><IMG SRC="images/s2dirp.gif" ALT="" BORDER=0></P>
+
+<P><B>Path of a System Power IRP</B></P>
+
+<P>As the previous figure shows:
+
+<OL>
+	<LI>The Power Manager calls the I/O Manager to send a system power IRP to each leaf node in the device tree.</LI>
+
+	<LI>Drivers handle the IRP if possible, set<I> <A HREF="drvrrtns_4rsi.htm">IoCompletion</A></I> routines if necessary, and forward the IRP down the stack (<A HREF="pwrmgmt_1v3b.htm">using <B>PoCallDriver</B></A>). If a driver must fail the IRP, it does so immediately and completes the IRP. Drivers can fail IRP_MN_QUERY_POWER IRPs, but must not fail IRP_MN_SET_POWER IRPs to set the system power state.</LI>
+
+	<LI>When the driver that owns power policy for the device receives the IRP, that driver sets an <I>IoCompletion</I> routine for the system IRP and then forwards the IRP. </LI>
+
+	<LI>Any other drivers in the stack handle the IRP if possible, set <I>IoCompletion</I> routines if necessary, and forward the IRP to the next-lower driver, as in step 2.</LI>
+
+	<LI>Eventually, the bus driver receives and completes the system IRP. </LI>
+
+	<LI>The I/O Manager calls any <I>IoCompletion</I> routines that were set as drivers passed the system IRP down the device stack.</LI>
+
+	<LI>In its <I>IoCompletion</I> routine, the device power policy owner calls <A HREF="portn_55gy.htm"><B>PoRequestPowerIrp</B></A> to send a device power IRP, specifying a device power state that is valid for the system power state in the system IRP. The driver sets a callback routine to be invoked when the device power IRP completes.
+<P>If necessary, the driver consults the <B>DeviceState</B> field in its cached copy of the DEVICE_CAPABILITIES structure (see <A HREF="pwrmgmt_0iw7.htm">Reporting Device Power Capabilities</A>) to determine which device power states correspond to the system power state in the IRP. 
+</LI>
+
+	<LI>After the device IRP is complete and any device IRP completion routines have run, the power policy owner's callback routine is invoked. In the callback routine, the driver copies its returned status into the system IRP. It calls <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A> and then calls <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> to complete the system IRP. </LI>
+</OL>
+
+<P>For further information, see <A HREF="pwrmgmt_6isn.htm">Handling System Power State Requests</A>.</P>
+
+<P>Because some devices require an inrush of current when they power on, system inrush power IRPs are handled synchronously and serially throughout the system. Only one such IRP can be active at a time. For further information, see <A HREF="pwrmgmt_1v3b.htm">Using <B>PoCallDriver</B></A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Power%20IRPs%20for%20the%20System"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

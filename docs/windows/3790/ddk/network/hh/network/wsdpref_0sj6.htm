@@ -1,0 +1,126 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WSPRegisterRdmaMemory</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WSPRegisterRdmaMemory">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wspregisterrdmamemory_nr"></A>WSPRegisterRdmaMemory</H1>
+
+<P><B>WSPRegisterRdmaMemory</B> registers an RDMA buffer that can be used as either the target buffer in a <B>WSPRdmaWrite</B> call or the source buffer in a <B>WSPRdmaRead</B> call. </P>
+
+<PRE class=syntax><B>int</B>
+<B>  WSPRegisterRdmaMemory(</B>
+<B>    IN SOCKET</B>  <I>s</I><B>,</B>
+<B>    IN PVOID</B>  <I>lpBuffer</I><B>,</B>
+<I>    </I><B>IN</B> <B>DWORD</B>  <I>dwBufferLength</I><B>,</B>
+<I>    </I><B>IN DWORD</B>  <I>dwFlags</I><B>,</B>
+  <I>  </I><B>OUT LPVOID<I> </I></B> <I>lpRdmaBufferDescriptor</I><B>,</B>
+  <I>  </I><B>IN/OUT LPDWORD<I> </I></B> <I>lpdwDescriptorLength</I><B>,</B>
+<I>    </I><B>OUT</B> <B>LPINT</B>  <I>lpErrno</I>
+<I>    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>s</I></DT>
+
+<DD>Descriptor that identifies a connected socket.</DD>
+
+<DT><I>lpBuffer</I></DT>
+
+<DD>Pointer to the RDMA buffer to register. </DD>
+
+<DT><I>dwBufferLength</I></DT>
+
+<DD>Size, in bytes, of the RDMA buffer at <I>lpBuffer</I>.</DD>
+
+<DT><I>dwFlags</I></DT>
+
+<DD>Set of flags that specify supplementary information about the RDMA buffer and registration options. </DD>
+
+<DT><I>lpRdmaBufferDescriptor</I></DT>
+
+<DD>Pointer to a memory block that receives a descriptor that identifies the RDMA buffer at <I>lpBuffer</I>. </DD>
+
+<DT><I>lpdwDescriptorLength</I></DT>
+
+<DD>Pointer to a variable that contains the size, in bytes, of the memory block at <I>lpRdmaBufferDescriptor</I>. The switch allocates this memory block to receive the RDMA-buffer descriptor and specifies the initial size of the memory block. The SAN service provider returns either the size of the descriptor that it actually stored or the size that it requires. </DD>
+
+<DT><I>lpErrno</I></DT>
+
+<DD>Pointer to a variable that receives the error code.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>Returns zero if successful; otherwise, returns SOCKET_ERROR and, at <I>lpErrno</I>, one of the following error codes: 
+
+<DL>
+<DT>WSANOBUFS</DT>
+
+<DD>No memory resources available. </DD>
+
+<DT>WSAEFAULT</DT>
+
+<DD><I>lpBuffer </I>is not contained completely within a valid part of the user address space, or the size of <I>lpRdmaDescriptorBuffer</I> is insufficient to contain the descriptor. Note that if <I>lpRdmaDescriptorBuffer</I> is insufficient to contain the descriptor, the SAN service provider must store the required size at <I>lpdwDescriptorLength</I>. If <I>lpBuffer </I>is not contained completely within a valid part of the user address space, the SAN service provider must not overwrite the initial value that the switch supplied.</DD>
+
+<DT>WSAEINVAL</DT>
+
+<DD>Invalid flags specified. </DD>
+
+<DT>WSAENOTCONN</DT>
+
+<DD>Socket is not connected (connection-oriented sockets only).
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>Ws2san.h</I>. Include <I>Ws2san.h</I>. Requires Windows Sockets version&nbsp;2.2.</P>
+
+<H4>Comments</H4>
+
+<P>The Windows Sockets switch calls <B>WSPRegisterRdmaMemory</B> to register an RDMA buffer that a specific socket and the remote peer connected to that socket can access. The returned descriptor for the RDMA buffer is valid for RDMA data transfer operations that the remote peer initiates in the context of the peer's connection to the socket.</P>
+
+<P>The switch can call the <B>WSPRegisterRdmaMemory</B> function more than once to register the same RDMA buffer for use by any number of sockets. When this occurs, a SAN service provider is not required to return a different descriptor for the RDMA buffer. However, the SAN service provider should maintain an internal reference count of the number of registered instances of that RDMA buffer. Each time that a SAN service provider's <A HREF="wsdpref_76gi.htm"><B>WSPDeregisterRdmaMemory</B></A> function is called, it should decrement this internal reference count. Only the final <B>WSPDeregisterRdmaMemory</B> call, which decrements the internal reference count to zero, releases all resources that the SAN service provider consumed to register the RDMA buffer.</P>
+
+<P>The switch specifies how the registered memory in <I>dwflags </I>is to be accessed by specifying one of the following flags:
+
+<DL>
+<DT>MEM_READ</DT>
+
+<DD>Read access</DD>
+
+<DT>MEM_WRITE</DT>
+
+<DD>Write access</DD>
+
+<DT>MEM_READWRITE</DT>
+
+<DD>Both read and write access
+</DD>
+</DL>
+
+<P>The SAN service provider must obtain memory that can be accessed as specified in <I>dwFlags</I>.</P>
+
+<P>The local switch requires that the memory it registers with a <B>WSPRegisterRdmaMemory</B> call has write access if the switch at the remote peer connection subsequently uses this memory as the target in a call to the SAN service provider's <A HREF="wsdpref_7c6q.htm"><B>WSPRdmaWrite</B></A> function. Read access is required for memory that is used as the source in a <A HREF="wsdpref_7soi.htm"><B>WSPRdmaRead</B></A> call. </P>
+
+<P>If the switch did not specify a sufficient size at <I>lpdwDescriptorLength</I> for the memory block at <I>lpRdmaBufferDescriptor</I>, the SAN service provider must return the WSAEFAULT error code at <I>lpErrno</I> and store the required size at <I>lpdwDescriptorLength</I>. The switch allocates the memory block at <I>lpRdmaBufferDescriptor</I> to receive the descriptor that identifies the memory buffer. </P>
+
+<P>A SAN service provider must prevent unauthorized access to an RDMA buffer. Only the connection (process) on which that RDMA buffer is registered can have access, as either the process that called <B>WSPRegisterRdmaMemory</B> to register memory, or the process for the remote peer connection to the socket. </P>
+
+<P>Memory that supports both local and remote access must be accessible only when registered and while the connection is established. A SAN service provider must ensure that it does not inadvertently make such memory accessible to other processes running on the same computer, on the remote peer’s computer, or on other computers on the SAN. Memory registered only for remote read access must not be available for remote write access. Memory registered only for remote write access must not be available for remote read access. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="wsdpref_76gi.htm"><B>WSPDeregisterRdmaMemory</B></A>, <A HREF="wsdpref_1v5e.htm"><B>WSPMemoryRegistrationCacheCallback</B></A>, <A HREF="wsdpref_7soi.htm"><B>WSPRdmaRead</B></A>, <A HREF="wsdpref_7c6q.htm"><B>WSPRdmaWrite</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WSPRegisterRdmaMemory"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

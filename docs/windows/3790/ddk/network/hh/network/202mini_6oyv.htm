@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Multipacket Sends</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Multipacket Sends">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_multipacket_sends_ng"></A>Multipacket Sends</H3>
+
+<P><A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A> in a connectionless miniport driver or <A HREF="101mini_0ycy.htm"><I>MiniportCoSendPackets</I></A> in a connection-oriented miniport driver receives a pointer to an array of pointer(s) to one or more packets to be sent on the network. The miniport driver must preserve the protocol-determined ordering of packet descriptors incoming to its <I>Miniport(Co)SendPackets</I> function.</P>
+
+<P>The NIC driver can extract out-of-band (OOB) media-specific and priority information from the packet descriptor using NDIS macros supplied for this purpose. For more information, see <A HREF="204trnsf_46w7.htm">Packet Out-of-Band Data</A>.</P>
+
+<H4>Multipacket Sends from Serialized Miniport Drivers</H4>
+
+<P>A serialized miniport driver can complete a send operation either synchronously or asynchronously. In its <I>MiniportSendPackets</I> function (if it exports such a function), a serialized miniport driver must set send-completion status in the OOB data for each packet before <I>MiniportSendPackets</I> returns. Any such status other than NDIS_STATUS_PENDING indicates that the miniport driver is done with the packet (that is, has completed the send operation synchronously) and is returning ownership of the packet descriptor and its associated resources to the caller for reuse or to be freed. If the miniport driver returns NDIS_STATUS_PENDING in a packet, the driver retains ownership of the packet resources and must call <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A> when it is done with the packet. For a detailed description of a multipacket send operation from a serialized miniport driver, see <A HREF="204trnsf_73vr.htm">Multipacket Sends from Serialized Miniport Drivers</A>.</P>
+
+<H4>Multipacket Sends from Deserialized Miniport Drivers</H4>
+
+<P>A deserialized miniport driver's <I>MiniportSendPackets</I> function cannot return NDIS_STATUS_RESOURCES and must always complete sends of each packet asynchronously with a call to <B>NdisMSendComplete</B>. NDIS therefore ignores the send-completion status in the OOB data for packets sent by deserialized miniport drivers. Rather than relying on NDIS to queue and resubmit send packets whenever <I>MiniportSendPackets</I> has insufficient resources to transmit the given packets, a deserialized miniport driver manages its own internal packet queuing. A deserialized miniport driver is responsible for holding incoming send packets in its internal queue until they can be transmitted over the network. In addition, a deserialized miniport driver must synchronize the execution of its own functions so that <I>MiniportSendPackets</I> can run concurrently with all other <I>MiniportXxx</I> functions. For more information on deserialized miniport drivers, see <A HREF="201ndis_81gn.htm">Deserialized NDIS Miniport Drivers</A>. For detailed information on multipacket sends from deserialized miniport drivers, see <A HREF="204trnsf_9753.htm">Multipacket Sends from Deserialized Miniport Drivers</A>.</P>
+
+<H4>Multipacket Sends by Connection-Oriented Miniport Drivers</H4>
+
+<P>Like a deserialized miniport driver, a connection-oriented miniport driver:
+
+<UL>
+	<LI>Cannot return NDIS_STATUS_RESOURCES in response to a multipacket send</LI>
+
+	<LI>Does not indicate the send-completion status for each packet in a multipacket send</LI>
+
+	<LI>Must queue internally all send packets passed to it by NDIS</LI>
+
+	<LI>Synchronizes the execution of its own <I>MiniportXxx</I> functions</LI>
+</UL>
+
+<P>A connection-oriented miniport driver differs from a connectionless miniport driver, however, in that it uses a <I>MiniportCoSendPackets</I> and always sends (and also receives) packets on a virtual connection (VC). For detailed information on multipacket sends from connection-oriented miniport drivers, see <A HREF="204trnsf_7ch3.htm">Multipacket Sends from Connection-Oriented Miniport Drivers</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Multipacket%20Sends"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

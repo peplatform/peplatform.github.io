@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Creating Export Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Creating Export Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_targettype_tools">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_dlldef_tools">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_build_utility_macros_tools">
+</OBJECT>
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_dllentry_tools">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_creating_export_drivers_kg"></A>Creating Export Drivers</H1>
+
+<P>Windows drivers are often defined as a pair of components, such as a port/miniport driver pair, or a class/miniclass driver pair. Typically, Microsoft provides a hardware-independent class or port driver, and a vendor supplies a hardware-dependent miniclass or miniport driver.</P>
+
+<P>Kernel-mode export drivers are especially well suited for the task of implementing the part of a driver pair that is <I>independent</I> of underlying stack and hardware characteristics, because an export driver is just a kernel-mode DLL that can be loaded by a variety of other hardware-specific or device-stack-specific components. Microsoft ships a number of drivers with the Windows operating system that fall into this category. For example, the SCSI port driver, the tape class driver, the IDE controller driver are all system-supplied export drivers that are loaded by other drivers. </P>
+
+<P>An export driver is missing many of the characteristics of a complete kernel-mode driver. It might provide support routines for handling I/O request packets (IRPs), but it does not receive IRPs, so it contains no dispatch routines. It does not have a place in the driver stack, nor does it have an entry in the service control manager's database defining it as a system service. It does have a <A HREF="drvrrtns_6r76.htm"><B>DriverEntry</B></A> routine, but its <B>DriverEntry</B> routine is merely a stub whose function is to satisfy the requirements of the build scripts. The <B>DriverEntry</B> routine of an export driver should not contain any code, because the Plug and Play (PnP) Manager never actually calls it. </P>
+
+<P>Standard drivers can also function as export drivers. For a driver to function in both ways, it must be built as an export driver and loaded as a regular driver.</P>
+
+<H3>Building an Export Driver </H3>
+
+<P>To build a driver as an export driver you must define several Build utility macros in the driver's <I>sources </I>file.</P>
+
+<P>First, you must assign the appropriate value to the <A HREF="JavaScript:hhobj_1.Click()">TARGETTYPE</A> macro, as follows:</P>
+
+<PRE>TARGETTYPE=EXPORT_DRIVER</PRE>
+
+<P>You must also specify a module-definition (.<I>def</I>) file using the <A HREF="JavaScript:hhobj_2.Click()">DLLDEF</A> macro. For example:</P>
+
+<PRE>DLLDEF="c:\project\driver.def"</PRE>
+
+<P>The module-definition file provides the compiler and linker with a list of exported routines along with other information. For more information on module-definition files, see the Microsoft® Visual C++® documentation. </P>
+
+<P>Many of the <A HREF="JavaScript:hhobj_3.Click()">Build Utility Macros</A> employed in building a user-mode DLL cannot be used when building a kernel-mode DLL. For instance, the entry point for a kernel-mode DLL is always <A HREF="drvrrtns_0rw2.htm"><B>DllInitialize</B></A>. You can not specify the entry point using the <A HREF="JavaScript:hhobj_4.Click()">DLLENTRY</A> macro. </P>
+
+<P>The build process generates an export library with a .<I>lib</I> extension, and an export driver with a .<I>sys</I> extension.</P>
+
+<H3>Importing Functions from an Export Driver</H3>
+
+<P>To import functions that are exported by an export driver, you should declare the functions using the DECLSPEC_IMPORT macro, which is defined in <I>ntdef.h</I>. For example:</P>
+
+<PRE class=syntax>DECLSPEC_IMPORT int LoadPrinterDriver (int arg1);</PRE>
+
+<P>This macro resolves to a __declspec(dllimport) storage class declaration on those platforms where required and to nothing on those platforms where not required.</P>
+
+<P>In the export driver, the function to be exported should be declared with the DECLSPEC_EXPORT macro. This macro resolves to a __declspec(dllexport) storage class declaration on those platforms where required and to nothing on those platforms where not required.</P>
+
+<H3>Loading an Export Driver</H3>
+
+<P>Export drivers must be installed in the <I>%windir%\system32\drivers</I> directory. In Windows&nbsp;NT® 4.0, once loaded, the export driver remains loaded until the system shuts down. In Windows&nbsp;2000 and later NT-based operating systems, the system keeps a reference count that indicates the number of times that the export driver's functions have been imported by other drivers. The system decrements this count whenever one of the importing drivers unloads. When the reference count falls to zero, the system unloads the export driver. However, the export driver must contain the standard entry point and unload routines, <A HREF="drvrrtns_0rw2.htm"><B>DllInitialize</B></A> and <A HREF="drvrrtns_8fxu.htm"><B>DllUnload</B></A>, or the operating system will not activate this reference count mechanism. Without these routines, the export driver in Windows 2000 and later NT-based operating systems behaves just as it does in Windows NT 4.0. </P>
+
+<H3>Restrictions in Windows 98</H3>
+
+<P>Do not use the <A HREF="drvrrtns_0rw2.htm"><B>DllInitialize</B></A> routine in an export driver designed to run in Windows&nbsp;98. If Windows 98 detects the presence of this routine, it will not load the export driver. Windows 98 SE will load the export driver, but will not unload it.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Creating%20Export%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

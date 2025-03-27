@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Opening a Device Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_pss_2528"></A>Opening a Device Driver</H2>
+
+<P>Before using a device, an application must open the device driver with the MCI_OPEN command message. When MCI receives this message, MCI uses Windows to open your device driver. Windows checks if the device driver is loaded, and, if not, it sends the DRV_LOAD and DRV_ENABLE messages to <B>DriverProc</B> to prepare the driver for use. Your device driver will use the DRV_LOAD message to load custom command tables. (These tables and how to load them are described later in this section.) Other actions your device driver should take for the DRV_LOAD and DRV_ENABLE messages are those expected for a Windows installable device driver. When the device driver is loaded, Windows sends the DRV_OPEN message to <B>DriverProc</B>. </P>
+
+<P>For the DRV_OPEN message, Windows sets <I>dwDriverIdentifier</I> to 0L and sets <I>hDriver</I> to the driver handle it creates. Windows sets <I>lParam1</I> to a pointer to a zero-terminated string. The string contains the information following the entry for the device driver in the SYSTEM.INI file or registry. Windows sets <I>lParam2</I> to a pointer to an <B>MCI_OPEN_DRIVER_PARM</B> structure. </P>
+
+<P>MCI creates the device ID and passes it to your driver in the <B>wDeviceID</B> member of <B>MCI_OPEN_DRIVER_PARM</B>. Your device driver should return this value when it successfully finishes with the DRV_OPEN message. MCI applications use this ID to identify an MCI device driver. (MCI applications and drivers do not use the handle Windows creates for <I>hDriver</I>. MCI intercepts this handle and does not pass it back to the calling application.) </P>
+
+<P>MCI places a pointer to a zero-terminated string in the <B>lpstrParams</B> member of <B>MCI_OPEN_DRIVER_PARM</B>. (This information duplicates the information in the <I>lParam1</I> parameter of <B>DriverProc</B>.) The string contains the parameters following the definition of the device driver in the SYSTEM.INI file. For many device drivers, no additional information is placed after the definition of the device drive. Some device drivers will include a small amount of configuration data after the definition. </P>
+
+<P>In addition to the tasks your device driver needs to perform for the DRV_OPEN message, it must assign data to the remaining members of the <B>MCI_OPEN_DRIVER_PARMS</B> structure. </P>
+
+<P>If your device driver has registered a custom command table, set the <B>wCustomCommandTable</B> member to its handle. (See <I>Registering the Command Tables with MCI</I> for more information on this table and obtaining the handle to it.) If your driver does not have a custom command table, set the <B>wCustomCommandTable</B> member to MCI_NO_COMMAND_TABLE. </P>
+
+<P>Your driver must also set the value for the <B>wType</B> member. This value tells the system which device type specific parsing table to use to parse the command strings. Select the value used from the following list of MCI_DEVTYPE identifiers. Use the MCI_DEVTYPE_OTHER identifier if your device type is not listed in the table. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=15%>Device Type </TH>
+<TH align=left width=42%>Identifier </TH>
+<TH align=left width=43%>Description </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%>cdaudio </TD>
+<TD width=42%>MCI_DEVTYPE_CD_AUDIO </TD>
+<TD width=43%>CD audio player </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%>dat </TD>
+<TD width=42%>MCI_DEVTYPE_DAT </TD>
+<TD width=43%>Digital audio tape player </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%>digitalvideo </TD>
+<TD width=42%>MCI_DEVTYPE_DIGITAL_VIDEO </TD>
+<TD width=43%>Digital video in a window </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%>mmmovie </TD>
+<TD width=42%>MCI_DEVTYPE_ANIMATION </TD>
+<TD width=43%>Animation </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%>other </TD>
+<TD width=42%>MCI_DEVTYPE_OTHER </TD>
+<TD width=43%>Nonstandard MCI device type </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%>overlay </TD>
+<TD width=42%>MCI_DEVTYPE_OVERLAY </TD>
+<TD width=43%>Overlay device (analog video in a window) </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%>scanner </TD>
+<TD width=42%>MCI_DEVTYPE_SCANNER </TD>
+<TD width=43%>Image scanner </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%>sequencer </TD>
+<TD width=42%>MCI_DEVTYPE_SEQUENCER </TD>
+<TD width=43%>MIDI sequencer </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%>vcr </TD>
+<TD width=42%>MCI_DEVTYPE_VCR </TD>
+<TD width=43%>Videotape recorder or player </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%>videodisc </TD>
+<TD width=42%>MCI_DEVTYPE_VIDEODISC </TD>
+<TD width=43%>Videodisc player </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%>waveaudio </TD>
+<TD width=42%>MCI_DEVTYPE_WAVEFORM_AUDIO </TD>
+<TD width=43%>Audio device that plays digitized waveform files </TD>
+</TR>
+</TABLE><BR>
+
+<P>In addition to filling in the <B>MCI_OPEN_DRIVER_PARMS</B> structure, your device driver should complete any other tasks it needs for operation. For example, it might allocate any global memory it needs. When you allocate memory that is specific to the driver instance, allocate it with the GMEM_SHARE option. This prevents the memory from being freed if the calling application exits without closing your device. </P>
+
+<P>MCI sends the MCI_OPEN_DRIVER message as the next message generated by MCI_OPEN. MCI sets the <I>dwDriverID</I> parameter of <B>DriverProc</B> to the same identifier created when your device driver was opened with DRV_OPEN. MCI also sets <I>hDriver</I> to the handle the system created for DRV_OPEN. The <I>lParam1</I> parameter contains any flags set by the application opening your device driver. The following list summarizes these flags: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=31%>Command Flag </TH>
+<TH align=left width=69%>Description </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>MCI_NOTIFY </TD>
+<TD width=69%>Directs the device driver to return immediately as usual as well as post the MM_MCINOTIFY message to a window function when the requested action is complete. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>MCI_OPEN_TYPE </TD>
+<TD width=69%>Specifies that the <B>lpstrDeviceType</B> member of the structure contains a pointer to a zero-terminated string containing the device type. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>MCI_OPEN_TYPE_ID </TD>
+<TD width=69%>Specifies that the <B>lpstrDeviceType</B> member of the structure contains an integer device type identifier rather than a string identifier. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>MCI_OPEN_ELEMENT </TD>
+<TD width=69%>Specifies that the <B>lpstrElementName</B> member of the structure contains a pointer to a zero-terminated string containing the device element name. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>MCI_OPEN_ELEMENT_ID </TD>
+<TD width=69%>Specifies that the <B>lpstrElementName</B> member of the structure contains an element ID. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>MCI_OPEN_ALIAS </TD>
+<TD width=69%>Specifies that the <B>lpstrAlias</B> member of the structure contains a device alias. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>MCI_OPEN_SHAREABLE </TD>
+<TD width=69%>Specifies that the device or element is to be opened as shareable. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>MCI_WAIT </TD>
+<TD width=69%>Directs the device driver to wait until the requested action is complete before returning to the user. </TD>
+</TR>
+</TABLE><BR>
+
+<P>Your device driver can ignore the MCI_OPEN_TYPE, MCI_OPEN_TYPE_ID, and MCI_OPEN_ALIAS flags. MCI uses these flags to select and manage MCI device drivers. The other flags used for MCI_OPEN_DRIVER are described in subsequent sections or are described with the structure members associated with them. </P>
+
+<P>The <I>lParam2</I> parameter is of type LPMCI_OPEN_PARMS and points to the structure containing the open parameters. The members of the <B>MCI_OPEN_PARMS</B> structure should be filled in as follows. </P>
+
+<P>The <B>dwCallback</B> member specifies the handle to the window currently used for the MCI_NOTIFY flag. This member is part of every structure sent with MCI command messages. </P>
+
+<P>The <B>wDeviceID</B> member contains the value returned by the DRV_OPEN message. This will usually correspond to the device ID. </P>
+
+<P>Only compound device drivers will use the <B>lpstrElementName</B> member. This member contains the name of the device element the application associates with this instance of the driver. The MCI_OPEN_ELEMENT flag validates this member. (Simple device drivers should fail an open with this flag.) </P>
+
+<P>An application might open a compound device driver without the MCI_OPEN_ELEMENT flag to query it with the MCI_GETDEVCAPS or MCI_INFO message. Your driver should fail any messages that are not supported when a compound device is opened as a simple device by returning MCIERR_UNSUPPORTED_FUNCTION. </P>
+
+<P>Both simple and compound devices should allocate any memory needed for operation and associate it with the <I>dwDriverID</I> value when they are opened. </P>
+
+<P>Your device driver can ignore the <B>lpstrDeviceType</B> and <B>lpstrAlias</B> members of the <B>MCI_OPEN_PARMS</B> structure. </P>
+
+<P>Unless the application uses the MCI_WAIT flag, your device driver should return to the application as soon as it verifies that it can open successfully. During the verification, your device driver should check for any conditions that might prevent it from completing the open. If your device driver returns to the application before it is fully open, your checks should be complete enough to avoid the contradiction of returning a no error value for MCI_OPEN_DRIVER and then later posting the MM_MCINOTIFY message with MCI_NOTIFY_FAILURE flag. (The MM_MCINOTIFY message is described in the section on handling the MCI_NOTIFY flag.) For example, a device driver might need to load a large file from CD-ROM for its operation. To return to the application as soon as possible, the checks performed for the open sequence might verify only that the file can be loaded. The actual loading of the file could wait until after the device driver returns to the application. Some of the checks required would include verifying that enough memory can be allocated, verifying that the CD-ROM is functional, and verifying that the file exists on the CD-ROM. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Opening%20a%20Device%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

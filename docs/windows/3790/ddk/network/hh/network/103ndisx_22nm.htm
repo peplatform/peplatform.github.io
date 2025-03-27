@@ -1,0 +1,79 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisClRegisterSap</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisClRegisterSap">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndisclregistersap_nr"></A>NdisClRegisterSap</H1>
+
+<P><B>NdisClRegisterSap</B> registers a SAP on which the client can receive incoming calls from a remote node.</P>
+
+<PRE class=syntax><B>NDIS_STATUS</B>
+<B>  NdisClRegisterSap(</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisAfHandle</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>ProtocolSapContext</I><B>,</B>
+    <B>IN PCO_SAP</B>  <I>Sap</I><B>,</B>
+    <B>OUT PNDIS_HANDLE</B>  <I>NdisSapHandle
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>NdisAfHandle</I></DT>
+
+<DD>Specifies the handle returned by <A HREF="103ndisx_6quq.htm"><B>NdisClOpenAddressFamily</B></A>,  which implicitly identifies the call manager with which to register the SAP.</DD>
+
+<DT><I>ProtocolSapContext</I></DT>
+
+<DD>Specifies the handle to a caller-supplied resident context area in which the client maintains state for this SAP after it has been opened. NDIS passes this handle back to the client in all subsequent calls concerning this SAP if the call to <B>NdisClRegisterSap</B> succeeds.</DD>
+
+<DT><I>Sap</I></DT>
+
+<DD>Pointer to a client-supplied specification for the SAP to be opened, formatted as a structure of type <A HREF="105nstru_6pki.htm">CO_SAP</A>. </DD>
+
+<DT><I>NdisSapHandle</I></DT>
+
+<DD>Pointer to a variable in which a handle to the newly registered SAP is returned if this call succeeds. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>When <B>NdisClRegisterSap</B> returns anything other than NDIS_STATUS_PENDING, the client should make an internal call to its <A HREF="104tdlow_2faq.htm"><I>ProtocolClRegisterSapComplete</I></A> function. Otherwise, NDIS calls the client's <I>ProtocolClRegisterSapComplete</I> function when this operation is completed.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>With a call to <B>NdisClRegisterSap</B>, a client requests notifications of incoming calls on a particular SAP. NDIS forwards the given SAP information to the call manager's <A HREF="104tdlow_3kky.htm"><I>ProtocolCmRegisterSap</I></A> function for validation. If the given SAP is already in use or if the call manager does not recognize the client-supplied specification at <I>Sap</I>, the call manager fails this request. </P>
+
+<P>SAP format is medium-dependent and specific to the address family supported by the call manager, which uses registered SAPs subsequently to route incoming calls to the appropriate client. A call manager can register SAPs for established PVCs without contacting other network components, depending on the underlying medium. For example, if a SAP specification given to <B>NdisClRegisterSap</B> matches one or more PVCs already set up by an ATM call manager, the client can receive incoming calls on those PVCs immediately, even while its SAP registration is still pending.</P>
+
+<P>If its call to <B>NdisClRegisterSap</B> succeeds, the client must save the handle returned at <I>NdisSapHandle</I> because it is a required parameter to <A HREF="103ndisx_8lwy.htm"><B>NdisClDeregisterSap</B></A>. Callers of <B>NdisClRegisterSap</B> usually pass a pointer to a variable in the client-allocated state area at <I>ProtocolSapContext</I> so that NDIS can set it to the <I>NdisSapHandle</I> if this call succeeds. NDIS passes the given <I>ProtocolSapContext</I> to the client's registered ProtocolCl/Co<I>Xxx </I>functions in all subsequent calls concerning this SAP until the client calls <B>NdisClDeregisterSap</B>. </P>
+
+<P>Usually, a client calls <B>NdisClRegisterSap</B> from its <I>ProtocolAfRegisterNotify</I> function following its successful call to <A HREF="103ndisx_6quq.htm"><B>NdisClOpenAddressFamily</B></A>. Registering one or more SAPs allows the client to receive its incoming call(s) as soon as the call manager receives them over the network. </P>
+
+<P>By contrast with client-initiated outgoing calls, a client does not call <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A> before it calls <B>NdisClRegisterSap</B>. For incoming calls, the call manager initiates the creation of the VC, as follows:
+
+<UL>
+	<LI>On receipt of an incoming call on a registered SAP, the call manager first calls <B>NdisCoCreateVc</B>, causing NDIS to call the client's <A HREF="104tdlow_299u.htm"><I>ProtocolCoCreateVc</I></A> function.</LI>
+
+	<LI>When the VC has been set up and activated, the call manager calls <A HREF="103ndisx_2v76.htm"><B>NdisCmDispatchIncomingCall</B></A>, causing NDIS to call the client's <A HREF="104tdlow_8a9e.htm"><I>ProtocolClIncomingCall</I></A> function.</LI>
+</UL>
+
+<P>Callers of <B>NdisClRegisterSap</B> can be running at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="105nstru_6pki.htm">CO_SAP</A>, <A HREF="103ndisx_8lwy.htm"><B>NdisClDeregisterSap</B></A>, <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>, <A HREF="103ndisx_2v76.htm"><B>NdisCmDispatchIncomingCall</B></A>, <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A>, <A HREF="104tdlow_8a9e.htm"><I>ProtocolClIncomingCall</I></A>, <A HREF="104tdlow_2faq.htm"><I>ProtocolClRegisterSapComplete</I></A>, <A HREF="104tdlow_3kky.htm"><I>ProtocolCmRegisterSap</I></A>, <A HREF="104tdlow_2goi.htm"><I>ProtocolCoAfRegisterNotify</I></A>, <A HREF="104tdlow_299u.htm"><I>ProtocolCoCreateVc</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisClRegisterSap"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

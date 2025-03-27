@@ -1,0 +1,83 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IoCheckShareAccess</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IoCheckShareAccess">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_iocheckshareaccess_kr"></A>IoCheckShareAccess</H1>
+
+<P>The <B>IoCheckShareAccess</B> routine is called by FSDs or other highest-level drivers to check whether shared access to a file object is permitted.</P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>IoCheckShareAccess(</B>
+<B>    IN ACCESS_MASK</B>  <I>DesiredAccess</I><B>,</B>
+<B>    IN ULONG</B>  <I>DesiredShareAccess</I><B>,</B>
+<B>    IN OUT PFILE_OBJECT</B>  <I>FileObject</I><B>,</B>
+<B>    IN OUT PSHARE_ACCESS</B>  <I>ShareAccess</I><B>,</B>
+<B>    IN BOOLEAN</B>  <I>Update</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DesiredAccess</I></DT>
+
+<DD>Specifies the <A HREF="k112_9sfm.htm">ACCESS_MASK</A> value that represents desired type of access to the given <I>FileObject</I> for the current open request. Drivers compute the value of this parameter by taking the requested access in the <A HREF="k113_02lu.htm">IRP_MJ_CREATE</A> request and then applying <A HREF="k110_42wi.htm"><B>SeAccessCheck</B></A> for each security descriptor to determine the actual access granted. If the granted access is more restrictive than the desired access, then that is an error, and the driver should complete the current IRP with a status of STATUS_ACCESS_DENIED. (Note that <B>SeAccessCheck</B> clears the MAXIMUM_ALLOWED bit in the granted access; be sure to not use that bit when comparing desired access to granted access.)  The driver then passes the granted access as the value of <I>DesiredAccess</I>.</DD>
+
+<DT><I>DesiredShareAccess</I></DT>
+
+<DD>Specifies the desired type of shared access to <I>FileObject</I> for the current open request. The value of this parameter is usually the same as the <I>DesiredAccess</I> passed to the file system or highest-level driver by the I/O Manager when the open request was made. This value can be zero, one, or more of the following:
+
+<P class=indent1>FILE_SHARE_READ</P>
+
+
+<P class=indent1>FILE_SHARE_WRITE</P>
+
+
+<P class=indent1>FILE_SHARE_DELETE</P>
+</DD>
+
+<DT><I>FileObject</I></DT>
+
+<DD>Pointer to the file object for which to check access for the current open request.</DD>
+
+<DT><I>ShareAccess</I></DT>
+
+<DD>Pointer to the common share-access data structure associated with <I>FileObject</I>. Drivers should treat this structure as opaque.</DD>
+
+<DT><I>Update</I></DT>
+
+<DD>Specifies whether to update the share-access status for <I>FileObject</I>. A Boolean value of TRUE means this routine will update the share access information for the file object if the open request is permitted.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>IoCheckShareAccess</B> returns STATUS_SUCCESS if the requester's access to the file object is compatible with the way in which it is currently open. If the request is denied because of a sharing violation, then STATUS_SHARING_VIOLATION is returned.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>IoCheckShareAccess</B> checks a file object open request to determine whether the types of desired and shared accesses specified are compatible with the way in which the file object is currently being accessed by other opens.</P>
+
+<P>File systems maintain state about files through structures called file control blocks (FCBs). The SHARE_ACCESS is a structure describing how the file is currently accessed by all opens. This state is contained in the FCB as part of the open state for each file object. Each file object should have only one share access structure. Other highest-level drivers might call this routine to check the access requested when a file object representing such a driver’s device object is opened.</P>
+
+<P><B>IoCheckShareAccess</B> is not an atomic operation. Therefore, drivers calling this routine must protect the shared file object passed to <B>IoCheckShareAccess </B>by means of some kind of lock, such as a mutex or a resource lock, in order to prevent corruption of the shared access counts.</P>
+
+<P>Callers of <B>IoCheckShareAccess</B> must be running at IRQL&nbsp;= PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k112_9sfm.htm">ACCESS_MASK</A>, <A HREF="k104_1ycz.htm"><B>IoCreateFile</B></A>, <A HREF="k104_75f7.htm"><B>IoGetRelatedDeviceObject</B></A>, <A HREF="k104_4awi.htm"><B>IoRemoveShareAccess</B></A>, <A HREF="k104_28c2.htm"><B>IoSetShareAccess</B></A>, <A HREF="k104_4roy.htm"><B>IoUpdateShareAccess</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IoCheckShareAccess"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

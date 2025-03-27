@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>getDisplayDuration</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="getDisplayDuration">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_getdisplayduration_gg"></A><I>getDisplayDuration</I></H1>
+
+<P>The <I>getDisplayDuration</I> function obtains the length of a refresh cycle, measured in performance ticks. </P>
+
+<PRE class=syntax><B>static void 
+  getDisplayDuration(
+</B>    <B>void</B>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<P>None</P>
+
+<H4>Return Value</H4>
+
+<P>None</P>
+
+<H4>Comments</H4>
+
+<P>The <I>getDisplayDuration</I> function does not need to be called if the monitor refresh rate is known (or you can modify <I>getDisplayDuration</I> to use that information). If the monitor refresh rate is known, the performance ticks (thousandths of a second) can be calculated based on the known frequency in hertz. That number can then be put in the <B>dwFlipDuration</B> member of the <A HREF="ddstrcts_7k4n.htm">FLIPRECORD</A> structure, rather than running <I>getDisplayDuration</I> (unless you modify <I>getDisplayDuration</I> to use that information). The method described in this paragraph should be more accurate than the empirical method employed by the following sample <I>getDisplayDuration</I> implementation. </P>
+
+<P>Assuming the monitor refresh rate is not known, <I>getDisplayDuration</I> should be called on every mode change. This does not affect performance because the monitor is synching at this time. First, <I>getDisplayDuration</I> takes control of the CPU using the Win32 <B>SetPriorityClass</B> function. When the CRT is freshly in display after being in vertical blank, the counter is started. The counter keeps track of the elapsed time, measured in ticks, through 20 display cycles. This elapsed time is divided by 20 to give the average number of ticks per display cycle and the result is stored in the <B>dwFlipDuration</B> member of the FLIPRECORD structure. It is a good idea to check the result with a debug statement, as in the sample shown here. The macros IN_VBLANK and IN_DISPLAY that are included in this sample can be written to test whether the CRT is in vertical blank or in display, respectively. </P>
+
+<P>The following is the sample implementation of <I>getDisplayDuration</I>:</P>
+
+<PRE>/*
+ * getDisplayDuration
+ *
+ * Get the length (in ticks) of a refresh cycle
+ */
+static void getDisplayDuration( void )
+{
+    int         I;            // Counter
+    __int64     start, end;   // 64 bit pointer to hold ticks counted
+    DWORD       oldclass;     // Variable to save our priority class
+    HANDLE      hprocess;     // Our process handle
+
+    memset( &amp;flipRecord, 0, sizeof( flipRecord ) );
+                  // Set memory to size of flipRecord structure
+    hprocess = GetCurrentProcess();
+                  // Get our current process
+    oldclass = GetPriorityClass( hprocess );
+                  // Save our old priority class
+    SetPriorityClass( hprocess, REALTIME_PRIORITY_CLASS );
+                  // Keeps out interruptions as we measure display time
+    while(IN_VBLANK);  // Uses macro to wait until out of vertical blank
+    while(IN_DISPLAY); // Uses macro to wait until no longer in display
+    QueryPerformanceCounter((LARGE_INTEGER*)&amp;start);  // Start counter
+    #define LOOP_CNT    20  // We want 20 iterations
+    for( i=0;i&lt;LOOP_CNT;i++ )
+    {
+        while(IN_VBLANK);
+        while(IN_DISPLAY);
+    }
+    QueryPerformanceCounter((LARGE_INTEGER*)&amp;end);
+                  // Read counter at the end of 20 cycles
+    SetPriorityClass( hprocess, oldclass );  
+                  // Restore our old priority class
+    flipRecord.dwFlipDuration = ((DWORD)(end-start) + 
+                  LOOP_CNT/2)/LOOP_CNT;
+                  // Calculate flip duration
+#ifdef DEBUG
+    QueryPerformanceFrequency((LARGE_INTEGER*)&amp;start);
+
+    DPF( "Duration = %d ticks, %dms, %dHz",
+        flipRecord.dwFlipDuration,
+        flipRecord.dwFlipDuration * 1000 / (DWORD)start,
+        (DWORD)start / flipRecord.dwFlipDuration);
+#endif
+
+} /* getDisplayDuration */
+ </PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: getDisplayDuration"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

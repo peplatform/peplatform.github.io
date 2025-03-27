@@ -1,0 +1,95 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>_MapIntoV86</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_1320"></A>_MapIntoV86</H1>
+
+<PRE>include vmm.inc
+
+VMMCall _MapIntoV86, &lt;hMem, VM, VMLinPgNum, nPages, PageOff, flags&gt;
+
+or      eax, eax            ; nonzero if pages mapped, zero if error
+jz      not_mapped
+ </PRE>
+
+<P>Maps one or more pages of a memory block into the V86 address space of the specified virtual machine. Uses EAX, ECX, EDX, and Flags. </P>
+
+<P>Returns a nonzero value in the EAX register if successful, zero otherwise. 
+
+<DL>
+<DT><I>hMem</I></DT>
+
+<DD>Handle (base linear address) of the memory block to map. This address must have been returned by the <B>PageAllocate, PageReAllocate,</B> or <B>_PageReserve</B> service. </DD>
+
+<DT><I>VM</I></DT>
+
+<DD>Handle of the virtual machine for which to map the memory. </DD>
+
+<DT><I>VMLinPgNum</I></DT>
+
+<DD>Linear page number in the virtual machine's address space. The service maps the first page to the corresponding linear address in the V86 address space. This parameter must be in the range 10h through 10Fh. </DD>
+
+<DT><I>nPages</I></DT>
+
+<DD>Number of pages to map. </DD>
+
+<DT><I>PageOff</I></DT>
+
+<DD>Offset in pages from the beginning of the memory block to the first page to map. </DD>
+
+<DT><I>flags</I></DT>
+
+<DD>Operation flags. Can be one of these values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=30%>Value </TH>
+<TH align=left width=70%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>PageDEBUGNulFault </TD>
+<TD width=70%>Enables page faults for system nul pages. If the memory block contains system nul pages, a page fault occurs whenever a nul page is accessed. This value only applies when running the debugging version of the Windows virtual machine manager. If this value is not given or the debugging version is not running, no page faults occur. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>MAPV86_IGNOREWRAP </TD>
+<TD width=70%>If the specified pages are in the high memory area (HMA) and wrap is on, only update the HMA alias mapping, not the currently visible mapping. The HMA corresponds to pages in the range 100h to 10Fh. This allows the caller to treat the HMA simply as an extension of the V86 address space, regardless of whether wrap is enabled. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>All other values are reserved. 
+
+</DD>
+</DL>
+
+<P>A virtual device typically uses this service to map buffers having protected-mode addresses into the V86 address space. This gives software running in the virtual machine a means of passing data to and receiving data from the virtual device. </P>
+
+<P>The service returns an error if the sum of the <I>PageOff</I> and <I>nPages</I> parameters is greater than the size of the memory block. </P>
+
+<P>Although a virtual device can map the same page into multiple addresses in the V86 address space, this is not recommended. </P>
+
+<P>For each mapped page, this service sets the P_USER, P_PRES, and P_WRITE bits and clears the P_DIRTY and P_ACC bits. </P>
+
+<P>If the virtual page swap device uses MS-DOS or BIOS functions to write to the hardware, <B>_MapIntoV86</B> automatically locks the mapped pages and unlocks any previously mapped pages. If the virtual page swap device writes directly to the hardware, this service neither locks nor unlocks the pages. </P>
+
+<P>If a virtual device no longer needs the mapped region, it should map the system nul page into the V86 address space using the <B>_MapIntoV86</B> service. A virtual device can retrieve the handle of the system nul page using the <B>_GetNulPageHandle</B> service. </P>
+
+<P>This service accepts V86 page numbers between 10h and the page number returned by the <B>_GetFirstV86Page</B> service. This supports virtual devices that use the <B>_Allocate_Global_V86_Data_Area</B> service. Mapping a region which spans across the first V86 page is not allowed. Mapping pages in this region to other addresses can easily crash the system and should be avoided. </P>
+
+<H4>See Also</H4>
+
+<P><B>_Allocate_Global_V86_Data_Area</B>, <B>_GetFirstV86Page</B>, <B>_GetNulPageHandle</B>, <B>_LinMapIntoV86</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: _MapIntoV86"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

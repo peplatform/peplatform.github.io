@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DpWmiSetDataBlock</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DpWmiSetDataBlock">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_dpwmisetdatablock_kr"></A><I>DpWmiSetDataBlock</I></H1>
+
+<P>The <I>DpWmiSetDataBlock</I> routine changes all data items in a single instance of a data block. This routine is optional.</P>
+
+<PRE class=syntax><B>NTSTATUS
+</B>  <I>DpWmiSetDataBlock</I><B>(</B>
+    <B>IN PDEVICE_OBJECT</B>  <I>DeviceObject</I><B>,</B>
+    <B>IN PIRP</B>  <I>Irp</I><B>,</B>
+    <B>IN ULONG</B>  <I>GuidIndex</I><B>,</B>
+    <B>IN ULONG</B>  <I>InstanceIndex</I><B>,</B>
+    <B>IN ULONG</B>  <I>BufferSize</I><B>,</B>
+    <B>IN PUCHAR </B> <I>Buffer</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the driver's device object.</DD>
+
+<DT><I>Irp</I></DT>
+
+<DD>Pointer to the IRP.</DD>
+
+<DT><I>GuidIndex</I></DT>
+
+<DD>Specifies the data block by its zero-based index into the list of GUIDs provided by the driver in the <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure it passed to <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>. </DD>
+
+<DT><I>InstanceIndex</I></DT>
+
+<DD>If the block specified by <I>GuidIndex </I>has multiple instances, <I>InstanceIndex</I> specifies the instance.</DD>
+
+<DT><I>BufferSize</I></DT>
+
+<DD>Specifies the size in bytes of the buffer at <I>Buffer</I>.</DD>
+
+<DT><I>Buffer</I></DT>
+
+<DD>Pointer to a buffer that contains new values for the instance.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>DpWmiSetDataBlock</I> returns STATUS_SUCCESS or an appropriate error status such as the following:</P>
+
+<P class=indent1>STATUS_WMI_INSTANCE_NOT_FOUND</P>
+
+<P class=indent1>STATUS_WMI_GUID_NOT_FOUND</P>
+
+<P class=indent1>STATUS_WMI_READ_ONLY</P>
+
+<P class=indent1>STATUS_WMI_SET_FAILURE</P>
+
+<P>If the driver cannot complete the request immediately, it can return STATUS_PENDING.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wmilib.h</I>. Include <I>wmilib.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>WMI calls a driver's <I>DpWmiSetDataBlock</I> routine after the driver calls <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A> in response to an <A HREF="k901_8a7m.htm">IRP_MN_CHANGE_SINGLE_INSTANCE</A> request.</P>
+
+<P>The driver is responsible for validating all input arguments. Specifically, the driver must do the following:
+
+<UL>
+	<LI>Verify that the <I>GuidIndex</I> value is between zero and GuidCount-1, based on the <B>GuidCount</B> member of the <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure.</LI>
+
+	<LI>Verify that the driver has not flagged the specified data block for removal. If the driver recently specified the WMIREG_FLAG_REMOVE_GUID flag in a WMIGUIDREGINFO structure that is contained in a WMILIB_CONTEXT structure, it is possible for a set request to arrive before the removal occurs.</LI>
+
+	<LI>Verify that the <I>InstanceIndex</I> value is within the range of instance indexes that are supported by the driver for the data block. </LI>
+
+	<LI>Verify that <I>Buffer</I> and <I>BufferSize</I> describe a valid-sized data block, including any padding that exists between data items, and that the contents of the buffer are valid for the data block.</LI>
+
+	<LI>Verify that the specified data block is one for which the driver allows caller-initiated modifications. In other words, the driver should not allow modifications to data blocks that you intended to be read-only.</LI>
+</UL>
+
+<P>Do not assume the thread context is that of the initiating user-mode application – a higher-level driver might have changed it.</P>
+
+<P>If a driver implements a <I>DpWmiSetDataBlock</I> routine, the driver must place the routine's address in the <B>SetWmiDataBlock</B> member of the <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure that it passes to <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>. If a driver does not implement a <I>DpWmiSetDataBlock</I> routine, it must set <B>SetWmiDataBlock</B> to NULL. In the latter case, WMI returns STATUS_READ_ONLY to the caller.</P>
+
+<P>This routine can be pageable.</P>
+
+<P>For more information about implementing this routine, see <A HREF="wmi_9l47.htm">Calling <B>WmiSystemControl</B> to Handle WMI IRPs</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k901_8a7m.htm">IRP_MN_CHANGE_SINGLE_INSTANCE</A>, <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A>, <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DpWmiSetDataBlock"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

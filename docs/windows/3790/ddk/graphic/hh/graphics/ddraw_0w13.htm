@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using Compressed Texture Surfaces</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using Compressed Texture Surfaces">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_using_compressed_texture_surfaces_gg"></A>Using Compressed Texture Surfaces</H2>
+
+<P>DirectDraw only calls the driver to do a blt between two surfaces of the same DXT type if the DDCAPS2_COPYFOURCC flag is set in the <B>dwCaps2</B> member of the <A HREF="ddstrcts_5xgn.htm">DDCORECAPS</A> structure. If this flag is not set, the DirectDraw HEL performs the blt. This is important for backing surface-to-display copy blts, because this is the mechanism whereby textures are downloaded from backing (system memory) surfaces to display memory. Thus, exposing DXT texture surfaces effectively requires your driver to support the DDCAPS2_COPYFOURCC flag. </P>
+
+<P>The DDCAPS2_COPYFOURCC flag has some additional implications. Your driver must be able to execute a blt between FOURCC formats having at least these attributes:
+
+<UL>
+	<LI>The source and destination formats are the same FOURCC format.</LI>
+
+	<LI>The source and destination surfaces are different.</LI>
+
+	<LI>The source and destination rectangles both make up the entire surface (that is, there is no stretching and there are no subrectangles).</LI>
+
+	<LI>Both surfaces are in display memory.</LI>
+
+	<LI>The driver must be able to perform these blts for every FOURCC format it supports in display memory.</LI>
+</UL>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Microsoft® DirectShow® uses the DDCAPS2_COPYFOURCC flag to accelerate some video functionality; the requirement for this flag implies that all FOURCC formats can be copied.</P>
+
+<P>If a blt operation requires compression to a DXT format, the DirectDraw HEL always performs the blt. This means that DirectDraw never requests the driver to perform a blt for which:
+
+<UL>
+	<LI>The destination surface has a DXT format. </LI>
+
+	<LI>The formats for the source and destination surfaces are not the same. </LI>
+</UL>
+
+<P>The semantics of the DirectDraw DDCAPS_CANBLTSYSMEM capability bit imply that the display driver is called for all blts from system memory to display memory. Consequently, the driver may be called for such blts from DXT surfaces to non-DXT surfaces. The only requirement in this case is that the driver return <A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_nothandled_gg">DDHAL_DRIVER_NOTHANDLED</A> if it cannot perform the decompression. This causes DirectDraw to propagate a <A HREF="ddraw_7kbr.htm#ddk_dderr_unsupported_gg">DDERR_UNSUPPORTED</A> error code to the application. It is acceptable to implement decompression for blts from system memory to display memory in your driver, but this is not required for DirectX 6.0 and later versions.</P>
+
+<P>DirectDraw display memory allocation routines do not handle pixel format considerations. <A HREF="gdifncs_8dnr.htm"><B>HeapVidMemAllocAligned</B></A>, for example, expects a count of bytes as its input parameter. Likewise, DDHAL_PLEASEALLOC_BLOCKSIZE (see the <B>fpVidMem</B> member of the <A HREF="ddstrcts_392f.htm">DD_SURFACE_GLOBAL</A> structure) signifies that the <B>dwBlockSizeX</B> and <B>dwBlockSizeY</B> members of the DD_SURFACE_GLOBAL structure are counts of bytes and lines, respectively. Consequently, if your driver uses either of these mechanisms to allocate display memory through DirectDraw allocators, your driver must be able to calculate the memory consumption, in bytes, of a DXT surface by itself. The following sample shows one way to perform this calculation: </P>
+
+<PRE>DWORD dx, dy;
+DWORD blksize, surfsize;
+LPVOID pmem;
+
+/*
+ * Determine how much memory to allocate for the FOURCC format.
+ */
+switch ((int)pDDPF-&gt;dwFourCC)
+{
+  case MAKEFOURCC('D','X','T','1'):
+    blksize = 8; // The size of a DXT1 4x4 pixel block. 
+    break;
+  case MAKEFOURCC('D','X','T','2'):    // premultiplied alpha
+  case MAKEFOURCC('D','X','T','3'):    // non-premultiplied alpha
+    blksize = 16; //The size of a DXT2,3 4x4 pixel block 
+    break;
+  case MAKEFOURCC('D','X','T','4'):    // premultiplied alpha
+  case MAKEFOURCC('D','X','T','5'):    // non-premultiplied alpha
+    blksize = 16; //The size of a DXT4,5 4x4 pixel block.
+    break;
+
+  default:
+    DDASSERT(0);
+}
+
+/*
+ * Calculate the number of blocks in the x and y dimensions.
+ */
+dx = (nWidth  + 3) &gt;&gt; 2;
+dy = (nHeight + 3) &gt;&gt; 2;
+surfsize = dx * dy * blksize;</PRE>
+
+<P>When the application calls the <B>IDirect3DVertexBuffer7::Lock</B> or <B>IDirectDrawSurface7::GetSurfaceDesc</B> methods (described in the Direct3D and DirectDraw SDK documentation sets, respectively) on a compressed surface, the driver must set the DDSD_LINEARSIZE flag in the <B>dwFlags</B> member of the <A HREF="ddstrcts_59k7.htm">DDSURFACEDESC2</A> structure. In addition, the driver must set the number of bytes allocated to contain the compressed surface data in the <B>dwLinearSize</B> member of the same structure. (The <B>dwLinearSize</B> member resides in a union with the <B>lPitch</B> member, so these members are mutually exclusive, as are the DDSD_LINEARSIZE and DDSD_PITCH flags.)</P>
+
+<P>Your hardware or driver can convert and store the compressed texture in any format you choose (typically a reordering into a more hardware-efficient layout). However, your hardware or driver must be able to convert the compressed texture back to its original DXT code format whenever DirectDraw requires it, that is, whenever the application calls the <B>IDirect3DVertexBuffer7::Lock</B> method. </P>
+
+<H4>Windows®&nbsp;2000 Note</H4>
+
+<P>Under Windows 2000, system memory DXT surfaces have had some of their fields mapped for memory allocation purposes. The mapping is:</P>
+
+<PRE>wWidth = lPitch = dx * blksize;
+wHeight         = dy;
+dwRGBBitCount   = 8;</PRE>
+
+<P>When the driver encounters a system memory DXT surface, for example in <A HREF="d3dfncs_0gtj.htm"><I>D3dCreateSurfaceEx</I></A>, it must map the fields back before making use of them. The back mapping is:</P>
+
+<PRE>realWidth        = (wWidth  &lt;&lt; 2) / blksize;
+realHeight       =  wHeight &lt;&lt; 2;
+realLinearSize   = dwLinearSize * wHeight;
+realRGBBitCount  = 0</PRE>
+
+<H4>Reference Rasterizer Notes</H4>
+
+<P>The following three items should be observed when implementing reference rasterizer (RefRast) code:
+
+<OL>
+	<LI>The section entitled <I>3-Bit Linear Alpha Interpolation (DXT4 and DXT5 format)</I> in the DirectDraw SDK documentation shows the correct order in which to ramp the Alpha values for DXT4 and DXT5 formats. </LI>
+
+	<LI>Reference rasterizer code should have the following logic guarding the color comparison logic. 
+<PRE>if ((color_0 &gt; color_1) OR !DXT1) {<B> </B>
+/*  color comparison logic */
+}</PRE>
+</LI>
+
+	<LI>Because hardware implementations of reference rasterizers can perform the rounding of calculations to better approximate the original value in slightly different ways, testing should allow for slight variations in the color and alpha values obtained from the decompression logic.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20Compressed%20Texture%20Surfaces"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

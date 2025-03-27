@@ -1,0 +1,130 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IRP_MN_SET_POWER</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IRP_MN_SET_POWER">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_irp_mn_set_power_dr"></A>IRP_MN_SET_POWER</H1>
+
+<H4>Major Code</H4>
+
+<P><A HREF="k113_7jjm.htm">IRP_MJ_POWER</A></P>
+
+<H4>When Sent</H4>
+
+<P>Either the system Power Manager or a device power policy owner can send this IRP.</P>
+
+<P>The Power Manager sends this IRP to notify drivers of a change to the system power state. If a driver has registered its device for idle detection, the Power Manager sends this IRP to change the power state of an idle device.</P>
+
+<P>A driver that owns power policy sends this IRP to set the device power state for its device. A driver must call <B>PoRequestPowerIrp</B> to send this IRP.</P>
+
+<P>The Power Manager sends this IRP at IRQL&nbsp;= PASSIVE_LEVEL to device stacks that set the DO_POWER_PAGABLE flag in the PDO. Drivers in such stacks can touch paged code or data to complete the request. </P>
+
+<P>The Power Manager can send the IRP at IRQL&nbsp;= DISPATCH_LEVEL if the DO_POWER_INRUSH flag is set. Such drivers cannot directly or indirectly access any paged code or data.</P>
+
+<H4>Input</H4>
+
+<P><B>Parameters.Power.Type</B> specifies the type of power state being set, either <B>SystemPowerState</B> or <B>DevicePowerState</B>.</P>
+
+<P><B>Parameters.Power.State</B> specifies the power state itself, as follows:
+
+<UL>
+	<LI>If <B>Parameters.Power.Type</B> is <B>SystemPowerState</B>, the value is an enumerator of the SYSTEM_POWER_STATE type.</LI>
+
+	<LI>If <B>Parameters.Power.Type</B> is <B>DevicePowerState</B>, the value is an enumerator of the DEVICE_POWER_STATE type.</LI>
+</UL>
+
+<P><B>Parameters.Power.ShutdownType</B> specifies additional information about the requested transition. Possible values are enumerators of the POWER_ACTION type.</P>
+
+<H4>Output</H4>
+
+<P><B>Parameters.Power.SystemContext</B> is reserved for system use.</P>
+
+<H4>I/O Status Block</H4>
+
+<P>A driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS to indicate that the device has entered the requested state.</P>
+
+<P>A driver must not fail a request to set the system power state.</P>
+
+<P>Function and filter drivers that are located above a bus driver must not fail a request to set a device power state. The bus driver can fail a device power-up request if the device is removed or in the process of being removed.</P>
+
+<H4>Operation</H4>
+
+<P>The Power Manager or a driver can request an IRP_MN_SET_POWER IRP. The Power Manager sends this IRP for one of the following reasons:
+
+<UL>
+	<LI>To notify drivers of a change to the system power state</LI>
+
+	<LI>To change the power state of a device for which the Power Manager is performing idle detection</LI>
+</UL>
+
+<P>A driver that owns device power policy sends IRP_MN_SET_POWER to change the power state of its device. </P>
+
+<P>At any given time, the system allows only one such IRP to be active for each device object. </P>
+
+<P>Each driver must pass each power IRP down to the next-lower driver using the <B>PoCallDriver</B> routine. The <B>PoCallDriver</B> interface is similar to that of <B>IoCallDriver</B>, except that the power management subsystem might delay the IRP before passing it on to the next driver. For example, delays can occur on a <B>PowerDeviceD0</B> request if the device requires inrush current and therefore must be powered up serially with another such device.</P>
+
+<P>For each IRP_MN_SET_POWER request a driver receives, it must call <B>PoStartNextPowerIrp</B>, as described in <A HREF="pwrmgmt_7tt3.htm">Calling <B>PoStartNextPowerIrp</B></A>.</P>
+
+<H4>IRP_MN_SET_POWER for System Power States</H4>
+
+<P>Only the Power Manager can send a system set-power IRP. </P>
+
+<P>A driver must not fail a request to set the system power state.</P>
+
+<P>Whenever possible, the Power Manager sends IRP_MN_QUERY_POWER before sending IRP_MN_SET_POWER to request a system sleep state. However, under some conditions (such as the user pressing the Power Off button or a battery expiring), the Power Manager might issue IRP_MN_SET_POWER without first querying. The Power Manager queries only for sleep states; it never queries before powering up.</P>
+
+<P>The IRP_MN_SET_POWER request is sent to the top driver in the device stack for a device. The top driver passes the IRP down to the next lower driver and so forth until the IRP reaches the bus driver, which must complete the IRP. </P>
+
+<P>A filter driver typically does not need to act on a system set-power IRP, other than to pass it on. </P>
+
+<P>The device power policy owner, however, sets an <I>IoCompletion</I> routine before passing down the IRP. In the <I>IoCompletion</I> routine, it sends an IRP_MN_SET_POWER request for a device power IRP. For more information, see <A HREF="pwrmgmt_5g6f.htm">Handling a System Set-Power IRP in a Device Power Policy Owner</A>. </P>
+
+<P>A system set-power IRP informs drivers that a change to the system power state is imminent and the drivers must prepare for it. However, a driver should not change the power state of its device until it receives an IRP_MN_SET_POWER for a <I>device</I> power state. </P>
+
+<P>The value at <B>Parameters.Power.ShutdownType</B> provides additional information about the pending actions. When the IRP specifies <B>PowerSystemShutdown</B> (S5), a driver can determine whether the system is resetting (<B>PowerActionShutdownReset</B>) or powering off indefinitely to reboot later (<B>PowerActionShutdownOff</B>). For drivers of most devices, the difference is inconsequential. However, for certain devices, such as video streaming devices, a driver might power off the device in order to stop I/O when the system is resetting. </P>
+
+<P>On Windows&nbsp;2000 and later versions of the operating system, the value at <B>ShutdownType</B> can also be <B>PowerActionShutdown</B>. In this case, the driver cannot tell what type of shutdown is requested and should therefore proceed as for a reset. </P>
+
+<H4>Device Power States</H4>
+
+<P>Function and filter drivers that are located above a bus driver must not fail a request to set a device power state. The bus driver can fail a device power-up request if the device is removed or in the process of being removed.</P>
+
+<P>A driver must set the device into the requested state before completing the IRP. </P>
+
+<P>When the IRP requests a transition to a lower power state, drivers must handle the IRP as it travels down the device stack, saving any context the driver will need to restore the device to the working state. When the bus driver receives the IRP, it does the same, then sets the device into the requested power state, calls <B>PoSetPowerState</B> to notify the Power Manager, starts the next power IRP (<B>PoStartNextPowerIrp</B>), and completes the device power IRP.</P>
+
+<P>The driver must complete this IRP in a timely manner. In general, drivers should avoid any delay that a typical user would find noticeably slow. For example, a driver could delay a system state change to flush cached disk or network data, but should not keep a network connection alive or format a tape. For more information, see <A HREF="pwrmgmt_5n3b.htm">Passing Power IRPs</A>.</P>
+
+<P>On Windows&nbsp;2000 and later versions of the operating system, if the IRP specifies <B>PowerDeviceD1</B>, <B>PowerDeviceD2</B>, or <B>PowerDeviceD3</B>, and a system set-power IRP is active, the value at <B>Parameters.Power.ShutdownType</B> provides information about the system IRP. </P>
+
+<P>Drivers of devices on the hibernate path should inspect this value. If the IRP requests <B>PowerDeviceD3</B> and <B>ShutdownType</B> is <B>PowerActionHibernate</B>, such a driver should save any context required to restore the device, but should not power down the device; the device will enter the D3 state when the machine loses power.</P>
+
+<P>On Windows&nbsp;2000 and later versions of the operating system, drivers should not rely on the value at <B>ShutdownType</B> if the requested power state is <B>PowerDeviceD0</B>.</P>
+
+<P>On Windows 98/Me, if the IRP requests a device power state, the <B>ShutdownType</B> is always <B>PowerActionNone</B>. </P>
+
+<P>The driver that determines when to power down a device varies depending on the device class. </P>
+
+<P>The driver that determines when to power up a device is almost always a driver that accesses the device registers. The driver must verify that the device is in the D0 state before accessing the device's hardware registers. If the device is not in the D0 state, the driver must call <B>PoRequestPowerIrp</B> to send an IRP to power up the device. A driver cannot access its device unless the device is in the D0 state. </P>
+
+<P>When a driver receives a set-power IRP for device state D0, it sets an <I>IoCompletion</I> routine and passes the IRP to the next lower driver. </P>
+
+<P>When the IRP reaches the bus driver, that driver applies (or resets) power to the device, calls <B>PoStartNextPowerIrp</B>, completes the IRP, and calls <B>PoSetPowerState</B> to inform the Power Manager of the new power state for the device.  </P>
+
+<P>After the bus driver completes the power-up IRP, function and filter drivers handle the IRP in their <I>IoCompletion</I> routines as it travels back up the device stack. In the <I>IoCompletion</I> routine, each driver restores or reinitializes its device context and performs any other required start-up tasks. </P>
+
+<P>For more information, see <A HREF="pwrmgmt_9e07.htm">Handling IRP_MN_SET_POWER for Device Power States</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="portn_7tki.htm"><B>PoCallDriver</B></A>, <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A>, <A HREF="portn_5saa.htm"><B>PoSetPowerState</B></A>, <A HREF="portn_55gy.htm"><B>PoRequestPowerIrp</B></A>, <A HREF="portn_14he.htm"><B>PoRegisterDeviceForIdleDetection</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IRP_MN_SET_POWER"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

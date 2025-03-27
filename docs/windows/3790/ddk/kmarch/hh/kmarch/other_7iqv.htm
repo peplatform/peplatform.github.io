@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using Floating Point or MMX in a WDM Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using Floating Point or MMX in a WDM Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_using_floating_point_or_mmx_in_a_wdm_driver_kg"></A>Using Floating Point or MMX in a WDM Driver</H1>
+
+<P>Kernel-mode WDM drivers for Windows&nbsp;Me, Windows&nbsp;98, Windows&nbsp;98&nbsp;SE, and Windows&nbsp;2000 and later must follow certain guidelines for using floating-point operations, MMX, 3DNOW!, or Intel’s SSE extensions.</P>
+
+<P>Kernel-mode WDM drivers must wrap use of the floating-point unit (FPU) between calls to <A HREF="k105_91de.htm"><B>KeSaveFloatingPointState</B></A> and <A HREF="k105_2njm.htm"><B>KeRestoreFloatingPointState</B></A>. Failure to use these routines can cause calculation errors in concurrent user-mode applications. </P>
+
+<P><B>KeSaveFloatingPointState</B> saves the FPU state of the currently running application in a system-provided buffer and reinitializes the FPU for the driver. The routine takes a single parameter, a driver-allocated buffer, which provides support for nested calls. If <B>KeSaveFloatingPointState</B> is called twice at the same IRQL without an intervening call to <B>KeRestoreFloatingPointState</B>, the nonvolatile FPU state is saved in the driver-allocated buffer. (The caller must save volatile state from ST0-ST7, MMX0-MMX7, and XMM0-XMM7.)</P>
+
+<P>If the system is low on memory, <B>KeSaveFloatingPointState</B> can fail. Drivers must check the returned status and, if a failure occurs, must not access the FPU.</P>
+
+<P>When a driver has finished using the FPU, it calls <B>KeRestoreFloatingPointState</B> to restore the previous application state.</P>
+
+<P>The following example shows how a WDM driver should wrap its FPU access:</P>
+
+<PRE>KFLOATING_SAVE     saveData;
+NTSTATUS         status;
+double         floatValue;
+
+status = KeSaveFloatingPointState(&amp;saveData);
+
+if (NT_SUCCESS(status)) {
+
+    floatValue = 1.0;
+    KeRestoreFloatingPointState(&amp;saveData);
+}</PRE>
+
+<P>In the example, the assignment to the floating-point variable occurs between calls to <B>KeSaveFloatingPointState</B> and <B>KeRestoreFloatingPointState</B>. Because any assignment to a floating-point variable uses the FPU, drivers must ensure that <B>KeSaveFloatingPointState</B> has returned without error before initializing such a variable.</P>
+
+<P>WDM drivers can call <B>KeSaveFloatingPointState</B> at IRQL &lt;= DISPATCH_LEVEL. However, use of floating-point operations is not supported in interrupt service routines (ISRs). </P>
+
+<P>On NT-based systems, the FPU is set to long real precision (that is, double or 53-bit), with all exceptions masked, upon return from <B>KeSaveFloatingPointState</B>. On Windows&nbsp;Me, Windows&nbsp;98, and Windows&nbsp;98&nbsp;SE, drivers that use the FPU must adhere to the following guidelines:
+
+<UL>
+	<LI>Access the FPU only from passive-level work items or worker threads. </LI>
+
+	<LI>Do not call <B>KeSaveFloatingPointState</B> or attempt to use the FPU or MMX from a DPC, from an IOCTL handler, or from any other handler called from user mode. Do not try to circumvent this rule; drivers cannot implement a workaround that is guaranteed to operate correctly on all processors.</LI>
+
+	<LI>Reload the FPU control word with 0x27F after <B>KeSaveFloatingPointState </B>returns. Doing so ensures that the FPU is set to long real precision (double or 53-bit), with all exceptions masked, as on NT-based systems.</LI>
+
+	<LI>For Windows&nbsp;98 and Windows&nbsp;98&nbsp;SE only, always call <B>KeSaveFloatingPointState</B> at IRQL PASSIVE_LEVEL. Calling this routine at IRQL DISPATCH_LEVEL can cause a system crash.</LI>
+</UL>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20Floating%20Point%20or%20MMX%20in%20a%20WDM%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

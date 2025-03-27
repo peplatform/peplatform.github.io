@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>BuildScatterGatherList</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="BuildScatterGatherList">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_buildscattergatherlist_kr"></A>BuildScatterGatherList</H1>
+
+<P>The <B>BuildScatterGatherList</B> routine prepares the system for a DMA operation, using a driver-supplied buffer to build the scatter/gather list.</P>
+
+<PRE class=syntax><B>NTSTATUS
+  BuildScatterGatherList(
+    IN PDMA_ADAPTER  </B><I>DmaAdapter</I><B>,</B>
+<B>    IN PDEVICE_OBJECT  </B><I>DeviceObject</I><B>,</B>
+<B>    IN PMDL  </B><I>Mdl</I><B>,</B>
+<B>    IN PVOID  </B><I>CurrentVa</I><B>,</B>
+<B>    IN ULONG  </B><I>Length</I><B>,</B>
+<B>    IN PDRIVER_LIST_CONTROL  </B><I>ExecutionRoutine</I><B>,</B>
+<B>    IN PVOID  </B><I>Context</I><B>,</B>
+<B>    IN BOOLEAN  </B><I>WriteToDevice</I><B>,</B>
+<B>    IN PVOID  </B><I>ScatterGatherBuffer</I><B>,</B>
+<B>    IN ULONG  </B><I>ScatterGatherBufferLength</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DmaAdapter</I></DT>
+
+<DD>Pointer to the <A HREF="k112_86k2.htm">DMA_ADAPTER</A> structure returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A> that represents the bus-master adapter or DMA controller.</DD>
+
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the device object that represents the target device for the DMA operation.</DD>
+
+<DT><I>Mdl</I></DT>
+
+<DD>Pointer to the MDL that describes the buffer specified by the <B>MdlAddress</B> member of the current IRP.</DD>
+
+<DT><I>CurrentVa</I></DT>
+
+<DD>Pointer to the current virtual address in the MDL for the buffer to be mapped for a DMA transfer operation.</DD>
+
+<DT><I>Length</I></DT>
+
+<DD>Specifies the length, in bytes, of the buffer to be mapped.</DD>
+
+<DT><I>ExecutionRoutine</I></DT>
+
+<DD>Pointer to a driver-supplied <A HREF="drvrrtns_32nm.htm"><I>AdapterListControl</I></A> routine, which is called at IRQL&nbsp;= DISPATCH_LEVEL when the system DMA controller or bus-master adapter is available.</DD>
+
+<DT><I>Context</I></DT>
+
+<DD>Pointer to the driver-determined context passed to <I>ExecutionRoutine</I> when it is called.</DD>
+
+<DT><I>WriteToDevice</I></DT>
+
+<DD>Indicates the direction of the DMA transfer: TRUE for a transfer from the buffer to the device, and FALSE otherwise.</DD>
+
+<DT><I>ScatterGatherBuffer</I></DT>
+
+<DD>Pointer to the caller-supplied buffer that the routine fills with the scatter/gather list.</DD>
+
+<DT><I>ScatterGatherBufferLength</I></DT>
+
+<DD>Specifies the size, in bytes, of the buffer passed in the <I>ScatterGatherBuffer</I> parameter.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>BuildScatterGatherList</B> returns one of the following values:
+
+<DL>
+<DT>STATUS_SUCCESS</DT>
+
+<DD>The operation is completed successfully.</DD>
+
+<DT>STATUS_INSUFFICIENT_RESOURCES</DT>
+
+<DD>The system has insufficient map registers available for the transfer.</DD>
+
+<DT>STATUS_BUFFER_TOO_SMALL</DT>
+
+<DD>The <I>Length</I> parameter is too big to fit within the buffer.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ntddk.h</I>. Include <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>This routine is only available on Windows&nbsp;XP and later.</P>
+
+<P><B>BuildScatterGatherList</B> <I>is not a system routine that can be called directly by name. This routine can be called only by pointer from the address returned in a</I> <A HREF="k112_3tf6.htm">DMA_OPERATIONS</A> <I>structure. </I>Drivers obtain the address of this routine by calling <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A> with the <B>Version</B> member of the <B>DeviceDescription</B> parameter set to DEVICE_DESCRIPTION_VERSION2. If <B>IoGetDmaAdapter</B> returns NULL, the routine is not available on your platform.</P>
+
+<P><B>BuildScatterGatherList</B> performs the same operation as <A HREF="kdma_0pbm.htm"><B>GetScatterGatherList</B></A>, except that it uses the buffer supplied in the <I>ScatterGatherBuffer</I> parameter to hold the scatter/gather list that it creates. In contrast, <B>GetScatterGatherList</B> dynamically allocates a buffer to hold the scatter/gather list. If insufficient memory is available to allocate the buffer, <B>GetScatterGatherList</B> can fail with a STATUS_INSUFFICIENT_RESOURCES error. Drivers that must avoid this scenario can pre-allocate a buffer to hold the scatter/gather list, and use <B>BuildScatterGatherList</B> instead.</P>
+
+<P>A driver can use the <A HREF="kdma_3cxe.htm"><B>CalculateScatterGatherList</B></A> routine to determine the size of buffer to allocate to hold the scatter/gather list.</P>
+
+<P>When <B>BuildScatterGatherList</B> creates a scatter/gather list to write to a device, the system can make a copy of the data to be written, and use that copy to perform the DMA operation. To access that copy, use <A HREF="kdma_97w2.htm"><B>BuildMdlFromScatterGatherList</B></A> to access that copy.</P>
+
+<P>This routine can be only be called at IRQL&nbsp;= DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k112_7f76.htm">DEVICE_DESCRIPTION</A>, <A HREF="k112_3tf6.htm">DMA_OPERATIONS</A>, <A HREF="kdma_97w2.htm"><B>BuildMdlFromScatterGatherList</B></A>, <A HREF="kdma_3cxe.htm"><B>CalculateScatterGatherList</B></A>, <A HREF="kdma_0pbm.htm"><B>GetScatterGatherList</B></A>, <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: BuildScatterGatherList"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

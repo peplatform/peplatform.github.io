@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Supporting Structures</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_wmiguid1_supporting_structures"></A>Supporting Structures</H3>
+
+<P>The following data structures describe the list of data blocks that the device driver registers.</P>
+
+
+
+<H1><A NAME="_wmiguid1_wmireginstanceref"></A>WMIREGINSTANCEREF</H1>
+
+<PRE>typedef struct {
+    UINT_PTR ProviderId;     // Provider ID (or device object pointer) of the data 
+                             // provider whose instance names are to be copied.
+    GUID Guid;               // Guid of data block provided by ProviderId whose 
+                             // instance names are copied.
+} WMIREGINSTANCEREF;
+ </PRE>
+
+
+
+<H1><A NAME="_wmiguid1_wmiregguid"></A>WMIREGGUID</H1>
+
+<PRE>typedef struct {
+    GUID Guid;             // Guid of data block being registered or updated
+    ULONG Flags;           // Flags
+    ULONG InstanceCount;   // Count of static instances names registered for the GUID
+    UINT_PTR InstanceInfo; // Offset from beginning of the WMIREGINFO structure to 
+                           // more information about the static instance names being
+                           // registered.
+                           // If WMIREG_FLAG_INSTANCE_PDO is set then InstanceInfo 
+                           // has the PDO whose device instance path will become
+                           // the instance name.
+                           // If WMIREG_FLAG_INSTANCE_LIST then this is an offset to a 
+                           // list of InstanceCount counted UNICODE strings placed 
+                           // end to end.
+                           // If WMIREG_FLAG_INSTANCE_BASENAME then this is an offset to a 
+                           // single counted UNICODE string that has the basename 
+                           // for the instance names.
+} WMIREGGUID, *PWMIREGGUID;
+
+#define WMIREG_FLAG_EXPENSIVE          0x00000001 // Set if collection must be enabled
+#define WMIREG_FLAG_INSTANCE_LIST      0x00000004 // Set if static instance names
+#define WMIREG_FLAG_INSTANCE_BASENAME  0x00000008 // Set if static instance names created 
+                                                  // with a base name and index
+#define WMIREG_FLAG_INSTANCE_PDO       0x00000020
+
+// These flags are only valid in a response to WMI_GUID_REGUPDATE
+#define WMIREG_FLAG_REMOVE_GUID       0x00001000  // Remove support for this GUID
+</PRE>
+
+
+
+<H1><A NAME="_wmiguid1_wmireginfo"></A>WMIREGINFO</H1>
+
+<PRE>typedef struct {
+    ULONG BufferSize;         // Size of entire WMIREGINFO structure including this 
+                              // ULONG and any static instance names that follow
+    ULONG NextWmiRegInfo;     // Offset to next WMIREGINFO structure
+    ULONG RegistryPath;       // Offset from beginning of WMIREGINFO structure to a 
+                              // counted Unicode string containing the driver
+                              // registry path (under HKLM\CCS\Services). This 
+                              // must be filled only by kernel-mode data providers.
+    ULONG MofResourceName;    // Offset from beginning of WMIREGINFO structure to a 
+                              // counted Unicode string containing the name of
+                              // resource in driver file containing MOF info
+    ULONG GuidCount;          // Count of WMIREGGUID structures immediately following
+    WMIREGGUID WmiRegGuid[];  // array of GuidCount WMIREGGUID structures
+    // Variable length data including :
+    //     Instance Names
+} WMIREGINFO;
+ </PRE>
+
+<H4>Comments</H4>
+
+<P>When a device receives an IRP_MN_REGINFO, it must return one or more <B>WMIREGINFO</B> structures. To return multiple <B>WMIREGINFO</B> structures, <B>NextWmiRegInfo</B> must be filled in with the offset from the beginning of the buffer to the beginning of the next <B>WMIREGFINFO</B> structure being returned. </P>
+
+<P>The <B>RegistryPath</B><I> </I>and <B>MofResourceName</B> fields are only filled in response to a registration query (<B>DataPath</B> set to WMIREGISTER); the flag WMIREG_FLAG_REMOVE_GUID is only used in response to a registration update query (<B>DataPath</B> set to WMIUPDATE). </P>
+
+<P>In responding to a registration query, the driver must fill the <B>RegistryPath</B> field of the <B>WMIREGINFO</B> structure so WMI can determine the path of the device driver image file. As an example, consider a driver named DriverName; each device supported by that driver must pass “DriverName” in the <B>RegistryPath</B> field. WMI uses the standard rules for finding the path name of a device driver. </P>
+
+<P>If the value ImagePath exists under the driver’s registry key (HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\DriverName), then it specifies the fully-qualified path to the driver’s image file. If this value is not specified, the default path is %SystemRoot%\system32\drivers\DriverName.Sys.</P>
+
+<P>The response to a registration query should contain all the GUIDs representing the data and event blocks supported by the device and the number and names of the instances of the data block represented by the GUID (for a static instance data block). </P>
+
+<P>It is recommended that the device driver register using the WMIREG_FLAG_PDO_INSTANCENAMES flag to allow WMI to generate instance names based upon the device instance ID for the PDO. </P>
+
+<P>To specify that the instance names for a data block are static, a provider should set one of these flags: WMIREG_FLAG_INSTANCE_LIST, WMIREG_FLAG_INSTANCE_BASENAME or WMIREG_FLAG_PDO_INSTANCENAMES; <B>InstanceCount</B> should be set to the number of instances that are provided for the GUID. If WMIREG_FLAG_INSTANCE_LIST is set, then the data provider passes a list of instance names pointed to by <B>InstanceInfo</B>. </P>
+
+<P>If WMIREG_FLAG_INSTANCE_BASENAME is set, then <B>InstanceInfo</B> points to a base name to which an instance count is appended. For example, if a GUID is registered with an <B>InstanceCount</B> of 3 and a base name of ToasterPort, then the instance names would be ToasterPort1, ToasterPort2, and ToasterPort3. If a driver registers or updates a data block to have static instance names, it must not place instance names in the <B>WNODE_ALL_DATA</B> structures when responding to a query for instances of that data block. It must also expect that WNODE_SINGLE_INSTANCEs and WNODE_SINGLE_ITEMs received do not have the actual text of the instance name, but have an index into the list of instances registered. Any requests sent to a data provider that registered static instance names have the WNODE_FLAG_STATIC_INSTANCE_NAME flag set in the flags of the WNODE header.</P>
+
+<P>In responding to a registration update query, the data provider can use the WMIREG_FLAG_REMOVE_GUID flag. If WMIREG_FLAG_REMOVE_GUID is set, the GUID specified in the <B>WMIREGGUID</B> structure is removed from the list of data blocks supported by the device. If WMIREG_FLAG_REMOVE_GUID is not set, the GUID information specified in the <B>WMIREGGUID</B> is used to update the information previously maintained by WMI about the data block or to add the GUID to the list of data blocks supported by the device. This can be used to update the static instance names and static data blocks of a data block. Note that if no flag is set then and there is no change to the GUID registration, no action is taken with respect to the GUID specified. This allows the same <B>WMIREGINFO</B> structure to be used for both registration and registration update queries.</P>
+
+<P>There may be a case in which  a class driver handles the WMI registration request on behalf of a miniport driver, and both the class driver and miniport want to register GUIDs. There will be one IRP_MN_REGINFO request received by the class driver that will need to return two <B>WMIREGINFO</B> structures: one for the common GUIDs of the class driver and one for the specific GUIDs of the miniport. This situation is handled by building both <B>WMIREGINFO</B> structures in the returned buffer and placing the offset to the second <B>WMIREGINFO</B> structure from the beginning of the buffer in the <B>NextWmiRegInfo</B> field of the first <B>WMIREGINFO</B> structure. Within the last <B>WMIREGINFO</B> structure, or the only <B>WMIREGINFO</B> structure in the case of only one being returned as a result of the query, the <B>NextWmiRegInfo</B> field must be set to zero to indicate the end of the chain.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Supporting%20Structures"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

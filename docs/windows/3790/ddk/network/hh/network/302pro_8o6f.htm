@@ -1,0 +1,79 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling PnP Events and PM Events in a Protocol Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling PnP Events and PM Events in a Protocol Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_poregistersystemstate_dr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_pounregistersystemstate_dr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_handling_pnp_events_and_pm_events_in_a_protocol_driver_ng"></A>Handling PnP Events and PM Events in a Protocol Driver</H1>
+
+<P>When the operating system issues a Plug and Play IRP or a Power Management IRP to a target device object that represents a NIC, NDIS intercepts the IRP. NDIS indicates the event to each bound protocol and each bound intermediate driver by calling the driver's <A HREF="104tdlow_5muq.htm"><I>ProtocolPnPEvent</I></A> function. In the call to <I>ProtocolPnPEvent</I>, NDIS passes a pointer to a NET_PNP_EVENT structure that describes the Plug and Play event or Power Management event being indicated. For more information on the NET_PNP_EVENT structure, see <A HREF="105nstru_6c1e.htm">NET_PNP_EVENT for Protocol Drivers</A>. </P>
+
+<P>The following list contains Plug and Play and Power Management events, as indicated by the <B>NetEvent</B> code in the NET_PNP_EVENT structure:
+
+<UL>
+	<LI><B>NetEventSetPower</B>
+<P>Indicates a Set Power request, which specifies that the NIC transition to a particular power state. A Power-Management-aware protocol driver should always succeed this event by returning NDIS_STATUS_SUCCESS. A legacy protocol driver can return NDIS_STATUS_NOT_SUPPORTED to indicate that NDIS should unbind it from the NIC.
+</LI>
+
+	<LI><B>NetEventQueryPower</B>
+<P>Indicates a Query Power request, which queries whether the NIC can make a transition to a particular power state. A protocol driver should always succeed a <B>NetEventQueryPower</B>. After establishing an active connection, a protocol driver can call <A HREF="JavaScript:hhobj_1.Click()"><B>PoRegisterSystemState</B></A> to register a continuous busy state. As long as the state registration is in effect, the Power Manager does not attempt to put the system to sleep. After the connection becomes inactive, the protocol driver cancels the state registration by calling <A HREF="JavaScript:hhobj_2.Click()"><B>PoUnregisterSystemState</B></A>. A protocol driver should never try to prevent the system from transitioning to the sleeping state by failing a <B>NetEventQueryRemoveDevice</B>. Note that a <B>NetEventQueryPower</B> is always followed by a <B>NetEventSetPower</B>. A <B>NetEventSetPower</B> that sets the device's current power state in effect cancels the <B>NetEventQueryPower</B>.
+</LI>
+
+	<LI><B>NetEventQueryRemoveDevice</B>
+<P>Indicates a Query Remove Device request, which queries whether the NIC can be removed without disrupting operations. If a protocol driver cannot release a device (for example, because the device is in use) it must fail a <B>NetEventQueryRemoveDevice</B> by returning NDIS_STATUS_FAILURE.
+</LI>
+
+	<LI><B>NetEventCancelRemoveDevice</B>
+<P>Indicates a Cancel Remove Device request, which cancels the removal of an underlying NIC. The protocol driver should always succeed this event by returning NDIS_STATUS_SUCCESS.
+</LI>
+
+	<LI><B>NetEventReconfigure</B>
+<P>Indicates that the configuration has changed for a network component. For example, if a user changes the IP address for TCP/IP, NDIS indicates this event to the TCP/IP protocol with the <B>NetEventReconfigure</B> code. The protocol driver can, in rare circumstances, return a failure code if it is not able to apply the indicated configuration changes and there are no available default values. A failed attempt to allocate memory is an example of a case in which the protocol returns a failure code. Returning an error code can result in prompting the user to reboot the system.
+
+<P>A protocol should validate <B>NetEventReconfigure</B>-related data passed to its ProtocolPnPEvent function. For more information on such data, see <A HREF="105nstru_6c1e.htm">NET_PNP_EVENT for Protocol Drivers</A>.
+</LI>
+
+	<LI><B>NetEventBindList</B>
+<P>Indicates to a protocol driver that its bind list processing order has been reconfigured. This list indicates a relative order to be applied to the protocol's bindings when processing, for example, a user request that might be routed to one of several bindings. The buffer passed with this event contains a list of device names formatted as NULL-terminated Unicode strings. The format of each device name is identical to the <I>DeviceName</I> parameter passed to a call to <A HREF="104tdlow_2bqq.htm"><I>ProtocolBindAdapter</I></A>.
+
+<P>A protocol should validate <B>NetEventBindList</B>-related data passed to its ProtocolPnPEvent function. For more information on such data, see <A HREF="105nstru_6c1e.htm">NET_PNP_EVENT for Protocol Drivers</A>.
+
+<P>A protocol should validate <B>NetEventBindList</B>-related data passed to its ProtocolPnPEvent function. For more information on such data, see <A HREF="105nstru_6c1e.htm">NET_PNP_EVENT for Protocol Drivers</A>.
+</LI>
+
+	<LI><B>NetEventBindsComplete</B>
+<P>Indicates that a protocol driver has bound to all the NICs to which it can bind. NDIS will not indicate any more bindings to the protocol driver unless, for example, a Plug and Play NIC is plugged into the system.
+</LI>
+
+	<LI><B>NetEventPnPCapabilities</B>
+<P>Indicates whether the wake-up capabilities of the NIC on the specified binding have changed. (The <I>ProtocolBindingContext</I> parameter that NDIS passes to <I>ProtocolPnPEvent</I> specifies the binding<I>.</I>)
+</LI>
+</UL>
+
+<P>The <B>Buffer</B> member of the NET_PNP_EVENT structure points to a buffer that contains information specific to the event being indicated. </P>
+
+<P>A protocol driver can complete the call to <I>ProtocolPnPEvent</I> asynchronously with <A HREF="103ndisx_0vaq.htm"><B>NdisCompletePnPEvent</B></A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20PnP%20Events%20and%20PM%20Events%20in%20a%20Protocol%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

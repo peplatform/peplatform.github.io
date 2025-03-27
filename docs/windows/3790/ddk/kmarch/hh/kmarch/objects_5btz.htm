@@ -1,0 +1,120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Object Handles</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Object Handles">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_object_kg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_driver_object_kg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_object_handles_kg"></A>Object Handles</H1>
+
+<P>Drivers and user-mode components access most system-defined objects through <I>handles</I>. Handles are represented by the HANDLE opaque data type. (Note that handles are not used for accessing <A HREF="JavaScript:hhobj_1.Click()">device objects</A> or <A HREF="JavaScript:hhobj_2.Click()">driver objects</A>.)</P>
+
+<P>For most object types, the kernel-mode routine that creates or opens the object provides a handle to the caller. The caller then uses that handle in subsequent operations on the object.</P>
+
+<P>Here is a list of object types that drivers typically use, and the routines that provide handles to objects of that type.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Object Type</TH>
+<TH align=left width=52%>Corresponding Create/Open Routine</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>file</TD>
+<TD width=52%><A HREF="k104_1ycz.htm"><B>IoCreateFile</B></A>, <A HREF="k111_9dte.htm"><B>ZwCreateFile</B></A>, <A HREF="k111_9rci.htm"><B>ZwOpenFile</B></A> </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>registry keys</TD>
+<TD width=52%><A HREF="k104_8kz6.htm"><B>IoOpenDeviceInterfaceRegistryKey</B></A>, <A HREF="k104_4er6.htm"><B>IoOpenDeviceRegistryKey</B></A>, <A HREF="k111_4omq.htm"><B>ZwCreateKey</B></A>, <A HREF="k111_55pu.htm"><B>ZwOpenKey</B></A> </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>threads</TD>
+<TD width=52%><A HREF="k108_0q42.htm"><B>PsCreateSystemThread</B></A> </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>events</TD>
+<TD width=52%><A HREF="k104_8che.htm"><B>IoCreateSynchronizationEvent</B></A>, <A HREF="k104_7bg2.htm"><B>IoCreateNotificationEvent</B></A> </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>symbolic links</TD>
+<TD width=52%><A HREF="k111_052q.htm"><B>ZwOpenSymbolicLinkObject</B></A> </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>directory objects</TD>
+<TD width=52%><A HREF="k111_1cfm.htm"><B>ZwCreateDirectoryObject</B></A> </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>section objects</TD>
+<TD width=52%><A HREF="k111_4fqq.htm"><B>ZwOpenSection</B></A> </TD>
+</TR>
+</TABLE><BR>
+
+<P>When the driver no longer requires access to the object, it calls the <A HREF="k111_03aq.htm"><B>ZwClose</B></A> routine to close the handle. This works for all of the object types listed in the table above.</P>
+
+<P>Most of the routines that provide handles take an <A HREF="k112_2d6a.htm">OBJECT_ATTRIBUTES</A> structure as a parameter. This structure can be used to specify attributes for the handle.</P>
+
+<P>Drivers can specify the following handle attributes:
+
+<UL>
+	<LI>OBJ_KERNEL_HANDLE
+<P>The handle can only be accessed from kernel mode.
+</LI>
+
+	<LI>OBJ_INHERIT
+<P>Any children of the current process receive a copy of the handle when they are created.
+</LI>
+
+	<LI>OBJ_FORCE_ACCESS_CHECK
+<P>This attribute specifies that the system performs all access checks on the handle. By default, the system bypasses all access checks on handles created in kernel mode. 
+</LI>
+</UL>
+
+<P>Use the <A HREF="k109_66uq.htm"><B>InitializeObjectAttributes</B></A> routine to set these attributes in an OBJECT_ATTRIBUTES structure.</P>
+
+<H4>Private Object Handles</H4>
+
+<P>Whenever a driver creates an object handle for its private use, the driver must specify the OBJ_KERNEL_HANDLE attribute. This ensures that the handle is inaccessible to user-mode applications.</P>
+
+<H4>Shared Object Handles</H4>
+
+<P>A driver that shares object handles between kernel mode and user mode must be carefully written to avoid accidentally creating security holes. Here are some guidelines:
+
+<OL>
+	<LI>Create handles in kernel mode and pass them to user mode, instead of the other way around. Handles created by a user-mode component and passed to the driver should not be trusted.</LI>
+
+	<LI>If the driver must manipulate handles on behalf of user-mode applications, use the OBJ_FORCE_ACCESS_CHECK attribute to verify that the application has the necessary access.</LI>
+
+	<LI>Use <A HREF="k107_4b76.htm"><B>ObReferenceObjectByPointer</B></A> to keep a kernel-mode reference on a shared handle. Otherwise, if a user-mode component closes the handle, the reference count goes to zero, and if the driver then tries to use or close the handle the system will crash.</LI>
+</OL>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Object%20Handles"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

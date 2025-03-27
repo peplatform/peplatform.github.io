@@ -1,0 +1,35 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling Compressed Texture Surfaces Created In System Memory</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling Compressed Texture Surfaces Created In System Memory">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_handling_compressed_texture_surfaces_created_in_system_memory_gg"></A>Handling Compressed Texture Surfaces Created In System Memory</H2>
+
+<P><B>This topic applies only to NT-based operating systems.</B></P>
+
+<P>The width and height of a compressed-texture surface created in system memory are altered by the user-mode runtime to force the kernel-mode runtime to allocate the appropriate amount of memory. The display driver must reverse this alteration to prevent subsequent operations that are performed on this surface from failing. Whenever the DirectDraw runtime calls the driver's <A HREF="d3dfncs_0gtj.htm"><I>D3dCreateSurfaceEx</I></A> function to create a compressed-texture surface, the driver must restore the width and height of the surface to their unaltered states. </P>
+
+<P>The driver's <I>D3dCreateSurfaceEx</I> function receives the surface's width, pitch, and height altered as follows: 
+
+<UL>
+	<LI>Width and pitch contain the number of 4x4 blocks in a row multiplied by the block size.</LI>
+
+	<LI>Height contains the number of 4x4 blocks in the column.</LI>
+</UL>
+
+<P>The following code snippet shows the calculations that the driver must perform to restore the width and height of the surface:</P>
+
+<PRE>RealWidth = (Width / Block size) * 4;
+RealHeight = Height * 4;</PRE>
+
+<P>The driver should assign the restored width and height values to members in the kernel's <A HREF="ddstrcts_392f.htm">DD_SURFACE_GLOBAL</A> surface structure. Doing so prevents the DirectDraw kernel-mode runtime from rejecting DXT texture download blts because the width and height values do not match. That is, if the driver leaves the altered sizes in the <B>wWidth</B> and <B>wHeight</B> members of DD_SURFACE_GLOBAL, the DirectDraw kernel-mode runtime rejects a blt from the altered system-memory surface to the video-memory surface because the width and height of the source, which is in unaltered coordinates, seems to be “outside” the altered DD_SURFACE_GLOBAL size.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20Compressed%20Texture%20Surfaces%20Created%20In%20System%20Memory"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

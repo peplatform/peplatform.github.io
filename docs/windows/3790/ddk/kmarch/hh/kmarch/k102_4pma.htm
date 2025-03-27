@@ -1,0 +1,126 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ExInitializePagedLookasideList</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ExInitializePagedLookasideList">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_exinitializepagedlookasidelist_kr"></A>ExInitializePagedLookasideList</H1>
+
+<P>The <B>ExInitializePagedLookasideList</B> routine initializes a lookaside list for pageable entries of the specified size. </P>
+
+<PRE class=syntax><B>VOID 
+</B>  <B>ExInitializePagedLookasideList(</B>
+    <B>IN PPAGED_LOOKASIDE_LIST</B>  <I>Lookaside</I><B>,</B>
+    <B>IN PALLOCATE_FUNCTION</B>  <I>Allocate</I>  <B>OPTIONAL,</B>
+    <B>IN PFREE_FUNCTION</B>  <I>Free</I>  <B>OPTIONAL,</B>
+    <B>IN ULONG</B>  <I>Flags</I><B>,</B>
+    <B>IN SIZE_T</B>  <I>Size</I><B>,</B>
+    <B>IN ULONG</B>  <I>Tag</I><B>,</B>
+    <B>IN USHORT</B>  <I>Depth</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Lookaside</I></DT>
+
+<DD>Pointer to the caller-supplied memory for the lookaside list head to be initialized. The caller must provide at least <B>sizeof(</B>PAGED_LOOKASIDE_LIST<B>)</B> in <I>nonpaged</I> system space for this opaque list head, even though the entries in this lookaside list will be allocated from pageable memory. </DD>
+
+<DT><I>Allocate</I></DT>
+
+<DD>Pointer to either a caller-supplied function for allocating an entry when the lookaside list is empty, or to NULL. If non-NULL, the pointer is to a function with the prototype:
+
+<PRE>PVOID
+<I>XxxAllocate</I> (
+    IN POOL_TYPE PoolType,            // PagedPool 
+    IN SIZE_T  NumberOfBytes,          // value of Size
+    IN ULONG  Tag                     // value of Tag
+    );</PRE>
+
+
+<P>If the <I>Allocate</I> parameter is NULL, subsequent calls to <B>ExAllocateFromPagedLookasideList</B> automatically allocate entries whenever the lookaside list is empty.
+</DD>
+
+<DT><I>Free</I></DT>
+
+<DD>Pointer to either a caller-supplied function for freeing an entry whenever the lookaside list is full, or to NULL. If non-NULL, the pointer is to a function with the prototype:
+
+<PRE>VOID
+<I>XxxFree</I> (
+    PVOID  Buffer
+    );</PRE>
+
+
+<P>If the <I>Free</I> parameter is NULL, subsequent calls to <B>ExFreeToPagedLookasideList</B> automatically release the given entry back to paged pool whenever the list is full, that is, currently holding the system-determined maximum number of entries. 
+</DD>
+
+<DT><I>Flags</I></DT>
+
+<DD>Reserved. Must be zero.</DD>
+
+<DT><I>Size</I></DT>
+
+<DD>Specifies the size in bytes of each entry in the lookaside list.</DD>
+
+<DT><I>Tag</I></DT>
+
+<DD>Specifies the pool tag for lookaside list entries. The <I>Tag</I> is a string of four characters delimited by single quote marks (for example, ‘derF’). The characters are usually specified in reverse order so they are easier to read when dumping pool or tracking pool usage with the <B>PoolHitTag</B> variable in the debugger.</DD>
+
+<DT><I>Depth</I></DT>
+
+<DD>Reserved. Must be zero.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>None</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>After calling <B>ExInitializePagedLookasideList</B>, blocks of the caller-specified <I>Size</I> can be allocated from and freed to the lookaside list with calls to <B>ExAllocateFromPagedLookasideList</B> and <B>ExFreeToPagedLookasideList</B>, respectively. Such dynamically allocated and freed entries can be any data structure or fixed-size buffer that the caller uses while the system is running, particularly if the caller cannot predetermine how many such entries will be in use at any given moment. The layout and contents of each fixed-size entry are caller-determined. </P>
+
+<P><B>ExInitializePagedLookasideList</B> initializes the system state to track usage of the given lookaside list, as follows:
+
+<UL>
+	<LI>Zero-initializes the counters to be maintained for entries</LI>
+
+	<LI>Stores the entry points of the caller-supplied <I>XxxAllocate</I> and <I>XxxFree</I> functions, if any, or sets these entry points to <B>ExAllocatePoolWithTag</B> and <B>ExFreePool</B>, respectively</LI>
+
+	<LI>Initializes a system spin lock to control allocations from and frees to the lookaside list in a multiprocessor-safe manner if necessary</LI>
+
+	<LI>Stores the caller-supplied entry <I>Size</I> and list <I>Tag</I> </LI>
+
+	<LI>Sets up the system-determined limits (minimum  and maximum) on the number of entries to be held in the lookaside list, which can be adjusted subsequently if system-wide demand for entries is higher or lower than anticipated</LI>
+
+	<LI>Sets up the system-determined flags, which control the type of memory from which entries will be allocated subsequently</LI>
+</UL>
+
+<P>The OS maintains a set of all lookaside lists in use. As demand for lookaside list entries and on available paged memory varies while the system runs, the OS adjusts its limits for the number of entries to be held in each paged lookaside list dynamically. </P>
+
+<P>Drivers must always use explicitly free any lookaside lists they create before unloading. It is a serious programming error to do otherwise. Use <A HREF="k102_0ur6.htm"><B>ExDeleteNPagedLookasideList</B></A> to free the list.</P>
+
+<P><B>ExInitializePagedLookasideList</B> sets up the opaque list head at the caller-supplied location but preallocates no memory for list entries. Subsequently, the initial entries are allocated dynamically as calls to <B>ExAllocateFromPagedLookasideList</B> occur, and these initial entries are held in the lookaside list as reciprocal calls to <B>ExFreeToPagedLookasideList</B> occur. Entries collect in the given lookaside list until the system-determined maximum is reached, whereupon any additional entries are returned to paged pool as they are freed. If the list becomes empty, allocate requests are satisfied by the <I>XxxAllocate</I> function specified at list initialization or by <B>ExAllocatePoolWithTag</B>.</P>
+
+<P>It is more efficient to pass NULL pointers for the <I>Allocate</I> and <I>Free</I> parameters of <B>ExInitializePagedLookasideList</B> whenever the user of a lookaside list does nothing more than allocate and release fixed-size entries. However, any component that uses a lookaside list might supply these functions to do additional caller-determined processing, such as tracking its own dynamic memory usage by maintaining state about the number of entries it allocates and frees. </P>
+
+<P>If the caller of <B>ExInitializePagedLookasideList</B> supplies an <I>XxxAllocate</I> function, that function must allocate entries for the lookaside list using the given input parameters when it calls <B>ExAllocatePoolWithTag</B>. </P>
+
+<P>Callers of <B>ExInitializePagedLookasideList</B> must be running at IRQL&nbsp;&lt; DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k102_77w2.htm"><B>ExAllocateFromPagedLookasideList</B></A>, <A HREF="k102_2omq.htm"><B>ExAllocatePoolWithTag</B></A>, <A HREF="k102_63zm.htm"><B>ExDeletePagedLookasideList</B></A>, <A HREF="k102_6uuq.htm"><B>ExFreePool</B></A>, <A HREF="k102_0gfm.htm"><B>ExFreeToPagedLookasideList</B></A>, <A HREF="k102_1b1u.htm"><B>ExInitializeNPagedLookasideList</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ExInitializePagedLookasideList"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

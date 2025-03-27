@@ -1,0 +1,107 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>GetPrinterDataFromPort</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="GetPrinterDataFromPort">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_getprinterdatafromport_gg"></A>GetPrinterDataFromPort</H1>
+
+<P>A port monitor's <B>GetPrinterDataFromPort</B> function obtains status information from a bidirectional printer and returns it to the caller.</P>
+
+<PRE class=syntax><B>BOOL
+  (WINAPI *pfnGetPrinterDataFromPort)(
+    HANDLE  </B><I>hPort</I><B>,
+    DWORD  </B><I>ControlID</I><B>,
+    LPWSTR  </B><I>pValueName</I><B>,
+    LPWSTR  </B><I>lpInBuffer</I><B>,
+    DWORD  </B><I>cbInBuffer</I><B>,
+    LPWSTR  </B><I>lpOutBuffer</I><B>,
+    DWORD  </B><I>cbOutBuffer</I><B>,
+    LPDWORD  </B><I>lpcbReturned<B>
+    </B></I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>hPort</I></DT>
+
+<DD>Caller-supplied port handle.</DD>
+
+<DT><I>ControlID</I></DT>
+
+<DD>Caller-supplied device I/O control code. A value of zero indicates a value name is supplied by <I>pValueName</I>. See the following <B>Comments</B> section.</DD>
+
+<DT><I>pValueName</I></DT>
+
+<DD>Caller-supplied pointer to a string identifying the information being requested. Valid only if <I>ControlID</I> is zero. See the following <B>Comments</B> section.</DD>
+
+<DT><I>lpInBuffer</I></DT>
+
+<DD>Caller-supplied pointer to a buffer containing input data. Used only if <I>ControlID</I> is nonzero. See the following <B>Comments</B> section.</DD>
+
+<DT><I>cbInBuffer</I></DT>
+
+<DD>Caller-supplied size, in bytes, of the buffer pointed to by <I>lpInBuffer</I>.</DD>
+
+<DT><I>lpOutBuffer</I></DT>
+
+<DD>Caller-supplied pointer to a buffer to receive the requested data.</DD>
+
+<DT><I>cbOutBuffer</I></DT>
+
+<DD>Caller-supplied size, in bytes, of the buffer pointed to by <I>lpOutBuffer</I>.</DD>
+
+<DT><I>lpcbReturned</I></DT>
+
+<DD>Caller-supplied pointer to a location to receive the number of bytes written into the buffer pointed to by <I>lpOutBuffer</I>.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>If the operation succeeds, the function should return TRUE. Otherwise it should return FALSE.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>winsplp.h</I>. Include <I>winsplp.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><A HREF="provider_7msn.htm">Language monitors</A> and <A HREF="provider_897r.htm#ddk_port_monitor_server_dll_gg">Port monitor server DLLs</A> can optionally define a <B>GetPrinterDataFromPort</B> function and include the function's address in a <A HREF="spoolfnc_0k9z.htm">MONITOR2</A> structure.</P>
+
+<P>The function is meant for use with bidirectional printers, and can be used in the following two ways:
+
+<UL>
+	<LI>As a means for requesting a language monitor to poll the printer port, to obtain the current value of printer-specific information that is stored in the registry.</LI>
+
+	<LI>As a means for requesting a port monitor to send an I/O control code to the port driver.</LI>
+</UL>
+
+<H4>Requesting a Language Monitor to Poll the Printer Port </H4>
+
+<P>If a language monitor's <B>GetPrinterDataFromPort</B> function receives a string pointer in <I>pValueName</I>, it should return a value in the supplied output buffer. Typically, the string represents a registry value name, and the spooler calls <B>GetPrinterDataFromPort</B> when an application calls the <B>GetPrinterData</B> function (described in the Platform SDK documentation).</P>
+
+<P>The language monitor's responsibility is to send a command to the printer hardware by calling the port monitor's <A HREF="spoolfnc_319j.htm"><B>WritePort</B></A> function, and reading the response by calling <A HREF="spoolfnc_09bb.htm"><B>ReadPort</B></A>, to obtain the needed value. For example, <I>pjlmon.dll</I>, the <A HREF="provider_72uf.htm">sample language monitor</A>, can return values for a port's "Installed Memory" and "Available Memory" registry value names.</P>
+
+<P>After the spooler calls <B>GetPrinterDataFromPort</B> to obtain a registry value, it updates the registry with the new value.</P>
+
+<P>Typically, port monitors do not support calls to <B>GetPrinterDataFromPort</B> that include a string pointer in <I>pValueName</I>.</P>
+
+<H4>Requesting a Port Monitor to Send an I/O Control Code</H4>
+
+<P>If a language monitor's <B>GetPrinterDataFromPort</B> function receives a nonzero I/O control code in <I>ControlID</I>, it should just call the associated port monitor's <B>GetPrinterDataFromPort</B> function and return the result. The <I>Kernel-Mode Drivers Reference</I>, in this DDK, lists I/O control codes for parallel and serial ports.</P>
+
+<P>When a port monitor's <B>GetPrinterDataFromPort</B> function receives a nonzero I/O control code in <I>ControlID</I>, it should call <B>DeviceIOControl</B> (described in the Platform SDK documentation) to pass the control code to the kernel-mode port driver. The <I>lpInBuffer</I>, <I>cbInBuffer</I>, <I>lpOutBuffer</I>, <I>cbOutBuffer</I>, and <I>lpcbReturned</I> parameter values should also be passed to <B>DeviceIOControl</B>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="spoolfnc_319j.htm"><B>WritePort</B></A>, <A HREF="spoolfnc_09bb.htm"><B>ReadPort</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: GetPrinterDataFromPort"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

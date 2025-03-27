@@ -1,0 +1,60 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Writing an ISR</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Writing an ISR">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_writing_an_isr_kg"></A>Writing an ISR</H2>
+
+<P>Drivers for physical devices that generate interrupts must have at least one <A HREF="drvrrtns_29ma.htm"><I>InterruptService</I></A> routine (ISR). The ISR must do whatever is appropriate to the device to dismiss the interrupt, possibly including stopping the device from interrupting. Then, it should do only what is necessary to save state and queue a DPC to finish the I/O operation at a lower priority (IRQL) than that at which the ISR executes.</P>
+
+<P>A driver's ISR executes in an interrupt context, at some system-assigned <A HREF="intrupts_0kh3.htm#ddk_dirql_kg">DIRQL</A>, as specified by the <I>SynchronizeIrql</I> parameter to <A HREF="k104_7h9u.htm"><B>IoConnectInterrupt</B></A>.</P>
+
+<P><I>ISRs are interruptible.</I> Another device with a higher system-assigned DIRQL can interrupt, or a high-IRQL system interrupt can occur, at any time.</P>
+
+<P>Before the system calls an ISR, it acquires the interrupt's spin lock so the ISR cannot simultaneously execute on another processor. After the ISR returns, the system releases the spin lock.</P>
+
+<P>Because an ISR runs at a relatively high IRQL, which masks off interrupts with an equivalent or lower IRQL on the current processor, it should return control as quickly as possible. Additionally, running an ISR at DIRQL restricts the set of support routines the ISR can call. For more information see <A HREF="intrupts_0kh3.htm">Managing Hardware Priorities</A>. </P>
+
+<P>Typically, an ISR performs the following general steps:
+
+<UL>
+	<LI>If the device that caused the interrupt is not one supported by the ISR, the ISR immediately returns FALSE.</LI>
+
+	<LI>Otherwise, the ISR clears the interrupt, saving whatever device context is necessary, and queues a DPC to complete the I/O operation at a lower IRQL. See <A HREF="intrupts_4zhj.htm">DPC Objects and DPCs</A> for more information. The ISR must then return TRUE.</LI>
+</UL>
+
+<P>Specifically, in drivers that do not overlap device I/O operations, the ISR should do the following:
+
+<OL>
+	<LI>Determine whether the interrupt is spurious. If so, return FALSE immediately so the ISR of the device that interrupted will be called promptly. Otherwise, continue interrupt processing. </LI>
+
+	<LI>Stop the device from interrupting.</LI>
+
+	<LI>Gather whatever context information the <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> (or <A HREF="drvrrtns_3tbm.htm"><I>CustomDpc</I></A>) routine will need to complete I/O processing for the current operation.</LI>
+
+	<LI>Store this context in an area accessible to the <I>DpcForIsr</I> or <I>CustomDpc</I> routine, usually in the device extension of the target device object for which processing the current I/O request caused the interrupt. 
+<P>If a driver overlaps I/O operations, the context information must include a count of outstanding requests the DPC routine is required to complete, along with whatever context the DPC routine needs to complete each request. If the ISR is called to handle another interrupt before the DPC has run, it must not overwrite the saved context for a request that has not yet been completed by the DPC. 
+</LI>
+
+	<LI>If the driver has a <I>DpcForIsr</I> routine, call <A HREF="k104_3mb6.htm"><B>IoRequestDpc</B></A> with pointers to the current IRP, the target device object, and the saved context. <B>IoRequestDpc</B> queues the <I>DpcForIsr</I> routine to be run as soon as IRQL falls below DISPATCH_LEVEL on a processor.
+<P>If the driver has a <I>CustomDpc</I> routine, call <A HREF="k105_75iq.htm"><B>KeInsertQueueDpc</B></A> with a pointer to the DPC object (associated with the <I>CustomDpc</I> routine) and pointer(s) to any saved context the <I>CustomDpc</I> routine will need to complete the operation. Usually, the ISR also passes pointers to the current IRP and the target device object. The <I>CustomDpc</I> routine is run as soon as IRQL falls below DISPATCH_LEVEL on a processor. 
+</LI>
+
+	<LI>Return TRUE to indicate that its device generated the interrupt. </LI>
+</OL>
+
+<P>In general, an ISR does no actual I/O processing to satisfy an IRP. Instead, it stops its device from interrupting, sets up necessary state information, and queues the driver’s <I>DpcForIsr</I> or <I>CustomDpc</I> to do whatever I/O processing is necessary to satisfy the current request that caused the device to interrupt. </P>
+
+<P><I>An ISR must run at DIRQL for the shortest possible interval</I>. Following this guideline increases I/O throughput for every device in the machine because running at DIRQL masks off all interrupts to which the system has assigned a lesser or equal IRQL value.</P>
+
+<P>The <I>SynchronizeIrql</I> of the driver’s interrupt objects, specified when the driver called <B>IoConnectInterrupt</B>, determines the DIRQL at which the driver’s ISR executes. For more information, see <A HREF="intrupts_9sfb.htm">Synchronizing Access to Device Data</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Writing%20an%20ISR"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

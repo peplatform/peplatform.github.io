@@ -1,0 +1,38 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>StartIo Routines in Higher-Level Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="StartIo Routines in Higher-Level Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_startio_routines_in_higher_level_drivers_kg"></A><I>StartIo </I>Routines in Higher-Level Drivers</H3>
+
+<P>Any higher-level driver can have a <I>StartIo </I>routine. However, such a driver is unlikely to be interoperable with existing lower-level drivers and is likely to exhibit poor performance characteristics. </P>
+
+<P>A <I>StartIo </I>routine in a higher-level driver has the following effects:
+
+<UL>
+	<LI>Incoming IRPs can be queued by calling <B>IoStartPacket</B> from the driver’s Dispatch routine(s) and <B>IoStartNextPacket</B> from its <I>IoCompletion</I> routine(s), thereby causing IRPs to be processed one at a time through the <I>StartIo </I>routine.</LI>
+
+	<LI>The driver’s I/O throughput could become noticeably slower during periods of heavy I/O demand, because its <I>StartIo </I>routine can become a bottleneck.</LI>
+
+	<LI>The driver's <I>StartIo </I>routine calls <B>IoCallDriver</B> with each IRP at IRQL&nbsp;= DISPATCH_LEVEL, thereby causing all lower-level drivers’ dispatch routines also to run at IRQL&nbsp;= DISPATCH_LEVEL. This restricts the set of support routines that lower drivers can call in their dispatch routines. Because most driver writers assume their drivers’ dispatch routines run at IRQL&nbsp;&lt; DISPATCH_LEVEL, the higher-level driver is unlikely to be interoperable with many existing lower-level drivers. </LI>
+
+	<LI>The <I>StartIo </I>routine reduces overall system throughput because it and the dispatch routines of all lower-level drivers in its chain are run at raised IRQL. 
+<P>For more information about the IRQLs at which standard driver routines are run, see <A HREF="intrupts_0kh3.htm">Managing Hardware Priorities</A>.
+</LI>
+</UL>
+
+<P>None of the system-supplied higher-level drivers has a <I>StartIo </I>routine, because it can slow IRP processing for the driver itself, for all drivers above and below it, and for the system overall. </P>
+
+<P>Most higher-level drivers simply send IRPs to lower-level drivers from their dispatch routines and do any necessary clean-up processing in their <I>IoCompletion</I> routines.</P>
+
+<P>However, higher-level drivers can set up internal queues for IRPs that request particular kinds of operations, or set up internal queues to hold IRPs bound for a set of heterogeneous underlying devices like the SCSI port driver. For more information, see <A HREF="irps_4mqv.htm">Queuing and Dequeuing IRPs</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: StartIo%20Routines%20in%20Higher-Level%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

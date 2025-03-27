@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>If You Stop in the Debugger</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="If You Stop in the Debugger">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_if_you_stop_in_the_debugger_me"></A>If You Stop in the Debugger</H3>
+
+<H4>If You Don't Know Why You Stopped</H4>
+
+<P>If you do not see a reason why you stopped, the message may have been “lost in the noise”. Disassemble backwards from the current location and see if any of the addresses pushed onto the stack are strings.</P>
+
+<P>The following sample sessions indicate possible techniques to ferret out error message strings:</P>
+
+<PRE>##u eip-0b L2 
+0028:........ push xxxxxxxx 
+0028:........ call dword ptr [__Debug_Out_Service (........)] 
+##da xxxxxxxx 
+0030:xxxxxxxx ... this is the error message... 
+##u eip-0a L2 
+0028:........ push xxxxxxxx 
+0028:........ call yyyyyyyy 
+##da xxxxxxxx 
+0030:xxxxxxxx ... this might be the error message... 
+##u eip-0d L3 
+0028:........ push xxxxxxxx 
+0028:........ call yyyyyyyy 
+0028:........ add esp, nn 
+##da xxxxxxxx 
+0030:xxxxxxxx ... this might be the error message... </PRE>
+
+<H4>Hard-Coded Traps into The Debugger</H4>
+
+<P>Different components react to errors or assertion failure differently. Note that the following remarks are general principles; exceptions are not uncommon. Always cross-reference against the source code to be sure. </P>
+
+<P>VMM32 uses int 3 for code coverage, int 1 for fatal errors, Debug_Out for assertion failures. </P>
+
+<P>IOS uses int 3 for code coverage and Debug_Out for assertion failures. (Though it occasionally uses int 3 for assertion failures, too.) </P>
+
+<H4>If Your Code Is at Fault</H4>
+
+<P>Disassemble near the faulting location to see if what you get is proper code or not. Don't forget that ASCII text may look deceptively valid. Another thing to check is whether ESP and EIP are very close to each other. If so, this suggests a stack-balancing problem (too many pushes or pops). Dump the stack back to find the last known sane location and start working forwards.</P>
+
+<P>Type u cs:eip to see if what you get is proper code or not. If you see any of the following, then you do not have proper code: 
+
+<UL>
+	<LI>Any instruction of the form db xx.</LI>
+
+	<LI>Any instruction of the form lock xx.</LI>
+
+	<LI>Any instruction whose opcode begins with the letter f (floating point).</LI>
+
+	<LI>The same instruction repeated over and over, especially if it is one of the following: 
+<P>add byte ptr [eax], al
+
+<P>and byte ptr [edi], al
+
+<P>add byte ptr [bx+si], al
+
+<P>and byte ptr [bx], al
+</LI>
+
+	<LI>Anything else that obviously makes no sense.</LI>
+</UL>
+
+<P>If that quick test passes, then type db cs:eip-40 and check if you are in the middle of a data segment. One dead giveaway is that you see ASCII strings in the dump. </P>
+
+<H4>If Ln cs:eip Gives You a Name</H4>
+
+<P>The command Ln cs:eip can supply you with the name of the module or routine. However, if you die very near the beginning of a routine, or if you see a message (in DEBUG) like 'Invalid mumble passed to ProcedureName', then the error is not in ProcedureName but rather in the caller. Dump the stack back to find the caller. </P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: If%20You%20Stop%20in%20the%20Debugger"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,165 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Kernel-mode Initialization</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Kernel-mode Initialization">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_kernel_mode_initialization_gg"></A>Kernel-mode Initialization</H4>
+
+<P><B>This topic applies only to Windows 98/Me.</B></P>
+
+<P>To enable kernel-mode DxApi interface functionality, the DirectDraw HAL must do the following at initialization time: 
+
+<OL>
+	<LI>The HAL must specify a 32-bit <A HREF="ddfncs_0yhz.htm"><I>DdGetDriverInfo</I></A> function in the <A HREF="ddstrcts_9m7b.htm">DDHALINFO</A> structure that DirectDraw can call to get additional information. This is described in the <B>GetDriverInfo</B> member of DDHALINFO. </LI>
+
+	<LI>The 32-bit <I>DdGetDriverInfo</I> callback is called with the GUID_KernelCallbacks GUID specified. The HAL must fill in a <A HREF="ddstrcts_6njb.htm">DDHAL_DDKERNELCALLBACKS</A> structure with the appropriate 32-bit HAL callbacks and flags set, then copy this structure to the <B>lpvData</B> member of the input structure. </LI>
+
+	<LI>The 32-bit <I>DdGetDriverInfo</I> callback is called with the GUID_KernelCaps GUID specified. The HAL must fill in a <A HREF="ddstrcts_38kn.htm">DDKERNELCAPS</A> structure, then copy this structure to the <B>lpvData</B> member of the input structure. </LI>
+
+	<LI>The miniVDD must support an input/output control (IOCTL) interface. This is done by adding the following code to the control procedure: 
+<PRE>Begin_Control_Dispatch  MiniVDD
+    Control_Dispatch W32_DEVICEIOCONTROL, ctrlDeviceIoControl
+End_Control_Dispatch MiniVDD
+
+;**************************************************************
+;
+;   ctrlDeviceIoControl
+;
+;   DESCRIPTION: This function called to perform Device I/O
+; for a 32 bit process that has opened this device with
+; CreateFile.
+;
+;   ENTRY:
+;        ESI    Ptr to DIOCParams
+;        ESI+8  Io control code
+;
+;   EXIT:
+;        EAX    As determined by function or 1 for an
+; invalid IOCTL
+;
+;**************************************************************
+public  ctrlDeviceIoControl
+BeginProc ctrlDeviceIoControl, RARE
+
+    mov    ecx, [esi+0Ch]
+    cmp    ecx, VDD_IOCTL_GET_DDHAL
+    jnz    @F
+    call   GetDDHAL
+@@:
+    sub    eax, eax
+    ret
+
+EndProc ctrlDeviceIoControl
+</PRE>
+</LI>
+
+	<LI>When DirectDraw is initialized, it sends a VDD_IOCTL_GET_DDHAL IOCTL to the miniVDD. This allows the miniVDD to fill in the provided function table with pointers to functions that kernel-mode DirectDraw can call. The following structure is passed to the miniVDD, which fills it in: 
+<PRE>typedef struct _DDMINIVDDTABLE
+{
+    DWORD       dwMiniVDDContext;
+    MINIPROC    vddGetIRQInfo;
+    MINIPROC    vddIsOurIRQ;
+    MINIPROC    vddEnableIRQ;
+    MINIPROC    vddSkipNextField;
+    MINIPROC    vddBobNextField;
+    MINIPROC    vddSetState;
+    MINIPROC    vddLock;
+    MINIPROC    vddFlipOverlay;
+    MINIPROC    vddFlipVideoPort;
+    MINIPROC    vddGetPolarity;
+    MINIPROC    vddSetSkipPattern;
+    MINIPROC    vddGetCurrentAutoflip;
+    MINIPROC    vddGetPreviousAutoflip;
+    MINIPROC    vddTransfer;
+    MINIPROC    vddGetTransferStatus;
+} DDMINIVDDTABLE;</PRE>
+
+<P>The miniVDD can specify a value in the <B>dwMiniVDDContext</B> member that is passed to the miniVDD each time one of these functions is called. For some miniVDDs, this is useful for multiple monitor support. The following code example could be used to fill in this structure:
+
+<PRE>;************************************************************
+;
+;   GetDDHAL
+;
+;   DESCRIPTION: This function fills in the function
+;     table supplied by DDRAW with functions that their VxD
+;     can call for kernel mode DirectDraw support.  The 
+;     MiniVDD can fill in the dwMiniVDDContext field with a
+;     value that will always be passed back when called.
+;
+;   ENTRY:
+;      ESI      Ptr to DIOCParams
+;      ESI+18h  Ptr to output buffer
+;      ESI+1Ch  Size of output buffer
+;      ESI+20h  Amount of data we write into output buffer
+;
+;   EXIT:
+;      EAX      0 = success
+;
+;***********************************************************
+
+BeginProc GetDDHAL, RARE
+
+    mov    eax, SIZE _DDMINIVDDTABLE
+    cmp    eax, [esi+1Ch]
+    jg     GetDDHAL_Error
+
+    mov    ebx, [esi+18h]
+    mov    eax, 27h
+    mov    [ebx._DDMINIVDDTABLE.dwMiniVDDContext], eax
+    mov    eax, OFFSET32 DDGetIRQInfo
+    mov    [ebx._DDMINIVDDTABLE.vddGetIRQInfo], eax
+    mov    eax, OFFSET32 DDIsOurIRQ
+    mov    [ebx._DDMINIVDDTABLE.vddIsOurIRQ], eax
+    mov    eax, OFFSET32 DDEnableIRQ
+    mov    [ebx._DDMINIVDDTABLE.vddEnableIRQ], eax
+    mov    eax, OFFSET32 DDSkipNextField
+    mov    [ebx._DDMINIVDDTABLE.vddSkipNextField], eax
+    mov    eax, OFFSET32 DDBobNextField
+    mov    [ebx._DDMINIVDDTABLE.vddBobNextField], eax
+    mov    eax, OFFSET32 DDSetState
+    mov    [ebx._DDMINIVDDTABLE.vddSetState], eax
+    mov    eax, OFFSET32 DDLock
+    mov    [ebx._DDMINIVDDTABLE.vddLock], eax
+    mov    eax, OFFSET32 DDFlipOverlay
+    mov    [ebx._DDMINIVDDTABLE.vddFlipOverlay], eax
+    mov    eax, OFFSET32 DDFlipVideoPort
+    mov    [ebx._DDMINIVDDTABLE.vddFlipVideoPort], eax
+    mov    eax, OFFSET32 DDGetFieldPolarity
+    mov    [ebx._DDMINIVDDTABLE.vddGetPolarity], eax
+    mov    eax, OFFSET32 DDSetSkipPattern
+    mov    [ebx._DDMINIVDDTABLE.vddSetSkipPattern], eax
+    mov    eax, OFFSET32 DDGetCurrentAutolfip
+    mov    [ebx._DDMINIVDDTABLE.vddGetCurrentAutoflip], eax
+    mov    eax, OFFSET32 DDGetPreviousAutoflip
+    mov    [ebx._DDMINIVDDTABLE.vddGetPreviousAutoflip], eax
+    mov    eax, OFFSET32 DDTransfer
+    mov    [ebx._DDMINIVDDTABLE.vddTransfer], eax
+    mov    eax, OFFSET32 DDGetTransferStatus
+    mov    [ebx._DDMINIVDDTABLE.vddGetTransferStatus], eax
+
+    mov    ebx, [esi+20h]
+    mov    eax, SIZE _DDMINIVDDTABLE
+    mov    [ebx], eax
+
+    sub    eax, eax
+    ret
+
+GetDDHAL_Error:
+    mov    eax, 1
+    ret
+
+EndProc GetDDHAL</PRE>
+</LI>
+</OL>
+
+<P>For reference information on the kernel-mode DxApi interface functions that are specified in the preceding DDMINIVDDTABLE structure, see <A HREF="ddfncs_5y1z.htm">DxApi Interface Callback Functions</A>. Note that the <I>vddSetSkipPattern</I> callback is not used and is therefore not implemented. Also note that the <A HREF="ddfncs_9xk7.htm"><I>vddIsOurIRQ</I></A> callback is only used on Windows 98/Me platforms.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Kernel-mode%20Initialization"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

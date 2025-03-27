@@ -1,0 +1,76 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisMCmMakeCallComplete</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisMCmMakeCallComplete">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndismcmmakecallcomplete_nr"></A>NdisMCmMakeCallComplete</H1>
+
+<P><B>NdisMCmMakeCallComplete</B> returns the final status of a client’s request, for which the MCM driver previously returned NDIS_STATUS_PENDING, to make an outgoing call. </P>
+
+<PRE class=syntax><B>VOID
+  NdisMCmMakeCallComplete(
+    IN NDIS_STATUS</B>  <I>Status</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisVcHandle</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisPartyHandle</I>  <B>OPTIONAL,</B>
+    <B>IN NDIS_HANDLE</B>  <I>CallMgrPartyContext</I>  <B>OPTIONAL,</B>
+    <B>IN PCO_CALL_PARAMETERS</B>  <I>CallParameters
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Status</I></DT>
+
+<DD>Specifies the final status of the attempt to make the connection, either NDIS_STATUS_SUCCESS or any caller-determined NDIS_STATUS_<I>XXX</I> <I>except</I> NDIS_STATUS_PENDING.</DD>
+
+<DT><I>NdisVcHandle</I></DT>
+
+<DD>Specifies the handle to the client-created VC, which the MCM driver obtained as an input parameter to its <A HREF="104tdlow_299u.htm"><I>ProtocolCoCreateVc</I></A> function and, more recently, from the <I>CallMgrVcContext</I> passed to its <A HREF="104tdlow_20oi.htm"><I>ProtocolCmMakeCall</I></A> function.</DD>
+
+<DT><I>NdisPartyHandle</I></DT>
+
+<DD>Specifies the handle to the initial party on the client-created multipoint VC, which the MCM driver obtained as an input parameter to its <I>ProtocolCmMakeCall</I> function. If the given <I>NdisVcHandle</I> represented a point-to-point VC, this parameter was NULL. </DD>
+
+<DT><I>CallMgrPartyContext</I></DT>
+
+<DD>Specifies the handle to a caller-allocated resident context area, in which the MCM driver will maintain per-party state information, or this parameter is NULL if <I>NdisPartyHandle</I> is NULL. For a multipoint VC, NDIS passes this MCM-driver-supplied <I>CallManagerPartyContext</I> handle in all subsequent calls to the ProtocolCm<I>Xxx</I> functions that concern this party. If <I>Status</I> is anything other than NDIS_STATUS_SUCCESS, NDIS ignores this parameter. </DD>
+
+<DT><I>CallParameters</I></DT>
+
+<DD>Pointer to a structure of type <A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A> that specifies the call parameters set up for this connection if <I>Status</I> is NDIS_STATUS_SUCCESS. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>An MCM driver should call <B>NdisMCmMakeCallComplete</B> with NDIS_STATUS_SUCCESS only if it is ready to make data transfers on the VC. That is, the MCM driver has negotiated with the network to establish the call parameters for the VC, set up its NIC for those call parameters, and called <A HREF="103ndisx_2xde.htm"><B>NdisMCmActivateVc</B></A> to notify NDIS of the VC activation. </P>
+
+<P>An MCM driver must call <B>NdisMCmMakeCallComplete</B> if its <A HREF="104tdlow_20oi.htm"><I>ProtocolCmMakeCall</I></A><I> </I>function previously returned NDIS_STATUS_PENDING for the given <I>NdisVcHandle</I>.The client, which initiated the pending outgoing call, cannot use the VC to make transfers until the miniport driver calls <B>NdisMCmMakeCallComplete</B> with NDIS_STATUS_SUCCESS. </P>
+
+<P>Even if the attempted connection failed, neither NDIS nor the client can release the resources they allocated to maintain state until the MCM driver's call to <B>NdisMCmMakeCallComplete</B> causes a call to that client's <A HREF="104tdlow_3qia.htm"><I>ProtocolClMakeCallComplete</I></A> function. In fact, neglecting to call <B>NdisMCmMakeCallComplete</B> for a failed attempt to set up such a connection causes a memory leak in the MCM driver as well; it prevents the client from tearing down the VC it created for its failed outgoing call, so the MCM driver's <A HREF="104tdlow_7ks2.htm"><I>ProtocolCoDeleteVc</I></A> function is not called to release the resources the miniport driver allocated for that VC. </P>
+
+<P>If the MCM driver passes an error, such as NDIS_STATUS_FAILURE, for the <I>Status</I>, it must consider the <I>NdisPartyHandle</I>, if any, invalid when <B>NdisMCmMakeCallComplete</B> returns control. The CM can release (or reinitialize for reuse) any resources that it allocated to maintain state for the given party after <B>NdisMCmMakeCallComplete</B> returns control. The MCM driver's <I>ProtocolCoDeleteVc</I> function will subsequently be called to release any resources that the miniport driver allocated for tracking the state of the client-created VC whenever the MCM driver passes an error status to <B>NdisMCmMakeCallComplete</B>. </P>
+
+<P>In the course of setting up a client-initiated outgoing call, the MCM driver can modify the client-supplied call parameters originally passed in to its <I>ProtocolCmMakeCall</I> function. If it does, the MCM driver must pass its modifications in the buffer at <I>CallParameters</I> when it calls <B>NdisMCmMakeCallComplete</B>. If the client finds these modified call parameters unacceptable, it will then tear down the call, which also causes a call to the MCM driver's <I>ProtocolCoDeleteVc</I> function.</P>
+
+<P>Only connection-oriented miniport drivers that provide integrated call-management support can call <B>NdisMCmMakeCallComplete</B>. Stand-alone call managers, which register themselves with NDIS as protocols, call <B>NdisCmMakeCallComplete</B> instead. </P>
+
+<P>Callers of <B>NdisMCmMakeCallComplete</B> can be running at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A>, <A HREF="103ndisx_72wi.htm"><B>NdisAllocateFromNPagedLookasideList</B></A>, <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>, <A HREF="103ndisx_460i.htm"><B>NdisCmMakeCallComplete</B></A>, <A HREF="104tdlow_3qia.htm"><I>ProtocolClMakeCallComplete</I></A>, <A HREF="104tdlow_20oi.htm"><I>ProtocolCmMakeCall</I></A>, <A HREF="104tdlow_7ks2.htm"><I>ProtocolCoDeleteVc</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisMCmMakeCallComplete"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using the IStiUSD Escape Method</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using the IStiUSD Escape Method">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_using_the_istiusd_escape_method_si"></A>Using the IStiUSD Escape Method</H3>
+
+<P>The <A HREF="stifnc_2kh5.htm"><B>IStiUSD::Escape</B></A> method is called to pass information directly to the hardware. This method is supported only on Windows XP and later operating systems.</P>
+
+<P>All communication between a TWAIN-compatible application and the WIA driver goes first to the Data Source Manager (<I>twain_32.dll</I>), which in turn calls into the TWAIN compatibility layer (<I>wiadss.dll</I>). The TWAIN compatibility layer then calls the WIA driver's <A HREF="stifnc_2kh5.htm"><B>IStiUSD::Escape</B></A> method, passing one of two different escape codes.</P>
+
+<P class=indent1><A HREF="wia_drv_scan_8fxl.htm">ESC_TWAIN_CAPABILITY Escape Code</A></P>
+
+<P class=indent1><A HREF="wia_drv_scan_6ld5.htm">ESC_TWAIN_PRIVATE_SUPPORTED_CAPS Escape Code</A></P>
+
+<P>When the TWAIN application requests the WIA driver's private capability list, the TWAIN compatibility layer calls the driver's <B>IStiUSD::Escape</B> method, passing ESC_TWAIN_PRIVATE_SUPPORTED_CAPS in the call. If the driver does not support pass-through functionality, it returns the TWAIN compatibility layer’s static (default) capability list. Otherwise, the driver returns a list of supported private capabilities to the TWAIN compatibility layer. </P>
+
+<P>When the TWAIN application sends a capability operation that is not already in the TWAIN compatibility layer's default list, the TWAIN compatibility layer calls the driver's <B>IStiUSD::Escape</B> method, this time passing ESC_TWAIN_CAPABILITY in the call.</P>
+
+<P>However, the foregoing explanation is somewhat oversimplified. When the TWAIN application asks for the driver's private capabilities list, the TWAIN compatibility layer actually makes two calls to the driver's <B>IStiUSD::Escape</B> method. In the first call, the TWAIN compatibility layer asks the WIA driver how much memory is needed to store the capability list. The TWAIN compatibility layer then allocates that amount of memory for the WIA driver to use. In the second call, the TWAIN compatibility layer asks the WIA driver for the capability list, which the WIA driver copies into the previously mentioned memory. The TWAIN compatibility layer is responsible for allocating and freeing all memory used in TWAIN-WIA transactions. This arrangement prevents the WIA driver from freeing memory used by the TWAIN compatibility layer. </P>
+
+<P>The TWAIN compatibility layer also calls the driver's <B>IStiUSD::Escape</B> method twice when ESC_TWAIN_CAPABILITY is passed and for which the intent is to get a capability. The first call asks the WIA driver how much memory it needs in order to store the capability, and the second call returns the capability. Note that SET capability operations require only a single call to <B>IStiUSD::Escape</B>, because no memory needs to be allocated.</P>
+
+<P>All calls to the <B>IStiUSD::Escape</B> method should be validated in this order:
+
+<OL>
+	<LI>Validate the <I>EscapeFunction</I> function code. If it is not valid, fail immediately. This prevents incorrect codes from being processed in the driver.</LI>
+
+	<LI>Validate the incoming buffer, <I>lpInData</I>. If it is not valid, fail immediately. Invalid incoming buffers can cause the WIA driver to crash.</LI>
+
+	<LI>Validate the outgoing buffer, <I>pOutData</I>. If it is not valid, fail immediately. If the driver cannot complete the request by writing the necessary data, it does not need to process that data.</LI>
+
+	<LI>Validate the size of the outgoing buffer. If the driver cannot write the correct amount of data to the outgoing buffer, then the caller cannot properly process that data.</LI>
+</OL>
+
+<P>The code samples in the following sections illustrate the use of pass-though functionality, supporting TWAIN applications with private capabilities. The code samples use two escape codes that are defined in <I>wiatwcmp.h</I>, ESC_TWAIN_PRIVATE_SUPPORTED_CAPS and ESC_TWAIN_CAPABILITY. </P>
+
+<P class=indent1><A HREF="wia_drv_scan_6ld5.htm">ESC_TWAIN_PRIVATE_SUPPORTED_CAPS Escape Code</A></P>
+
+<P class=indent1><A HREF="wia_drv_scan_8fxl.htm">ESC_TWAIN_CAPABILITY Escape Code</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20the%20IStiUSD%20Escape%20Method"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

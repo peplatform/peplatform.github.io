@@ -1,0 +1,165 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Miscellaneous Page Management Services</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_1245"></A>Miscellaneous Page Management Services</H3>
+
+<P>A virtual device must not modify page tables directly. However, a virtual device can retrieve a copy of a page table to analyze. To do so, use the <B>_CopyPageTable</B> service. </P>
+
+<P>Virtual device drivers (VxDs) which need to communicate with hardware devices may have need to convert a linear address (such as one provided by an application) into a physical address.  </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To convert a linear address into a physical address</B>
+
+<OL>
+	<LI>Lock the memory to prevent its physical address from changing. This can typically be accomplished via the LinPageLock() service.</LI>
+
+	<LI>Use CopyPageTable() to access the page table information, which includes the physical address.</LI>
+
+	<LI>Use the values obtained in step (2) to program the hardware device.</LI>
+
+	<LI>When the physical address is no longer needed (when the I/O operation has completed), unlock the memory (typically via LinPageUnlock()). Note that once the pages have been unlocked, the values obtained in step (2) are no longer valid.</LI>
+</OL>
+
+<P>Example:</P>
+
+<P><CODE>; This code fragment illustrates how a linear address can be converted</CODE></P>
+
+<P><CODE>; to a physical address.</CODE></P>
+
+<P><CODE>;</CODE></P>
+
+<P><CODE>; It converts the 3 pages starting at pgStart to a physical address.</CODE></P>
+
+<P><CODE>; (Page numbers are equal to linear addresses shifted right by 12.</CODE></P>
+
+<P><CODE>; One page is equal to 4K.)</CODE></P>
+
+<P><CODE>;</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;sub&nbsp;&nbsp;&nbsp;&nbsp;esp, 3 * 4&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;; temporary buffer for CopyPageTable</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;VMMCall&nbsp;&nbsp;&nbsp;&nbsp;_LinPageLock, &lt;pgStart, 3, 0&gt;</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;test&nbsp;&nbsp;&nbsp;&nbsp;eax, eax&nbsp;&nbsp;&nbsp;&nbsp;</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;jz&nbsp;&nbsp;&nbsp;&nbsp;error&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;; could not lock the memory</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;mov&nbsp;&nbsp;&nbsp;&nbsp;esi, esp</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;VMMCall&nbsp;&nbsp;&nbsp;&nbsp;_CopyPageTable, &lt;pgStart, 5, esi, 0&gt;</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;test&nbsp;&nbsp;&nbsp;&nbsp;eax, eax</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;jz&nbsp;&nbsp;&nbsp;&nbsp;errorUnlock&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;; unexpected error</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;; go straight to unlock</CODE></P>
+
+<P><CODE>;</CODE></P>
+
+<P><CODE>;&nbsp;&nbsp;&nbsp;&nbsp;Use the values obtained by CopyPageTable.  For this sample,</CODE></P>
+
+<P><CODE>;&nbsp;&nbsp;&nbsp;&nbsp;we merely print them to the debugging terminal.</CODE></P>
+
+<P><CODE>;</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;mov&nbsp;&nbsp;&nbsp;&nbsp;eax, [esi][0]</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;and&nbsp;&nbsp;&nbsp;&nbsp;eax, NOT 0FFFh</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;Trace_Out "Page pgStart is at physical address #EAX"</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;mov&nbsp;&nbsp;&nbsp;&nbsp;eax, [esi][4]</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;and&nbsp;&nbsp;&nbsp;&nbsp;eax, NOT 0FFFh</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;Trace_Out "Page pgStart+1 is at physical address #EAX"</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;mov&nbsp;&nbsp;&nbsp;&nbsp;eax, [esi][8]</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;and&nbsp;&nbsp;&nbsp;&nbsp;eax, NOT 0FFFh</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;Trace_Out "Page pgStart+2 is at physical address #EAX"</CODE></P>
+
+<P><CODE>;</CODE></P>
+
+<P><CODE>;&nbsp;&nbsp;&nbsp;&nbsp;We are now finished with the physical addresses.  Release</CODE></P>
+
+<P><CODE>;&nbsp;&nbsp;&nbsp;&nbsp;the lock to tell the memory manager that it's okay to move</CODE></P>
+
+<P><CODE>;&nbsp;&nbsp;&nbsp;&nbsp;the pages in memory again.</CODE></P>
+
+<P><CODE>;</CODE></P>
+
+<P><CODE>errorUnlock:</CODE></P>
+
+<P><CODE>&nbsp;&nbsp;&nbsp;&nbsp;VMMCall&nbsp;&nbsp;&nbsp;&nbsp;_LinPageUnlock, &lt;pgStart, 3, 0&gt;</CODE></P>
+
+<P><CODE>error:</CODE></P>
+
+<PRE>    add    esp, 3 * 4        ; clean the stack
+;
+; This code fragment illustrates how a linear address can be converted
+; to a physical address.
+;
+; It converts the 3 pages starting at pgStart to a physical address.
+; (Page numbers are equal to linear addresses shifted right by 12.
+; One page is equal to 4K.)
+;
+    sub    esp, 3 * 4        ; temporary buffer for CopyPageTable
+
+    VMMCall    _LinPageLock, &lt;pgStart, 3, 0&gt;
+    test    eax, eax    
+    jz    error            ; could not lock the memory
+
+    mov    esi, esp
+    VMMCall    _CopyPageTable, &lt;pgStart, 5, esi, 0&gt;
+    test    eax, eax
+    jz    errorUnlock        ; unexpected error
+                    ; go straight to unlock
+;
+;    Use the values obtained by CopyPageTable.  For this sample,
+;    we merely print them to the debugging terminal.
+;
+
+    mov    eax, [esi][0]
+    and    eax, NOT 0FFFh
+    Trace_Out "Page pgStart is at physical address #EAX"
+
+    mov    eax, [esi][4]
+    and    eax, NOT 0FFFh
+    Trace_Out "Page pgStart+1 is at physical address #EAX"
+
+    mov    eax, [esi][8]
+    and    eax, NOT 0FFFh
+    Trace_Out "Page pgStart+2 is at physical address #EAX"
+
+;
+;    We are now finished with the physical addresses.  Release
+;    the lock to tell the memory manager that it's okay to move
+;    the pages in memory again.
+;
+errorUnlock:
+    VMMCall    _LinPageUnlock, &lt;pgStart, 3, 0&gt;
+
+error:
+    add    esp, 3 * 4        ; clean the stack</PRE>
+
+<P>To retrieve high-level information about a range of pages, use the <B>_PageQuery</B> function. </P>
+
+<P>Each committed page has a specific set of permissions, which determine whether the page can be written to and whether it is accessible in user mode (ring 3). To change the permissions for a range of pages, use the <B>_PageModifyPermissions</B> service. </P>
+
+<P>Because zero is a valid address, you should use an address in the permanently invalid region of linear address space to denote an invalid pointer. </P>
+
+<H4>See Also</H4>
+
+<P><B>_CopyPageTable</B>, <B>_GetNulPageHandle</B>, <B>_PageModifyPermissions</B>, <B>_PageQuery </B></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Miscellaneous%20Page%20Management%20Services"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>OOB Data on a Receive</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="OOB Data on a Receive">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_oob_data_on_a_receive_ng"></A>OOB Data on a Receive</H2>
+
+<P>If a miniport driver passes media-specific information or priority, it must indicate received data by indicating up one or more entire packets with <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A> or, if the miniport driver is connection-oriented, with <A HREF="103ndisx_6f02.htm"><B>NdisMCoIndicateReceivePacket</B></A>. Before indicating the packet, the miniport driver <I>must</I> write the <B>Status</B> member of the out-of-band (OOB) data. The miniport driver must <I>always</I> set the <B>Status</B> member, either to NDIS_STATUS_RESOURCES if it doesn’t want the higher layer drivers to keep the packet, or to NDIS_STATUS_SUCCESS.</P>
+
+<P>In addition, the miniport driver might do one or more of the following:
+
+<UL>
+	<LI>Set <B>TimeSent</B> if this time can be determined (for example, by an ATM NIC driver).</LI>
+
+	<LI>Set <B>TimeReceived</B>.</LI>
+
+	<LI>Set <B>HeaderSize</B>. Typically, a miniport driver only needs to set this once per packet descriptor when the packet descriptor is initialized. </LI>
+
+	<LI>Set the pointer to <B>MediaSpecificInformation</B> and <B>SizeMediaSpecificInfo</B>.</LI>
+
+	<LI>If the miniport driver indicates timestamps for received packets, it must set the <B>TimeReceived</B> and/or <B>TimeSent</B> members in the NDIS_PACKET_OOB_DATA associated with the packet descriptor, using the NDIS_SET_PACKET_TIME_RECEIVED and/or NDIS_SET_PACKET_TIME_SENT macros. If the miniport driver uses the system time for timestamps, it can call <A HREF="103ndisx_6m42.htm"><B>NdisGetCurrentSystemTime</B></A> once to set the receive timestamp for all packets in a particular packet array. </LI>
+
+	<LI>If the driver indicates additional OOB information with receives, it must set the <B>SizeMediaSpecificInfo</B> to the number of bytes of information supplied in the caller-allocated buffer at <B>MediaSpecificInformation</B>. The miniport driver can use the NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO macro to set these values. Otherwise, <B>SizeMediaSpecificInfo</B> should be zero, and <B>MediaSpecificInformation</B> should be NULL.</LI>
+</UL>
+
+<P>When <B>NdisM(Co)IndicateReceivePacket</B> returns, the OOB data is <I>read-only</I> to the miniport driver. A serialized miniport driver should read the <B>Status </B>member to determine which packets are available for reuse because they have already been consumed by higher layers. Such packets have a status other than NDIS_STATUS_PENDING. Any packet with a <B>Status</B> of NDIS_STATUS_PENDING is owned by a higher layer drivers, is currently unavailable to the miniport driver, and will be returned later to the miniport driver at its <I>MiniportReturnPacket</I> function. </P>
+
+<P>If the miniport driver writes a status of NDIS_STATUS_RESOURCES in any packet in the array of packets that it indicates up, that packet will be returned to the miniport driver when <B>NdisMIndicateReceivePacket</B> returns.</P>
+
+<P>A deserialized or connection-oriented miniport driver must not examine the <B>Status</B> of indicated packets on return of <B>NdisMIndicateReceivePacket</B>. Instead, a deserialized miniport driver must save a packet’s <B>Status</B> in a local variable before indicating up the packet descriptor. When <B>NdisMIndicateReceivePacket</B> returns, the miniport driver should check the saved packet <B>Status</B>. If the miniport driver set the packet's <B>Status</B> to NDIS_STATUS_RESOURCES before indicating up the packet descriptor, it should reclaim the packet descriptor immediately after <B>NdisMIndicateReceivePacket</B> returns, preferably by calling its own <I>MiniportReturnPacket</I> function. In this case, NDIS does not call the miniport driver’s <I>MiniportReturnPacket</I> function to return the packet descriptor. If the miniport driver set the packet's <B>Status</B> to NDIS_STATUS_SUCCESS before indicating up the packet descriptor, the miniport driver must not reclaim the packet descriptor until NDIS subsequently returns the packet descriptor to the miniport driver's <I>MiniportReturnPacket</I> function.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: OOB%20Data%20on%20a%20Receive"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>GDI Support for Palettes</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="GDI: palettes">
+<META NAME="MS-HKWD" CONTENT="palettes">
+<META NAME="MS-HKWD" CONTENT="DEVINFOEngCreatePalette">
+<META NAME="MS-HKWD" CONTENT="DrvEnablePDEV">
+<META NAME="MS-HKWD" CONTENT="color index">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_gdi_support_for_palettes_gg"></A>GDI Support for Palettes</H2>
+
+<P>GDI can do most of the work with regard to palette management. When GDI calls the <A HREF="ddifncs_0zzb.htm"><I>DrvEnablePDEV</I></A> function, the driver returns its default palette to GDI as part of the <A HREF="grstrcts_4ilj.htm">DEVINFO</A> structure. The driver must create this palette using the <A HREF="gdifncs_4svb.htm"><B>EngCreatePalette</B></A> function.</P>
+
+<P>A palette effectively maps 32-bit <I>color indexes</I> into 24-bit RGB color values, which is the way GDI uses palettes. A driver specifies its palette so GDI can determine how different color indexes are to appear on the device.</P>
+
+<P>The driver need not deal with most palette operations and calculations as long as it uses the <A HREF="grstrcts_5j53.htm">XLATEOBJ</A> provided by GDI.</P>
+
+<P>If the device supports a modifiable palette, it should implement the function <A HREF="ddifncs_9ep3.htm"><I>DrvSetPalette</I></A>. GDI calls <I>DrvSetPalette</I> when an application changes the palette for a device and passes the resulting new palette to the driver. The driver should set its internal hardware palette to match the new palette as closely as possible.</P>
+
+<P>A palette can be defined for GDI in either of the two different formats listed in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=20%>Palette Format</TH>
+<TH align=left width=80%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=20%>Indexed</TD>
+<TD width=80%>A color index is an index into an array of RGB values. The array can be small, containing, for example, 16 color indexes, or large, containing, for example, 4096 color indexes or more.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=20%>Bit Fields</TD>
+<TD width=80%>Bit fields in the color index specify colors in terms of the amounts of R, G, and B in each color. For example, 5 bits could be used for each, providing a value between 0 and 31 for each color. The 5-bit value would be scaled up to cover a range of 0 to 255 for each component when converting to RGB. (The usual RGB representation itself is defined by bit fields.)</TD>
+</TR>
+</TABLE><BR>
+
+<P>GDI typically uses the palette mapping in reverse. That is, an application specifies an RGB color for drawing and GDI must locate the color index that causes the device to display that color. As indicated in the next table, GDI provides two primary palette service functions for creating and deleting the palette, as well as some service functions related to the <A HREF="grstrcts_8jl3.htm">PALOBJ</A> and the <A HREF="grstrcts_5j53.htm">XLATEOBJ</A> used to translate color indexes between two palettes.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Function</TH>
+<TH align=left width=52%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><A HREF="gdifncs_4svb.htm"><B>EngCreatePalette</B></A></TD>
+<TD width=52%>Creates a palette. The driver associates the palette with a device by returning a handle to the palette in the <A HREF="grstrcts_4ilj.htm">DEVINFO</A> structure.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><A HREF="gdifncs_7ctj.htm"><B>EngDeletePalette</B></A></TD>
+<TD width=52%>Deletes the given palette.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><A HREF="gdifncs_0oiv.htm"><B>EngDitherColor</B></A></TD>
+<TD width=52%>Returns a standard 8x8 dither that approximates the specified RGB color.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><A HREF="gdifncs_21t3.htm"><B>EngQueryPalette</B></A></TD>
+<TD width=52%>Queries a palette for its attributes.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><A HREF="gdifncs_86cn.htm"><B>PALOBJ_cGetColors</B></A></TD>
+<TD width=52%>Allows a driver to download RGB colors from an indexed palette. Called by the display driver in the <A HREF="ddifncs_9ep3.htm"><I>DrvSetPalette</I></A> function.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><A HREF="gdifncs_5fdz.htm"><B>XLATEOBJ_cGetPalette</B></A></TD>
+<TD width=52%>Retrieves the 24-bit RGB colors or the bitfield format for the colors in an indexed source palette. The driver can use this function to obtain information from the palette to perform color blending.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><A HREF="gdifncs_77hj.htm"><B>XLATEOBJ_hGetColorTransform</B></A></TD>
+<TD width=52%>Returns the color transform for the specified translation object.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><A HREF="gdifncs_5zc7.htm"><B>XLATEOBJ_iXlate</B></A></TD>
+<TD width=52%>Translates a single source color index to a destination color index.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><A HREF="gdifncs_0bzb.htm"><B>XLATEOBJ_piVector</B></A></TD>
+<TD width=52%>Retrieves a translation vector from an indexed source palette. The driver can use this vector to perform its own translation of the source indexes to destination indexes.</TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: GDI%20Support%20for%20Palettes"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

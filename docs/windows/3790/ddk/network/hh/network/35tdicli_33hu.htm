@@ -1,0 +1,65 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ClientPnPDelNetAddress</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ClientPnPDelNetAddress">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_clientpnpdelnetaddress_nr"></A>ClientPnPDelNetAddress</H1>
+
+<P>The ClientPnPDelNetAddress routine is called by TDI as a consequence of a transport's call to <B>TdiDeregisterNetAddress</B>. </P>
+
+<PRE class=syntax><B>VOID</B>
+  <B>ClientPnPDelNetAddress(</B>
+    <B>IN PTA_ADDRESS</B>  <I>Address</I><B>,</B>
+    <B>IN PUNICODE_STRING</B>  <I>DeviceName</I><B>,</B>
+    <B>IN PTDI_PNP_CONTEXT</B>  <I>Context</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Address</I></DT>
+
+<DD>Pointer to a buffered network address. The contents and layout of this buffer are protocol-specific in nature with the information supplied at <B>Address</B> depending on the <B>AddressType</B> and <B>AddressLength</B> members as set by the underlying transport.  </DD>
+
+<DT><I>DeviceName</I></DT>
+
+<DD>Pointer to a buffered Unicode string, which effectively identifies the transport from which the given network address is being deregistered. Typically, this contains the name of the transport-created device object originally passed in to the ClientPnPBindingChange routine when the client was offered this binding. </DD>
+
+<DT><I>Context</I></DT>
+
+<DD>Pointer to a transport-supplied context associated with this address. 
+
+<P>For example, TCP/IP passes a pointer to the PDO representing the device on which the connection to the given address has just been broken.
+
+</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>A client must register its ClientPnPDelNetAddress routine with a call to <B>TdiRegisterPnPHandlers</B> to begin receiving these notifications whenever any PnP-supporting transport is about to delete an existing net address.</P>
+
+<P>Subsequent to the sequence of initialization-time calls to ClientPnPAddNetAddress, TDI calls ClientPnPDelNetAddress whenever a PnP-supporting transport deregisters a network address with TDI. That is, ClientPnPDelNetAddress can be called with an address supplied by any transport, even a transport to which it is not bound. Consequently, ClientPnPDelNetAddress should return control promptly if the client does not recognize the protocol-specific type of the input address. For better client performance, a check on the <B>AddressType</B> member of the TA_ADDRESS structure is more efficient than doing a string comparison on the buffered contents at <I>DeviceName</I>. </P>
+
+<P>The format and contents of the buffer at <I>Address</I> depend on the value of the <B>AddressType</B> member in the TA_ADDRESS structure.The underlying transport is responsible for providing only the specification of the network address. If the TA_ADDRESS structure of a particular type also contains a Socket identifier or any other such collateral member(s), those member(s) should be ignored by ClientPnPDelNetAddress. </P>
+
+<P>For the input <I>Context</I> parameter, the value of the <B>ContextType</B> member in the TDI_PNP_CONTEXT structure provides a hint about how to interpret this transport-supplied and protocol-determined context information. The <I>Context</I> pointer can be NULL if the underlying transport does not provide context information when it calls <B>TdiDeregisterNetAddress</B>. </P>
+
+<P>In conjunction with ClientPnPAddNetAddress, ClientPnPDelNetAddress maintains the client's internal list(s) of per-binding valid network addresses. When ClientPnPDelNetAddress is called to remove an address from such an internal list, it also notifies any of its own clients that might be using the address of the just-broken network connection. </P>
+
+<P>A reciprocal call to <B>TdiDeregisterPnPHandlers</B> disables calls to ClientPnPDelNetAddress.</P>
+
+<P>TDI calls ClientPnPDelNetAddress at IRQL &lt; DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_8d4i.htm"><B>ClientPnPAddNetAddress</B></A>, <A HREF="36tdstrc_8b8y.htm"><B>TA_ADDRESS</B></A>, <A HREF="33tdifun_6ovm.htm"><B>TdiDeregisterNetAddress</B></A>, <A HREF="33tdifun_5bea.htm"><B>TdiDeregisterPnPHandlers</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ClientPnPDelNetAddress"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

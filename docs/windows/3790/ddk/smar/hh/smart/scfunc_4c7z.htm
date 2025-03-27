@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SmartcardT1Request (VxD)</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="SmartcardT1Request (VxD)">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Smart&nbsp;Card&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_ntfunc_smartcardt1request_vxd_"></A>SmartcardT1Request (VxD)</H1>
+
+<P>The <B>SmartcardT1Request</B> function copies data from the user buffer to a send buffer and checks the T=1 protocol status.</P>
+
+<PRE class=syntax><B>NTSTATUS 
+  SmartcardT1Request(
+    PSMARTCARD_EXTENSION  </B><I>SmartcardExtension</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>SmartcardExtension</I></DT>
+
+<DD>Pointer to the device extension of the smart card device. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>SmartcardT1Request</B> returns an NTSTATUS value. Possible values are the following.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=46%>Value</TH>
+<TH align=left width=54%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=46%>STATUS_SUCCESS</TD>
+<TD width=54%>Buffer successfully set up.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>smclib.h</I>. Include <I>smclib.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Do not change any members of the <A HREF="scstruct_8wkh.htm">T1_DATA</A> structure. They will be initialized automatically. The only member that can be safely modified is t<B>NAD</B>. Changing any member might lead to protocol errors.</P>
+
+<P><B>SmartcardT1Request</B> copies the data from the user buffer to <I>SmartcardExtension-&gt;SmartcardRequest.Buffer</I> embedded in a T=1 protocol frame and adjusts <I>SmartcardExtension-&gt;SmartcardRequest.BufferLength</I>. The driver must send this buffer to the smart card and read the answer of the card into <I>SmartcardExtension-&gt;SmartcardReply.Buffer</I>. The driver must then call <A HREF="scfunc_67z3.htm"><B>SmartcardT1Reply</B> (VxD)</A>, which checks the incoming protocol frame. </P>
+
+<P>You can copy your header data to the buffer either before or after a call to <B>SmartcardT1Request</B>, depending on which is easier to do in your driver. If your driver needs to send header data to the reader before the actual T=1 data, you should set <I>SmartcardExtension-&gt;SmartcardRequest.BufferLength </I>to the number of bytes you need for your header before you call this function. The packet will look like this:</P>
+
+<P><IMG SRC="images/scfunc2.gif" ALT="" BORDER=0></P>
+
+<P>Here is an example of a T=1 transmission.</P>
+
+<PRE>// Run this loop as long as the protocol requires to send data
+do {
+    // Copy data to <I>SmartcardExtension-&gt;SmartcardRequest.Buffer </I>
+    // embedded in a T=1 frame 
+    status = SmartcardT1Request(SmartcardExtension);
+    if (status != STATUS_SUCCESS)
+        return status;
+
+    // Send T=1 frame to smart card
+    status = DriverSendDataToSmartcard(…);
+    if (status != STATUS_SUCCESS)
+        return status;
+
+// Now set appropiate timeout (This example calculates the time-out in ms)
+// Timeout = SmartcardExtension-&gt;CardCapabilities.T1.BWT *                 
+//    (SmartcardExtension-&gt;T1.Wtx ? SmartcardExtension-&gt;T1.Wtx : 1);
+
+    
+    // receive T=1 frame from smart card
+    status = DriverReceiveDataFromSmartcard(…);
+    if (status != STATUS_SUCCESS)
+        return status;
+    
+    // Check T=1 protocol status and copy any data back to user buffer
+    status = SmartcardT1Reply(SmartcardExtension);
+
+} while (status == STATUS_MORE_PROCESSING_REQUIRED);
+
+return status;</PRE>
+
+<P><B>SmartcardT1Request</B> functions the same for both WDM and VxD drivers. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="scfuncw_87q7.htm"><B>SmartcardT1Request</B> (WDM)</A>, <A HREF="scstruct_50a6.htm">SMARTCARD_EXTENSION</A>, <A HREF="scstruct_8wkh.htm">T1_DATA</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: SmartcardT1Request%20(VxD)"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisMAllocateMapRegisters</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisMAllocateMapRegisters">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndismallocatemapregisters_nr"></A>NdisMAllocateMapRegisters</H1>
+
+<P><B>NdisMAllocateMapRegisters</B> reserves system resources during miniport driver initialization for subsequent bus-master DMA operations. </P>
+
+<PRE class=syntax><B>NDIS_STATUS 
+  NdisMAllocateMapRegisters(
+    IN NDIS_HANDLE</B>  <I>MiniportAdapterHandle</I><B>,</B>
+    <B>IN UINT</B>  <I>DmaChannel</I><B>,</B>
+    <B>IN NDIS_DMA_SIZE</B>  <I>DmaSize</I><B>,</B>
+    <B>IN ULONG</B>  <I>BaseMapRegistersNeeded</I><B>,</B>
+    <B>IN ULONG</B>  <I>MaximumBufferSize
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>MiniportAdapterHandle</I></DT>
+
+<DD>Specifies the handle input to <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>.</DD>
+
+<DT><I>DmaChannel</I></DT>
+
+<DD>Specifies the bus-relative DMA channel for an ISA bus-master NIC. If the NIC is on another type of I/O bus, this parameter must be zero.</DD>
+
+<DT><I>DmaSize</I></DT>
+
+<DD>Specifies the address size that the NIC uses for DMA operations as one of the following:
+
+<DL>
+<DT><B>NDIS_DMA_24BITS</B></DT>
+
+<DD>24-bit DMA address</DD>
+
+<DT><B>NDIS_DMA_32BITS</B></DT>
+
+<DD>32-bit DMA address</DD>
+
+<DT><B>NDIS_DMA_64BITS</B></DT>
+
+<DD>64-bit DMA address
+</DD>
+</DL>
+
+
+<P>When <B>NDIS_DMA_64BITS</B> is specified on a system that is running the Microsoft Windows® 2000 and later DataCenter Server operating system with Physical Address Extension (PAE) enabled, the physical addresses of mapped buffers can be greater than 32 bits.
+</DD>
+
+<DT><I>BaseMapRegistersNeeded</I></DT>
+
+<DD>Specifies the number of base map registers required by the driver. The driver should request one base map register for each DMA send buffer that it requires. For each requested base map register, NDIS allocates one or more map registers, each of which maps a page of physical memory. NDIS allocates a sufficient number of map registers per requested base register to create a send buffer large enough to contain the specified <I>MaximumBufferSize</I>. NDIS imposes a limit of 64 map registers per miniport driver. If the total number of map registers that NDIS would have to allocate would exceed 64, <B>NdisMAllocateMapRegisters</B> returns NDIS_STATUS_RESOURCES. For more information on specifying <I>BaseMapRegistersNeeded, </I>see the Comments below.</DD>
+
+<DT><I>MaximumBufferSize</I></DT>
+
+<DD>Specifies the size, in bytes, of the largest send buffer required by the driver for a DMA transfer. </DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>NdisMAllocateMapRegisters</B> can return one of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>NDIS allocated enough map registers per requested base map register to accommodate the specified <I>MaximumBufferSize</I>. If <I>DmaChannel</I> was nonzero, the specified channel has been reserved. </DD>
+
+<DT>NDIS_STATUS_RESOURCES</DT>
+
+<DD>One of the following occurred:
+
+<UL>
+	<LI>NDIS could not allocate enough map registers because of system resource constraints.</LI>
+
+	<LI>The total number of map registers that NDIS would have to allocate for the requested number of base map registers exceeds 64.</LI>
+</UL>
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A driver of a bus-master DMA NIC calls <B>NdisMAllocateMapRegisters</B> from its <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A> function. The driver’s <I>MiniportInitialize</I> function must call <A HREF="103ndisx_175e.htm"><B>NdisMSetAttributes</B></A> or <A HREF="103ndisx_1pmb.htm"><B>NdisMSetAttributesEx</B></A> before it calls <B>NdisMAllocateMapRegisters</B>.</P>
+
+<P>If its NIC can use 32-bit or 64-bit addressing for DMA operations, a miniport driver should not set <I>DmaSize</I> to <B>NDIS_DMA_24BITS</B>. A PCI NIC, for example, should always set <I>DmaSize</I> to <B>NDIS_DMA_32BITS</B> or <B>NDIS_DMA_64BITS</B>. System memory below 16MB is a scarce resource. Setting <I>DmaSize</I> to <B>NDIS_DMA_24BITS</B> could therefore cause <B>NdisMAllocateMapRegisters</B> to return NDIS_STATUS_RESOURCES.</P>
+
+<P>To determine how many <I>BaseMapRegistersNeeded</I> the miniport driver should request, consider the following:
+
+<UL>
+	<LI>The number of map registers that NDIS will allocate per requested base map register, based on the <I>MaximumBufferSize</I></LI>
+
+	<LI>The number of send buffers required by the miniport driver for optimum performance</LI>
+
+	<LI>The NDIS-imposed limit of 64 map registers per miniport driver</LI>
+</UL>
+
+<P>If, for example, a miniport driver for an Ethernet NIC has a maximum send-packet size of 1512 bytes, it should specify a <I>MaximumBufferSize</I> of 1512. Given a page size of 4 Kbytes, a buffer of 1512 bytes can span two physical pages. NDIS therefore allocates two map registers per requested base register. To stay within the limit of 64 map registers, in this case, the miniport driver must request no more than 32 base map registers.</P>
+
+<P>If the miniport driver’s <I>MaximumBufferSize</I> is large enough so that NDIS would have to allocate numerous map registers per requested base map register, the miniport driver should call <A HREF="103ndisx_48aa.htm"><B>NdisMInitializeScatterGatherDma</B></A> instead of <B>NdisMAllocateMapRegisters</B> to allocate DMA resources. Otherwise, the miniport driver may not be able to allocate enough send buffers to perform well. For example, a miniport driver that specifies a <I>MaximumBufferSize</I> of 64 Kbytes can request no more than three base registers because NDIS, in this case, will allocate 17 map registers per base register. (With a page size of 4 Kbytes, a 64-Kbyte buffer can span 17 physical pages.) Requesting more than three base registers would cause <B>NdisMAllocateMapRegisters</B> to return NDIS_STATUS_RESOURCES because NDIS would enforce the limit of 64 map registers per miniport driver.</P>
+
+<P>Note that, on systems enabled for Physical Address Extension (PAE), requesting too many base map registers can cause the system to stop responding because not enough map registers are available to satisfy the request. PAE-enabled systems that have more than one NIC are even more likely to stop responding in this situation.</P>
+
+<P>The map registers allocated with <B>NdisMAllocateMapRegisters</B> are implicitly numbered from zero. When calling <A HREF="103ndisx_3a42.htm"><B>NdisMStartBufferPhysicalMapping</B></A>, the driver of a bus-master NIC specifies which map register to use in each call by specifying that map register’s zero-based index.</P>
+
+<P>The driver of a bus-master DMA NIC must call <B>NdisMAllocateMapRegisters</B> before it calls <A HREF="103ndisx_1ywi.htm"><B>NdisMAllocateSharedMemory</B></A>. </P>
+
+<P>Drivers of NICs that use PIO or the host DMA controller as slave devices do not call <B>NdisMAllocateMapRegisters</B> during initialization.</P>
+
+<P>Callers of <B>NdisMAllocateMapRegisters</B> run at IRQL = PASSIVE_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, <A HREF="103ndisx_1ywi.htm"><B>NdisMAllocateSharedMemory</B></A>, <A HREF="103ndisx_1l6a.htm"><B>NdisMFreeMapRegisters</B></A>, <A HREF="103ndisx_48aa.htm"><B>NdisMInitializeScatterGatherDma</B></A><A HREF="103ndisx_1gxe.htm"><B>NdisMRegisterDmaChannel</B></A>, <A HREF="103ndisx_175e.htm"><B>NdisMSetAttributes</B></A>, <A HREF="103ndisx_1pmb.htm"><B>NdisMSetAttributesEx</B></A>, <A HREF="103ndisx_3a42.htm"><B>NdisMStartBufferPhysicalMapping</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisMAllocateMapRegisters"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

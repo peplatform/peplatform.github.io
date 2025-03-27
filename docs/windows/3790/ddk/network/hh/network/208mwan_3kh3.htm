@@ -1,0 +1,116 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>RAS Architecture Overview</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="RAS Architecture Overview">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_ras_architecture_overview_ng"></A>RAS Architecture Overview</H2>
+
+<P>The Remote Access Service (RAS) allows remote workstations to establish a dial-up connection to a LAN and access resources on the LAN as if the remote workstation were on the LAN. WAN miniport drivers provide the interface between RAS and wide area network (WAN) cards such as: ISDN, X.25, and Switched 56 adapters.</P>
+
+<P>The primary system-supplied components of the RAS architecture include <A HREF="#ddk_ndiswan_ng">NDISWAN</A>, the <A HREF="#ddk_tapi_service_ng">TAPI service</A>, <A HREF="#ddk_ndproxy_ng">NDPROXY</A>, and <A HREF="#ddk_ndistapi_ng">NDISTAPI</A>. Developers provide TAPI-aware applications and WAN miniport drivers.  CoNDIS WAN developers may also provide WAN client protocols, a miniport call manager (MCM), or a separate call manager. </P>
+
+<P>The following figure shows the RAS architecture.</P>
+
+<P><IMG SRC="images/condsras.gif" ALT="" BORDER=0></P>
+
+<P><B>RAS Architecture</B></P>
+
+<P>The following are brief descriptions of the components included in the RAS architecture. </P>
+
+<H4>RAS and TAPI Components</H4>
+
+<P>The components on the right side of the illustration implement TAPI-related call management operations, such as setting up and tearing down calls and connections. The details of these operations depend upon the WAN model (NDIS WAN or CoNDIS WAN).</P>
+
+
+
+<H4><A NAME="ddk_ras_functions_ng"></A>RAS Functions</H4>
+
+<P>User-mode applications call RAS functions to make RAS connections with remote computers. After a RAS connection is established, such applications can connect to network services using standard network interfaces such as Windows Sockets, NetBIOS, Named Pipes, or RPC.</P>
+
+
+
+<H4><A NAME="ddk_tapi_aware_applications_ng"></A>TAPI-Aware Applications</H4>
+
+<P>TAPI-aware applications, which are capable of telephony communication, run in both application and service processes. Service providers communicate with specific devices. TAPI-aware applications communicate through the TAPI interface (<I>tapi32.dll</I>) with their service providers. These service providers run in the <A HREF="#ddk_tapi_service_ng">TAPI service</A> process.</P>
+
+
+
+<H4><A NAME="ddk_tapi_service_ng"></A>TAPI Service</H4>
+
+<P>The TAPI service (<I>tapisrv.exe</I>) process presents the Telephony Service Provider Interface (TSPI) of service providers to <A HREF="#ddk_tapi_aware_applications_ng">TAPI-aware applications</A>. These service providers are DLLs that run in the context of the TAPI service process. </P>
+
+<P>The operating system supplies service providers that NDIS WAN or CoNDIS WAN miniport drivers use to communicate with user-mode applications. The service provider for NDIS WAN miniport drivers is <A HREF="#ddk_kmddsp_ng">KMDDSP</A>. The service provider for CoNDIS WAN miniport drivers (and MCMs) is <A HREF="#ddk_ndptsp_ng">NDPTSP</A>.</P>
+
+
+
+<H4><A NAME="ddk_kmddsp_ng"></A>KMDDSP</H4>
+
+<P>KMDDSP (<I>kmddsp.tsp</I>) is a service provider DLL that runs in the context of the <A HREF="#ddk_tapi_service_ng">TAPI service</A> process. KMDDSP provides a TSPI interface that the TAPI service presents to <A HREF="#ddk_tapi_aware_applications_ng">TAPI-aware applications</A> so that <A HREF="#ddk_ndistapi_ng">NDISTAPI</A> can communicate with user-mode applications. </P>
+
+<P>KMDDSP works with NDISTAPI to convert user-mode requests to corresponding TAPI OIDs (OID_TAPI_<I>Xxx</I>). For more information about TAPI OIDS, see <A HREF="29tpioid_5jhu.htm">TAPI Objects</A>.</P>
+
+
+
+<H4><A NAME="ddk_ndptsp_ng"></A>NDPTSP</H4>
+
+<P>NDPTSP (<I>ndptsp.tsp</I>) is a service provider DLL that runs in the context of the <A HREF="#ddk_tapi_service_ng">TAPI service</A> process. NDPTSP provides a TSPI interface that the TAPI service presents to TAPI-aware applications so that <A HREF="#ddk_ndproxy_ng">NDPROXY</A> can communicate with user-mode applications. </P>
+
+<P>NDPTSP works with NDPROXY to convert user-mode requests to TAPI connection-oriented OIDs (OID_CO_TAPI_<I>Xxx</I>). For more information about TAPI connection-oriented OIDs, see <A HREF="211cooid_35yq.htm">TAPI Extensions for Connection-Oriented NDIS</A>.</P>
+
+
+
+<H4><A NAME="ddk_ndistapi_ng"></A>NDISTAPI</H4>
+
+<P>NDISTAPI (<I>ndistapi.sys</I>) receives TAPI requests from <A HREF="#ddk_kmddsp_ng">KMDDSP</A> and then calls <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A> to route the corresponding TAPI OIDs to NDIS WAN miniport drivers. For more information about NDISTAPI, see <A HREF="208mwan_8xgn.htm">NDISTAPI Overview</A>.</P>
+
+
+
+<H4><A NAME="ddk_ndproxy_ng"></A>NDPROXY</H4>
+
+<P>NDPROXY (<I>ndproxy.sys</I>) communicates with TAPI through the TSPI interface that <A HREF="#ddk_ndptsp_ng">NDPTSP</A> provides. NDPROXY communicates through NDIS with NDISWAN and CoNDIS WAN miniport drivers, MCMs, and call managers.</P>
+
+<P>For more information about NDPROXY, see <A HREF="208mwan_0wkn.htm">NDPROXY Overview</A>.</P>
+
+<H4>Driver Stack</H4>
+
+
+
+<H4><A NAME="ddk_wan_transports_ng"></A>WAN Transports</H4>
+
+<P>The RAS system component provides transports such as PPP Authentication (PAP, CHAP) and network configuration protocols (IPCP, IPXCP, NBFCP, LCP, and so forth). A WAN miniport driver (or MCM) implements only PPP media-specific framing.</P>
+
+
+
+<H4><A NAME="ddk_ndiswan_ng"></A>NDISWAN</H4>
+
+<P>NDISWAN (<I>ndiswan.sys</I>) is an NDIS intermediate driver. NDISWAN binds to NDIS protocol drivers at its upper edge and <A HREF="208mwan_5tuv.htm">WAN miniport drivers</A> at its lower edge.</P>
+
+<P>NDISWAN provides PPP protocol/link framing, compression/decompression, and encryption/decryption. NDISWAN interfaces with both NDIS WAN and CoNDIS WAN miniport drivers. </P>
+
+<P>For more information about NDISWAN, see <A HREF="208mwan_18br.htm">NDISWAN Overview</A>. </P>
+
+
+
+<H4><A NAME="ddk_serial_driver_ng"></A>Serial Driver</H4>
+
+<P>This serial driver component is a standard device driver for internal serial ports or multiport serial cards. The asynchronous WAN miniport driver included with Microsoft® Windows®&nbsp;2000 and later uses the internal serial driver for modem communications. Any driver that exports the same functions as the serial driver can interface with the built-in asynchronous WAN miniport driver.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;X.25 vendors can implement serial driver emulators for an X.25 interface card. In this case, each virtual circuit on the X.25 card appears as a serial port with an X.25 packet assembler/disassembler (PAD) attached to it. The connection interface must correctly emulate serial signals such as DTR, DCD, CTS, RTS, and DSR.</P>
+
+<P class=note>X.25 vendors who implement a serial driver emulator for their X.25 card must also make an entry for their PAD in the <I>pad.inf</I> file. This file contains the command/response script required to make a connection through the X.25 PAD. For more information about the <I>pad.inf</I> file, see the Platform SDK documentation.</P>
+
+<H4>WAN Miniport Driver</H4>
+
+<P>A WAN miniport driver provides the interface between <A HREF="#ddk_ndiswan_ng">NDISWAN</A> and WAN NICs.</P>
+
+<P>A WAN miniport driver can be implemented as an NDIS WAN miniport driver or a CoNDIS WAN miniport driver. For more information on choosing the miniport driver model that is most appropriate for your application, see <A HREF="208mwan_0rqf.htm">Choosing a WAN Driver Model</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: RAS%20Architecture%20Overview"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

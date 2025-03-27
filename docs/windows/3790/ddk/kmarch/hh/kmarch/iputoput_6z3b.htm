@@ -1,0 +1,54 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AdapterControl Routine Requirements</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="AdapterControl Routine Requirements">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_adaptercontrol_routine_requirements_kg"></A><I>AdapterControl</I> Routine Requirements</H3>
+
+<P>At a minimum, an <I>AdapterControl</I> routine must do the following:
+
+<OL>
+	<LI>Save the input <I>MapRegisterBase</I> value along with any other context information that the driver needs to carry out one or more DMA transfer operations for the current IRP. The driver must pass the <I>MapRegisterBase</I> value to <A HREF="kdma_9cxe.htm"><B>FlushAdapterBuffers</B></A> when each DMA transfer operation is complete.</LI>
+
+	<LI>Return the appropriate <A HREF="systypes_4boy.htm">IO_ALLOCATION_ACTION</A> value:
+<UL>
+	<LI><B>KeepObject</B> if the device is a slave so the driver uses system DMA.</LI>
+
+	<LI><B>DeallocateObjectKeepRegisters</B> if the device is a bus master so the driver uses packet-based, bus-master DMA.</LI>
+</UL>
+</LI>
+</OL>
+
+<P>Depending on the driver’s design, its <I>AdapterControl</I> routine also can do the following before it returns control:
+
+<OL>
+	<LI>Determine the starting location for the transfer on its device.</LI>
+
+	<LI>Calculate the size of the transfer possible, given any limitations of its device due to the starting location of the transfer.
+<P>In general, it is the responsibility of the routine that calls <A HREF="kdma_92r6.htm"><B>AllocateAdapterChannel</B></A> to determine whether a transfer request must be split up into partial transfers due to any platform-specific limitations on the <I>NumberOfMapRegisters</I> available for each DMA transfer operation, as mentioned in the preceding section and detailed in <A HREF="iputoput_70h3.htm">Splitting Transfer Requests</A>. 
+</LI>
+
+	<LI>Set up any driver-maintained state about each transfer request in the device (or controller) extension.
+<P>For example, an <I>AdapterControl</I> routine might call <A HREF="k105_9mlu.htm"><B>KeSetTimer</B></A> with the entry point for a <A HREF="drvrrtns_0iwi.htm"><I>CustomTimerDpc</I></A> routine that times out DMA transfer operations for the driver.
+</LI>
+
+	<LI>Call <A HREF="k106_5nhu.htm"><B>MmGetMdlVirtualAddress</B></A> with the MDL pointer passed at <B>Irp-&gt;MdlAddress</B> to get an index for the start of the transfer, suitable for passing to <A HREF="kdma_1hv6.htm"><B>MapTransfer</B></A>.</LI>
+
+	<LI>Call <B>MapTransfer</B> to set up the system DMA controller or to obtain a physical-to-logical address mapping for a bus-master device.</LI>
+
+	<LI>Program the driver’s device for a transfer operation, by using a <A HREF="drvrrtns_4m2a.htm"><I>SynchCritSection</I></A> routine that is invoked by calling <A HREF="k105_99rm.htm"><B>KeSynchronizeExecution</B></A>. For more information, see <A HREF="intrupts_6g13.htm">Using Critical Sections</A>.</LI>
+</OL>
+
+<P>If a transfer request requires the driver to perform a sequence of partial-transfer operations to satisfy the current IRP, the driver’s <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> or <A HREF="drvrrtns_3tbm.htm"><I>CustomDpc</I></A> routine is typically responsible for reprogramming the device for subsequent transfer operations. An <I>AdapterControl</I> routine is called only once for each incoming transfer IRP.</P>
+
+<P>The driver routine that completes the current transfer IRP, usually the <I>DpcForIsr</I> or <I>CustomDPC</I> routine, also is responsible for releasing the system DMA controller or bus-master adapter by calling <A HREF="kdma_3bua.htm"><B>FreeAdapterChannel</B></A> or <A HREF="kdma_5rqq.htm"><B>FreeMapRegisters</B></A>, respectively. This driver routine should make the appropriate call as soon as possible when its last partial-transfer operation is done so that drivers of slave DMA devices can allocate the system DMA controller or a bus-master driver can begin processing the next transfer IRP promptly.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: AdapterControl%20Routine%20Requirements"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,267 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WNetUseConnection</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_3231"></A>WNetUseConnection</H1>
+
+<P>This function is used to establish a connection to a network object, especially for browsing . The function may optionally prompt the user for login or authentication. The connection is usually on a redirected local drive or a reference counted session (in which case this call increments the reference count to the session), although for some networks it may be on a non-reference counted session that does not have a local device redirection. See <B>WNetCancelConnection2</B> for details on cancelling the connection </P>
+
+<P>In addition, for file and disk resources, this API can return a name for the connection that can be pre-pended to file system requests on the network resource (e.g. "\\server\share" or "F:"). This enables directory service lookup. The API can also auto-pick a local device for redirecting local devices to networks that require local device redirection. </P>
+
+<PRE>DWORD WNetUseConnection(
+    HWND hwndOwner,
+    LPNETRESOURCE lpNetResource,
+    LPTSTR lpPassword,
+    LPTSTR lpUserID,
+    DWORD dwFlags,
+    LPTSTR lpAccessName,
+    LPDWORD lpBufferSize,
+    LPDWORD lpResult
+    );
+ </PRE>
+
+<DL>
+<DT><I>hwndOwner</I> </DT>
+
+<DD>A handle to a window which should be the owner for any messages or dialogs the network provider might display. This is used if CONNECT_INTERACTIVE is set. </DD>
+
+<DT><I>lpNetResource</I> </DT>
+
+<DD>Specifies the network resource to connect to. This structure is defined the section describing Enumeration APIs. The following fields must be set when making a connection, the others are ignored. 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><I>lpRemoteName</I> </TD>
+<TD width=57%>Specifies the network resource to connect to. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%><I>lpLocalName</I> </TD>
+<TD width=57%>Pointer to a buffer that specifies the local device name that is to be redirected, such as "F:" or "LPT1". </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>&nbsp;</TD>
+<TD width=57%>The string is treated in a case insensitive manner, and may be the empty string (or NULL) in which case either a connection to the network resource is made without making a redirection or, if CONNECT_REDIRECT is set or the network requires a redirected local device and none is specified a redirection is picked by the system which is returned in <I>lpAccessName</I>. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%><I>lpProvider</I> </TD>
+<TD width=57%>Specifies the NP to connect to. If NULL or empty string, Windows will try each NP in turn. The caller should set <I>lpProvider </I>only if it knows for sure which network it wants. Otherwise, it is preferable to let Windows determine which NP the network name maps to. If this is non NULL, Windows will try the named NP and no other. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%><I>dwType</I> </TD>
+<TD width=57%>Specifies the type of resource to connect to. It is most efficient to use a specific resource type (RESOURCETYPE_DISK or RESOURCETYPE_PRINT). It may be RESOURCETYPE_ANY if <I>lpLocalName</I> is the empty string and CONNECT_REDIRECT is not set. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><I>lpPassword</I> </DT>
+
+<DD>Specifies the password to be used in making the connection, normally the password associated with <I>lpUserID</I>. A NULL value or string may be passed in to not specify the password. If the password is invalid or not specified, then the function tries to use the current default password. If this fails and CONNECT_INTERACTIVE is set, the function posts an appropriate dialog asking the user to type/retype the password. </DD>
+
+<DT><I>lpUserID</I> </DT>
+
+<DD>This specifies the identity of the user needed to make the connection. If NULL, a default will be applied. This is used when the user wishes to connect to a resource, but has a different user name or account assigned to him for that resource. This identification represents a security context, and is NP specific. 
+
+<P>This user specific information is stored to be subsequently used in re-establishing the connection (using a non-default user name or telephone number, for example). 
+</DD>
+
+<DT><I>dwFlags</I> </DT>
+
+<DD>Any combination of the following bit values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%>CONNECT_TEMPORARY </TD>
+<TD width=57%>The connection is being established for browsing purposes. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>CONNECT_INTERACTIVE </TD>
+<TD width=57%>May have interaction with the user for authentication purposes. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>CONNECT_PROMPT </TD>
+<TD width=57%>Do no use any defaults for user names or passwords without offering user the chance to supply an alternative. This flag is only valid if CONNECT_INTERACTIVE is set. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>CONNECT_UPDATE_PROFILE </TD>
+<TD width=57%>If the connection should be made persistent. If set, the connection is automatically restored every time the user starts up and logs on to the network. A connection is only made persistent if the connection was successful. This flag is only valid if <I>lpLocalName</I> specifies a local device to redirect, as otherwise it is ignored. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>CONNECT_UPDATE_RECENT </TD>
+<TD width=57%>If the connection should be put in the recent connection list. If set, and the connection is successfully added, it will be put in the recent connection list only if it has a redirected local device associated with it. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>CONNECT_REDIRECT </TD>
+<TD width=57%>If set, force the auto-picking of a local device for redirection when making the connection, otherwise only auto-pick a local device for redirection if the network requires it to make a connection. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>&nbsp;</TD>
+<TD width=57%>This flag is ignored if <I>lpLocalName</I> specifies a local device to redirect (since a redirection will always be attempted to the local device name specified in <I>lpLocalName</I>). Otherwise, setting this flag is invalid if either <I>lpAccessName</I> does not point to a return buffer (since the caller will not readily know how to access the resource) or <I>dwType</I> is RESOURCETYPE_ANY. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>CONNECT_CURRENT_MEDIA </TD>
+<TD width=57%>If set, then do not start to use a new media to try to establish the connection (for example, do not initiate a new dial up connection). </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><I>lpAccessName</I> </DT>
+
+<DD>Points to a buffer to receive the name that can be used to make system requests on the connection. This conversion is useful for adding connections to aliased resources, such as through a directory service, and for autopicking of local devices for redirection. 
+
+<P>If <I>lpLocalName</I> specifies a local device, then this buffer is optional, and if specified will have the local device name copied into it.Otherwise, if the network requires a local device redirection, or CONNECT_REDIRECT is set, then this buffer is required and the redirected local device is returned here. Otherwise, the name copied into the buffer is that of a remote resource, and if specified, this buffer must be at least as large as the string pointed to by <I>lpRemoteName</I>. 
+</DD>
+
+<DT><I>lpBufferSize</I> </DT>
+
+<DD>This is used to specify the size of the <I>lpAccessName</I> buffer passed in. If the call fails because the buffer is not big enough, this location will be used to return the required buffer size. </DD>
+
+<DT><I>lpResult</I> </DT>
+
+<DD>Pointer to a DWORD in which is returned additional information about the connection. Currently has the following bit value: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%>CONNECT_REFCOUNT </TD>
+<TD width=57%>The connection was made without using a local device redirection and is to a network that understands reference counted sessions. If this bit is not set, then calling <B>WNetCancelConnection2</B> will end the session and possibly interfere with other threads or processes that may be using the session. If this bit is set then calling <B>WNetCancelConnection2 </B>with CONNECT_REFCOUNT set in the <I>dwFlags</I> parameter will decrement the reference count to the connection and not interfere with other threads that are using the session. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>CONNECT_LOCALDRIVE </TD>
+<TD width=57%>If set, the connection was made using a local drive redirection. If <I>lpAccessName</I> points to a buffer then the local drive is copied to the buffer. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+</DL>
+
+<UL>
+	<LI>WN_SUCCESS if the call is successful. </LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%>WN_CANCEL </TD>
+<TD width=57%>the user cancelled the add connection attempt through some user interface. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_BAD_PROVIDER </TD>
+<TD width=57%><I>lpProvider</I> does not match any NP. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_BAD_NETNAME </TD>
+<TD width=57%><I>lpRemoteName</I> is not acceptable to any NP. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_BAD_LOCALNAME </TD>
+<TD width=57%><I>lpLocalName</I> is invalid. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_BAD_PASSWORD </TD>
+<TD width=57%>bad password and CONNECT_INTERACTIVE is not set. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_BAD_VALUE </TD>
+<TD width=57%>one of the following: <I>lpRemoteName</I> is NULL; <I>lpRemoteName</I> is not NULL, and <I>lpBufferSize</I> is either NULL or points to zero; <I>dwType</I> is neither RESOURCETYPE_DISK nor RESOURCETYPE_PRINT, and either CONNECT_REDIRECT is set in <I>dwFlags</I> or <I>lpLocalName</I> is not NULL or the connection is to a network that requires a local device redirection to make a connection; </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_BAD_POINTER </TD>
+<TD width=57%><I>lpAccessName</I> does not point to a buffer and either CONNECT_REDIRECT is set in <I>dwFlags</I> or a connection is being attempted to a network that requires a local device redirection which is not specified in <I>lpLocalName</I>. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_MORE_DATA </TD>
+<TD width=57%>the <I>lpAccessName </I>buffer is too small. If a local device is redirected, the buffer needs to large enough to contain the local device name. Otherwise the buffer needs to be large enough to contain either the string pointed to by <I>lpRemoteName</I> or the name of the connectable resource whose alias is pointed to by <I>lpRemoteName</I>. If this status is returned, then no connection has been made. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_NO_MORE_ENTRIES </TD>
+<TD width=57%>a local redirection cannot be auto-picked because all of the valid local devices for the network are in use. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_NOT_AUTHENTICATED </TD>
+<TD width=57%>the call failed because the connection requires additional authentication information (for example, a user name or a password), not provided by the caller or the user through a dialog. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_NOT_LOGGED_ON </TD>
+<TD width=57%>a system log on needs to occur before a network connection can be added. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_ALREADY_CONNECTED </TD>
+<TD width=57%><I>lpLocalName</I> is already connected to a network drive or is to a local drive that is already in use locally (for example, is used for a hard drive or RAM drive). </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_ACCESS_DENIED </TD>
+<TD width=57%>access denied. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_CANNOT_OPEN_PROFILE </TD>
+<TD width=57%>Unable to open the user profile to process persistent connections. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_BAD_PROFILE </TD>
+<TD width=57%>The user profile is in an incorrect format. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_FUNCTION_BUSY </TD>
+<TD width=57%>The MPR or NP is busy (possibly initializing). The caller should retry. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_NO_NETWORK </TD>
+<TD width=57%>network is not present. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_NO_NET_OR_BAD_PATH </TD>
+<TD width=57%>the operation could not be handled either because a network component is not started or the specified name could not be handled. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>WN_EXTENDED_ERROR </TD>
+<TD width=57%>a network specific error occurred. <B>WNetGetLastError</B> should be called to obtain a description of the error. </TD>
+</TR>
+</TABLE><BR>
+
+<H4>See Also</H4>
+
+<P><B>WNetCancelConnection2</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WNetUseConnection"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

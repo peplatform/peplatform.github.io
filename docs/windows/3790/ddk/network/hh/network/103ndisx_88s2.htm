@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisSendPackets</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisSendPackets">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndissendpackets_nr"></A>NdisSendPackets</H1>
+
+<P><B>NdisSendPackets</B> forwards a multipacket send request, possibly with associated out-of-band information, to the underlying driver. </P>
+
+<PRE class=syntax><B>VOID</B>
+<B>  NdisSendPackets(</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisBindingHandle</I><B>,</B>
+    <B>IN PPNDIS_PACKET</B>  <I>PacketArray</I><B>,</B>
+    <B>IN UINT</B>  <I>NumberOfPackets</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>NdisBindingHandle</I></DT>
+
+<DD>Specifies the handle returned by <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A> that identifies the target NIC or the virtual adapter of the next-lower driver to which the caller is bound.  If the underlying driver is a connection-oriented miniport driver, the protocol must call <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>, rather than <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A>. </DD>
+
+<DT><I>PacketArray</I></DT>
+
+<DD>Pointer to an array of pointers to packet descriptors. Each packet descriptor in the array has chained buffer descriptors mapping buffers containing the data that the underlying NIC driver should transmit over the wire. Each packet descriptor also has an associated <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A> block, which the caller has already set up with any timestamp and/or medium-specific out-of-band information, such as packet priority, relevant to the underlying driver. </DD>
+
+<DT><I>NumberOfPackets</I></DT>
+
+<DD>Specifies the number of pointers in the packet array. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Each element in the given array is a pointer to an NDIS_PACKET-type descriptor, and each packet descriptor can have caller-set <B>TimeToSend</B> and/or <B>MediaSpecificInformation</B> and <B>MediaSpecificSize</B> values in its associated NDIS_PACKET_OOB_DATA block. The caller must allocate each such packet descriptor with <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>. </P>
+
+<P>A protocol can set up this timestamp with the <A HREF="103ndisx_9fg2.htm">NDIS_SET_PACKET_TIME_TO_SEND</A> and any out-of-band information that accompanies the send request with <A HREF="103ndisx_6rxu.htm">NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO</A> before it calls <B>NdisSendPackets</B>. The underlying driver retrieves this information with the reciprocal NDIS_GET_PACKET_<I>XXX</I> macros. </P>
+
+<P>If necessary, a protocol also can call <A HREF="103ndisx_5sdu.htm"><B>NdisSetPacketFlags</B></A> to set the packet descriptor’s flags with information for the underlying driver. </P>
+
+<P>If the underlying NIC driver does not export a <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A> handler, the NDIS library makes a sequence of calls, one for each packet in the supplied array, to that driver’s <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A> function. NDIS submits packets individually to an underlying driver’s <I>MiniportSend</I> function in the same order as they arrive in the supplied array. </P>
+
+<P>NDIS submits packet arrays to an underlying driver’s <I>MiniportSendPackets</I> function in the same order as they are passed to <B>NdisSendPackets</B>, but an underlying serialized miniport driver can return a subset of packets in any incoming array to NDIS by setting NDIS_STATUS_RESOURCES in the out-of-band data block for a single array element. When this occurs, NDIS queues that packet and all subsequent packets in the array for resubmission to the <I>MiniportSendPackets</I> function later. </P>
+
+<P>For serialized miniports, NDIS always preserves the protocol-determined order of send packets, whether passed in calls to <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A> or <B>NdisSendPackets</B>, and sees that they are given to the underlying driver in FIFO order. Before a protocol driver calls <B>NdisSendPackets</B> with an array of packet descriptor pointers, the protocol must ensure that the array of pointers has been set up in the same order as the packets should be sent over the wire. </P>
+
+<P>The caller of <B>NdisSendPackets</B> should test the returned status for each packet in such an array individually when its <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A> function is called with the completion <I>Status</I>. While NDIS submits packets for transmission in the FIFO order determined by the sending protocol, underlying drivers might complete such sends in random order. </P>
+
+<P>If the underlying driver is a deserialized miniport driver, it must accept all incoming send packets and queue them internally, if necessary. A deserialized miniport driver should preserve the protocol-determined ordering of packet descriptors that bound protocols submit to <B>NdisSendPackets</B> while they are held in its internal queue. A deserialized driver always completes sends asynchronously. Consequently, protocols bound to a deserialized miniport driver should always consider the <I>Status</I> value passed in to their <I>ProtocolSendComplete</I> functions the final status of the requested send. </P>
+
+<P>As soon as a protocol calls <B>NdisSendPackets</B>, it relinquishes ownership of the following:
+
+<UL>
+	<LI>All packet descriptors at <I>PacketArray</I> </LI>
+
+	<LI>All buffers mapped by the buffer descriptors chained to those packet descriptors</LI>
+
+	<LI>All out-of-band data blocks associated with the packet descriptors, including any medium-specific buffers specified in the out-of-band data blocks </LI>
+</UL>
+
+<P>The protocol regains ownership of these resources, one packet at a time, as its <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A> function is called with each packet descriptor in the array given to <B>NdisSendPackets</B>. </P>
+
+<P>When a packet descriptor is returned to <I>ProtocolSendComplete</I>, it can call <A HREF="103ndisx_87hu.htm"><B>NdisReinitializePacket</B></A> to prepare the packet for reuse after saving the buffer descriptors chained to the packet descriptor with calls to an <B>NdisUnchainBufferAt</B><I>Xxx</I> function. Reusing such a packet descriptor yields better performance than returning the descriptor to driver-allocated packet pool with <A HREF="103ndisx_47le.htm"><B>NdisFreePacket</B></A> and, then, reallocating it for another send later. </P>
+
+<P><I>ProtocolSendComplete</I> also can prepare the out-of-band block associated with the given packet descriptor for reuse if the protocol supplies any out-of-band information. Alternatively, the protocol can explicitly reinitialize the members it uses when setting up the packet descriptor for a subsequent send. </P>
+
+<P>An NDIS intermediate driver must repackage each incoming send from still higher level protocols in fresh packet descriptors before passing such a send request to the underlying miniport driver with <B>NdisSendPackets</B> (or <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A>). </P>
+
+<P>Callers of <B>NdisSendPackets</B> run at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_7svm.htm"><I>MiniportSend</I></A>, <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A>, <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A>, <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>, <A HREF="103ndisx_47le.htm"><B>NdisFreePacket</B></A>, <A HREF="105nstru_6jn6.htm"><B>NDIS_PACKET</B></A>, <A HREF="105nstru_1vqq.htm"><B>NDIS_PACKET_OOB_DATA</B></A>, <A HREF="103ndisx_87hu.htm"><B>NdisReinitializePacket</B></A>, <A HREF="103ndisx_5sdu.htm"><B>NdisSetPacketFlags</B></A>, <A HREF="103ndisx_6rxu.htm">NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO</A>, <A HREF="103ndisx_9fg2.htm">NDIS_SET_PACKET_TIME_TO_SEND</A>, <A HREF="103ndisx_9vci.htm"><B>NdisUnchainBufferAtBack</B></A>, <A HREF="103ndisx_30mq.htm"><B>NdisUnchainBufferAtFront</B></A>, <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisSendPackets"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

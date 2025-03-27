@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NDIS_PACKET_EXTENSION</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NDIS_PACKET_EXTENSION">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndis_packet_extension_nr"></A>NDIS_PACKET_EXTENSION</H1>
+
+<P>The NDIS_PACKET_EXTENSION structure contains an array of pointers, each of which points to or contains per-packet (out-of-band) information associated with a packet descriptor.</P>
+
+<PRE class=syntax>typedef struct _NDIS_PACKET_EXTENSION
+{
+  PVOID  NdisPacketInfo[MaxPerPacketInfo];
+} NDIS_PACKET_EXTENSION, *PNDIS_PACKET_EXTENSION;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>NdisPacketInfo[MaxPerPacketInfo]</B></DT>
+
+<DD>An array of pointers, each of which points to or contains per-packet information specific to a particular task. The index values for the array are defined as follows:
+
+<DL>
+<DT><B>TcpIpCheckSumPacketInfo</B></DT>
+
+<DD>Indexes an <A HREF="105nstru_3i7m.htm">NDIS_TCP_IP_CHECKSUM_PACKET_INFO</A> structure (not a pointer to the structure). This structure specifies per-packet information for checksum operations offloaded from the TCP/IP transport to a NIC.</DD>
+
+<DT><B>IpSecPacketInfo</B></DT>
+
+<DD>Indexes a pointer that points to an <A HREF="105nstru_2tbm.htm">NDIS_IPSEC_PACKET_INFO</A> structure. This structure specifies per-packet information for IP Security operations offloaded from the TCP/IP transport to a NIC.</DD>
+
+<DT><B>TcpLargeSendPacketInfo</B></DT>
+
+<DD>Indexes a ULONG value (not a pointer to the ULONG value). Before passing a large TCP packet to a NIC for segmentation, the TCP/IP transport sets this value to the maximum segment size (MSS), which is equivalent to the current maximum transmission unit (MTU). The MTU is the maximum number of user data bytes that can be included in a packet. The miniport driver uses the MSS value to segment the large TCP packet into shorter packets. Before completing the send operation (for example, with <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A> or <A HREF="103ndisx_5t2q.htm"><B>NdisMCoSendComplete</B></A>), the miniport driver writes the ULONG value with the total number of user data bytes sent in all packets derived from the large TCP packet.</DD>
+
+<DT><B>ClassificationHandlePacketInfo</B></DT>
+
+<DD>This is reserved.</DD>
+
+<DT><B>HeaderIndexInfo</B></DT>
+
+<DD>To be documented later.</DD>
+
+<DT><B>ScatterGatherListPacketInfo</B></DT>
+
+<DD>Indexes a pointer to a <A HREF="105nstru_5t9u.htm">SCATTER_GATHER_LIST</A> structure, which specifies the mapped logical address ranges of buffers containing DMA data for a packet. A miniport driver that reserves system resources for DMA operations by calling <A HREF="103ndisx_48aa.htm"><B>NdisMInitializeScatterGatherDma</B></A> supplies the obtained logical address ranges to its NIC so that the NIC can perform a DMA transfer.</DD>
+
+<DT><B>Ieee8021QInfo</B></DT>
+
+<DD>Indexes the <B>Value</B> member of an NDIS_PACKET_8021Q_INFO structure, which specifies 802.1p priority and VLAN identifier information. 802.1p priority information is used to establish packet priority in shared-media 802 networks. VLAN identifier information identifies the VLAN to which a packet belongs. <BR>
+For more information, see <A HREF="204_802p_84mf.htm">802.1Q Packet Information</A>.</DD>
+
+<DT><B>OriginalPacketInfo</B></DT>
+
+<DD>Indexes a pointer to a <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A> structure. This structure specifies a packet descriptor that contains original information that was previously received over the network and indicated up by the lowest-level driver in a stack of NDIS drivers. Each driver in the layered stack can access the out-of-band (OOB) data block that is associated with the packet that is received from the network without requiring that the packet be copied to each layer. </DD>
+
+<DT><B>NdisInternalExtension1</B></DT>
+
+<DD>To be documented later.</DD>
+
+<DT><B>NdisInternalExtension2</B></DT>
+
+<DD>To be documented later.
+</DD>
+</DL>
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ndis.h</I>. Include <I>ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Every packet descriptor allocated with <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A> has an associated NDIS_PACKET_EXTENSION structure. This structure contains an array of pointers (PVOIDs), each of which points to or contains a particular type of per-packet information associated with a packet descriptor. Per-packet information is out-of-band (OOB) data in addition to that specified by the <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A> block. The NDIS_PACKET_EXTENSION structure thus extends the OOB data associated with a packet descriptor.</P>
+
+<P>To access per-packet information, drivers should use the <A HREF="103ndisx_0bjm.htm">NDIS_PER_PACKET_INFO_FROM_PACKET</A> macro, which returns a pointer to the specified type of per-packet information. A driver can call this macro once for each type of per-packet information that it needs to access.</P>
+
+<P>Drivers can also use the <A HREF="103ndisx_6pyq.htm">NDIS_PACKET_EXTENSION_FROM_PACKET</A> macro, which returns a pointer to the NDIS_PACKET_EXTENSION structure. A driver can call this macro if it needs to access more than one type of per-packet information associated with a packet descriptor. After obtaining the pointer to the NDIS_PACKET_EXTENSION structure, the driver can use the appropriate array index to obtain a pointer to a particular type of per-packet information. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="105nstru_2tbm.htm">NDIS_IPSEC_PACKET_INFO</A>, <A HREF="103ndisx_5t2q.htm"><B>NdisMCoSendComplete</B></A>, <A HREF="103ndisx_48aa.htm"><B>NdisMInitializeScatterGatherDma</B></A>, <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A>, <A HREF="105nstru_45bm.htm">NDIS_PACKET_8021Q_INFO</A>, <A HREF="103ndisx_6pyq.htm">NDIS_PACKET_EXTENSION_FROM_PACKET</A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="103ndisx_0bjm.htm">NDIS_PER_PACKET_INFO_FROM_PACKET</A>, <A HREF="105nstru_3i7m.htm">NDIS_TCP_IP_CHECKSUM_PACKET_INFO</A>, <A HREF="105nstru_5t9u.htm">SCATTER_GATHER_LIST</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NDIS_PACKET_EXTENSION"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

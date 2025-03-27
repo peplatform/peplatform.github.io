@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisAllocatePacketPoolEx</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisAllocatePacketPoolEx">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndisallocatepacketpoolex_nr"></A>NdisAllocatePacketPoolEx</H1>
+
+<P><B>NdisAllocatePacketPoolEx</B> allocates and initializes a block of storage for a pool of packet descriptors.</P>
+
+<PRE class=syntax><B>VOID
+  NdisAllocatePacketPoolEx(</B>
+    <B>OUT PNDIS_STATUS</B>  <I>Status</I><B>,</B>
+    <B>OUT PNDIS_HANDLE</B>  <I>PoolHandle</I><B>,</B>
+    <B>IN UINT</B>  <I>NumberOfDescriptors</I><B>,
+    IN UINT</B>  <I>NumberOfOverflowDescriptors</I><B>,</B>
+    <B>IN UINT</B>  <I>ProtocolReservedLength</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Status</I></DT>
+
+<DD>Pointer to a caller-supplied variable in which this function returns the status of the packet pool allocation, which can be one of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>The driver can make calls to <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A> when it needs packet descriptors to make indications up to higher-level drivers or to send packets down to lower-level drivers. </DD>
+
+<DT>NDIS_STATUS_RESOURCES</DT>
+
+<DD>The attempt to allocate packet pool failed, possibly due to a shortage of memory. This return does not necessarily mean that a subsequent call will fail. However, the caller might attempt to decrease the <I>NumberOfDescriptors</I> and call again immediately. </DD>
+</DL>
+</DD>
+
+<DT><I>PoolHandle</I></DT>
+
+<DD>Pointer to a caller-supplied variable in which this function returns a handle to the packet pool. This handle is a required parameter to the <B>Ndis</B><I>Xxx</I><B>Packet</B> functions that the driver calls subsequently. </DD>
+
+<DT><I>NumberOfDescriptors</I></DT>
+
+<DD>Specifies the number of packet descriptors that the pool should contain for anticipated normal use. The maximum <I>NumberOfDescriptors</I> that can be allocated is 0xFFFF. If an attempt is made to allocate more than this, <B>NdisAllocatePacketPoolEx</B> returns a <I>Status </I>of NDIS_STATUS_RESOURCES.</DD>
+
+<DT><I>NumberOfOverflowDescriptors</I></DT>
+
+<DD>Specifies the number of packet descriptors reserved for an overflow situation (that is, when all the descriptors specified by <I>NumberOfDescriptors </I>are in use). If the sum of this parameter and <I>NumberOfDescriptors</I> exceeds 0xFFFF, <B>NdisAllocatePacketPoolEx</B> reduces the value supplied as this parameter so that the total <I>NumberOfDescriptors</I> and <I>NumberOfOverflowDescriptors</I> equals 0xFFFF.</DD>
+
+<DT><I>ProtocolReservedLength</I></DT>
+
+<DD>Specifies the number of bytes to be allocated for the <B>ProtocolReserved</B> array of each packet descriptor. When allocating a pool for packets to be used in receive indications, a miniport driver should set this parameter to PROTOCOL_RESERVED_SIZE_IN_PACKET. On 32-bit systems, PROTOCOL_RESERVED_SIZE_IN_PACKET equals 16 bytes. On 64-bit systems, PROTOCOL_RESERVED_SIZE_IN_PACKET equals 32 bytes.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A successful call to <B>NdisAllocatePacketPoolEx</B> returns a handle to the packet pool, which the caller should save. Usually, the driver next calls <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A> one or more times with this handle to allocate a set of packet descriptors. </P>
+
+<P><B>NdisAllocatePacketPoolEx</B> statically allocates only enough memory to accommodate the number of packet descriptors specified by <I>NumberOfDescriptors</I>. The total number of packet descriptors that can be allocated from the pool with calls to <B>NdisAllocatePacket</B> is the lesser of 0xFFFF or the sum of <I>NumberOfDescriptors</I> and <I>NumberOfOverflowDescriptors</I> originally passed to <B>NdisAllocatePacketPoolEx</B>. Overflow descriptors are allocated dynamically only during an overflow situation — that is, when the given <I>NumberOfDescriptors</I> have already been allocated and are still in use.</P>
+
+<P>The sum of <I>NumberOfDescriptors</I> and <I>NumberOfOverflowDescriptors</I> is the effective limit on how many times the driver can call <B>NdisAllocatePacket</B> before it must call <A HREF="103ndisx_47le.htm"><B>NdisFreePacket</B></A> to return a packet descriptor to the free list for the packet pool. When no overflow descriptor has yet been allocated, <B>NdisFreePacket</B> returns the packet descriptor to the statically allocated pool. If one or more overflow descriptors have already been allocated, <B>NdisFreePacket</B> returns the packet descriptor to system memory—not to the pool.</P>
+
+<P>The caller of <B>NdisAllocatePacketPoolEx</B> should set <I>NumberOfDescriptors</I> to the number of packet descriptors needed for anticipated normal loads. The driver should set <I>NumberOfOverflowDescriptors</I> to the number of additional descriptors needed to accommodate anticipated peak loads. If the total possible number of packet descriptors (<I>NumberOfDescriptors</I> plus <I>NumberOfOverflowDescriptors</I>) has been allocated from the pool, a call to <B>NdisAllocatePacket</B> returns NDIS_STATUS_RESOURCES.</P>
+
+<P>As packets sent or indicated are returned to the allocating driver, it can reuse each packet descriptor after calling <A HREF="103ndisx_87hu.htm"><B>NdisReinitializePacket</B></A> and setting it up again with a chain of buffer descriptors, or the driver can call <B>NdisFreePacket</B> to return that packet to the free list. Reinitializing and reusing packets allocated from packet pool is far faster than freeing and, then, having to reallocate them again. Before a driver calls <B>NdisReinitializePacket</B> with a packet descriptor, it must save the pointers to buffer descriptors that are chained to the packet descriptor since <B>NdisReinitializePacket</B> sets the head of the buffer chain to NULL. </P>
+
+<P>When a driver no longer needs packet descriptors, it calls <B>NdisFreePacketPool</B> to release the storage that it allocated with <B>NdisAllocatePacketPoolEx</B>.</P>
+
+<P>Callers of <B>NdisAllocatePacketPoolEx</B> run at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_81ki.htm"><I>MiniportReturnPacket</I></A>, <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_7otu.htm"><B>NdisDprAllocatePacket</B></A>, <A HREF="103ndisx_3zhu.htm"><B>NdisDprAllocatePacketNonInterlocked</B></A>, <A HREF="103ndisx_59f6.htm"><B>NdisFreePacketPool</B></A>, <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="103ndisx_87hu.htm"><B>NdisReinitializePacket</B></A>, <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A>, <A HREF="103ndisx_9vci.htm"><B>NdisUnchainBufferAtBack</B></A>, <A HREF="103ndisx_30mq.htm"><B>NdisUnchainBufferAtFront</B></A>, <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisAllocatePacketPoolEx"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

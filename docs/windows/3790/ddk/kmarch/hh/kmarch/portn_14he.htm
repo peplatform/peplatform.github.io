@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>PoRegisterDeviceForIdleDetection</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="PoRegisterDeviceForIdleDetection">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_pdo_dg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_fdo_dg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_poregisterdeviceforidledetection_dr"></A>PoRegisterDeviceForIdleDetection</H1>
+
+<P>The <B>PoRegisterDeviceForIdleDetection</B> routine enables or cancels idle detection and sets idle time-out values for a device. </P>
+
+<PRE class=syntax><B>PULONG
+</B>  <B>PoRegisterDeviceForIdleDetection(</B>
+    <B>IN PDEVICE_OBJECT </B> <I>DeviceObject</I><B>,</B>
+    <B>IN ULONG</B>  <I>ConservationIdleTime</I><B>,</B>
+    <B>IN ULONG</B>  <I>PerformanceIdleTime</I><B>,</B>
+    <B>IN DEVICE_POWER_STATE  </B><I>State</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the driver-created <A HREF="k112_32cy.htm">DEVICE_OBJECT</A> for the device. On Windows&nbsp;2000 and later systems, this parameter can point to a physical device object (<A HREF="JavaScript:hhobj_1.Click()">PDO</A>) or a functional device object (<A HREF="JavaScript:hhobj_2.Click()">FDO</A>). On Windows 98/Me, this parameter must point to the PDO of the underlying device. </DD>
+
+<DT><I>ConservationIdleTime</I></DT>
+
+<DD>Sets the time-out value (in seconds) to apply when the system power policy optimizes for energy conservation. Specify zero to disable idle detection when conservation policy is in effect.</DD>
+
+<DT><I>PerformanceIdleTime</I></DT>
+
+<DD>Sets the time-out value (in seconds) to apply when the system power policy optimizes for performance. Specify zero to disable idle detection when performance policy is in effect.</DD>
+
+<DT><I>State</I></DT>
+
+<DD>Specifies the <A HREF="pwrmgmt_20fb.htm">device power state</A> to be requested in an <A HREF="poirp_6hde.htm">IRP_MN_SET_POWER</A> request when either <I>ConservationIdleTime</I> or <I>PerformanceIdleTime</I> has been met. Possible values are <B>PowerDeviceD0</B>, <B>PowerDeviceD1</B>, <B>PowerDeviceD2</B>, and <B>PowerDeviceD3</B>. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>PoRegisterDeviceForIdleDetection</B> returns a pointer to the idle counter to indicate that idle detection has been enabled. It returns NULL to indicate that idle detection has been disabled, that an idle counter could not be allocated, or that one or both of the time-out values were invalid.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>ntddk.h</I> or <I>wdm.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>PoRegisterDeviceForIdleDetection</B> enables drivers to use the idle detection mechanism provided by the <A HREF="pwrmgmt_30vb.htm">Power Manager</A>. Drivers call <B>PoRegisterDeviceForIdleDetection</B> for any of the following reasons:
+
+<UL>
+	<LI>To enable idle detection for the device and set initial idle time-out values</LI>
+
+	<LI>To change the idle time-out values for a device</LI>
+
+	<LI>To disable idle detection for a device </LI>
+</UL>
+
+<P>After enabling a device for idle detection, a driver calls <A HREF="portn_1oqa.htm"><B>PoSetDeviceBusy</B></A> whenever the device is in use, passing the non-NULL idle pointer returned by <B>PoRegisterDeviceForIdleDetection</B>. Calling <B>PoSetDeviceBusy</B> restarts the idle countdown. Note that a driver must not pass a NULL pointer to <B>PoSetDeviceBusy</B>. </P>
+
+<P>Whenever the device satisfies the current idle time-out value, the Power Manager sends an IRP_MN_SET_POWER request to the top of the device stack, specifying device power state <I>State</I>. In response to the <A HREF="k112_3z5e.htm">IRP</A>, each driver performs any device-specific tasks required before the power state transition, then passes the IRP to the next-lower driver. When the IRP reaches the bus driver, that driver puts the device in the requested lower power state and completes the IRP.</P>
+
+<P><B>PoRegisterDeviceForIdleDetection</B> sets time-out values for both conservation and performance. The <I>ConservationIdleTime</I> value applies when the system power policy optimizes for conservation; the <I>PerformanceIdleTime</I> value applies when the system power policy optimizes for performance. Typically, the applicable policy depends upon the power source: when running with AC power, the system optimizes for performance, and when running off a battery, the system optimizes for conservation. Certain devices can specify time-out values of -1 to use the standard power policy time-outs for their device class. The standard time-out values provide for better system integration for supported standard device classes. At present, WDM supports this feature for devices of type FILE_DEVICE_DISK and FILE_DEVICE_MASS_STORAGE. <B>PoRegisterDeviceForIdleDetection</B> returns NULL if -1 is specified for a device of an unsupported type. (For information about device types, see <A HREF="devobjts_5hnr.htm">Specifying Device Types</A>.)</P>
+
+<P>Only one idle detection can be set per device. Subsequent calls to <B>PoRegisterDeviceForIdleDetection</B> change the idle detection values. </P>
+
+<P>If both <I>ConservationIdleTime</I> and <I>PerformanceIdleTime</I> are zero, this routine cancels all idle detection for the device and returns NULL. </P>
+
+<P><B>PoRegisterDeviceForIdleDetection</B> can free a driver from the need to perform its own idle detection. However, drivers can also implement their own idle detection. </P>
+
+<P>Callers of <B>PoRegisterDeviceForIdleDetection </B>must be running at IRQL&nbsp;&lt; DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k112_3z5e.htm">IRP</A>, <A HREF="poirp_6hde.htm">IRP_MN_SET_POWER</A>, <A HREF="portn_1oqa.htm"><B>PoSetDeviceBusy</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: PoRegisterDeviceForIdleDetection"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

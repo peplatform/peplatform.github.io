@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProtocolCoRequest</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProtocolCoRequest">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocolcorequest_nr"></A>ProtocolCoRequest</H1>
+
+<P>The <I>ProtocolCoRequest</I> function is required. This function handles OID_CO_<I>XXX</I> requests initiated by calls to <A HREF="103ndisx_8xde.htm"><B>NdisCoRequest</B></A> from the corresponding client(s) or stand-alone call manager or initiated by an MCM driver's calls to <A HREF="103ndisx_1pbm.htm"><B>NdisMCmRequest</B></A>. </P>
+
+<PRE class=syntax><B>NDIS_STATUS</B>
+  <B>ProtocolCoRequest(</B>
+    <B>IN NDIS_HANDLE</B>  <I>ProtocolAfContext</I><B>,</B><I>
+</I>    <B>IN NDIS_HANDLE</B>  <I>ProtocolVcContext</I>  <B>OPTIONAL,</B> 
+    <B>IN NDIS_HANDLE</B>  <I>ProtocolPartyContext</I>  <B>OPTIONAL,</B> 
+    <B>IN OUT  PNDIS_REQUEST</B>  <I>NdisRequest</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>ProtocolAfContext</I></DT>
+
+<DD>Specifies the handle to the driver's per-AF context area. The client supplied this handle when it called <A HREF="103ndisx_6quq.htm"><B>NdisClOpenAddressFamily</B></A> to connect itself to the call manager. The call manager supplied this handle from its <A HREF="104tdlow_5ape.htm"><I>ProtocolCmOpenAf</I></A> function, so this handle effectively identifies the particular client that issued this request. </DD>
+
+<DT><I>ProtocolVcContext</I></DT>
+
+<DD>Specifies the handle identifying the active VC for which the client or call manager is requesting or setting information if the request is VC-specific. Otherwise, this parameter is NULL. </DD>
+
+<DT><I>ProtocolPartyContext</I></DT>
+
+<DD>Specifies the handle identifying the party on a multipoint VC for which the client or call manager is requesting or setting information if the request is party-specific. Otherwise, this parameter is NULL.</DD>
+
+<DT><I>NdisRequest</I></DT>
+
+<DD>Pointer to a buffer, formatted as an NDIS_REQUEST structure specifying the operation to be carried out by <I>ProtocolCoRequest</I>. The <B>Oid</B> member of the <A HREF="105nstru_3f8y.htm">NDIS_REQUEST</A> structure contains the system-defined OID_GEN_CO_<I>XXX</I> code specifying the requested query or set operation, together with a buffer in which the protocol returns the requested information for a query or from which it transfers the given information for a set. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>ProtocolCoRequest</I> can return one of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>The client or call manager carried out the requested operation.</DD>
+
+<DT>NDIS_STATUS_PENDING</DT>
+
+<DD>The client or call manager is handling this request asynchronously, and it will call <A HREF="103ndisx_93oy.htm"><B>NdisCoRequestComplete</B></A> (or, from a miniport driver with integrated call-management support, <A HREF="103ndisx_2qr6.htm"><B>NdisMCmRequestComplete</B></A>) when the requested operation is done. </DD>
+
+<DT>NDIS_STATUS_INVALID_LENGTH or NDIS_STATUS_BUFFER_TOO_SHORT</DT>
+
+<DD>The driver is failing this request because the caller of <A HREF="103ndisx_8xde.htm"><B>NdisCoRequest</B></A> or <A HREF="103ndisx_1pbm.htm"><B>NdisMCmRequest</B></A> did not supply an adequate <B>InformationBuffer</B> for the given request. The driver set the <B>BytesNeeded</B> member in the buffer at <I>NdisRequest</I> to the <B>Oid</B>-specific value of the <B>InformationBufferLength</B> required to carry out the requested operation. </DD>
+
+<DT>NDIS_STATUS_<I>XXX</I></DT>
+
+<DD>The client or call manager failed the request for some driver-determined reason, such as invalid input data specified for a set.</DD>
+
+<DT>NDIS_STATUS_NOT_SUPPORTED</DT>
+
+<DD>The client or call manager failed this request because it did not recognize the OID_GEN_CO_<I>XXX</I> code in the <B>Oid</B> member in the buffer at <I>NdisRequest</I>. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Connection-oriented clients and stand-alone call managers communicate information to each other by specifying an explicit <I>NdisAfHandle</I> when they call <A HREF="103ndisx_8xde.htm"><B>NdisCoRequest</B></A>. Similarly, a connection-oriented miniport driver with integrated call-management support calls <A HREF="103ndisx_1pbm.htm"><B>NdisMCmRequest</B></A> with explicit <I>NdisAfHandle</I>s to communicate information to its individual clients. Such a call to <B>NdisCoRequest</B> or <B>NdisMCmRequest</B> with an explicit <I>NdisAfHandle</I> causes NDIS to call the <I>ProtocolCoRequest</I> function of the client, stand-alone call manager, or MCM driver that shares the given <I>NdisAfHandle</I>. </P>
+
+<P>If the input <I>NdisVcHandle</I> and <I>NdisPartyHandle</I> are NULL, <I>ProtocolCoRequest</I> can consider the request global in nature. For example, <I>ProtocolCoRequest</I> satisfies any OID_GEN_CO_<I>XXX</I> query for which it is passed only an explicit <I>NdisAfHandle</I> by returning information about all currently active VCs, including any active multipoint VCs, on the given address family. </P>
+
+<P>An explicit <I>NdisVcHandle</I> or <I>NdisPartyHandle</I> indicates that <I>ProtocolCoRequest</I> should satisfy the given request on a per-VC or per-party basis, respectively. </P>
+
+<P><I>ProtocolCoRequest</I> can assume that the buffer at <I>NdisRequest</I> was allocated from nonpaged pool and is, therefore, accessible at raised IRQL. The caller of <B>NdisCoRequest</B> (or <B>NdisMCmRequest</B>) is responsible for releasing this buffer and the internal buffer at <B>InformationBuffer</B> that it allocated when its request has been completed. </P>
+
+<P>If <I>ProtocolCoRequest</I> returns NDIS_STATUS_PENDING, the driver must make a subsequent call to <A HREF="103ndisx_93oy.htm"><B>NdisCoRequestComplete</B></A> or, for an MCM driver, to <A HREF="103ndisx_2qr6.htm"><B>NdisMCmRequestComplete</B></A> when the driver completes its operations to satisfy the given request. </P>
+
+<P>For more information about the sets of OIDs defined for use with <B>NdisCoRequest</B>, <B>NdisMCmRequest</B>, and <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A>, see <A HREF="21oidovw_8q9e.htm">NDIS Object Identifiers</A>. </P>
+
+<P><I>ProtocolCoRequest</I> must be written so that it can run at IRQL = DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="103ndisx_6quq.htm"><B>NdisClOpenAddressFamily</B></A>, <A HREF="103ndisx_8xde.htm"><B>NdisCoRequest</B></A>, <A HREF="103ndisx_93oy.htm"><B>NdisCoRequestComplete</B></A>, <A HREF="103ndisx_1pbm.htm"><B>NdisMCmRequest</B></A>, <A HREF="103ndisx_2qr6.htm"><B>NdisMCmRequestComplete</B></A>, <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A>, <A HREF="105nstru_3f8y.htm">NDIS_REQUEST</A>, <A HREF="104tdlow_5ape.htm"><I>ProtocolCmOpenAf</I></A>, <A HREF="104tdlow_860i.htm"><I>ProtocolCoRequestComplete</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProtocolCoRequest"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

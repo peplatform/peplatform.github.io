@@ -1,0 +1,34 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Implementing a ProtocolReceivePacket Handler in a Protocol Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Implementing a ProtocolReceivePacket Handler in a Protocol Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_implementing_a_protocolreceivepacket_handler_in_a_protocol_driver_ng"></A>Implementing a <I>ProtocolReceivePacket</I> Handler in a Protocol Driver</H3>
+
+<P>When an underlying connectionless miniport driver indicates an array of one or more packet descriptors with <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, NDIS will usually call a bound protocol driver’s <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A> function with each packet descriptor. This allows the protocol driver (or its clients) to retain the packet descriptor and all the resources it specifies until the protocol or its clients have consumed the data and returned the packet descriptor. </P>
+
+<P>The <I>ProtocolReceivePacket</I> function allows the protocol driver to:
+
+<UL>
+	<LI>Receive indications of full network packets from the underlying miniport driver.</LI>
+
+	<LI>Read the OOB data associated with each packet descriptor using NDIS-supplied macros.</LI>
+
+	<LI>Retain ownership of the packet descriptor and associated data or forward them to its clients. If the protocol driver copies the buffered data for its clients, it can retain ownership of the input packet descriptor, and it can retain direct read-only access to the buffered data specified by the descriptor. Otherwise, the protocol driver can forward the indicated packet descriptor to its clients after selecting the range of packet data that is of interest to the clients.</LI>
+
+	<LI>Return the packet descriptor and the associated data. If the protocol driver forwards the descriptors, the protocol driver's clients return the packet descriptor and associated data. If the protocol driver retains ownership, it can call <A HREF="103ndisx_61de.htm"><B>NdisReturnPackets</B></A> to return the descriptor along with other retained packet descriptors. The protocol driver calls <B>NdisReturnPackets</B> after the driver has consumed all of the indicated data.</LI>
+</UL>
+
+<P>Even when a protocol driver provides a <I>ProtocolReceivePacket</I> handler, a miniport driver's call to <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A> can result in a call to the protocol driver’s <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> function. Since a miniport driver temporarily relinquishes ownership of driver-allocated resources when it calls <B>NdisMIndicateReceivePacket</B>, the miniport driver depends on the consumers of those packets to return the packets in a timely manner. Otherwise, the miniport driver can run short of receive resources, such as receive buffer space in the NIC. When a miniport driver runs short of receive resources, the driver sets NDIS_STATUS_RESOURCES in the OOB block associated with a packet descriptor. Indicating a packet with NDIS_STATUS_RESOURCES causes NDIS to call the overlying driver's <I>ProtocolReceive</I> function with the packet and with any subsequent packets in the array. This forces the protocol driver to copy the packet data immediately, rather than retaining the receive resources allocated by the miniport driver. </P>
+
+<P>If the protocol driver requires the OOB data associated with a packet descriptor but NDIS called <I>ProtocolReceive</I>, the protocol driver must call <A HREF="103ndisx_4faq.htm"><B>NdisGetReceivedPacket</B></A> and <A HREF="103ndisx_7xma.htm">NDIS_GET_ORIGINAL_PACKET</A> to copy the media-specific information into a protocol-supplied buffer. This also copies the <B>TimeSent</B> and <B>TimeReceived</B> values, if the underlying miniport driver provides these time stamps. For additional information about OOB data, see <A HREF="302pro_82jr.htm">Accessing OOB Information from a Connectionless Protocol Driver</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Implementing%20a%20ProtocolReceivePacket%20Handler%20in%20a%20Protocol%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

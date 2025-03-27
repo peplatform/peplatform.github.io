@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IWiaMiniDrv::drvAcquireItemData</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IWiaMiniDrv::drvAcquireItemData">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_iwiaminidrv_drvacquireitemdata_si"></A>IWiaMiniDrv::drvAcquireItemData</H1>
+
+<P>The <B>IWiaMiniDrv::drvAcquireItemData</B> method is called by the WIA service to transfer data from the device to an application.</P>
+
+<PRE class=syntax><B>HRESULT
+  drvAcquireItemData(
+</B>    <B>IN BYTE </B> *<I>pWiasContext</I><B>,</B>
+    <B>IN LONG</B>  <I>lFlags</I><B>,</B>
+    <B>IN OUT PMINIDRV_TRANSFER_CONTEXT </B> <I>pmdtc</I><B>,</B>
+    <B>OUT LONG</B>  *<I>plDevErrVal</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>pWiasContext</I></DT>
+
+<DD>Pointer to a WIA item context.</DD>
+
+<DT><I>lFlags</I></DT>
+
+<DD>Is currently unused. </DD>
+
+<DT><I>pmdtc</I></DT>
+
+<DD>Points to a <A HREF="wiastrct_8ckp.htm">MINIDRV_TRANSFER_CONTEXT</A> structure containing the device transfer context. The MINIDRV_TRANSFER_CONTEXT structure contains parameters that pertain to the data to be transferred.</DD>
+
+<DT><I>plDevErrVal</I></DT>
+
+<DD>Points to a memory location that will receive a status code for this method. If this method returns S_OK, the value stored will be zero. Otherwise, a minidriver-specific error code will be stored at the location pointed to by this parameter.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>On success, the method should return S_OK and clear the device error value pointed to by <I>plDevErrVal</I>. If the transfer was canceled, the method should return S_FALSE. If the method fails, it should return a standard COM error code and fill in a minidriver-specific error code value in the memory pointed to by <I>plDevErrVal</I>. The <B>Comments </B>section has additional return-value information that applies to ADF scanning.</P>
+
+<P>The value pointed to by <I>plDevErrVal</I> can be converted to a string by calling<A HREF="minidrv_0n8p.htm"> <B>IWiaMiniDrv::drvGetDeviceErrorStr</B></A>.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wiamindr.h</I>. Include <I>wiamindr.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>There are two main types of transfer: memory-based, and file-based. The WIA service indicates which type is to be performed by the setting of <I>pmdtc</I>—&gt;<B>tymed</B>, which will be TYMED_CALLBACK or TYMED_MULTIPAGE_CALLBACK for memory-based transfers, and TYMED_FILE or TYMED_MULTIPAGE_FILE for file transfers. These constants are described in the Platform SDK documentation.
+
+<UL>
+	<LI>For memory-based transfers, a buffer may or may not have already been allocated, as indicated by the value in <I>pmdtc</I>—&gt;<B>bClassDrvAllocBuf</B>. The WIA service can pass up to two buffers to the minidriver, but typically passes only one. The number of buffers is specified by the value in <I>pmdtc</I>—&gt;<B>lNumBuffers</B>. If memory for the buffer is not already allocated, the minidriver should allocate it using any of the usual means, such as <B>CoTaskMemAlloc</B>, (described in the Platform SDK documentation), or <B>new</B>. If the minidriver allocates a buffer, it also has the responsibility of freeing the buffer.</LI>
+
+	<LI>For file transfers, the minidriver should first write the data to the buffer passed in the WIA service's call to this method, and then call <A HREF="wiasfncs_77hl.htm"><B>wiasWritePageBufToFile</B></A> to write the buffer data to the file involved. The minidriver should not attempt to use the file handle specified in <I>pmdtc</I>—&gt;<B>hFile</B> to write the data to the file.</LI>
+</UL>
+
+<P>Periodically, the minidriver should call the <A HREF="callback_0hpl.htm"><B>IWiaMiniDrvCallBack::MiniDrvCallBack</B></A> method in the COM interface point to by <I>pmdtc</I>—&gt;<B>pIWiaMiniDrvCallBack</B> to update the status of the transfer. For memory-based transfers, this function is used to pass the data back to the application. How often this function should be called is left to the minidriver, but it should be called about ten times, or roughly once per second during the transfer, whichever is more often.</P>
+
+<P>Other transfer parameters that the WIA service provides include the following:
+
+<UL>
+	<LI><I>pmdtc</I>—&gt;<B>guidFormatID</B> - the data format</LI>
+
+	<LI><I>pmdtc</I>—&gt;<B>lCompression</B> - the type of compression used</LI>
+</UL>
+
+<P>A potential problem for ADF-equipped scanners is running out of paper during a scan operation. The HRESULT that your implementation of <B>IWiaMiniDrv::drvAcquireItemData</B> returns depends on the current setting of the scanner's WIA_DPS_PAGES property, and whether all pages were properly scanned. Use the following rules to guide you in determining the appropriate HRESULT to return in this method.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=69%>Situation</TH>
+<TH align=left width=31%>HRESULT Value</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=69%>The WIA_DPS_PAGES property was set to 0, and the scanner emptied its ADF with no errors.
+<P>The WIA_DPS_PAGES property was set to <I>N</I> (where <I>N</I> &gt; 0), and the scanner processed <I>N</I> pages with no errors.</P>
+</TD>
+<TD width=31%>S_OK</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=69%>The WIA_DPS_PAGES property was set to <I>N</I>, and the scanner processed at least one page but ran out of paper before processing all <I>N</I> pages.</TD>
+<TD width=31%>WIA_STATUS_END_OF_MEDIA</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=69%>The scanner ran out of paper on the first scan, regardless of the setting of the WIA_DPS_PAGES property.
+<P>A paper jam or other error occurred during the scan operation.</P>
+</TD>
+<TD width=31%>Other error code</TD>
+</TR>
+</TABLE><BR>
+
+<P>This method is available in Windows&nbsp;Me and in Windows&nbsp;XP and later.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="wiasfncs_34q1.htm"><B>wiasGetImageInformation</B></A>, <A HREF="minidrv_0n8p.htm"><B>IWiaMiniDrv::drvGetDeviceErrorStr</B></A>, <A HREF="wiastrct_8ckp.htm">MINIDRV_TRANSFER_CONTEXT</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IWiaMiniDrv::drvAcquireItemData"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

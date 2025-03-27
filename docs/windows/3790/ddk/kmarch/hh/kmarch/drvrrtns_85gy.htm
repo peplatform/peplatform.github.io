@@ -1,0 +1,73 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>BugCheckDumpIoCallback</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="BugCheckDumpIoCallback">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_bugcheckdumpiocallback_kr"></A><I>BugCheckDumpIoCallback</I></H1>
+
+<P>The  <I>BugCheckDumpIoCallback</I> routine is executed each time the system writes data to a crash dump file.</P>
+
+<PRE class=syntax><B>VOID
+</B>  <I>BugcheckDumpIoCallback</I> <B>(</B>
+<B>    IN KBUGCHECK_CALLBACK_REASON </B><I>Reason</I><B>,</B>
+<B>    IN PKBUGCHECK_REASON_CALLBACK_RECORD </B><I>Record</I><B>,</B>
+<B>    IN OUT PVOID </B><I>ReasonSpecificData</I><B>,</B>
+<B>    IN ULONG </B><I>ReasonSpecificDataLength</I> 
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Reason</I></DT>
+
+<DD>Specifies the situation in which the callback is executed. For <I>BugCheckDumpIoCallback</I>, this parameter is always <B>KbCallbackDumpIo</B>.</DD>
+
+<DT><I>Record</I></DT>
+
+<DD>Pointer to the <A HREF="k112_34j6.htm">KBUGCHECK_REASON_CALLBACK_RECORD</A> structure that the driver passed when registering this callback.</DD>
+
+<DT><I>ReasonSpecificData</I></DT>
+
+<DD>Pointer to a <A HREF="k112_3ynm.htm">KBUGCHECK_DUMP_IO</A> structure that describes the current I/O operation.</DD>
+
+<DT><I>ReasonSpecificDataLength</I></DT>
+
+<DD>Specifies the size of the buffer  supplied by the <I>ReasonSpecificData</I> parameter. For <I>BugCheckSecondaryDumpDataCallback</I>, this parameter is always <B>sizeof(</B>KBUGCHECK_DUMP_IO<B>)</B>. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>None</P>
+
+<H4>Comments</H4>
+
+<P>Drivers can only implement <I>BugCheckDumpIoCallback</I> routines on Windows&nbsp;XP SP1, Windows Server 2003, and later operating systems.</P>
+
+<P>The driver's <I>BugCheckDumpIoCallback</I> routine is called each time data is written to the crash dump file. The system passes, in the <I>ReasonSpecificData</I> parameter, a description of the data being written. The <B>Buffer</B> member points to the current data, and the <B>BufferLength</B> specifies its length. The <B>Type</B> member indicates the type of data currently being written, such as dump file header information, memory state, or data provided by a driver. For a description of the possible types of information, see <A HREF="k112_4lki.htm">KBUGCHECK_DUMP_IO_TYPE</A>.</P>
+
+<P>The system can write the crash dump file either sequentially, or out of order. If the system is writing the crash dump file sequentially, then the <B>Offset</B> member of <I>ReasonSpecificData</I> is -1; otherwise <B>Offset</B> is set to the current offset, in bytes, in the crash dump file.</P>
+
+<P>When the system writes the file sequentially, it calls each <I>BugCheckDumpIoCallback</I> routine one or more times when writing the header information (<B>Type</B> = <B>KbDumpIoHeader</B>), one or more times when writing the main body of the crash dump file (<B>Type</B> = <B>KbDumpIoBody</B>), and one or more times when writing the secondary dump data (<B>Type</B> = <B>KbDumpIoSecondaryDumpData</B>). Once the system has completed writing the crash dump file, it calls the callback with <B>Buffer</B> = NULL, <B>BufferLength</B> = 0, and <B>Type</B> = <B>KbDumpIoComplete</B>.</P>
+
+<P>The main purpose of a <I>BugCheckDumpIoCallback</I> routine is to allow system crash dump data to be written to devices other than the disk. For example, a device that monitors system state can use the callback to report that the system has issued a bug check, and to provide a crash dump for analysis. </P>
+
+<P>Use <A HREF="k105_8ecy.htm"><B>KeRegisterBugCheckReasonCallback</B></A> to register a <I>BugCheckDumpIoCallback</I> routine. A driver can subsequently remove the callback by using the <A HREF="k105_0pma.htm"><B>KeDeregisterBugCheckReasonCallback</B></A> routine. If the driver can be unloaded, it must remove any registered callbacks in its <I>Unload</I> routine.</P>
+
+<P>A <I>BugCheckDumpIoCallback</I> routine is strongly restricted in the actions it can take. For more information, see <A HREF="other_1anb.htm">Writing a Bug Check Callback Routine</A>.</P>
+
+<P><I>BugCheckDumpIoCallback</I> routines execute at IRQL&nbsp;= HIGH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k112_3ynm.htm">KBUGCHECK_DUMP_IO</A><A HREF="k112_4lki.htm">, KBUGCHECK_DUMP_IO_TYPE</A>, <A HREF="k112_34j6.htm">KBUGCHECK_REASON_CALLBACK_RECORD</A>, <A HREF="k105_8omq.htm"><B>KeBugCheck</B></A>, <A HREF="k105_9kfm.htm"><B>KeBugCheckEx</B></A>, <A HREF="k105_2d6a.htm"><B>KeDeregisterBugCheckCallback</B></A>, <A HREF="k105_29wy.htm"><B>KeRegisterBugCheckCallback</B></A>, <A HREF="drvrrtns_0m2a.htm"><I>BugCheckCallback</I></A>, <A HREF="drvrrtns_5x2q.htm"><I>BugCheckSecondaryDumpDataCallback</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: BugCheckDumpIoCallback"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

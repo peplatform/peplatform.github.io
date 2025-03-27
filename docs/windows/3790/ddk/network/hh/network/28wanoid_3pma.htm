@@ -1,0 +1,163 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>OID_WAN_CO_GET_INFO</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="OID_WAN_CO_GET_INFO">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_oid_wan_co_get_info_nr"></A>OID_WAN_CO_GET_INFO</H1>
+
+<P>The OID_WAN_CO_GET_INFO OID requests the miniport driver to return information that applies to all virtual connections (VCs) on its NIC. This information is returned in a NDIS_WAN_CO_INFO structure, defined as follows.</P>
+
+<PRE class=syntax>typedef struct _NDIS_WAN_CO_INFO {
+    OUT ULONG  MaxFrameSize;
+    OUT ULONG  MaxSendWindow;
+    OUT ULONG  FramingBits;
+    OUT ULONG  DesiredACCM;
+} NDIS_WAN_CO_INFO, *PNDIS_WAN_CO_INFO;</PRE>
+
+<P>The members of this structure contain the following information:
+
+<DL>
+<DT><B>MaxFrameSize</B></DT>
+
+<DD>Specifies the maximum frame size for any net packet that the NIC miniport driver can send and receive. This value should exclude the miniport driver’s own framing overhead and/or the PPP HDLC overhead. Typically this value is around 1500.
+
+<P>However, all CoNDIS WAN miniport drivers should use an internal <B>MaxFrameSize</B> that is 32 bytes larger than the value they return for this OID. For example, a CoNDIS WAN miniport driver that returns 1500 for this OID should internally accept and send up to 1532. Such a miniport driver can readily support future bridging and additional protocols.
+</DD>
+
+<DT><B>MaxSendWindow</B></DT>
+
+<DD>Specifies the maximum number of outstanding packets that the CoNDIS WAN miniport driver can handle on a VC. This member must be set to at least one. 
+
+<P>The NDISWAN driver uses the value of this member as a limit on how many packets it submits in send requests to the miniport driver's <I>MiniportCoSendPackets</I> function before NDISWAN holds send packets. These packets are queued until the miniport driver completes an outstanding send. A miniport driver can adjust this value dynamically and on a per-VC basis using the <B>SendWindow</B> member in the <A HREF="105nstru_5hma.htm">WAN_CO_LINKPARAMS</A> structure that the miniport driver passes to <A HREF="103ndisx_0qgi.htm"><B>NdisMCoIndicateStatus</B></A>. NDISWAN uses the current <B>SendWindow</B> value as its limit on outstanding sends. If the miniport driver sets <B>SendWindow</B> to zero, NDISWAN must stop sending packets for the particular VC. That is, the miniport driver specifies that the send window is shut down, which, in effect, specifies that it cannot accept any packets from NDISWAN. 
+
+
+<P>Because a CoNDIS WAN miniport driver must queue packets internally, the value of <B>MaxSendWindow</B> is theoretically <B>max(</B>ULONG<B>)</B>. However, this driver-determined value should reflect the link speed or hardware capabilities of the NIC. For example, if a miniport driver's NIC always has room for at least four packets, the miniport driver sets <B>MaxSendWindow</B> to four so that any incoming packet to <I>MiniportCoSendPackets</I> can be placed on the hardware immediately.
+</DD>
+
+<DT><B>FramingBits</B></DT>
+
+<DD>A 32-bit value that specifies a bitmask specifying the types of framing the miniport driver supports. The miniport driver can specify a combination of the following values, using the binary OR operator: 
+
+<DL>
+<DT>RAS_FRAMING</DT>
+
+<DD>Set only if the miniport driver can detect older RAS framing. Only legacy drivers that supported earlier RAS framing set this flag.</DD>
+
+<DT>RAS_COMPRESSION</DT>
+
+<DD>Set only if the miniport driver supports the older RAS compression scheme.</DD>
+
+<DT>PPP_FRAMING</DT>
+
+<DD>Should always be set. Indicates the miniport driver can detect and support PPP framing for its medium type.</DD>
+
+<DT>PPP_COMPRESS_ADDRESS_CONTROL</DT>
+
+<DD>Set if the miniport driver supports PPP address and control-field compression. 
+
+<P>NDISWAN will remove the address and control field if this LCP option is negotiated. Some WAN medium types, such as X.25, do not support this option.
+</DD>
+
+<DT>PPP_COMPRESS_PROTOCOL_FIELD</DT>
+
+<DD>Set if the miniport driver supports PPP protocol field compression. 
+
+<P>NDISWAN will remove one byte from the protocol field when applicable if this LCP option is negotiated.
+</DD>
+
+<DT>PPP_ACCM_SUPPORTED</DT>
+
+<DD>Set if the miniport driver supports Asynchronous Control Character Mapping. This bit is only valid for asynchronous media, such as modems. If this bit is set the <B>DesiredACCM</B> member should be valid.</DD>
+
+<DT>PPP_MULTILINK_FRAMING</DT>
+
+<DD>Set if the miniport driver supports multiple-link framing as specified in IETF RFC 1717. </DD>
+
+<DT>PPP_SHORT_SEQUENCE_HDR_FORMAT</DT>
+
+<DD>Set if the miniport driver supports header format for multiple-link framing as specified in IETF RFC 1717.  </DD>
+
+<DT>SLIP_FRAMING</DT>
+
+<DD>Set if the miniport driver can detect and support SLIP framing (asynchronous miniport drivers only).</DD>
+
+<DT>SLIP_VJ_COMPRESSION</DT>
+
+<DD>Set if the miniport driver can support Van Jacobsen TCP/IP header compression for SLIP. NDISWAN supports SLIP_VJ_COMPRESSION (with 16 slots). Asynchronous media (serial miniport drivers) that support SLIP framing should set this bit. 
+
+<P>Asynchronous media need not write any code to support VJ header compression. NDISWAN will take care of it.
+</DD>
+
+<DT>SLIP_VJ_AUTODETECT</DT>
+
+<DD>Set if the miniport driver can auto-detect Van Jacobsen TCP/IP header compression for SLIP. NDISWAN will auto-detect VJ header compression. Asynchronous media (serial miniport drivers) should set this bit if they support SLIP framing.</DD>
+
+<DT>TAPI_PROVIDER</DT>
+
+<DD>Set if the miniport driver supports the TAPI Service Provider OIDs. Unless this bit is set, TAPI OID calls will not be made to the miniport driver.</DD>
+
+<DT>MEDIA_NRZ_ENCODING</DT>
+
+<DD>Set if the miniport driver supports NRZ encoding, the PPP default for some media types such as ISDN. This value is reserved for future use.</DD>
+
+<DT>MEDIA_NRZI_ENCODING </DT>
+
+<DD>Set if the miniport driver supports NRZI encoding. This value is reserved for future use. </DD>
+
+<DT>MEDIA_NLPID</DT>
+
+<DD>Set if the miniport driver has and can set the NLPID in its frame. This value is reserved for future use. </DD>
+
+<DT>RFC_1356_FRAMING</DT>
+
+<DD>Set if the miniport driver supports IETF RFC 1356 X.25 and ISDN framing. This value is reserved for future use. </DD>
+
+<DT>RFC_1483_FRAMING</DT>
+
+<DD>Set if the miniport driver supports IETF RFC 1483 ATM adaptation layer-5 encapsulation. This value is reserved for future use.</DD>
+
+<DT>RFC_1490_FRAMING</DT>
+
+<DD>Set if the miniport driver supports IETF RFC 1490 Frame Relay framing. This value is reserved for future use. </DD>
+
+<DT>NBF_PRESERVE_MAC_ADDRESS</DT>
+
+<DD>Set if the miniport driver supports IETF framing as specified in the draft “The PPP NETBIOS Frames Control Protocol (NBFCP).” </DD>
+
+<DT>SHIVA_FRAMING</DT>
+
+<DD>Superseded by NBF_PRESERVE_MAC_ADDRESS.  </DD>
+
+<DT>PASS_THROUGH_MODE</DT>
+
+<DD>Set if the miniport driver does its own framing. If this flag is set, NDISWAN passes frames, uninterpreted and unmodified. </DD>
+</DL>
+
+
+<P>Miniport drivers must be in the default PPP framing mode until each miniport driver receives an <A HREF="28wanoid_6noy.htm">OID_WAN_CO_SET_LINK_INFO</A> request. The miniport driver must auto-detect any framing that it claims to support. 
+
+
+<P>For example, miniport drivers that support old RAS framing must auto-detect RAS framing from PPP framing. If a miniport driver detects a framing scheme other than the default, that miniport driver should <I>automatically</I> switch its framing into the newly detected framing. 
+
+
+<P>A subsequent query with <A HREF="28wanoid_4sfm.htm">OID_WAN_CO_GET_LINK_INFO</A> should indicate the detected framing. If no framing is yet detected, the <B>FramingBits</B> should be zero in the returned NDIS_WAN_CO_GET_LINK_INFO information.
+
+
+<P>If the WAN miniport driver is called subsequently with OID_WAN_CO_SET_LINK_INFO in which the <B>FramingBits</B> member is zero, the miniport driver should attempt to auto-detect the framing upon reception of each frame.
+</DD>
+
+<DT><B>DesiredACCM </B></DT>
+
+<DD>The Asynchronous Control Character Map is negotiated. This member is relevant only for asynchronous media types.
+</DD>
+</DL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: OID_WAN_CO_GET_INFO"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

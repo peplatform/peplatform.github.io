@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Supporting Printer Change Notifications</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Supporting Printer Change Notifications">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_supporting_printer_change_notifications_gg"></A>Supporting Printer Change Notifications</H2>
+
+<P>Applications can request notification of the occurrences of print queue events by calling the spooler's <B>FindFirstPrinterChangeNotification</B>, <B>FindNextPrinterChangeNotification</B>, and <B>FindClosePrinterChangeNotification</B> functions, as described in the Platform SDK documentation. If you think application writers will want to request event notification for print queues supported by your partial print provider, you must support event notification in your provider as follows:
+
+<UL>
+	<LI>Provide a <A HREF="spoolfnc_4dk7.htm"><B>FindFirstPrinterChangeNotification</B></A> function.
+<P>The spooler calls this function to supply the print provider with the following information:
+
+<UL>
+	<LI>A set of flags indicating the types of printer events for which the application has requested notification.</LI>
+
+	<LI>A handle to the print queue for which notifications are being requested.</LI>
+
+	<LI>A list of types of information the application has requested to be supplied when an event occurs.</LI>
+</UL>
+
+<P>The function must return a flag value that indicates whether the provider should be polled to determine if changes have occurred. (Nonpolled providers send signals to the client whenever changes occur. A provider that must be polled does not send signals to a client when changes occur. Instead, the spooler signals the client at regular intervals, whether changes have occurred or not.)
+
+<P>(Note that at the provider level, this function has different arguments than at the Win32 level.)
+</LI>
+
+	<LI>Keep track of all print queue events that the application specified when it called <B>FindFirstPrinterChangeNotification</B>.
+<P>(For a list of the types of notifications an application can request, and for a list of the types of information that can be used to describe an event, see the Platform SDK documentation's description of the Win32 <B>FindFirstPrinterChangeNotification</B> function. Types of events for which an application might request notification include adding or deleting a print job or form. Types of information an application might request include job or form parameters.)
+
+<P>Print providers that are not polled must call <A HREF="spoolfnc_7ktj.htm"><B>PartialReplyPrinterChangeNotification</B></A> or <A HREF="spoolfnc_7a1z.htm"><B>ReplyPrinterChangeNotification</B></A> when changes occur, to supply the spooler with information describing the changes. The <B>ReplyPrinterChangeNotification</B> function must be called at some point because it causes the spooler to signal the application, while the <B>PartialReplyPrinterChangeNotification</B> function does not. When the application receives a signal from <B>ReplyPrinterChangeNotification</B>, it is supposed to call <B>FindNextPrinterChangeNotification</B>. This latter function supplies the application with the event information that the spooler previously received from the print provider.
+
+<P>Print providers that are polled should simply keep track of changes. The spooler signals the application at regular intervals. When the application receives a signal, it is supposed to call the spooler's <B>FindNextPrinterChangeNotification</B> function. For polled providers, this function calls the provider's <B>RefreshPrinterChangeNotification</B> function.
+</LI>
+
+	<LI>Provide a <A HREF="spoolfnc_9xgn.htm"><B>RefreshPrinterChangeNotification</B></A> function.
+<P>This function must return the current state of all monitored print queue options, for the specified print queue. The spooler calls this function when an application calls <B>FindNextPrinterChangeNotification</B> with the PRINTER_NOTIFY_OPTIONS_REFRESH flag set, as described in the Platform SDK documentation. (Applications are supposed to set this flag if a previous call to <B>FindNextPrinterChangeNotification</B> returns a PRINTER_NOTIFY_INFO structure with the PRINTER_NOTIFY_INFO_DISCARDED flag set.) Both polled and nonpolled providers must support <B>RefreshPrinterChangeNotification</B>.
+</LI>
+
+	<LI>Provide a <B>FindClosePrinterChangeNotification</B> function (described in the Platform SDK documentation).</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Supporting%20Printer%20Change%20Notifications"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,57 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Deserialized NDIS Miniport Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Deserialized NDIS Miniport Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_introduction_to_spin_locks_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_deserialized_ndis_miniport_drivers_ng"></A>Deserialized NDIS Miniport Drivers</H2>
+
+<P>A deserialized NDIS miniport driver serializes the operation of its own <I>MiniportXxx</I> functions and queues internally all incoming send packets rather than relying on NDIS to perform these functions. By doing so, a deserialized miniport driver can achieve significantly better full-duplex performance than a serialized miniport driver.</P>
+
+<P>The deserialized driver model is the default model for NDIS miniport drivers. When writing a new NDIS miniport driver, you should write a deserialized driver. Note that connection-oriented miniport drivers, as well as miniport drivers with a WDM lower edge, must be deserialized.</P>
+
+<P>A deserialized miniport driver must meet the following requirements when interfacing with NDIS:
+
+<UL>
+	<LI>A deserialized miniport driver must identify itself as such to NDIS during initialization. Its <I>MiniportInitialize</I> function must call <B>NdisMSetAttributesEx</B> with the NDIS_ATTRIBUTES_DESERIALIZE flag set in the <I>AttributeFlags</I>.</LI>
+
+	<LI>A deserialized miniport driver’s <I>MiniportSendPackets</I> function cannot synchronously complete a multipacket send. Instead, it must always complete each packet asynchronously with <B>NdisMSendComplete</B> for each packet in the incoming array.</LI>
+
+	<LI>A deserialized miniport driver’s <I>MiniportSendPackets</I> function usually ignores the <B>Status</B> member of the NDIS_PACKET_OOB_DATA block, but it can set this member to the same status that it will pass to <B>NdisMSendComplete</B>.</LI>
+
+	<LI>If a deserialized miniport driver cannot immediately transmit incoming send packets, it cannot return the packets to NDIS for requeuing. Instead, the miniport driver must queue them internally until sufficient resources are available to transmit the packets. A deserialized miniport driver's <I>MiniportSend</I> or <I>MiniportSendPackets</I> function cannot return NDIS_STATUS_RESOURCES.</LI>
+
+	<LI>A deserialized miniport driver must not examine the Status of indicated packets on return of NdisMIndicateReceivePacket. Instead, a deserialized miniport driver must save a packet’s Status in a local variable before indicating up the packet descriptor. If the miniport driver set the packet's Status to NDIS_STATUS_SUCCESS before indicating up the packet descriptor, the miniport driver must not reclaim the packet descriptor until NDIS subsequently returns the packet descriptor to the miniport driver's <I>MiniportReturnPacket</I> function.</LI>
+</UL>
+
+<P>A deserialized miniport driver must meet the following driver-internal requirements:
+
+<UL>
+	<LI>A deserialized miniport driver must protect its packet queues with spin locks. A deserialized miniport driver must also protect its shared state from simultaneous access by its own <I>MiniportXxx</I> functions. For more information about using spin locks, see <A HREF="JavaScript:hhobj_1.Click()">Introduction to Spin Locks</A>.</LI>
+
+	<LI>A deserialized miniport driver’s <I>MiniportXxx</I> functions can run at IRQL &lt;= DISPATCH_LEVEL. Consequently, the driver writer cannot assume that <I>MiniportXxx</I> functions will be called in the sequence in which they process packets. One <I>MiniportXxx</I> function can preempt another <I>MiniportXxx</I> function that is running at a lower IRQL.</LI>
+
+	<LI>A deserialized miniport driver is responsible for packet-queue management. When the miniport driver experiences a resource problem, it cannot return send packets to NDIS for requeuing. Instead, the miniport driver must queue internally all incoming packets until sufficient resources are available to send the packets.</LI>
+
+	<LI>A deserialized miniport driver must transmit each array of packets in the protocol-determined order. That is, the miniport driver must transmit the first packet in the array first, the second packet in the array second, and so forth. The miniport driver cannot reorder the packets in any given array.</LI>
+</UL>
+
+<P>Note that a deserialized miniport driver usually transmits packets in protocol-determined order. However, a miniport driver that supports packet priority (for example, IEEE 802.1p) can reorder packets based on priority information.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Deserialized%20NDIS%20Miniport%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

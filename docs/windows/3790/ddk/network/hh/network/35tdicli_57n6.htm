@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ClientEventChainedReceiveExpedited</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ClientEventChainedReceiveExpedited">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_clienteventchainedreceiveexpedited_nr"></A>ClientEventChainedReceiveExpedited</H1>
+
+<P>The ClientEventChainedReceiveExpedited routine is an event handler that the underlying TDI transport calls in response to an incoming expedited receive from a remote node with which the client has an established endpoint-to-endpoint connection. </P>
+
+<P>The transport calls this handler, rather than ClientEventReceiveExpedited, when it is forwarding a full TSDU indicated to the transport by an NDIS miniport driver and the client can be given direct read-only access to the buffered TSDU until the client has consumed the data. </P>
+
+<PRE class=syntax><B>NTSTATUS</B>
+  <B>ClientEventChainedReceiveExpedited(</B>
+    <B>IN PVOID</B>  <I>TdiEventContext</I><B>,</B>
+    <B>IN CONNECTION_CONTEXT</B>  <I>ConnectionContext</I><B>,</B>
+    <B>IN ULONG</B>  <I>ReceiveFlags</I><B>,</B>
+    <B>IN ULONG</B>  <I>ReceiveLength</I><B>,</B>
+    <B>IN ULONG</B>  <I>StartingOffset</I><B>,</B>
+    <B>IN PMDL</B>  <I>Tsdu</I><B>,</B>
+    <B>IN PVOID</B>  <I>TsduDescriptor</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>TdiEventContext</I></DT>
+
+<DD>Pointer to the context the client provided in the IRP it previously set up with <B>TdiBuildSetEventHandler</B> to register ClientEventChainedReceiveExpedited.</DD>
+
+<DT><I>ConnectionContext</I></DT>
+
+<DD>Pointer to the client's context area for this connection endpoint. The client previously supplied this value to its underlying transport when its ClientEventConnect handler accepted a connection offer from the remote-node peer and/or when it opened the connection endpoint with <B>ZwCreateFile</B>. </DD>
+
+<DT><I>ReceiveFlags</I></DT>
+
+<DD>Specifies the nature of the receive indication as a combination (ORed) of the following flags:
+
+<DL>
+<DT>TDI_RECEIVE_EXPEDITED</DT>
+
+<DD>The buffer mapped at <I>Tsdu</I> contains expedited data received from the client's remote-node peer. This flag is always set when ClientEventChainedReceiveExpedited is called. </DD>
+
+<DT>TDI_RECEIVE_ENTIRE_MESSAGE</DT>
+
+<DD>The buffer mapped at <I>Tsdu</I> contains a full TSDU, and the client retains read-only access to this buffer until the client consumes the indicated data if ClientEventChainedReceiveExpedited returns STATUS_PENDING. This flag is always set when ClientEventChainedReceiveExpedited is called. </DD>
+</DL>
+</DD>
+
+<DT><I>ReceiveLength</I></DT>
+
+<DD>Specifies the number of bytes of client data in the buffer mapped at <I>Tsdu</I>. </DD>
+
+<DT><I>StartingOffset</I></DT>
+
+<DD>Specifies the byte offset at which the client data starts within the buffer mapped at <I>Tsdu</I>. </DD>
+
+<DT><I>Tsdu</I></DT>
+
+<DD>Pointer to an MDL, possibly the initial MDL in a chain, mapping the buffer containing the received TSDU.</DD>
+
+<DT><I>TsduDescriptor</I></DT>
+
+<DD>Pointer to a descriptor for the received TSDU. The client must call <B>TdiReturnChainedReceives</B> with this pointer subsequently if ClientEventChainedReceiveExpedited returns STATUS_PENDING for this receive indication. This pointer should be treated as a handle to an opaque variable, to be used by the client only as a parameter to <B>TdiReturnChainedReceives</B> if ClientEventChainedReceiveExpedited returns STATUS_PENDING.  
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>ClientEventChainedReceiveExpedited can return one of the following:
+
+<DL>
+<DT>STATUS_SUCCESS</DT>
+
+<DD>Indicates the client consumed all the data in the given TSDU and is returning ownership of the buffer immediately.</DD>
+
+<DT>STATUS_PENDING</DT>
+
+<DD>Indicates the client is retaining ownership of the buffer containing the given TSDU until it calls <B>TdiReturnChainedReceives</B> with the given <I>TsduDescriptor</I>. </DD>
+
+<DT>STATUS_DATA_NOT_ACCEPTED</DT>
+
+<DD>Indicates the client is not interested in the TSDU. 
+
+<P>If the underlying transport buffers receives internally, the client might retrieve the data with a TDI_RECEIVE request, unless the transport discards buffered data indicated to ClientEventChainedReceive(<I>Xxx</I>) handlers. 
+
+</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>A call to ClientEventChainedReceiveExpedited gives the client read-only access to the indicated TSDU for the range within the buffer specified by the input <I>StartingOffset</I> and <I>ReceiveLength</I>. If the indicated data is of interest to the client, ClientEventChainedReceiveExpedited either copies the indicated range of TSDU data into a client-allocated internal buffer and returns STATUS_SUCCESS immediately or retains control of the buffer by returning STATUS_PENDING. If it returns STATUS_PENDING, the client must call <B>TdiReturnChainedReceives</B> subsequently with the input <I>TsduDescriptor</I> to relinquish control of the buffer after the client has consumed the data. </P>
+
+<P>In general, such a call to <B>TdiReturnChainedReceives</B> should occur as quickly as possible. Holding on to a buffer passed to ClientEventChainedReceiveExpedited for any extended period constrains I/O throughput in underlying driver(s), because the NDIS miniport driver that allocated the buffer cannot reuse this resource for subsequent receive indications until <B>TdiReturnChainedReceives</B> is called. </P>
+
+<P>Because calls to ClientEventChainedReceiveExpedited always indicate the availability of a full TSDU, the client never has to set up TDI_RECEIVE requests for such an indication, as the corresponding ClientEventReceiveExpedited handler sometimes must to obtain a full TSDU. Consequently, receive indications made to ClientEventChainedReceiveExpedited increase network I/O throughput and performance by decreasing call overhead for the client, for its underlying transport, and for the system overall. A transport never calls the corresponding ClientEventReceiveExpedited handler with the same indication it makes to ClientEventChainedReceiveExpedited.</P>
+
+<P>When ClientEventChainedReceiveExpedited returns control with either STATUS_SUCCESS or STATUS_DATA_NOT_ACCEPTED, the underlying transport assumes the client is done with this receive indication. If the client returns STATUS_PENDING, the transport assumes it has no way of tracking completion of this receive indication because the client is responsible for calling <B>TdiReturnChainedReceives</B> when it has consumed the indicated TSDU.  </P>
+
+<P>ClientEventChainedReceiveExpedited must be capable of carrying out its operations at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_4qnm.htm"><B>ClientEventChainedReceive</B></A>, <A HREF="35tdicli_7jea.htm"><B>ClientEventReceiveExpedited</B></A>, <A HREF="34bldmac_6sxe.htm"><B>TdiBuildSetEventHandler</B></A>, <A HREF="33tdifun_67aq.htm"><B>TdiReturnChainedReceives</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ClientEventChainedReceiveExpedited"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

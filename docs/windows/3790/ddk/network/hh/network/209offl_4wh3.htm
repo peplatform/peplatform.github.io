@@ -1,0 +1,72 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>UDP-ESP SAs and Parser Entries</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="UDP-ESP SAs and Parser Entries">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_udp_esp_sas_and_parser_entries_ng"></A>UDP-ESP SAs and Parser Entries</H3>
+
+<P>A miniport driver that supports UDP-ESP encapsulation must maintain a list of parser entries. A parser entry contains information that the miniport's NIC requires to parse incoming UDP-ESP packets on one or more offloaded security associations (SAs).</P>
+
+<P>A parser entry contains the following information:
+
+<UL>
+	<LI>The UDP-ESP encapsulation type.
+<P>Currently, only one encapsulation type is supported. For a description of the basic UDP-ESP encapsulation types, see <A HREF="209offl_84mf.htm">UDP-ESP Encapsulation Types</A>.
+</LI>
+
+	<LI>The destination encapsulation port.
+<P>The NIC should look for the destination port in the UDP header of inbound UDP-encapsulated packets that it processes on the offloaded SAs. Currently, UDP encapsulation of ESP packets is supported only on port 4500.
+</LI>
+</UL>
+
+<P>The TCP/IP transport maintains its own list of parser entries that it has offloaded to the miniport driver. When adding or deleting a UDP-ESP SA, the transport and miniport driver use a handle to identify a particular parser entry.</P>
+
+<P>Note that parser entries allow UDP-ESP functionality to be extended, if necessary, to accommodate different encapsulation types and more than one port for each encapsulation type.</P>
+
+<H4>Adding a UDP-ESP SA and Parser Entry</H4>
+
+<P>The TCP/IP transport requests a miniport driver to add one or more UDP-ESP SAs, and the parser entry for these SAs, by issuing an <A HREF="216offload_7aeq.htm">OID_TCP_TASK_IPSEC_ADD_UDPESP_SA</A> request. The <B>EncapTypeEntry</B> member of the OFFLOAD_IPSEC_ADD_UDPESP_SA structure contains the parser entry information.</P>
+
+<P>Before issuing an OID_TCP_TASK_IPSEC_ADD_UDPESP_SA request, the TCP/IP transport determines whether the parser entry for the SAs that is being offloaded is in its parser entry list for the specified IP interface.
+
+<UL>
+	<LI>If the parser entry is not in the transport's list, the transport creates its own copy of the entry and sets the <B>EncapTypeEntryOffloadHandle</B> member of the OFFLOAD_IPSEC_ADD_UDPESP_SA structure to NULL. The transport then issues the <A HREF="216offload_7aeq.htm">OID_TCP_TASK_IPSEC_ADD_UDPESP_SA</A> request. After receiving the request, the miniport driver determines whether the parser entry that the <B>EncapTypeEntry</B> specified is in the NIC's parser entry list.
+<UL>
+	<LI>If the specified parser entry is not in the NIC's parser entry list, the miniport driver creates the parser entry by using the encapsulation type and destination port specified in <B>EncapTypeEntry </B>and adds the parser entry to the NIC's parser entry list. The miniport then offloads the SAs specified in the OID_TCP_TASK_IPSEC_ADD_UDPESP_SA request. After successfully completing the OID request, the miniport driver returns a handle in <B>EncapTypeEntryOffloadHandle</B> that identifies the newly created parser entry. The miniport also returns a handle that identifies the offloaded SAs in the <B>OffloadHandle</B> member of the OFFLOAD_IPSEC_ADD_UDPESP_SA structure.</LI>
+
+	<LI>If the specified parser entry is already in the NIC's parser entry list, the miniport driver simply returns the handle in <B>EncapTypeEntryOffloadHandle</B> for the existing parser entry. The miniport driver also returns a handle that identifies the offloaded SAs in the <B>OffloadHandle</B> member of the OFFLOAD_IPSEC_ADD_UDPESP_SA structure.</LI>
+</UL>
+
+<P>If the miniport driver completes the OID_TCP_TASK_IPSEC_ADD_UDPESP_SA request successfully, the transport adds its copy of the new parser entry to its own parser entry list for the given IP interface. In addition, the transport increments the reference count for the parser entry by one. The transport uses this reference count to enumerate how many offloaded UDP-ESP SAs are associated with the parser entry. 
+
+<P>If the miniport driver fails the OID_TCP_TASK_IPSEC_ADD_UDPESP_SA request, the transport discards its copy of the parser entry. If the miniport driver fails such a request, it must ensure that it has not, in fact, added the parser entry and offloaded the SAs.
+</LI>
+
+	<LI>If the parser entry is already in the transport's parser entry list, the miniport driver has already added the parser entry in response to a previous OID_TCP_TASK_IPSEC_ADD_UDPESP_SA request. In this case, the transport increments the reference count for the parser entry by one and sets the <B>EncapTypeEntryOffloadHandle</B> to the value that the miniport driver previously returned. The transport then issues an OID_TCP_TASK_IPSEC_ADD_UDPESP_SA request This requests the miniport driver to use an existing parser entry for the additional SAs that are being offloaded. In this case, the miniport driver should simply return an <B>OffloadHandle</B> that identifies the offloaded SAs. If the OID_TCP_TASK_IPSEC_ADD_UDPESP_SA request fails, the transport decrements the reference count for the parser entry.</LI>
+</UL>
+
+<H4>Deleting a UDP-ESP SA and Parser Entry</H4>
+
+<P>The TCP/IP transport requests a miniport driver to delete one or more SAs and possibly the parser entry for these SAs by issuing an <A HREF="216offload_6j5e.htm">OID_TCP_TASK_IPSEC_DELETE_UDPESP_SA</A> request.</P>
+
+<P>Before issuing this request, the TCP/IP transport decrements the reference count for the parser entry that is associated with the SAs to be deleted. The transport then tests whether the reference count is zero.
+
+<UL>
+	<LI>If the reference count is not zero, the parser entry is associated with one or more other SAs that are currently offloaded to the NIC. In this case, the transport sets the <B>EncapTypeEntryOffldHandle</B> member of the OFFLOAD_IPSEC_DELETE_UDPESP_SA structure to NULL. After it receives the OID_TCP_TASK_IPSEC_DELETE_UDPESP_SA request, the miniport driver simply deletes the SAs that are specified in the OID_TCP_TASK_IPSEC_DELETE_UDPESP_SA request.</LI>
+
+	<LI>If the reference count is zero, the parser entry is <I>not </I>associated with any other SAs that have been offloaded to the NIC. In this case, the transport sets the <B>EncapTypeEntryOffldHandle</B> member to the value of the parser entry handle that the miniport driver previously returned. The miniport driver deletes both the specified parser entry and the specified SAs.</LI>
+</UL>
+
+<P>If the miniport driver fails the OID_TCP_TASK_IPSEC_DELETE_UDPESP_SA request, it should mark the specified SAs and, if appropriate, the specified parser entry for deletion and perform the deletion later. To process incoming packets, the miniport driver must not use a parser entry or SA that is marked for deletion. </P>
+
+<P>Note that a transport could request a miniport driver to delete an SA and/or a parser entry before the miniport driver completes adding that SA and/or parser entry. The miniport driver must therefore serialize the deletion operation with the addition operation.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: UDP-ESP%20SAs%20and%20Parser%20Entries"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

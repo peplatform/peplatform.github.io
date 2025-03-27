@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WSPListen</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WSPListen">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wsplisten_nr"></A>WSPListen</H1>
+
+<P><B>WSPListen</B> establishes a socket to listen for incoming connections. </P>
+
+<PRE class=syntax><B>int 
+  WSPListen(
+    IN SOCKET </B><I> s</I><B>,</B>
+<B>    IN int </B><I> backlog</I><B>,</B>
+<B>    OUT LPINT </B><I> lpErrno</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>s</I></DT>
+
+<DD>Descriptor that identifies a bound, unconnected socket.</DD>
+
+<DT><I>backlog</I></DT>
+
+<DD>Maximum length to which the queue of pending connections can grow. If set to SOMAXCONN, the SAN service provider should set its pending-connection queue to a reasonable maximum length. If the SAN service provider sets the backlog, there is no standard provision for the switch to determine the backlog.</DD>
+
+<DT><I>lpErrno</I></DT>
+
+<DD>Pointer to a variable that receives the error code.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>Returns zero if successful; otherwise, returns SOCKET_ERROR and, at <I>lpErrno</I>, one of the following error codes: 
+
+<DL>
+<DT>WSAENETDOWN</DT>
+
+<DD>Network subsystem failed.</DD>
+
+<DT>WSAEINVAL</DT>
+
+<DD>The switch did not previously call the SAN service provider's <B>WSPBind</B> function to bind the socket.</DD>
+
+<DT>WSAEISCONN</DT>
+
+<DD>Socket is already connected.</DD>
+
+<DT>WSAEMFILE</DT>
+
+<DD>No more socket descriptors available.</DD>
+
+<DT>WSAENOBUFS</DT>
+
+<DD>No buffer space available.</DD>
+
+<DT>WSAENOTSOCK</DT>
+
+<DD>Descriptor is not a socket.
+</DD>
+</DL>
+
+<P>Note that a SAN service provider does not support the following error codes for <B>WSPListen</B>: 
+
+<DL>
+<DT>WSAEADDRINUSE</DT>
+
+<DD>The Windows Sockets switch, in conjunction with the TCP/IP provider, handles address reuse. </DD>
+
+<DT>WSAEINPROGRESS</DT>
+
+<DD>The Windows Sockets switch never issues cancel blocking calls to a SAN service provider. </DD>
+
+<DT>WSAEOPNOTSUPP</DT>
+
+<DD>The socket is the appropriate type (that is, SOCK_STREAM).
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>Ws2spi.h</I>. Include <I>Ws2spi.h</I>. Requires Windows Sockets version&nbsp;2.0.</P>
+
+<H4>Comments</H4>
+
+<P>The Windows Sockets switch calls a SAN service provider's <B>WSPListen</B> function to set a socket to acknowledge and queue incoming connection requests until the switch accepts them. </P>
+
+<P>To accept incoming connection requests, the switch first calls the SAN service provider's <B>WSPSocket</B> function to create a socket and then calls the SAN service provider's <B>WSPBind</B> function to bind the socket to a local IP address. The switch can bind a socket to either the IP address of one of the network interface cards (NICs) serviced by the SAN service provider or to the wildcard IP address (0.0.0.0). The wildcard IP address implies that the SAN service provider should accept incoming connection requests from all NICs it controls. The switch next calls the <B>WSPListen</B> function to set the socket to passive mode in which the SAN service provider acknowledges and queues incoming connection requests. In this call, the switch specifies the maximum size of the queue. The switch subsequently calls the <B>WSPAccept</B> function to accept connection requests in the queue. </P>
+
+<P>Typically, servers might receive more than one connection request at a time. The Windows Sockets switch on such a server calls the SAN service provider's <B>WSPListen</B> function to queue incoming-connection requests. Remote clients establish connections with those servers. The Windows Sockets switch on such a remote client calls the SAN service provider's <B>WSPConnect</B> function to initiate a connection operation. If a connection request arrives on the server and the SAN service provider's incoming-connection queue is full, the SAN service provider should immediately indicate to the remote client that it refuses the connection request. The SAN service provider on the remote client must then fail its connection operation with the WSAECONNREFUSED error code. </P>
+
+<P>The <B>WSPListen</B> function should continue to function even if socket descriptors are not available. It should accept connections until the queue is emptied. If descriptors become available, a subsequent call to <B>WSPListen</B> or <B>WSPAccept</B> refills the queue to the current or most recent backlog, if possible, and resumes listening for incoming connections. </P>
+
+<P>The switch can call the <B>WSPListen</B> function more than once on the same socket. Doing so updates the current backlog for the listening socket. If the number of incoming connection requests in the queue exceeds the specified maximum size for the queue, the SAN service provider resets and drops excess connection requests. </P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The SAN service provider silently limits the maximum size of the queue of incoming connection requests to a reasonable value. If the switch passes an invalid value for this maximum queue size, the SAN service provider replaces the invalid value with the nearest valid value. There is no standard provision that the switch can use to determine the actual maximum queue size that the SAN service provider uses. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="wsdpref_0tiq.htm"><B>WSPAccept</B></A>, <A HREF="wsdpref_5wfm.htm"><B>WSPBind</B></A>, <A HREF="wsdpref_7enm.htm"><B>WSPConnect</B></A>, <A HREF="wsdpref_6ir6.htm"><B>WSPSocket</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WSPListen"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

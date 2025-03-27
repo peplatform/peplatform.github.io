@@ -1,0 +1,71 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProtocolReceivePacket</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProtocolReceivePacket">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocolreceivepacket_nr"></A>ProtocolReceivePacket</H1>
+
+<P>The <I>ProtocolReceivePacket</I> function is an optional driver function. <I>ProtocolReceivePacket</I> processes receive indications made by underlying connectionless NIC driver(s) that call <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A> either with packet arrays because the underlying driver supports multipacket receive indications or with individual packets that have associated out-of-band information. A call to <I>ProtocolReceivePacket</I> can also occur as a result of loopback.</P>
+
+<P>Protocols that bind themselves exclusively to underlying connection-oriented miniport drivers must have a fully functional <A HREF="104tdlow_3pwy.htm"><I>ProtocolCoReceivePacket</I></A> function, rather than a <I>ProtocolReceivePacket</I> function. </P>
+
+<PRE class=syntax><B>INT</B>
+  <B>ProtocolReceivePacket(</B>
+    <B>IN NDIS_HANDLE</B>  <I>ProtocolBindingContext</I><B>,</B>
+    <B>IN PNDIS_PACKET</B>  <I>Packet</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>ProtocolBindingContext</I></DT>
+
+<DD>Specifies the handle to a protocol-allocated context area in which the protocol driver maintains per-binding run-time state. The driver supplied this handle when it called <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A>. </DD>
+
+<DT><I>Packet</I></DT>
+
+<DD>Specifies a pointer to a packet descriptor for the received net packet. NDIS extracted this pointer from an array of packet descriptor pointers that an underlying driver passed to <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>ProtocolReceivePacket</I> returns a driver-determined value that tells NDIS how many times the protocol will subsequently call <A HREF="103ndisx_61de.htm"><B>NdisReturnPackets</B></A> with the given packet, or zero if the protocol is done with or not interested in this packet.  </P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Any protocol driver that might bind itself to an underlying connectionless NIC driver that supports multipacket receive indications should have a <I>ProtocolReceivePacket</I> function. Such an underlying driver always indicates full-packet receives. </P>
+
+<P>A protocol can achieve better performance if it has a <I>ProtocolReceivePacket</I> function. Such a protocol (or the TDI clients of a highest level Windows&nbsp;2000 or later protocol) can hold on to all received data, to which it is given read-only access, specified at <I>Packet</I> if <I>ProtocolReceivePacket</I> returns a nonzero value. For a highest level Windows&nbsp;2000 or later protocol driver, the return value for such an input <I>Packet</I> descriptor pointer can be a reference count of clients the protocol has notified about the received net packet by forwarding the input <I>Packet</I> descriptor. For an intermediate NDIS driver, the return value can be a count of higher level protocols to which it has made a corresponding indication or one if the driver tracks the number of higher level protocols to which it forwards the processed indication. For a highest level Windows&nbsp;2000 or later protocol that forwards the input <I>Packet</I> descriptor pointer to some number of interested clients, each client retains read-only access to the indicated data until the client calls <A HREF="33tdifun_67aq.htm"><B>TdiReturnChainedReceives</B></A>. An intermediate NDIS driver retains ownership of the indicated packet until it calls <A HREF="103ndisx_61de.htm"><B>NdisReturnPackets</B></A> with <I>Packet</I> as many times as the reference count returned by <I>ProtocolReceivePacket</I>. </P>
+
+<P>If <I>ProtocolReceivePacket</I> does not call <B>NdisReturnPackets</B> itself, the protocol must pass the input <I>Packet</I> pointer to <B>NdisReturnPackets</B> after <I>ProtocolReceivePacket</I> returns control. In this scenario, <I>ProtocolReceivePacket</I> should save the input <I>Packet</I> pointer in the <I>ProtocolBindingContext</I> area when it will return a nonzero value. </P>
+
+<P>The NDIS library maintains the reference count for such an indicated packet, and the protocol retains ownership of the packet until it has called <B>NdisReturnPackets</B> with that packet as many times as the value returned by its <I>ProtocolReceivePacket</I> function. </P>
+
+<P><I>ProtocolReceivePacket</I> returns zero to relinquish ownership of the given <I>Packet</I> if the protocol has no current clients or bound higher level protocols interested in the indicated network packet or if the <I>ProtocolReceivePacket</I> function copies the data from the given packet and associated out-of-band block, if any, to protocol-allocated storage itself. When <I>ProtocolReceivePacket</I> returns zero, NDIS either calls another bound protocol with the receive indication or returns the given packet descriptor at <I>Packet</I> to the miniport driver that made the indication. </P>
+
+<P>Any protocol that binds itself to an underlying connectionless NIC driver that supplies out-of-band information for receives must have a <I>ProtocolReceivePacket</I> function to interpret the miniport driver-supplied out-of-band information when processing receive indications. Such a protocol can retrieve the associated out-of-band information for the given <I>Packet</I> with the appropriate NDIS_GET_PACKET_<I>XXX</I> macro(s). </P>
+
+<P>If an incoming packet descriptor has NDIS_STATUS_RESOURCES set for the <B>Status</B> in the associated OOB block, the protocol must not retain the packet descriptor and associated miniport driver-allocated resources. Instead, the <I>ProtocolReceivePacket</I> should copy the received data into protocol-allocated storage and return zero to NDIS as quickly as possible. Such a <B>Status</B> in the OOB block for a miniport driver-allocated packet descriptor indicates that the miniport driver is running low on receive resources. </P>
+
+<P>On a multiprocessor system, this function may execute concurrently on more than one processor.  Apply  protection (for example,  use spinlocks)  to critical data structures accessed by this function.</P>
+
+<P><I>ProtocolReceivePacket</I> runs at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_6oz6.htm">NDIS_GET_PACKET_HEADER_SIZE</A>, <A HREF="103ndisx_4m0i.htm">NDIS_GET_PACKET_MEDIA_SPECIFIC_INFO</A>, <A HREF="103ndisx_3q0i.htm">NDIS_GET_PACKET_TIME_RECEIVED</A>, <A HREF="103ndisx_11iq.htm">NDIS_GET_PACKET_TIME_SENT</A>, <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="103ndisx_61de.htm"><B>NdisReturnPackets</B></A>, <A HREF="104tdlow_3pwy.htm"><I>ProtocolCoReceivePacket</I></A>, <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A>, <A HREF="33tdifun_67aq.htm"><B>TdiReturnChainedReceives</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProtocolReceivePacket"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

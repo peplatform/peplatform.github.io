@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>MiniportTransferData</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="MiniportTransferData">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_miniporttransferdata_nr"></A>MiniportTransferData</H1>
+
+<P>The <I>MiniportTransferData</I> function is required in NIC drivers that do not indicate multipacket receives and/or media-specific information with <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A> and in those that do not support WAN media.</P>
+
+<PRE class=syntax><B>NDIS_STATUS</B> <B>
+</B>  <B>MiniportTransferData(
+    OUT</B> <B>PNDIS_PACKET</B>  <I>Packet</I><B>,</B>
+    <B>OUT</B> <B>PUINT</B>  <I>BytesTransferred</I><B>,</B><I>
+    </I><B>IN</B> <B>NDIS_HANDLE</B>  <I>MiniportAdapterContext</I><B>,</B>
+    <B>IN</B> <B>NDIS_HANDLE</B>  <I>MiniportReceiveContext</I><B>,</B>
+    <B>IN</B> <B>UINT</B>  <I>ByteOffset</I><B>,</B>
+    <B>IN</B> <B>UINT</B>  <I>BytesToTransfer</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Packet</I></DT>
+
+<DD>Pointer to a packet descriptor with chained buffers into which <I>MiniportTransferData</I> should copy the received data.</DD>
+
+<DT><I>BytesTransferred</I></DT>
+
+<DD>Pointer to a variable that <I>MiniportTransferData</I> sets to the number of bytes it copied into the packet. This value is meaningless if <I>MiniportTransferData</I> returns NDIS_STATUS_PENDING.</DD>
+
+<DT><I>MiniportAdapterContext</I></DT>
+
+<DD>Specifies the handle to a miniport driver-allocated context area in which the driver maintains per-NIC state, set up by <I>MiniportInitialize</I>.</DD>
+
+<DT><I>MiniportReceiveContext</I></DT>
+
+<DD>Specifies the context handle previously passed to <B>NdisM</B><I>Xxx</I><B>IndicateReceive</B>. The miniport driver can examine this value to determine which receive to copy.</DD>
+
+<DT><I>ByteOffset</I></DT>
+
+<DD>Specifies the offset within the received packet at which <I>MiniportTransferData</I> should begin the copy. If the entire packet is copied, <I>ByteOffset</I> is zero.</DD>
+
+<DT><I>BytesToTransfer</I></DT>
+
+<DD>Specifies how many bytes to copy. The sum of <I>ByteOffset</I> and <I>BytesToTransfer</I> should be less than or equal to the packet size that was specified in the miniport’s receive indication. This value can be zero.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>MiniportTransferData</I> can return one of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD><I>MiniportTransferData</I> copied the requested data into the protocol-supplied packet, and it set <I>BytesTransferred</I> to the number of bytes copied. </DD>
+
+<DT>NDIS_STATUS_PENDING</DT>
+
+<DD>The driver will complete the transfer asynchronously with a call to <A HREF="103ndisx_6nhu.htm"><B>NdisMTransferDataComplete</B></A>. </DD>
+
+<DT>NDIS_STATUS_FAILURE</DT>
+
+<DD>Either the data could not be copied or the input transfer range was invalid. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h.</I></P>
+
+<H4>Comments</H4>
+
+<P><I>MiniportTransferData</I> copies the contents of the received packet to a given protocol-allocated packet.</P>
+
+<P>NDIS calls <I>MiniportTransferData</I> when a <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> function calls <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A>. The media header associated with a packet cannot be copied; only the data portion of a packet can be copied. The range passed to <B>NdisTransferData</B> never includes the media header. Usually, the <I>ByteOffset</I> input to <I>MiniportTransferData</I> excludes data that the miniport driver already indicated in the lookahead buffer. </P>
+
+<P>A miniport driver must be prepared to copy a given packet more than once. If its NIC supports reading a given packet only once, the miniport driver must copy each received network packet to a staging buffer.</P>
+
+<P><I>MiniportTransferData</I> can call <A HREF="103ndisx_4ooi.htm"><B>NdisQueryPacket</B></A> to determine how many buffer descriptors the allocating protocol has provided. The protocol is responsible for supplying a packet descriptor that accommodates the transfer it requested. <I>MiniportTransferData</I> can call <A HREF="103ndisx_0l82.htm"><B>NdisQueryBuffer</B></A> or <A HREF="103ndisx_7t9u.htm"><B>NdisQueryBufferSafe</B></A> to determine how much data to copy into each protocol-supplied buffer. </P>
+
+<P><I>MiniportTransferData</I> can fail a request if the given <I>ByteOffset</I> and <I>BytesToTransfer</I> exceed the packet size originally indicated. Alternatively, <I>MiniportTransferData </I>can simply transfer all available data starting at any valid <I>ByteOffset</I>. </P>
+
+<P>Because <I>MiniportTransferData</I> is asynchronous, a miniport driver that has this function cannot deliver receive indications while a transfer is pending. If <I>MiniportTransferData</I> returns NDIS_STATUS_PENDING, the miniport driver must call <A HREF="103ndisx_6nhu.htm"><B>NdisMTransferDataComplete</B></A> when the transfer is complete.</P>
+
+<P>A driver that indicates packets with <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A> does not need a <I>MiniportTransferData</I> function because such a driver always indicates full packets to bound protocols. </P>
+
+<P>Interrupts are still disabled when <I>MiniportTransferData</I> is called.</P>
+
+<P><I>MiniportTransferData</I> runs at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, <A HREF="103ndisx_146q.htm"><B>NdisGetFirstBufferFromPacket</B></A>, <A HREF="103ndisx_92wi.htm"><B>NdisGetFirstBufferFromPacketSafe</B></A>, <A HREF="103ndisx_2j5e.htm"><B>NdisGetNextBuffer</B></A>, <A HREF="103ndisx_1saa.htm"><B>NdisMArcIndicateReceive</B></A>, <A HREF="103ndisx_51pu.htm"><B>NdisMEthIndicateReceive</B></A>, <A HREF="103ndisx_9dyq.htm"><B>NdisMFddiIndicateReceive</B></A>, <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, <A HREF="103ndisx_87le.htm"><B>NdisMoveMemory</B></A>, <A HREF="103ndisx_6nhu.htm"><B>NdisMTransferDataComplete</B></A>, <A HREF="103ndisx_58c3.htm"><B>NdisMTrIndicateReceive</B></A>, <A HREF="103ndisx_0l82.htm"><B>NdisQueryBuffer</B></A>, <A HREF="103ndisx_7t9u.htm"><B>NdisQueryBufferSafe</B></A>, <A HREF="103ndisx_4ooi.htm"><B>NdisQueryPacket</B></A>, <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A>, <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: MiniportTransferData"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

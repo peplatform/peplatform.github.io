@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>400 - Using &lt;function&gt; to perform a case-insensitive compare to constant &lt;string&gt;.</TITLE>
+<META Name="InChm" Content="True">
+<META name="rtfFileName" content="prefast.rtf">
+<!--CSS_START-->
+<SCRIPT SRC="../scripts/dtuelink.js"></SCRIPT>
+<!--CSS_END--></HEAD>
+<body topmargin=0 id="bodyID" class = "dtBODY">
+
+<!--NONSCROLLING BANNER START-->
+<div id="nsbanner">
+<div id="bannerrow1">
+<TABLE CLASS="bannerparthead" CELLSPACING=0>
+<TR ID="hdr">
+<TD CLASS="runninghead" nowrap>PREfast&nbsp;User&nbsp;Guide</TD>
+<TD CLASS="product" nowrap>&nbsp;</TD>
+</TR>
+</TABLE>
+</div>
+<div id="TitleRow">
+<H1 class="dtH1"><A NAME="vcgrf400-usingfunctiontoperformcase-insensitivecomparetoconstantstring"></A>400 - Using &lt;function&gt; to perform a case-insensitive compare to constant &lt;string&gt;.</H1>
+
+<H1 class="dtH1">Consequence: Yields unexpected results in non-English locales.</H1>
+</div></div>
+<!--NONSCROLLING BANNER END-->
+<DIV id="nstext" valign="bottom">
+<div id="allHistory" class="saveHistory" onsave="saveAll()" onload="loadAll()"></div><!-- Topic Status -->
+<P>This warning indicates that a case-insensitive comparison to a constant string is being performed in a locale-dependent way, when it appears that a locale-independent comparison was intended.</P>
+
+<P>The typical consequence of this defect is incorrect behavior in non-English speaking locales. For example, in Turkish, ".gif" will not match ".GIF"; in Vietnamese, "LogIn" will not match "LOGIN". If not corrected, these problems will be discovered and need to be corrected during localization testing. </P>
+
+<P>String comparisons are performed in two different situations:
+
+<UL type="disc">
+	<LI>In some situations, the comparison should match the user's language preferences; for example, the user speaks French and wants their list of contact names in the default order for French. In this case, a locale-dependent comparison (such as performed by <B>lstrcmpi</B>, or <B>CompareString</B> with the current locale) is appropriate.</li>
+
+	<LI>In other situations, the comparison should return the same result regardless of the user's language; for example, does the extension of a file equal ".gif." In this case, a locale-independent comparison is appropriate.</li>
+</UL>
+
+<P>Performing a locale-dependent comparison when a locale-independent comparison was intended is a major source of localization problems for languages such as Turkish.</P>
+
+<P>String comparisons should generally be performed with the<B> CompareString</B> function. There are additional considerations for names in the file system. To perform a locale-independent comparison on Windows XP, the first parameter should be the constant<B> LOCALE_INVARIANT</B>. For example, to perform a locale-independent test for whether <I>pString</I> matches MyGraphic.gif ignoring upper- and lowercase differences, use a call such as:</P>
+
+<PRE class="code"><code class="ce">CompareString(LOCALE_INVARIANT,
+              NORM_IGNORECASE,
+              pString,
+              -1,
+              TEXT("MyGraphic.gif"),
+              -1) == 2 </code></PRE>
+
+<P>If code must support down-level operating systems as well, the preferred way of performing a locale-independent test is:</P>
+
+<PRE class="code"><code class="ce">     CompareString(MAKELCID(MAKELANGID(LANG_ENGLISH,
+                                       SUBLANG_ENGLISH_US),
+                            SORT_DEFAULT),
+                   ...</code></PRE>
+
+<P>This warning is produced on calls to functions such as </P>
+
+<PRE class="code"><code class="ce">     </code>lstrcmpi 
+<code class="ce">     </code>lstrcmpiA 
+<code class="ce">     </code>lstrcmpiW </PRE>
+
+<BLOCKQUOTE class="dtBlock">
+<B>Note</B>&nbsp;&nbsp;&nbsp;This warning is not produced if the constant string is the empty string (<B>_T("")</B>) or consists only of digits or punctuation. Even though the behavior will be correct in these cases, it is probably more efficient to use a case-sensitive comparison function.</BLOCKQUOTE>
+
+<H4 class="dtH4">Example</H4>
+
+<P><B>Defective Source</B></P>
+
+<PRE class="code">return (lstrcmpi(extension,
+                 TEXT("gif")) == 0);</PRE>
+
+<P><B>Corrected Source</B></P>
+
+<PRE class="code">return (CompareString(LOCALE_INVARIANT,
+                      NORM_IGNORECASE, 
+                      extension,
+                      -1,
+                      TEXT ("gif"),
+                      -1) == 2);</PRE>
+<!--Footer Start-->
+<DIV CLASS="footer">
+<br>
+<HR><!--Copyright-->
+<p><MSHelp:link keywords="vxmscCopyright" TABINDEX="0">&copy; Microsoft Corporation. All rights reserved.</MSHelp:link></p></div> <!--Closes the footer div-->
+</div> <!--closes the topic content div-->
+<!--FOOTER_END-->
+</BODY>
+</HTML>

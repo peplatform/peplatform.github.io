@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Mapping Bus-Relative Addresses to Virtual Addresses</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Mapping Bus-Relative Addresses to Virtual Addresses">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_mapping_bus_relative_addresses_to_virtual_addresses_kg"></A>Mapping Bus-Relative Addresses to Virtual Addresses</H1>
+
+<P>Some processors implement separate memory and I/O address spaces, while others do not. Because of these differences in hardware platforms, the mechanism drivers use to access I/O- or memory-resident device resources differs from platform to platform. </P>
+
+<P>A driver requests device I/O and memory resources in response to the PnP Manager's <A HREF="pnp-irps_9jhu.htm">IRP_MN_QUERY_RESOURCE_REQUIREMENTS</A> IRP. Depending on the hardware architecture, the HAL can assign I/O resources in I/O space or in memory space, and can assign memory resources in I/O space or in memory space. </P>
+
+<P>If the HAL uses bus-relative memory space to access device resources (such as device registers), a driver must map I/O space into virtual memory so that it can access these resources. The driver can determine whether the resources are I/O- or memory-resident by inspecting the translated resources passed to the driver by the PnP Manager at device start-up. If the HAL uses I/O space, no mapping is required.</P>
+
+<P>Specifically, when a driver receives an <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> request, it should examine the structures at <B>IrpSp-&gt;Parameters.StartDevice.AllocatedResources </B>and <B>IrpSp-&gt;Parameters.StartDevice.AllocatedResourcesTranslated</B>, which describe the raw (bus-relative) and translated resources, respectively, that the PnP Manager has assigned to the device. Drivers should save a copy of each resource list in the device extension as an aid to debugging.</P>
+
+<P>The resource lists are paired <A HREF="k112_92k2.htm">CM_RESOURCE_LIST</A> structures, in which each element of the raw list corresponds to the same element of the translated list. For example, if <B>AllocatedResources.List</B>[0] describes a raw I/O port range, then <B>AllocatedResourcesTranslated.List</B>[0] describes the same range after translation. Each translated resource includes a physical address and the type of the resource. </P>
+
+<P>If a driver is assigned a translated memory resource (<B>CmResourceTypeMemory</B>), it must call <A HREF="k106_9j5e.htm"><B>MmMapIoSpace</B></A> to map the physical address into a virtual address through which it can access device registers. For a driver to operate in a platform independent manner, it should check each returned, translated resource and map it, if necessary. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>A kernel-mode driver should take the following steps, in response to an IRP_MN_START_DEVICE request, to ensure access to all device resources</B>
+
+<OL>
+	<LI>Copy <B>IrpSp-&gt;Parameters.StartDevice.AllocatedResources</B> to the device extension.</LI>
+
+	<LI>Copy <B>IrpSp-&gt;Parameters.StartDevice.AllocatedResourcesTranslated</B> to the device extension.</LI>
+
+	<LI>In a loop, inspect each descriptor element in <B>AllocatedResourcesTranslated</B>. If the descriptor resource type is <B>CmResourceTypeMemory</B>, call <B>MmMapIoSpace</B>, passing the physical address and length of the translated resource.</LI>
+</OL>
+
+<P>When the driver receives an IRP_MN_STOP_DEVICE or IRP_MN_REMOVE_DEVICE request from the PnP Manager, it must release the mappings by calling <A HREF="k106_16sy.htm"><B>MmUnmapIoSpace</B></A> in a similar loop. The driver should also call <B>MmUnmapIoSpace</B> if it must fail the IRP_MN_START_DEVICE request.</P>
+
+<P>The raw resource type indicates which HAL access routine a driver should call (READ_REGISTER_ Xxx, WRITE_REGISTER_Xxxx, READ_PORT_Xxx, WRITE_PORT_Xxx). Most drivers need not check the raw resource list to determine which of these routines to use, because either the driver itself requested the resource or the driver writer knows the required type given the nature of the device hardware.</P>
+
+<P>For a resource in I/O space (<B>CmResourceTypePort</B>, <B>CmResourceTypeInterrupt</B>, <B>CmResourceTypeDma</B>), the driver should use the low-order 32 bits of the returned physical address to access the device resource, for example, through the HAL's read and write READ_REGISTER_ Xxx, WRITE_REGISTER_Xxxx, READ_PORT_Xxx, and WRITE_PORT_Xxx routines. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Mapping%20Bus-Relative%20Addresses%20to%20Virtual%20Addresses"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

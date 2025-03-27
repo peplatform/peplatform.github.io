@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Building and Deploying the Localized MOF File</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Building and Deploying the Localized MOF File">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_building_and_deploying_the_localized_mof_file_kg"></A>Building and Deploying the Localized MOF File</H3>
+
+<P>International versions of Windows XP and later versions of the operating system come in two flavors — single-language (localized) versions, and Multilanguage User Interface (MUI) versions. An MUI version of Windows can support several languages simultaneously.</P>
+
+<P>Drivers that are deployed on a localized version of Windows should contain a MOF resource that contains the language-neutral version of all the classes, as well as the localized language amendment and the American English language amendment.</P>
+
+<P>On an MUI version of Windows, the driver image itself should contain the language-neutral and American English versions of the WMI classes. For each additional language supported, a resource-only image can be placed in the <B>%windir%\system32\drivers\MUI\</B><I>langid</I> directory, where <I>langid</I> is the LCID of the for the locale.</P>
+
+<P>Optionally, the driver image itself can contain every language supported.</P>
+
+<P>If a language is not supported by one of these mechanisms, the English language version is used.</P>
+
+<H4>Building Distinct MOF Files For Each Language</H4>
+
+<P>Driver writers can use one master MOF text file to contain the basic class, and all of its amendments.</P>
+
+<P>You can use the MOF compiler to generate a file containing the language-neutral classes as well as a file to contain the amended classes for a particular language.</P>
+
+<PRE>mofcomp -amendment:<I>namespace</I> [ -MOF:<I>mof</I>] [ -MFL:<I>mfl</I>] <I>masterfile</I>
+</PRE>
+
+<P>The <I>namespace</I> parameter is of the form MS_<I>XXX</I>, where <I>XXX</I> is the LCID for the locale to be generated. The <I>mof</I> file created contains the language-neutral classes, and the <I>mfl</I> file created contains the amended classes.</P>
+
+<P>When building your driver on NT-based operating systems, you can merge the two files by using the copy command. On Windows® 98/Me, the copy command does not correctly append Unicode files, but the following command can be used.</P>
+
+<PRE>wmimofck <I>localizedfile</I> -y<I>mof</I> -z<I>mfl</I>
+</PRE>
+
+<P>You can combine any number of languages into a single text file.</P>
+
+<P>The localized file can then be compiled into a binary file by the same method as for the MOF files that have not been localized:</P>
+
+<PRE>mofcomp -B:<I>binaryfile</I> <I>localizedfile</I>
+</PRE>
+
+<P>For a single-language version of Windows, drivers attach the binary MOF as a resource to the driver image. See <A HREF="wmi_5xrb.htm">Compiling a Driver's MOF File</A> for details.</P>
+
+<P>On an MUI system, the driver image itself must be built for American English. For each additional language, install each localized binary MOF file as a resource in a separate image file in the appropriate <B>%windir%\system32\drivers\MUI\</B><I>langid</I> directory, where <I>langid</I> is the hexadecimal LCID for the locale (for example, 409 for American English). The file name must be either <I>drivername.sys</I> or <I>drivername.sys.mui</I>, where <I>drivername.sys</I> is the name of the driver binary.</P>
+
+<H4>Building One MOF File for All Supported Languages</H4>
+
+<P>If the driver image will contain every supported language, there is a simpler way to build a MOF file supporting every language. By using <B>#pragma</B> directives in the MOF text file, drivers can also combine all of the amended classes in one binary. Since each localization exists in a distinct namespace, they can safely be combined in a single binary.</P>
+
+<P>When writing the combined MOF text file, driver writers must precede each amended class declaration with a <B>#pragma</B> directive as follows</P>
+
+<PRE>#pragma namespace ("<I>namespace</I>")
+</PRE>
+
+<P>where <I>namespace</I> is the correct namespace for the declaration. For example, the amended class declaration for American English must be preceded with a declaration of the form:</P>
+
+<PRE>#pragma namespace ("\\\\.\\root\\wmi\\ms_409")
+</PRE>
+
+<P>For example, you declare a class and its amendments as follows.</P>
+
+<PRE>#pragma namespace ("\\\\.\\root\\wmi)
+
+[guid(xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxx)]
+class MyClass 
+{
+}
+
+#pragma namespace(\\\\.\\root\\wmi\\ms_409)
+[amendment, locale(0x407)]
+class MyClass
+{
+}
+</PRE>
+
+<P>Using this approach, building the binary MOF file is identical to the nonlocalized approach. See <A HREF="wmi_5xrb.htm">Compiling A Driver's MOF File</A> for details. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Building%20and%20Deploying%20the%20Localized%20MOF%20File"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProtocolClMakeCallComplete</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProtocolClMakeCallComplete">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocolclmakecallcomplete_nr"></A>ProtocolClMakeCallComplete</H1>
+
+<P>The <I>ProtocolClMakeCallComplete</I> function is used by connection-oriented NDIS clients that make outgoing calls. Such clients must have <I>ProtocolClMakeCallComplete</I> functions to complete the asynchronous operations that they initiate with <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>. Otherwise, such a protocol driver's registered <I>ProtocolClMakeCallComplete</I> function can simply return control. </P>
+
+<PRE class=syntax><B>VOID 
+</B>  <B>ProtocolClMakeCallComplete(
+</B>    <B>IN NDIS_STATUS</B>  <I>Status</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>ProtocolVcContext</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisPartyHandle</I>  <B>OPTIONAL,</B>
+    <B>IN PCO_CALL_PARAMETERS</B>  <I>CallParameters
+</I>    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Status</I></DT>
+
+<DD>Specifies the final status of the client’s original call to <B>NdisClMakeCall</B>, which can be one of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>The client's attempt to set up a virtual connection succeded. Consequently, the client can proceed to make transfers on the active VC using the <I>NdisVcHandle</I> returned by <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A>, which the client has stored in its per-VC context area at <I>ProtocolVcContext</I>.</DD>
+
+<DT>NDIS_STATUS_RESOURCES</DT>
+
+<DD>NDIS, the call manager, or an underlying driver could not allocate sufficient resources to set up the connection.</DD>
+
+<DT>NDIS_STATUS_<I>XXX</I> </DT>
+
+<DD>The call manager or underlying miniport driver failed to establish an active connection and NDIS propagated this driver-determined failure status to the client. </DD>
+</DL>
+</DD>
+
+<DT><I>ProtocolVcContext</I></DT>
+
+<DD>Specifies the handle to the client’s per-VC context area, which the client originally supplied to NDIS when it called <B>NdisCoCreateVc</B> to set up the VC for its outgoing call.</DD>
+
+<DT><I>NdisPartyHandle</I></DT>
+
+<DD>If <I>Status</I> is NDIS_STATUS_SUCCESS and the client created a multipoint VC by passing an explicit <I>ProtocolPartyContext</I> handle to <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>, this is a valid <I>NdisPartyHandle</I>. Otherwise, this parameter is NULL.
+
+<P><I>ProtocolClMakeCallComplete</I> must save any valid input <I>NdisPartyHandle</I>, usually in the client's per-party context area. The client must use this handle if (or when) it makes a subsequent call to <A HREF="103ndisx_2tf6.htm"><B>NdisClDropParty</B></A> or <A HREF="103ndisx_7rsi.htm"><B>NdisClCloseCall</B></A> that refers to this party. 
+</DD>
+
+<DT><I>CallParameters</I></DT>
+
+<DD>Pointer to a buffered CO_CALL_PARAMETERS structure. The client allocated this buffer and initialized this structure with client-determined data before passing this pointer to <B>NdisClMakeCall</B>. While processing the client’s request, the call manager can modify this data to reflect the results of its negotiation with the network or with a signalling peer.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A call to <I>ProtocolClMakeCallComplete</I> indicates that the call manager has completed processing the client's request to establish a virtual connection with <B>NdisClMakeCall</B>. </P>
+
+<P>If the client's attempt to establish an outgoing call is unsuccessful (input <I>Status</I> is anything except NDIS_STATUS_SUCCESS), <I>ProtocolClMakeCallComplete</I> should do the following:
+
+<UL>
+	<LI>Release or prepare for reuse the <I>ProtocolPartyContext</I> area, if any, and the buffer at <I>CallParameters</I> that the client allocated. </LI>
+
+	<LI>Tear down the client-created VC with a call to <A HREF="103ndisx_920i.htm"><B>NdisCoDeleteVc</B></A> and release or prepare for reuse the client-allocated <I>ProtocolVcContext</I> area. </LI>
+</UL>
+
+<P>Otherwise, <I>ProtocolClMakeCallComplete</I> should do the following:
+
+<OL>
+	<LI>Check the <B>Flags</B> member of the structure at <I>CallParameters</I> to see whether CALL_PARAMETERS_CHANGED is set, which indicates that the call manager modified the client-supplied call parameters. </LI>
+
+	<LI>If so, examine the data at <I>CallParameters</I> to determine whether they are acceptable for this connection. 
+<P>For example, the client might retain the buffered call parameters for the active VC, save the <I>NdisPartyHandle</I> if this is a multipoint VC, and generally make the client ready for subsequent transfers and other operations on the active VC if it finds the given call parameters satisfactory. 
+</LI>
+
+	<LI>If not, the signalling protocol determines whether the client can attempt to renegotiate for acceptable call parameters with the call manager. 
+<P>For example, a particular call manager might allow its clients to call <A HREF="103ndisx_7jhu.htm"><B>NdisClModifyCallQoS</B></A> one or more times in these circumstances. 
+</LI>
+
+	<LI>If the CM-modified call parameters are unacceptable and further renegotiation is impossible, <I>ProtocolClMakeCallComplete</I> must tear down the call with <A HREF="103ndisx_7rsi.htm"><B>NdisClCloseCall</B></A>. 
+<P>In this case, <I>ProtocolClMakeCallComplete</I> should <I>not</I> attempt to release any client-allocated resources on return from <B>NdisClCloseCall</B> but can simply return control. Instead, the client should release the resources it allocated (or prepare them for reuse) within its <I>ProtocolClCloseCallComplete</I> function. 
+</LI>
+</OL>
+
+<P><I>ProtocolClMakeCallComplete</I> must be written so that it can run at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A>, <A HREF="103ndisx_7rsi.htm"><B>NdisClCloseCall</B></A>, <A HREF="103ndisx_2tf6.htm"><B>NdisClDropParty</B></A>, <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>, <A HREF="103ndisx_460i.htm"><B>NdisCmMakeCallComplete</B></A>, <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A>, <A HREF="103ndisx_920i.htm"><B>NdisCoDeleteVc</B></A>, <A HREF="103ndisx_6sc2.htm"><B>NdisFreeMemory</B></A>, <A HREF="103ndisx_0kc2.htm"><B>NdisFreeToNPagedLookasideList</B></A>, <A HREF="103ndisx_8a2a.htm"><B>NdisMCmMakeCallComplete</B></A>, <A HREF="104tdlow_3ofm.htm"><I>ProtocolClCloseCallComplete</I></A>, <A HREF="104tdlow_20oi.htm"><I>ProtocolCmMakeCall</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProtocolClMakeCallComplete"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

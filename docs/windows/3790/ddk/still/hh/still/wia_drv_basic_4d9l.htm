@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>USB Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="USB Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_usb_driver_si"></A>USB Driver</H3>
+
+<P>The kernel-mode still image driver for USB buses supports a single control endpoint, along with multiple interrupt, bulk IN, and bulk OUT endpoints. The control and interrupt endpoints are accessible using I/O control codes and <B>DeviceIoControl</B>. The bulk endpoints are accessible using <B>ReadFile</B> and <B>WriteFile</B>.</P>
+
+<P>Before calling <B>DeviceIoControl</B>, <B>ReadFile</B>, or <B>WriteFile</B>, you must call <B>CreateFile</B> (all described in the Platform SDK documentation) to obtain a device handle. For devices that support no more than one of each endpoint type (control, interrupt, bulk IN, bulk OUT), a single call to <B>CreateFile</B> opens transfer pipes to each endpoint.</P>
+
+<P>For devices that support multiple interrupt or bulk endpoints, a single call to <B>CreateFile</B> opens transfer pipes to the highest-numbered endpoint of each type. If you want to use a different endpoint, you must do the following: 
+
+<OL>
+	<LI>Call <B>DeviceIoControl</B>, specifying an I/O control code of <A HREF="stifnc_9wa1.htm">IOCTL_GET_PIPE_CONFIGURATION</A>, to determine a port's endpoint index numbers (that is, indexes into the returned <A HREF="stifnc_93ft.htm">USBSCAN_PIPE_INFORMATION</A> structure array). Note that these index numbers are <I>not</I> the endpoint numbers described in the <I>Universal Serial Bus Specification</I>. </LI>
+
+	<LI>Append a backslash and the endpoint's index number to the port name returned by <A HREF="stifnc_9oa1.htm"><B>IStiDeviceControl::GetMyDevicePortName</B></A> when calling CreateFile.</LI>
+</OL>
+
+<P>For example, suppose a device (with a port name of "usbscan0") has two endpoints of each type (interrupt, bulk IN, bulk OUT), with index numbers as follows:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=31%>Index</TH>
+<TH align=left width=34%>Type</TH>
+<TH align=left width=35%>Endpoint#</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>0</TD>
+<TD width=34%>Interrupt</TD>
+<TD width=35%>0x01</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>1</TD>
+<TD width=34%>Bulk IN</TD>
+<TD width=35%>0x82</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>2</TD>
+<TD width=34%>Bulk IN</TD>
+<TD width=35%>0x83</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>3</TD>
+<TD width=34%>Bulk OUT</TD>
+<TD width=35%>0x04</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>4</TD>
+<TD width=34%>Bulk OUT</TD>
+<TD width=35%>0x05</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>5</TD>
+<TD width=34%>Interrupt</TD>
+<TD width=35%>0x06</TD>
+</TR>
+</TABLE><BR>
+
+<P>If you call <B>CreateFile</B> with a port name of "usbscan0", the function opens transfer pipes to endpoints with index values of 2, 4, and 5, as well as the control endpoint.</P>
+
+<P>If you call <B>CreateFile</B> with a port name of "usbscan0\1", the function opens transfer pipes to endpoints with index values of 1, 4, and 5, as well as the control endpoint.</P>
+
+<P>For this device, if you want to use interrupt endpoint 0, bulk IN endpoint 1, and bulk OUT endpoint 3, call <B>CreateFile</B> three times, specifying port names of "usbscan0\0", "usbscan0\1", and "usbscan0\3". This creates three device handles. Whenever a subsequent call to <B>DeviceIoControl</B>, <B>ReadFile</B>, or <B>WriteFile</B> is made, the device handle associated with the desired pipe should be specified.</P>
+
+<P>Because only one control endpoint is supported, specifying any I/O control code that uses the control pipe causes the driver to use the proper endpoint, regardless of which endpoint (if any) was specified to <B>CreateFile</B>.</P>
+
+<P>For descriptions of all I/O control codes, see <A HREF="stifnc_1961.htm">USB Still Image I/O Control Codes</A>.</P>
+
+<P>The kernel-mode USB driver does not implement a package or message protocol. Read operations do not require any particular packet alignment, but better performance can be achieved if read requests are aligned to maximum packet size boundaries. The maximum packet size can be obtained using the <A HREF="stifnc_43hl.htm">IOCTL_GET_CHANNEL_ALIGN_RQST</A> I/O control code.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: USB%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

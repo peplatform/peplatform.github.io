@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisCopyFromPacketToPacketSafe</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisCopyFromPacketToPacketSafe">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndiscopyfrompackettopacketsafe_nr"></A>NdisCopyFromPacketToPacketSafe</H1>
+
+<P><B>NdisCopyFromPacketToPacketSafe</B> copies a specified range of data from one packet to another. </P>
+
+<PRE class=syntax><B>VOID
+  NdisCopyFromPacketToPacketSafe(</B>
+    <B>IN PNDIS_PACKET</B>  <I>Destination</I><B>,</B>
+    <B>IN UINT</B>  <I>DestinationOffset</I><B>,</B>
+    <B>IN UINT</B>  <I>BytesToCopy</I><B>,</B>
+    <B>IN PNDIS_PACKET</B>  <I>Source</I><B>,</B>
+    <B>IN UINT</B>  <I>SourceOffset</I><B>,</B>
+    <B>OUT PUINT</B>  <I>BytesCopied</I>
+<B>    IN MM_PAGE_PRIORITY</B> <I>Priority</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Destination</I></DT>
+
+<DD>Pointer to the destination packet descriptor.</DD>
+
+<DT><I>DestinationOffset</I></DT>
+
+<DD>Specifies the byte offset within the destination packet at which to begin writing the copied data.</DD>
+
+<DT><I>BytesToCopy</I></DT>
+
+<DD>Specifies the number of bytes to copy.</DD>
+
+<DT><I>Source</I></DT>
+
+<DD>Pointer to the source packet descriptor.</DD>
+
+<DT><I>SourceOffset</I></DT>
+
+<DD>Specifies the byte offset within the source packet at which to begin copying the data.</DD>
+
+<DT><I>BytesCopied</I></DT>
+
+<DD>Pointer to the caller-supplied variable in which this function returns the number of bytes actually copied. This number can be less than the value of <I>BytesToCopy</I> if the source packet runs out of data, the destination packet runs out of space, or the system is low on resources.</DD>
+
+<DT><I>Priority</I></DT>
+
+<DD>Indicates the priority of the request as one of the following:
+
+<DL>
+<DT><B>LowPagePriority</B></DT>
+
+<DD>Specifies a low priority. It is acceptable for <B>NdisCopyFromPacketToPacketSafe</B> to fail if system resources are low.</DD>
+
+<DT><B>NormalPagePriority</B></DT>
+
+<DD>Specifies a normal priority. It is acceptable for <B>NdisCopyFromPacketToPacketSafe</B> to fail if system resources are low.</DD>
+
+<DT><B>HighPagePriority</B></DT>
+
+<DD>Specifies a high priority. It is unacceptable for <B>NdisCopyFromPacketToPacketSafe</B> to fail unless system resources are exhausted. Since it can always recover from a failed copy operation, the miniport driver should never specify this priority.</DD>
+</DL>
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>None.</P>
+
+<P>If the copy operation was successful, <I>BytesCopied</I> is equal to <I>BytesToCopy</I> on the return of <B>NdisCopyFromPacketToPacketSafe</B>. If <I>BytesCopied</I> is less than <I>BytesToCopy</I> on the return of the function, the copy operation was not successful.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>NdisCopyFromPacketToPacketSafe</B> is the safe version of <A HREF="103ndisx_2ak2.htm"><B>NdisCopyFromPacketToPacket</B></A>. Unlike <B>NdisCopyFromPacketToPacket</B>, <B>NdisCopyFromPacketToPacketSafe</B> does not cause a bug check if system resources are low or exhausted. Drivers should call <B>NdisCopyFromPacketToPacketSafe</B> instead of <B>NdisCopyFromPacketToPacket</B>. NDIS 5.1 driver must call <B>NdisCopyFromPacketToPacketSafe</B> instead of <B>NdisCopyFromPacketToPacket</B>.</P>
+
+<P>The caller of <B>NdisCopyFromPacketToPacketSafe</B> allocates the destination packet, if not the source packet as well. The packet descriptor of the destination packet should specify enough buffer space to receive the data. </P>
+
+<P>If the source packet runs out of data, the destination packet runs out of space before the specified number of bytes has been copied, or the system is low on resources, the copy operation stops. In either case, <B>NdisCopyFromPacketToPacketSafe</B> returns the number of bytes successfully copied from the source to the destination packet.</P>
+
+<P><B>NdisCopyFromPacketToPacketSafe</B> does not copy any out-of-band information associated with the given <I>Source</I> to the <I>Destination</I>. To copy this information, the driver can use pointers returned by <A HREF="103ndisx_43qq.htm">NDIS_OOB_DATA_FROM_PACKET</A> and then call <A HREF="103ndisx_87le.htm"><B>NdisMoveMemory</B></A>.</P>
+
+<P>If <I>Priority</I> was set to <B>LowPagePriority</B> or <B>NormalPagePriority</B>, <B>NdisCopyFromPacketToPacketSafe</B> returns as soon as system resources become low or exhausted. If <I>Priority</I> was set to <B>HighPagePriority</B>, <B>NdisCopyFromPacketToPacketSafe</B> returns as soon as system resources are exhausted. Since miniport drivers can always recover from a failed copy operation, they should never call <B>NdisCopyFromPacketToPacketSafe</B> with <I>Priority</I> set to <B>HighPagePriority</B>. Setting <I>Priority</I> to <B>HighPagePriority</B> does not improve performance.</P>
+
+<P>To determine whether the copy operation succeeded, the driver should compare <I>BytesCopied</I> with <I>BytesToCopy</I> after <B>NdisCopyFromPacketToPacketSafe</B> returns. If <I>BytesCopied</I> is equal to <I>BytesToCopy</I>, the copy operation succeeded. If <I>BytesCopied</I> is less than <I>BytesToCopy</I>, the source packet did not contained less data than <I>BytesToCopy</I>, the destination packet did not have enough buffer space to contain all the data to be copied, or the copy operation was aborted because system resources were low or exhausted.</P>
+
+<P>Callers of <B>NdisCopyFromPacketToPacketSafe</B> run at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A>, <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_2ak2.htm"><B>NdisCopyFromPacketToPacket</B></A>, <A HREF="103ndisx_87le.htm"><B>NdisMoveMemory</B></A>, <A HREF="103ndisx_43qq.htm">NDIS_OOB_DATA_FROM_PACKET</A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisCopyFromPacketToPacketSafe"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

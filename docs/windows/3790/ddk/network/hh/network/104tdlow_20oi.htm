@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProtocolCmMakeCall</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProtocolCmMakeCall">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocolcmmakecall_nr"></A>ProtocolCmMakeCall</H1>
+
+<P>The <I>ProtocolCmMakeCall</I> function is a required function that sets up media specific parameters for a virtual connection (VC) and activates the virtual connection.</P>
+
+<PRE class=syntax><B>NDIS_STATUS 
+</B>  <B>ProtocolCmMakeCall(
+</B>    <B>IN NDIS_HANDLE</B>  <I>CallMgrVcContext</I><B>,</B>
+    <B>IN OUT PCO_CALL_PARAMETERS</B>  <I>CallParameters</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisPartyHandle</I>  <B>OPTIONAL,</B>
+    <B>OUT PNDIS_HANDLE</B>  <I>CallMgrPartyContext</I>  <B>OPTIONAL</B>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>CallMgrVcContext</I></DT>
+
+<DD>Specifies the handle to a call manager-allocated context area in which the call managers maintains its per-VC state. The call manager supplied this handle to NDIS from its <A HREF="104tdlow_299u.htm"><I>ProtocolCoCreateVc</I></A> function.</DD>
+
+<DT><I>CallParameters</I></DT>
+
+<DD>Pointer to a <A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A> structure that contains the parameters, specified by a connection-oriented client, for this outgoing call.</DD>
+
+<DT><I>NdisPartyHandle</I></DT>
+
+<DD>Specifies a handle, supplied by NDIS, that uniquely identifies the initial party on the multipoint virtual connection. This handle is opaque to the call manager and reserved for NDIS library use. This handle is NULL if the client is not setting up an outgoing multipoint call.</DD>
+
+<DT><I>CallMgrPartyContext</I></DT>
+
+<DD>On return, specifies a handle to a call manager-supplied context area in which the call manager maintains state about the initial party on the multipoint call. If <I>NdisPartyHandle</I> is NULL, this handle must be set to NULL.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>ProtocolCmMakeCall</I> returns the status of its operation(s) as one of the following values:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>Indicates that the call manager successfully allocated the necessary resources to make the call and was able to activate the virtual connection with the miniport driver.</DD>
+
+<DT>NDIS_STATUS_PENDING</DT>
+
+<DD>Indicates that the call manager will complete the request to make a call asynchronously. When the call manager has completed all operations for making a call, it must call <A HREF="103ndisx_460i.htm"><B>NdisCmMakeCallComplete</B></A> to signal NDIS that this call has been completed.</DD>
+
+<DT>NDIS_STATUS_RESOURCES</DT>
+
+<DD>Indicates that the call manager was unable to allocate and/or initialize its resources for activating the virtual connection as requested by the client.</DD>
+
+<DT>NDIS_STATUS_NOT_SUPPORTED</DT>
+
+<DD>Indicates that the call manager was unable to activate a virtual connection because the caller requested invalid or unavailable features in the call parameters specified at <I>CallParameters</I>.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>If <I>ProtocolCmMakeCall</I> is given an explicit <I>NdisPartyHandle</I>, this VC was created by the client for a multipoint call. The call manager must allocate and initialize any necessary resources required to maintain state information and control a multipoint call. Such resources include, but are not limited to, memory buffers, data structures, events, and other similar resources. If the call manager cannot allocate or initialize the needed resources for its state area(s), it should return control to NDIS with NDIS_STATUS_RESOURCES.</P>
+
+<P><I>ProtocolCmMakeCall</I> communicates with network control devices or other media-specific actors, as necessary, to make a connection between the local node and a remote node based on the call parameters specified at <I>CallParameters</I>. Such actions could include, but are not limited to, communication with switching hardware, communications with a network control station, or other actions as appropriate to the network medium.</P>
+
+<P>If a call manager is required to communication with networking hardware (e.g. a networking switch) it should use a virtual connection to the network control device that it established in its <A HREF="104tdlow_2bqq.htm"><I>ProtocolBindAdapter</I></A> function. Call managers communicate with their network hardware through the miniport driver by calling <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>. Miniport drivers with integrated call-management support will not call <B>NdisCoSendPackets,</B> but rather will transmit the data themselves.</P>
+
+<P>After a call manager has done all necessary communication with its networking hardware as required by its medium, call managers must call <A HREF="103ndisx_3zzm.htm"><B>NdisCmActivateVc</B></A>.</P>
+
+<P>If this call was a multipoint call, after the call manager has communicated with the networking hardware, verified call parameters, and allocated and initialized its per-party state data, the address of its state block should be set in the handle <I>CallMgrPartyContext<B> </B></I>before returning control to NDIS. The handle is set by dereferencing the handle and storing a pointer to the state block as the value of the handle. For example:</P>
+
+<PRE>*CallMgrPartyContext = SomeBuffer ;</PRE>
+
+<P>If <I>ProtocolCmMakeCall</I> has completed the required operations for its network and the VC has been successfully activated through <B>NdisCmActivateVc</B>, <I>ProtocolCmMakeCall</I> should return control as quickly as possible with a status of STATUS_SUCCESS.</P>
+
+<P>After <I>ProtocolCmMakeCall</I> returns control to NDIS, the call manager should expect to take no further actions on this call to set it up. <I>ProtocolCmMakeCall</I> is responsible for establishing the connection so that the client can make data transfers over the network on this VC. However, the call manager can be called subsequently to modify the call's quality of service, to add or drop parties if this is a multipoint VC, and eventually to terminate this call.</P>
+
+<P><I>ProtocolCmMakeCall</I> must be written so that it can run at IRQL = DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>, <A HREF="103ndisx_3zzm.htm"><B>NdisCmActivateVc</B></A>, <A HREF="103ndisx_460i.htm"><B>NdisCmMakeCallComplete</B></A>, <A HREF="104tdlow_299u.htm"><I>ProtocolCoCreateVc</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProtocolCmMakeCall"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

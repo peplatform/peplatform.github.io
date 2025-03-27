@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>A single DispatchCreateClose Routine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="A single DispatchCreateClose Routine">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_a_single_dispatchcreateclose_routine_kg"></A>A Single <I>DispatchCreateClose</I> Routine</H3>
+
+<P>Many drivers, particularly lower-level drivers in a chain of layered drivers, merely need to establish their existence on receipt of a create request and merely need to acknowledge the receipt of a close request.</P>
+
+<P>For example, a port driver for a device controller with one or more closely coupled class drivers that call <A HREF="k104_1os2.htm"><B>IoGetDeviceObjectPointer</B></A> might have a minimal <I>DispatchCreateClose</I> routine. The routine might do nothing more than complete the IRP as follows:</P>
+
+<PRE>    :    : 
+{ 
+    Irp-&gt;IoStatus.Status = STATUS_SUCCESS; 
+    Irp-&gt;IoStatus.Information = 0; 
+    IoCompleteRequest(Irp, IO_NO_INCREMENT); 
+    return STATUS_SUCCESS; 
+} </PRE>
+
+<P>This minimal <I>DispatchCreateClose</I> routine sets the <B>Information</B> member of the I/O status block to zero, indicating the file object is opened for a create request; <B>Information</B> has no meaning for a close request. The routine sets the <B>Status</B> member to STATUS_SUCCESS and also returns this status value, indicating that the driver is ready to accept I/O requests.</P>
+
+<P>This minimal <I>DispatchCreateClose</I> routine completes the create IRP without boosting the priority of the originator of the IRP (IO_NO_INCREMENT), because the originator is assumed to wait for an indeterminate but very small interval for the request to complete.</P>
+
+<P>How much work a <I>DispatchCreateClose</I> routine does depends partly on the nature of the driver’s device or the underlying device and partly on the design of the driver. If a driver performs very different operations for create and close requests, it should handle these requests in separate <A HREF="drvcomps_19nr.htm"><I>DispatchCreate</I> and <I>DispatchClose</I> routines</A>.</P>
+
+<P>To handle a create request to open a file object representing a logical or physical device, a highest-level driver should do the following:
+
+<OL>
+	<LI>Call <A HREF="k104_89pu.htm"><B>IoGetCurrentIrpStackLocation</B></A> to get a pointer to its I/O stack location in the IRP.</LI>
+
+	<LI>Check <B>FileObject.FileName</B> in the I/O stack location and complete the IRP with STATUS_SUCCESS if the Unicode string at <B>FileName</B> has a zero length; otherwise, complete the IRP with STATUS_INVALID_PARAMETER. </LI>
+</OL>
+
+<P>Following the preceding steps ensures that no attempt to open a pseudo-file on a device can cause problems later. For example, this prevents attempts to open a nonexistent <I>\\device\parallel0\temp.dat</I>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: A%20single%20DispatchCreateClose%20Routine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

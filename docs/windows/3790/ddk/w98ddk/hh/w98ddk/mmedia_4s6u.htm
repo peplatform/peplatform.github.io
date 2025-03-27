@@ -1,0 +1,286 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Creating the MCI Command Tables</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_2546"></A>Creating the MCI Command Tables</H3>
+
+<P>The MCI parser used by <B>mciSendString</B> uses the command tables to tell it how to translate an MCI command string into parameters used by <B>DriverProc</B>. Most of these tables are stored as resources within the device driver. The resource type is RCDATA. </P>
+
+<P>To allow applications to use <B>mciSendString</B> with any new or extended commands that your driver supports, you must create a command table to indicate how to map the string commands to the message commands. </P>
+
+<H4>Contents of the Command Table</H4>
+
+<P>A command table consists of three columns: 
+
+<UL>
+	<LI>The first column contains the commands and flags used in the string form of the command. Each entry in the first column must be terminated with \0 to form a zero-terminated string. </LI>
+
+	<LI>The second column is a <B>DWORD</B> and contains the commands and flags used in the message form of the command. </LI>
+
+	<LI>The third column is a <B>WORD</B> and contains the identifiers that tell the MCI parser how to interpret each entry. </LI>
+</UL>
+
+<P>The following example shows a partial command table: </P>
+
+<PRE>/*************************************************************/
+/*   Sample command table for the MCI core command set       */
+/*************************************************************/
+core RCDATA
+BEGIN
+"open\0",              MCI_OPEN, 0,                  MCI_COMMAND_HEAD,
+"\0",                MCI_INTEGER, 0,                 MCI_RETURN,
+"notify\0",          MCI_NOTIFY,                     MCI_FLAG,
+"wait\0",            MCI_WAIT,                       MCI_FLAG,
+"test\0",            MCI_TEST,                       MCI_FLAG,
+"type\0",            MCI_OPEN_TYPE,                  MCI_STRING,
+"element\0",         MCI_OPEN_ELEMENT,               MCI_STRING,
+"alias\0",           MCI_OPEN_ALIAS,                 MCI_STRING,
+"shareable\0",       MCI_OPEN_SHAREABLE,             MCI_FLAG,
+"\0",                0L,                             MCI_END_COMMAND,
+
+"close\0",             MCI_CLOSE, 0,                 MCI_COMMAND_HEAD,
+"notify\0",          MCI_NOTIFY,                     MCI_FLAG,
+"wait\0",            MCI_WAIT,                       MCI_FLAG ,
+"test\0",            MCI_TEST,                       MCI_FLAG,
+"\0",                0L,                             MCI_END_COMMAND,
+
+
+"play\0",              MCI_PLAY, 0,                  MCI_COMMAND_HEAD,
+"notify\0",          MCI_NOTIFY,                     MCI_FLAG,
+"wait\0",            MCI_WAIT,                       MCI_FLAG ,
+"test\0",            MCI_TEST,                       MCI_FLAG,
+"from\0",            MCI_FROM,                       MCI_INTEGER,
+"to\0",              MCI_TO,                         MCI_INTEGER,
+"\0",                0L,                             MCI_END_COMMAND, 
+                     .
+                     .
+                     .
+"capability\0",        MCI_GETDEVCAPS, 0,            MCI_COMMAND_HEAD,
+"\0",                MCI_INTEGER, 0,                 MCI_RETURN,
+"notify\0",          MCI_NOTIFY,                     MCI_FLAG,
+"wait\0",            MCI_WAIT,                       MCI_FLAG ,
+"test\0",            MCI_TEST,                       MCI_FLAG,
+"\0",                MCI_GETDEVCAPS_ITEM,            MCI_CONSTANT
+"can record\0",      MCI_GETDEVCAPS_CAN_RECORD,      MCI_INTEGER,
+"has audio\0",       MCI_GETDEVCAPS_HAS_AUDIO,       MCI_INTEGER,
+"has video\0",       MCI_GETDEVCAPS_HAS_VIDEO,       MCI_INTEGER,
+"uses files\0",      MCI_GETDEVCAPS_USES_FILES,      MCI_INTEGER,
+"compound device\0", MCI_GETDEVCAPS_COMPOUND_DEVICE, MCI_INTEGER,
+"device type\0",     MCI_GETDEVCAPS_DEVICE_TYPE,     MCI_INTEGER,
+"can eject\0",       MCI_GETDEVCAPS_CAN_EJECT,       MCI_INTEGER,
+"can play\0",        MCI_GETDEVCAPS_CAN_PLAY,        MCI_INTEGER,
+"can save\0",        MCI_GETDEVCAPS_CAN_SAVE,        MCI_INTEGER,
+"\0",                0L,                             MCI_END_CONSTANT,
+"\0",                0L,                             MCI_END_COMMAND,
+"resume\0",          MCI_RESUME, 0,                  MCI_COMMAND_HEAD,
+"notify\0",          MCI_NOTIFY,                     MCI_FLAG,
+"wait\0",            MCI_WAIT,                       MCI_FLAG, 
+"\0",                0L,                             MCI_END_COMMAND,
+"\0",                0L,                             MCI_END_COMMAND_LIST
+
+END
+ </PRE>
+
+<P>When you build your command table, ensure that the entries in the second column are <B>DWORD</B>s, and the entries in the third columns are <B>WORD</B>s. If you use any <B>WORD</B>s in the second columns, pad them with a comma and a zero. For example, the MCI_PLAY message in the example is followed by a comma and a zero. The zero is used as a filler to keep the command list properly aligned. Forgetting the zero after a <B>WORD</B> causes the remainder of the command table to be misaligned by one <B>WORD</B>. </P>
+
+<P>A command table consists of command lists. A command list defines how to parse a particular command. For example, the following is a command list for the play command: </P>
+
+<PRE>"play\0",            MCI_PLAY, 0,                    MCI_COMMAND_HEAD,
+"notify\0",          MCI_NOTIFY,                     MCI_FLAG,
+"wait\0",            MCI_WAIT,                       MCI_FLAG ,
+"test\0",            MCI_TEST,                       MCI_FLAG,
+"from\0",            MCI_FROM,                       MCI_INTEGER,
+"to\0",              MCI_TO,                         MCI_INTEGER,
+"\0",                0L,                             MCI_END_COMMAND,
+ </PRE>
+
+<P>This command list tells the parser which flags are valid and how to create the associated structure for the message command. </P>
+
+<H4>Command List and Command Table Delimiters</H4>
+
+<P>The first entry in a command list must have the MCI_COMMAND_HEAD delimiter in the third column. The MCI_COMMAND_HEAD delimiter designates the verb portion of the string command. For example, the play command list starts with this entry: </P>
+
+<PRE>"play\0",            MCI_PLAY, 0,                    MCI_COMMAND_HEAD,
+ </PRE>
+
+<P>The last entry in a command list must have the MCI_END_COMMAND delimiter. For this last entry, the first and second columns contain "\0" and 0L. For example, all command lists end with this entry: </P>
+
+<PRE>"\0",                0L,                             MCI_END_COMMAND,
+ </PRE>
+
+<P>The last entry of the command table must have the MCI_END_COMMAND_LIST delimiter. The first and second columns for this entry also contain "\0" and 0L. For example, the example command table ends with this entry: </P>
+
+<PRE>"\0",                0L,                            MCI_END_COMMAND_LIST
+ </PRE>
+
+<H4>Return Values</H4>
+
+<P>If your want to return data in your structure, you can reserve a member by having an entry in the command list with the MCI_RETURN in the third column. If you use MCI_RETURN, you must use it for the entry immediately following the MCI_COMMAND_HEAD. You can use MCI_RETURN only once in a command list. For example, the MCI_GETDEVCAPS command list starts with the following entries: </P>
+
+<PRE>"capability\0",      MCI_GETDEVCAPS, 0,              MCI_COMMAND_HEAD,
+"\0",                MCI_INTEGER, 0,                 MCI_RETURN,
+ </PRE>
+
+<P>The string in the first column of an entry with MCI_RETURN is "\0". (This column is ignored when you use MCI_RETURN.) </P>
+
+<P>The second column of the MCI_RETURN entry specifies the type of data returned. The parser recognizes the MCI_INTEGER, MCI_STRING, and MCI_RECT keywords for the data type returned. </P>
+
+<P>If you want to return an integer value, use MCI_INTEGER,0 in the second column. For integers, MCI reserves the second <B>DWORD</B> in the structure for the return value. </P>
+
+<P>If you want to return a string value, use MCI_STRING,0 in the second column. For strings, MCI reserves the second and third <B>DWORD</B>s in the structure for the return value. These <B>DWORD</B>s correspond to a pointer to a buffer for the zero-terminated return string and the size of the buffer supplied by the application. </P>
+
+<P>If you want to return a <B>RECT</B> value, use MCI_RECT,0 in the second column. For rectangles, MCI reserves the second and third <B>DWORD</B>s in the structure for the return value. </P>
+
+<P>The following example adds an integer return value to the reset command: </P>
+
+<PRE>"reset\0",           MCI_VDISC_RESET, 0,             MCI_COMMAND_HEAD,
+"\0",                MCI_INTEGER, 0,                 MCI_RETURN,   
+"notify\0",          MCI_NOTIFY,                     MCI_FLAG,
+"wait\0",            MCI_WAIT,                       MCI_FLAG,
+"test\0",            MCI_TEST,                       MCI_FLAG,
+"program\0",         MCI_VDISC_RESET_PROGRAM,        MCI_INTEGER,
+"\0",                0L,                             MCI_END_COMMAND
+ </PRE>
+
+<P>The corresponding structure for the reset command using a return value is as follows: </P>
+
+<PRE>typedef struct {
+   DWORD   dwCallback;
+   DWORD   dwReturn
+   DWORD   dwProgram;
+} MCI_VDISC_RESET_PARMS;
+ </PRE>
+
+<H4>Command Flag Keywords</H4>
+
+<P>MCI interprets an entry with MCI_FLAG in the third column as a flag that is not associated with any member of the structure. For example, all commands have the following entry for the MCI_NOTIFY flag: </P>
+
+<PRE>"notify\0",          MCI_NOTIFY,                     MCI_FLAG
+ </PRE>
+
+<P>The first column of this entry contain the string command used for the flag. The second column contains the value used for the flag. </P>
+
+<H4>Associating Command List Entries to Structures</H4>
+
+<P>MCI associates a command list entry with a structure member when the command list entry has MCI_INTEGER, MCI_STRING, or MCI_RECT in the third column. The order of the entries in the command list implies the order of the members in a structure. That is, the command list does not explicitly name the members of a structure. </P>
+
+<P>When assigning members, MCI reserves the first member in the structure for the handle to a callback function. Thus, MCI uses the second member of the structure for data associated with the first entry needing space in the structure. MCI then assigns the third data member to the second entry needing it. This continues for the rest of the list. This association assumes that all the data members in the structure are <B>DWORD</B>S. You can intersperse entries that are not modified with values with those that are. For example, a command designated as an MCI_FLAG will not be associated with a member in a structure. Instead, it will designate a bit flag used in <I>lParam1</I>. If the MCI_FLAG entry separates two entries designated MCI_INTEGER, it would not affect the structure member assignment. </P>
+
+<P>For example, the "reset" videodisc player command example would have the following form: </P>
+
+<PRE>"reset\0",           MCI_VDISC_RESET, 0,             MCI_COMMAND_HEAD,
+"notify\0",          MCI_NOTIFY,                     MCI_FLAG,
+"wait\0",            MCI_WAIT,                       MCI_FLAG,
+"test\0",            MCI_TEST,                       MCI_FLAG,
+"program\0",         MCI_VDISC_RESET_PROGRAM,        MCI_INTEGER,
+"\0",                0L,                             MCI_END_COMMAND
+ </PRE>
+
+<P>If you specify "\0" in the first column, it designates that entry a default entry. Any flags entered as part of a string command that does not match any entry in the command list will assume the default value. Only one default value can exist in each command list. </P>
+
+<H4>Using Constants</H4>
+
+<P>MCI uses the MCI_CONSTANT and MCI_END_CONSTANT keywords to associate a range of constants to a flag. The MCI_CONSTANT keyword reserves a <B>DWORD</B> in the associated structure and delimits the start of a list of constants. The following entries contain the constants. Each constant entry has the MCI_INTEGER keyword in the third column. The list of constants is ended with an entry with the MCI_END_CONSTANT keyword. For example, the <B>set</B> command has the following entries for the audio channel constants: </P>
+
+<PRE>"audio\0",           MCI_SET_AUDIO,                  MCI_CONSTANT,
+"all\0",             MCI_SET_AUDIO_ALL,              MCI_INTEGER,
+"left\0",            MCI_SET_AUDIO_LEFT,             MCI_INTEGER,
+"right\0",           MCI_SET_AUDIO_RIGHT,            MCI_INTEGER,
+"\0",                0L,                             MCI_END_CONSTANT,
+ </PRE>
+
+<P>The constant list is actually defining a list of pre-defined integers that can be used in a string command. These pre-defined integers will be passed to your device driver in the member reserved for the flag in the structure. If the parser finds an integer following a flag rather than one of flag's pre-defined constants, the parser will assign the integer to the structure member. This lets your device driver use both constants and integers as data for a flag. </P>
+
+<H4>Types of Entries</H4>
+
+<P>The following table summarizes the keywords used to identify the type of entry in the command table: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=33%>Keyword </TH>
+<TH align=left width=67%>Description </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%>MCI_COMMAND_HEAD </TD>
+<TD width=67%>Indicates the zero-terminated string in the first column corresponds to the verb portion of the string command. The <B>DWORD</B> following the command corresponds to the message command passed to <B>DriverProc</B> as <I>uMsg</I>. This entry must be the first entry in the command list and it must be unique to the table. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%>MCI_CONSTANT </TD>
+<TD width=67%>Indicates an MCI flag validating constant data. The second column contains the flag name. The structure must reserve a <B>DWORD</B> to hold the integer values representing the constants. A list of constants defined for the integer data immediately follows this entry. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%>MCI_END_COMMAND </TD>
+<TD width=67%>Indicates the end of a command list. The first and second columns for this entry must contain "\0" and 0L. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%>MCI_END_COMMAND_LIST </TD>
+<TD width=67%>Indicates the end of the command table. The first and second columns for this entry must contain "\0" and 0L. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%>MCI_END_CONSTANT </TD>
+<TD width=67%>Indicates the end of a list of constants. The first and second columns for this entry must contain "\0" and 0L. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%>MCI_FLAG </TD>
+<TD width=67%>Indicates an MCI flag that does not validate data. The second column contains the flag name. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%>MCI_INTEGER </TD>
+<TD width=67%>Indicates an MCI flag validating integer data. The second column contains the flag name. The structure must reserve a <B>DWORD</B> to hold the integer value. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%>MCI_RECT </TD>
+<TD width=67%>Indicates an MCI flag validating <B>RECT</B> data. The second column contains the flag name. The structure must reserve two <B>DWORD</B>s to hold the <B>RECT</B> value. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%>MCI_RETURN </TD>
+<TD width=67%>Indicates a structure associated with a command has data members reserved for return information. If used, the data entry must be the second entry in the command list. The first column of the entry contains "\0". The second column contains the type of return value. If MCI_INTEGER is specified as the return type, the second <B>DWORD</B> in the structure is reserved for an integer return value. If MCI_STRING is specified, the second <B>DWORD</B> is reserved for a pointer to the return string. The third <B>DWORD</B> is reserved for the length of the string. If MCI_RECT is specified, the second and third <B>DWORD</B>s are reserved for the <B>RECT</B> data. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%>MCI_STRING </TD>
+<TD width=67%>Indicates an MCI flag validating string data. The second column contains the flag name. The structure must reserve a <B>DWORD</B> to hold a pointer to the string data. </TD>
+</TR>
+</TABLE><BR>
+
+<H4>How the Parser Uses the Command Tables</H4>
+
+<P>The following description tells how the MCI parser uses the command table entries to interpret the command string "play videodisc1 notify from 10 to 20." The MCI parser reads the string to obtain the command and its destination device. The parser uses the destination to determine the device ID and assigns it to <I>dwDeviceID</I> of <B>DriverProc</B>. The parser also uses this information to determine which command table to search. </P>
+
+<P>When the parser searches the command tables for "play," it searches the command tables in this order: the device-specific table (your custom command table), then the device-type table (such as the cdaudio command table), and finally the core command table. </P>
+
+<P>When searching the command table, the parser searches the tables for the MCI_COMMAND_HEAD keyword. When found, the parser compares the command listed in the first column with the command from the input string. If the two commands match, the parser uses the <B>DWORD</B> in the second column (in this case MCI_PLAY) as the <I>uMsg</I> parameter for <B>DriverProc</B>. </P>
+
+<P>The parser tries to match each subsequent parameter in the command string with a corresponding entry in the current command list. For the example, the next parameter is "notify." If the parser does not find this, it reports an error. If the parser does find it, it looks in the third column and finds MCI_FLAG. This tells the parser to use the bitwise or operation to add the second column flag MCI_NOTIFY with the bit member for the <I>lParam1</I> parameter. </P>
+
+<P>If the example command contained "wait" rather than notify, the parser would behave the same as for the "notify" example except that it would combine MCI_WAIT with the bit member for the <I>lParam1</I> parameter. </P>
+
+<P>When the parser interprets the "from" parameter, the MCI_INTEGER keyword indicates that additional data is available from the command string. The parser obtains the string value, converts it to an integer, and stores it in the <B>DWORD</B> of the structure corresponding to the MCI_FROM flag. The parser also combines the MCI_FROM flag in the bit member for the <I>lParam1</I> parameter. </P>
+
+<P>The parser processes the "to" parameter exactly as the "from" parameter except that the integer modifier is stored in <B>DWORD</B> of the structure corresponding to the MCI_TO flag. </P>
+
+<P>The parser knows it has finished translating a command when it has reached the end of the input command string. The parser can now call <B>DriverProc</B> with the proper parameters. </P>
+
+<P>Because the parser maps the string commands to message commands and structures passed to the driver, the order of the flags in a command string is irrelevant. The command string "play videodisc1 to 20 from 10 notify" maps exactly to the same command derived from "play videodisc1 notify from 10 to 20". </P>
+
+<P>The parser checks only for syntax errors. It does not check the input string for invalid combinations of flags. Before handling any MCI command, your device driver should determine if there are invalid combinations of flags. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Creating%20the%20MCI%20Command%20Tables"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

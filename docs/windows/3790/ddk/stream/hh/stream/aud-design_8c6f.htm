@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Hardware Requirements for WavePci Devices</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Hardware Requirements for WavePci Devices">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_supp_physical_address_extension_pae_">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_start_device_dr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_hardware_requirements_for_wavepci_devices_ksg"></A>Hardware Requirements for WavePci Devices</H3>
+
+<P>When choosing the features of a new hardware design, vendors should follow these general principles:
+
+<UL>
+	<LI>Instead of trying to simply move all processing to hardware, vendors should weigh the cost of each feature against its impact on performance.</LI>
+
+	<LI>When considering the potential value of a hardware feature, a vendor should evaluate that feature in terms of its impact on the system as a whole rather than focusing narrowly on a particular subsystem such as audio.</LI>
+
+	<LI>By judiciously selecting which features to accelerate in hardware, vendors can relieve the CPU workload and improve memory usage, thereby making more of the system’s resources available to other tasks.</LI>
+</UL>
+
+<P>Historically, not all audio hardware designs have succeeded in following these principles.</P>
+
+<P>When playing audio content or mixing multiple streams, some WDM audio drivers needlessly consume a lot of CPU time and bus bandwidth. Such deficiencies are usually the result of flawed hardware designs and inefficient driver implementations. Hardware design flaws can also prevent an audio driver from handling certain wave formats or necessitate workarounds that require software intervention.</P>
+
+<P>The purpose of the WaveCyclic device model is to accommodate the hardware limitations of older audio devices. New hardware designs should be fully compliant with WavePci.</P>
+
+<P>A WavePci device that can perform true scatter/gather DMA eliminates the need for the CPU to spend time copying audio data between buffers. Unlike WaveCyclic, WavePci has no inherent need for data copying, making it the preferred miniport driver for multi-stream or hardware-accelerated audio devices. A well-designed WavePci device should consume almost no CPU resources, making it possible to send large numbers of audio streams (64 or more) to the hardware for 3D processing and mixing.</P>
+
+<P>A WavePci device requires a bus-master DMA controller supporting scatter/gather DMA transfers. Hardware designs should not place arbitrary limits on the kinds of data transfers that the DMA controller can handle. A WavePci device should meet the following requirements:
+
+<UL>
+	<LI><I>The device must be a bus master.</I>
+<P>It should be able to autonomously access system memory without intervention from the operating system and without using system DMA resources. 
+</LI>
+
+	<LI><I>The device must be able to handle data transfers of arbitrary length.</I>
+<P>It should handle mappings (see <A HREF="audmp-routines_0pir.htm"><B>IPortWavePciStream::GetMapping</B></A>) larger than a memory page. A device with a transfer limitation of 4 kilobytes, for example, does not fit the full requirements for WavePci. On 64-bit CPUs that support Windows, the page size is 8 kilobytes, which makes it likely that some mappings will be larger than 4 kilobytes in size. Data transfers that exceed 32 kilobytes in a single mapping are theoretically possible, depending on physical memory fragmentation. At the other extreme, a mapping size of one byte is possible.
+</LI>
+
+	<LI><I>The device should handle data transfers with arbitrary alignment.</I>
+<P>Mappings can begin and end on arbitrary byte boundaries in memory. A frame of audio data can be split between mappings, with the samples for the first few channels at the end of the first mapping and the samples for the remaining channels in the second mapping. For an example, see <A HREF="aud-design_1d47.htm">Wave Filters</A>. For some sample sizes, even a sample container can be split between mappings. If the device requires that transfers must be on cache-line boundaries, or if the device requires that the transfers are strictly aligned to audio-frame boundaries (for example, assuming that the transfer size divides evenly into four, in the stereo 16-bit case), this device is not adequate for complete WavePci compliance. Note that a non-compliant piece of hardware can be exposed as a WavePci device by limiting the data ranges or formats that the driver exposes (for example, only certain bit depths or only certain channel configurations).
+</LI>
+
+	<LI><I>The device should handle data transfers to or from any location in system memory.</I>
+<P>Data transfers that straddle 32-kilobyte or larger power-of-two boundaries are quite likely. A PC can now contain more than 4 gigabytes of RAM, and in those systems, mappings can be located higher than 4 gigabytes in physical memory in the case of either a 64-bit CPU or the x86 <A HREF="JavaScript:hhobj_1.Click()">physical address extension (PAE)</A>. To achieve the best performance on these machines, vendors should create devices that support 64-bit addressing. Otherwise, data copying in software is required. Data copying has historically been required for devices with 24-bit addressing on systems with more than 16 megabytes of RAM. Devices should use WaveCyclic instead of WavePci if they cannot read from or write to anywhere in physical memory. A driver can make this decision at device startup time (see <A HREF="JavaScript:hhobj_2.Click()">IRP_MN_START_DEVICE</A>) after it has had a chance to determine whether its address reach is sufficient to access the full address range of the system memory bus.
+</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Hardware%20Requirements%20for%20WavePci%20Devices"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

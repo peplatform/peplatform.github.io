@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WDMAud Topology Parsing</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WDMAud Topology Parsing">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_wdmaud_topology_parsing_ksg"></A>WDMAud Topology Parsing</H3>
+
+<P>The <A HREF="aud-design_789z.htm#ddk_wdmaud_system_driver_ksg">WDMAud system driver</A> parses destination mixer lines first before parsing the source mixer lines. The order in which WDMAud parses the destination lines is the reverse of that in which SysAudio discovers the lines. For example, the higher numbered pins are parsed first. Parsing starts at the <I>immediate parent </I>of the pin and moves in the upstream direction. Each node is translated according to these rules until the parser detects one of the following terminating conditions:
+
+<UL>
+	<LI>The current node being parsed is a SUM node.</LI>
+
+	<LI>The current node is a MUX node.</LI>
+
+	<LI>The current node has multiple parents.</LI>
+</UL>
+
+<P>SUM and MUX nodes are the <I>classic terminators</I> of the destination line. A SUM node does not generate any controls. A MUX node generates a MUX control in the destination line that contains references to each of the source lines controlled by the MUX.</P>
+
+<P>If multiple parents are discovered, parsing is immediately terminated. The mixer-line driver interprets this condition as a "virtual sum" that is formed by tying multiple inputs.</P>
+
+<P>The name of the destination line comes from the name returned from the <A HREF="ks-prop_8rhv.htm">KSPROPERTY_PIN_NAME</A> property on that pin.</P>
+
+<P>After all destination line controls have been translated, WDMAud begins translating the source lines. Again, the order in which WDMAud parses these lines is the reverse of the order in which SysAudio queries them. Also, the direction in which source lines are parsed is opposite to that in which destination lines are parsed. WDMAud parses each line starting from the pin and proceeding in the downstream direction until it detects one of the following terminating conditions:
+
+<UL>
+	<LI>The parser finds a destination line.</LI>
+
+	<LI>The current node being translated belongs to a destination line.</LI>
+
+	<LI>The current node is a SUM node.</LI>
+
+	<LI>The current node is a MUX node.</LI>
+</UL>
+
+<P>When a MUX is encountered during parsing of a source line that belongs to a destination line, it is translated into a control. However, it is used only as a placeholder to update the line numbers in the MUX stored in the destination line later. The final line numbers are not yet available at this point, so a placeholder is required.</P>
+
+<P>Both a MUX and a SUM node terminate a source line; therefore, any nodes between a SUM or MUX and another SUM or MUX are not translated.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The line names in the MUX are derived from the pin name for the line, except when the line feeding into a MUX is from a SUM or MUX node. In that case, the name of the line is the name of the MUX or SUM node. When the mixer driver discovers this, it builds a virtual mixer line with the name of the SUM or MUX node and then translates all the controls between the SUM or MUX and the MUX.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;A <I>split</I> in the topology is a case where a node has more than a single child. This is useful when a single pin routes to two separate destinations but shares some common controls, such as volume or a mute. Any time a split is encountered, the WDMAud driver creates a new line and duplicates all the controls parsed up to the split. This happens unconditionally whenever a split is encountered, even after encountering a SUM node that terminates a source line.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WDMAud%20Topology%20Parsing"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

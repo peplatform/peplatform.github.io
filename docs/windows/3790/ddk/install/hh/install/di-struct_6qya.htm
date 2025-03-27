@@ -1,0 +1,123 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SP_PROPSHEETPAGE_REQUEST</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="SP_PROPSHEETPAGE_REQUEST">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_sp_propsheetpage_request_dr"></A>SP_PROPSHEETPAGE_REQUEST</H1>
+
+<P>An SP_PROPSHEETPAGE_REQUEST structure can be passed as the first parameter (<I>lpv</I>) to the <B>ExtensionPropSheetPageProc</B> entry point in the Setupapi DLL. <B>ExtensionPropSheetPageProc</B> is used to retrieve a handle to a specified property sheet page.</P>
+
+<P>For information on <B>ExtensionPropSheetPageProc</B> and related functions, see the Platform SDK documentation.</P>
+
+<PRE class=syntax>typedef struct _SP_PROPSHEETPAGE_REQUEST {
+  DWORD  CbSize;
+  DWORD  PageRequested;
+  HDEVINFO  DeviceInfoSet;
+  PSP_DEVINFO_DATA  DeviceInfoData;
+} SP_PROPSHEETPAGE_REQUEST, *PSP_PROPSHEETPAGE_REQUEST;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>CbSize</B></DT>
+
+<DD>The size, in bytes, of the SP_PROPSHEETPAGE_REQUEST structure.</DD>
+
+<DT><B>PageRequested</B></DT>
+
+<DD>The property sheet page to add to the to property sheet. Can be one of the following values:
+
+<DL>
+<DT>SPPSR_SELECT_DEVICE_RESOURCES</DT>
+
+<DD>Specifies the Resource Selection page supplied by the Setupapi DLL. </DD>
+
+<DT>SPPSR_ENUM_BASIC_DEVICE_PROPERTIES</DT>
+
+<DD>Specifies a page that is supplied by the device's BasicProperties32 provider. That is, an installer or other component that supplied page(s) in response to a <A HREF="dif-codes_5rhu.htm">DIF_ADDPROPERTYPAGE_BASIC</A> installation request. </DD>
+
+<DT>SPPSR_ENUM_ADV_DEVICE_PROPERTIES</DT>
+
+<DD>Specifies a page that is supplied by the class and/or the device's EnumPropPages32 provider. That is, an installer or other component that supplied page(s) in response to a <A HREF="dif-codes_89de.htm">DIF_ADDPROPERTYPAGE_ADVANCED</A> installation request.
+</DD>
+</DL>
+</DD>
+
+<DT><B>DeviceInfoSet</B></DT>
+
+<DD>The handle for the device information set that contains the device being installed.</DD>
+
+<DT><B>DeviceInfoData</B></DT>
+
+<DD>A pointer to an <A HREF="di-struct_7nqq.htm">SP_DEVINFO_DATA</A> structure for the device being installed.
+</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>The component that is retrieving the property pages calls Setupapi's <B>ExtensionPropSheetPageProc</B> function and passes in a pointer to a SP_PROPSHEETPAGE_REQUEST structure, the address of their  <B>AddPropSheetPageProc </B>function, and some private data. The property sheet provider calls the <B>AddPropSheetPageProc</B> routine for each property sheet it provides. </P>
+
+<P>The following code excerpt illustrates how to retrieve one page, the Setupapi's Resource Selection page:</P>
+
+<PRE>{
+    DWORD Err;
+    HINSTANCE hLib;
+    FARPROC PropSheetExtProc;
+    HPROPSHEETPAGE hPages[2];
+    .
+    .
+    .
+        if(!(hLib = GetModuleHandle(TEXT("setupapi.dll")))) {
+            return GetLastError();
+        }
+
+        if(!(PropSheetExtProc = GetProcAddress(hLib,
+                 "ExtensionPropSheetPageProc"))) {
+            Err = GetLastError();
+            FreeLibrary(hLib);
+            return Err;
+        }
+
+        PropPageRequest.cbSize = sizeof(SP_PROPSHEETPAGE_REQUEST);
+        PropPageRequest.PageRequested  = 
+            SPPSR_SELECT_DEVICE_RESOURCES;
+        PropPageRequest.DeviceInfoSet  = DeviceInfoSet;
+        PropPageRequest.DeviceInfoData = DeviceInfoData;
+
+        if(!PropSheetExtProc(&amp;PropPageRequest, 
+                AddPropSheetPageProc, &amp;hPages[1])) {
+            Err = ERROR_INVALID_PARAMETER;
+            FreeLibrary(hLib);
+            return Err;
+        }
+        .
+        .
+        .
+}</PRE>
+
+<P>The <B>AddPropSheetPageProc</B> for the above excerpt would be something like the following:</P>
+
+<PRE>BOOL
+CALLBACK
+AddPropSheetPageProc(
+    IN HPROPSHEETPAGE hpage,
+    IN LPARAM lParam
+   )
+{
+    *((HPROPSHEETPAGE *)lParam) = hpage;
+    return TRUE;
+}</PRE>
+
+<H4>See Also</H4>
+
+<P><A HREF="dif-codes_89de.htm">DIF_ADDPROPERTYPAGE_ADVANCED</A>, <A HREF="dif-codes_5rhu.htm">DIF_ADDPROPERTYPAGE_BASIC</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: SP_PROPSHEETPAGE_REQUEST"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

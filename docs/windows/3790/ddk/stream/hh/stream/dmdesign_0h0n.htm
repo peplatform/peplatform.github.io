@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Synthesizers and Wave Sinks</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Synthesizers and Wave Sinks">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_synthesizers_and_wave_sinks_ksg"></A>Synthesizers and Wave Sinks</H3>
+
+<P>The rendering engine has two parts:
+
+<UL>
+	<LI>The synthesizer, which takes MIDI messages and converts them to wave audio samples.</LI>
+
+	<LI>The wave sink, which provides a destination for the wave samples and helps synchronize the output.</LI>
+</UL>
+
+<P>By default, a DirectMusic application uses the Microsoft Software Synthesizer (<I>dmsynth.dll</I>) as the synthesizer and DirectSound as the wave-output device.</P>
+
+<P>In DirectX®&nbsp;6.1 and DirectX®&nbsp;7, a DirectMusic application can override these defaults. For example, the application might use the Microsoft Software Synthesizer but direct the output to a <I>.wav </I>file, or it might implement a custom synthesizer that works with the default wave sink. The latter scenario is more likely because the default wave sink should work well for most synthesizers.</P>
+
+<P>In DirectX®&nbsp;8 and later, DirectMusic always uses its built-in wave sink to output data from a user-mode synth, but an application can override the default software synth. This means that a DirectMusic application can implement a custom user-mode synthesizer, but the synthesizer must use DirectMusic's built-in wave sink.</P>
+
+<P>The figure below shows how the DirectMusic architecture incorporates user-mode synthesizers and wave sinks. Note that the block labeled "Port" in the following figure represents a DirectMusic port, which should not be confused with a WDM audio port driver. For more information about DirectMusic ports, see the Platform SDK documentation.</P>
+
+<P><IMG SRC="images/dmblock.gif" ALT="" BORDER=0></P>
+
+<P><B>DirectMusic Architecture for User-Mode Synthesizers and Wave Sinks</B></P>
+
+<P>In the figure above, the application sends data to the user-mode DirectMusic port, which passes the data (MIDI or DLS) down to the software synth (<I>dmsynth.dll</I> by default) so that it can render the notes into wave data. The synth sink manages the timing and hands the synth a buffer to fill when it is ready to receive a burst of data. The synth fills up the buffer (an <B>IDirectSoundBuffer</B> object by default) with data so that it can be passed to DirectSound. DirectSound either plays the data through the <A HREF="aud-design_1kiv.htm#ddk_kmixer_system_driver_ksg">KMixer system driver</A> or plays it through a DirectSound hardware-accelerated rendering pin on the audio device, if one is available (see <A HREF="pcdesign_8ilj.htm">DirectSound Hardware Acceleration in WDM Audio</A>).</P>
+
+<P>This same basic architecture also applies to kernel-mode implementations, with the exception that the sink hands the data buffer directly to the hardware or to the KMixer system driver. For more information about kernel-mode architecture, see <A HREF="dmdesign_4rzb.htm">Kernel Mode Hardware Acceleration DDI</A>.</P>
+
+<P>In user mode, a custom software synthesizer is created by implementing the <A HREF="audmp-routines_80fn.htm"><B>IDirectMusicSynth</B></A> interface. This interface is supported in DirectX&nbsp;6.1 and later.</P>
+
+<P>Only DirectX&nbsp;6.1 and DirectX&nbsp;7 support the implementation of a custom user-mode synth sink with an <A HREF="audmp-routines_0ncj.htm"><B>IDirectMusicSynthSink</B></A> interface. Before the synthesizer can be activated, the wave sink should be created and connected to the synth by a call to <A HREF="audmp-routines_74tv.htm"><B>IDirectMusicSynth::SetSynthSink</B></A>. This call should be the very first call after creating the synth, because many of the timing-related calls are actually passed through to equivalent calls on <B>IDirectMusicSynthSink</B>. In DirectX&nbsp;8 and later, custom wave sinks are not supported.</P>
+
+<P>When these steps are completed, the user-mode DirectMusic port should be open and activated for use. As soon as this much of the driver code is working, you can start implementing features. Use the source code for the user-mode Microsoft Software Synthesizer as a template and begin adding the new functionality.</P>
+
+<P>See <A HREF="audmp-routines_80fn.htm"><B>IDirectMusicSynth</B></A> for a discussion of how to create an instance of the DirectMusic default user-mode synthesizer, connect it to an instance of the default user-mode wave sink, open the user-mode DirectMusic port, and activate it for use.</P>
+
+<P>The <I>ddksynth</I> sample source code that ships as part of the DDK can serve as the template for your synth implementation. For more information, see <A HREF="aud-design_3vdz.htm">Sample Audio Drivers</A>. This sample synth is similar to the default software synth for DirectMusic, but lacks certain advanced features such as reverb.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Synthesizers%20and%20Wave%20Sinks"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

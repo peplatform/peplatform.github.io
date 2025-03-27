@@ -1,0 +1,156 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IRP_MN_QUERY_INTERFACE</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IRP_MN_QUERY_INTERFACE">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_interface_dg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_interface_classes_dg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_irp_mn_query_interface_dr"></A>IRP_MN_QUERY_INTERFACE</H1>
+
+<P>The IRP_MN_QUERY_INTERFACE request enables a driver to export a direct-call interface to other drivers.</P>
+
+<P>A bus driver that exports an interface must handle this request for its child devices (child PDOs). Function and filter can optionally handle this request. </P>
+
+<P>An "interface" in this context consists of one or more routines, and possibly data, exported by a driver or set of drivers. An interface has a structure that describes its contents and a GUID that identifies its type.</P>
+
+<P>For example, the PCMCIA bus driver exports an interface of type GUID_PCMCIA_INTERFACE_STANDARD that contains routines for operations such as getting the write-protect condition of a PCMCIA memory card. The function driver for such a memory card can send an IRP_MN_QUERY_INTERFACE request to the parent PCMCIA bus driver to get pointers to the PCMCIA interface routines.</P>
+
+<P>This section describes the query-interface IRP as a general mechanism. Drivers that expose an interface should provide additional information about their specific interface.</P>
+
+<H4>Major Code</H4>
+
+<P><A HREF="k113_8ur6.htm">IRP_MJ_PNP</A> </P>
+
+<H4>When Sent</H4>
+
+<P>A driver or system component sends this IRP to get information about an interface exported by a driver for a device. </P>
+
+<P>A driver or system component sends this IRP at IRQL = PASSIVE_LEVEL in an arbitrary thread context. </P>
+
+<P>A driver can receive this IRP at any time after the driver's <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine has been called for the device. The device might or might not be started when this IRP is sent (that is, you cannot assume that the driver has successfully completed an <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> request for the device).</P>
+
+<H4>Input</H4>
+
+<P>The <B>Parameters.QueryInterface</B> member of the <A HREF="k112_49bm.htm">IO_STACK_LOCATION</A> structure is itself a structure, which describes the interface being requested. The structure contains the following information:</P>
+
+<PRE>CONST GUID *InterfaceType;
+USHORT Size;
+USHORT Version;
+PINTERFACE Interface;
+PVOID InterfaceSpecificData</PRE>
+
+<P>The members of the structure are defined as follows:
+
+<DL>
+<DT><B>InterfaceType</B></DT>
+
+<DD>Points to a GUID that identifies the interface being requested. The GUID can be for a system-defined interface, such as GUID_BUS_INTERFACE_STANDARD, or a custom interface. The GUIDs for system-defined interfaces are listed in <I>wdmguid.h</I>. GUIDs for custom interfaces should be generated with <B>uuidgen</B>. </DD>
+
+<DT><B>Size</B></DT>
+
+<DD>Specifies the size of the interface being requested. Drivers that handle this IRP must not return an <A HREF="k112_7h4i.htm">INTERFACE</A> structure larger than <B>Size</B> bytes.</DD>
+
+<DT><B>Version</B></DT>
+
+<DD>Specifies the version of the interface being requested. 
+
+<P>If a driver supports more than one version of an interface, the driver returns the closest supported version without exceeding the requested version. The component that sent the IRP should examine the returned <B>Interface.Version</B> field and determine what to do based on that value.
+</DD>
+
+<DT><B>Interface</B></DT>
+
+<DD>Points to a structure in which to return the requested interface. This structure must contain an <A HREF="k112_7h4i.htm">INTERFACE</A> structure as its first member. The component sending the IRP allocates this structure from paged memory. 
+
+<P>A driver that exports an interface defines a new structure type containing the INTERFACE structure, plus members for routines and/or data in the interface. (The driver also defines a GUID for the interface, as described in the <B>InterfaceType</B> member, above.)
+
+
+<P>A driver that exports an interface defines the execution environment for each routine in the interface, including the IRQL at which the routine can be called, and so forth.
+</DD>
+
+<DT><B>InterfaceSpecificData</B></DT>
+
+<DD>Specifies additional information about the interface being requested. 
+
+<P>For some interfaces, the component sending the IRP specifies additional information in this field.<B> </B>Typically, this field is NULL and the <B>InterfaceType</B> and <B>Version</B> are sufficient to identify the interface being requested. 
+
+</DD>
+</DL>
+
+<H4>Output</H4>
+
+<P>On success, a driver fills in the members of the <B>Parameters.QueryInterface.Interface</B> structure. </P>
+
+<H4>I/O Status Block</H4>
+
+<P>A driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS or to an appropriate error status. </P>
+
+<P>On success, a bus driver sets <B>Irp-&gt;IoStatus.Information</B> to zero. </P>
+
+<P>If a function or filter driver does not handle this IRP, it calls <A HREF="k104_1ohe.htm"><B>IoSkipCurrentIrpStackLocation</B></A> and passes the IRP down to the next driver. Such a driver must not modify <B>Irp-&gt;IoStatus.Status</B> and must not complete the IRP.</P>
+
+<P>If a bus driver does not export the requested interface and therefore does not handle this IRP for a child PDO, the bus driver leaves <B>Irp-&gt;IoStatus.Status</B> as is and completes the IRP.</P>
+
+<H4>Operation</H4>
+
+<P>A driver handles this IRP if the parameters specify an interface the driver supports. </P>
+
+<P>A driver must not queue this IRP if the IRP requests an interface that the driver does not support. A driver must check <B>Parameters.QueryInterface.InterfaceType</B> in its <A HREF="k112_49bm.htm">IO_STACK_LOCATION</A> structure. If the interface is not one the driver supports, the driver must pass the IRP to the next lower driver in the device stack without blocking.</P>
+
+<P>Each interface must provide <B>InterfaceReference</B> and <B>InterfaceDeference</B> routines, and the driver that exports the interface must supply the addresses of these routines in the <A HREF="k112_7h4i.htm">INTERFACE</A> structure. Before a driver returns an interface in response to the IRP, it must increment the interface's reference count by calling its <B>InterfaceReference</B> routine. When the driver that requested the interface has finished using it, that driver must decrement the reference count by calling the interface's <B>InterfaceDereference</B> routine.</P>
+
+<P>If the driver that sends the IRP (driver <I>x</I>) later passes the interface to another driver (driver <I>y</I>) then driver <I>x</I> must increment the interface's reference count and driver <I>y</I> must decrement it.</P>
+
+<P>A driver that handles this IRP should avoid passing the IRP to another device stack to get the requested interface. Such a design would create dependencies between the device stacks that are difficult to manage. For example, the device represented by the second device stack cannot be removed until the appropriate driver in the first stack dereferences the interface.</P>
+
+<P>Interfaces can be bus-specific or bus-independent. Bus-specific interfaces are defined in the header files for those buses. The system defines a bus-independent interface, <A HREF="drvr_interface_7hma.htm">BUS_INTERFACE_STANDARD</A>, for exporting standard bus interfaces. </P>
+
+<P>See <A HREF="plugplay_15t3.htm">Plug and Play</A> for the general rules for handling <A HREF="pnp-irps_9bzm.htm">Plug and Play Minor IRPs</A>.</P>
+
+<P>This IRP is used specifically to pass routine entry points between layered kernel-mode drivers for a device. Do not confuse the interfaces exposed by this IRP with <A HREF="JavaScript:hhobj_1.Click()">device interfaces</A>. A device interface is used primarily for exposing a path to a device for use by user-mode components or other kernel components. For more information about device interfaces, see <A HREF="JavaScript:hhobj_2.Click()">Device Interface Classes</A>.</P>
+
+<H4>Sending This IRP</H4>
+
+<P>See <A HREF="irps_0uuf.htm">Handling IRPs</A> for information on sending IRPs. The following steps apply specifically to this IRP: 
+
+<UL>
+	<LI>Allocate an <A HREF="k112_7h4i.htm">INTERFACE</A> structure from paged pool and initialize it to zeros.</LI>
+
+	<LI>Set the values in the next I/O stack location of the IRP: set <B>MajorFunction</B> to <A HREF="k113_8ur6.htm">IRP_MJ_PNP</A>, set <B>MinorFunction</B> to IRP_MN_QUERY_INTERFACE, and set the appropriate values in <B>Parameters.QueryInterface</B>. </LI>
+
+	<LI>Initialize <B>IoStatus.Status</B> to STATUS_NOT_SUPPORTED. </LI>
+
+	<LI>Deallocate the IRP and the INTERFACE structure when they are no longer needed.</LI>
+
+	<LI>Use the interface routines and context parameter as described in the specification for the interface. </LI>
+
+	<LI>Decrement the reference count using the <B>InterfaceDereference</B> routine when the interface is no longer needed. Do not call any interface routines after dereferencing the interface.</LI>
+</UL>
+
+<P>A driver typically sends this IRP to the top of the device stack in which the driver is attached. If a driver sends this IRP to a different device stack, the driver must register for target device notification on the other device if the other device is not an ancestor of the device that the driver is servicing. Such a driver calls <A HREF="k104_7diq.htm"><B>IoRegisterPlugPlayNotification</B></A> with an <I>EventCategory</I> of <B>EventCategoryTargetDeviceChange</B>. When the driver receives notification of type GUID_TARGET_DEVICE_QUERY_REMOVE, the driver must dereference the interface. The driver can requery for the interface if it receives a subsequent GUID_TARGET_DEVICE_REMOVE_CANCELLED notification.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="drvr_interface_7hma.htm">BUS_INTERFACE_STANDARD</A>, <A HREF="k112_7h4i.htm">INTERFACE</A>, <A HREF="k104_7diq.htm"><B>IoRegisterPlugPlayNotification</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IRP_MN_QUERY_INTERFACE"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

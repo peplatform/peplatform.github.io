@@ -1,0 +1,125 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Lock32</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_lock32_gg"></A><I>Lock32</I></H1>
+
+<P>The <I>Lock32</I> callback function locks a specified area of surface memory and provides a valid pointer to a block of memory associated with a surface so that only the user can access it.</P>
+
+<PRE class=syntax><B>DWORD
+  (FAR PASCAL *LPDDHALSURFCB_LOCK)(</B>
+<B>    LPDDHAL_LOCKDATA</B>  <I>lpLockData</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>lpLockData</I></DT>
+
+<DD>Points to a <A HREF="ddstrcts_7g6f.htm">DDHAL_LOCKDATA</A> structure that contains the information required to perform the lockdown.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>Lock32</I> returns one of the following callback codes:</P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_handled_gg">DDHAL_DRIVER_HANDLED</A> </P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_nothandled_gg">DDHAL_DRIVER_NOTHANDLED</A> </P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ddrawi.h</I>. Include <I>ddrawi.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The <I>Lock32</I> callback is called whenever a surface is about to be directly accessed by the host CPU. </P>
+
+<P>The sole purpose of <I>Lock32</I> is to provide a display memory pointer to DirectDraw. If <I>Lock32</I> returns DDHAL_DRIVER_NOTHANDLED, DirectDraw gets that pointer from the surface structure. If you want to use a pointer other than the one DirectDraw uses to point to the surface memory (passed in by the <B>lpSurface</B> member of the DDHAL_LOCKDATA structure), return that pointer in the <B>lpSurfData</B> member of the DDHAL_LOCKDATA structure, and specify DDHAL_DRIVER_HANDLED. </P>
+
+<P>Before allowing a lock, it must be verified that a surface can be safely accessed by the user. If the memory cannot be accessed while in accelerator mode, the card should be taken out of accelerator mode or the driver should return DDERR_SURFACEBUSY. If the surface being accessed was just flipped away from, it must finish displaying before it can be locked. If a mode reset has occurred (<I>pDriverData-&gt;fReset</I> is set to TRUE; for more information, see <A HREF="ddfncs_4srr.htm"><I>DriverInit</I></A>), the <A HREF="ddfncs_7s4n.htm"><I>getDisplayDuration</I></A> function is called and <I>pDriverData-&gt;fReset</I> is set to FALSE (<I>pDriverData-&gt;fReset</I> is TRUE when the display duration for this mode has not been calculated yet). This is because the display duration is different in different modes. The <I>getDisplayDuration</I> function only needs to be called if the monitor refresh rate is not known, otherwise it can be calculated by converting the frequency (in hertz) to performance ticks (thousandths of a second) and filled into the <B>dwFlipDuration</B> member of the <A HREF="ddstrcts_7k4n.htm">FLIPRECORD</A> structure. This should be more accurate than the sampling method that <I>getDisplayDuration</I> uses in the following sample implementation. Another method is to alter <I>getDisplayDuration</I> to do this anyway (provided the refresh rate is known). </P>
+
+<P>Before an actual lock can occur, any pending physical flip must have been processed. This is checked by calling <A HREF="ddfncs_1ktj.htm"><I>updateFlipStatus</I></A> with the pointer to the <B>fpVidmem</B> member of the <A HREF="ddstrcts_5mw7.htm">DDRAWI_DDRAWSURFACE_GBL</A> structure that is contained in the <A HREF="ddstrcts_5aqv.htm">DDRAWI_DDRAWSURFACE_LCL</A> structure (<B>lpGbl</B>) that is pointed to by the <B>lpDDSurface</B> member of the DDHAL_LOCKDATA structure as the input parameter. If the return value is not equal to DD_OK, the <B>ddRVal</B> member of the DDHAL_LOCKDATA structure is set to DDERR_WASSTILLDRAWING (because the lock cannot be done) and DDHAL_DRIVER_HANDLED is returned. </P>
+
+<P>If a lock cannot be done while a blt is in progress (this depends on the hardware requirements), check whether the draw engine is busy doing a blt. If it is, set the <B>ddRVal</B> member of the DDHAL_LOCKDATA structure to DDERR_WASSTILLDRAWING (because the surface cannot be currently locked) and return DDHAL_DRIVER_HANDLED. Otherwise, returning DDHAL_DRIVER_NOTHANDLED effectively locks the surface. </P>
+
+<P>The equivalent NT-based callback is .</P>
+
+<P>The following is the sample implementation of <I>32</I>: </P>
+
+<PRE>/*
+ * Lock32
+ */
+DWORD __stdcall Lock32( LPDDHAL_LOCKDATA lpLockData )
+{
+    HRESULT     ddrval;             // DirectDraw return value
+
+    /*
+     * NOTES:
+     *
+     * This callback is invoked whenever a surface is about to be
+     * directly accessed by the user. This is where you need to make
+     * sure that a surface can be safely accessed by the user.
+     *
+     * If your memory cannot be accessed while in accelerator mode, you
+     * should take either take the card out of accelerator mode or else
+     * return DDERR_SURFACEBUSY
+     *
+     * If someone is accessing a surface that was just flipped away
+     * from, make sure that the old surface (what was the primary) has
+     * finished being displayed.
+     */
+
+
+    /*
+     * Get the monitor frequency after a mode reset 
+     */
+    if( pDriverData-&gt;fReset )
+    {
+        getDisplayDuration();
+        pDriverData-&gt;fReset = FALSE;
+    }
+
+    /*
+     * Check to see if any pending physical flip has occurred
+     */
+    ddrval = updateFlipStatus(lpLockData-&gt;
+                              lpDDSurface-&gt;lpGbl-&gt;fpVidMem);
+    if( ddrval != DD_OK )
+    {
+        lpLockData-&gt;ddRVal = DDERR_WASSTILLDRAWING;   // Can't lock
+        return DDHAL_DRIVER_HANDLED;      // We dealt with the request
+    }
+
+    /*
+     * Don't allow a lock if a blt is in progress (only do this if your
+     * hardware requires it)
+     */
+    if(DRAW_ENGINE_BUSY)
+    {
+        lpLockData-&gt;ddRVal = DDERR_WASSTILLDRAWING;
+                        // Can't lock during a blt
+        return DDHAL_DRIVER_HANDLED;
+                        // Request handled
+    }
+
+    return DDHAL_DRIVER_NOTHANDLED;
+                        // Request not handled, let the lock proceed
+
+} /* Lock32 */
+ </PRE>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddfncs_4srr.htm"><I>DriverInit</I></A>, <A HREF="ddfncs_7s4n.htm"><I>getDisplayDuration</I></A>, <A HREF="ddstrcts_7k4n.htm">FLIPRECORD</A>, <A HREF="ddstrcts_5mw7.htm">DDRAWI_DDRAWSURFACE_GBL</A>, <A HREF="ddstrcts_5aqv.htm">DDRAWI_DDRAWSURFACE_LCL</A>, <A HREF="ddfncs_1ktj.htm"><I>updateFlipStatus</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Lock32"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

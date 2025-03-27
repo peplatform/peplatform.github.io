@@ -1,0 +1,83 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Installation Issues for an Audio Driver in Windows 98</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_starting_a_device_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_installation_issues_for_an_audio_driver_in_windows_98_ksg"></A>Installation Issues for an Audio Driver in Windows 98</H4>
+
+<P>Support for WDM audio drivers is limited in Windows&nbsp;98, as explained in <A HREF="aud-design_1iqv.htm">Windows 98 Support for WDM Audio</A>. For this reason, vendors might want to prevent their audio drivers from installing in Windows&nbsp;98. Also, a vendor who does choose to allow a driver to install under Windows&nbsp;98 might want to design the driver to perform a runtime check to determine if it is running in Windows&nbsp;98 before it attempts to use any audio capabilities that Windows&nbsp;98 does not support.</P>
+
+<P>The following topics are discussed:</P>
+
+<P class=indent1><A HREF="#ddk_stopping_installation_from_a_driver_s_inf_file_ksg">Stopping Installation from a Driver's INF File</A> </P>
+
+<P class=indent1><A HREF="#ddk_performing_a_runtime_check_for_windows_98_ksg">Performing a Runtime Check for Windows 98</A> </P>
+
+
+
+<H4><A NAME="ddk_stopping_installation_from_a_driver_s_inf_file_ksg"></A>Stopping Installation from a Driver's INF File</H4>
+
+<P>The following excerpt from the DDK sample INF file <I>ac97sampl.inf</I> shows how to use a <A HREF="aud-prop_3ub7.htm"><B>KnownRegEntries</B></A> directive to stop installation in Windows&nbsp;98:</P>
+
+<PRE>  [AC97SMPL]
+  KnownRegEntries=AC97.KnownRegEntries
+
+  [AC97.KnownRegEntries]
+  IsWin98Gold=keep
+
+  [IsWin98Gold]
+  1=HKLM,Software\Microsoft\Windows\CurrentVersion,VersionNumber,0,4.10.1998</PRE>
+
+<P>The registry subkey under <B>HKLM</B> that is specified in the <B>IsWin98Gold</B> section does not have to specify Software\Microsoft\Windows\CurrentVersion. A vendor can use a vendor-specific registry entry and value to control a driver's installation.</P>
+
+<P>The “keep” keyword in the INF entry above degrades the ranking of the driver that is specified in the INF file. The effect is typically to keep the previously installed driver instead of installing the new driver.</P>
+
+
+
+<H4><A NAME="ddk_performing_a_runtime_check_for_windows_98_ksg"></A>Performing a Runtime Check for Windows 98</H4>
+
+<P>An adapter driver's device-startup routine (see <A HREF="JavaScript:hhobj_1.Click()">Starting a Device</A>) can perform a simple test to determine whether it is running in Windows&nbsp;98. The function in the following code example queries the <A HREF="pcdesign_4gmf.htm">WaveCyclic port</A> driver for its <A HREF="audmp-routines_8ek3.htm"><B>IPortEvents</B></A> interface. Only versions of Windows later than Windows&nbsp;98 support this interface. If the driver is running in Windows&nbsp;98, the <B>IsWin98Gold</B> function below returns TRUE. Otherwise, it returns FALSE to indicate that it is running on one of the following: Windows&nbsp;98&nbsp;SE, Windows&nbsp;Me, or Windows&nbsp;2000 and later.</P>
+
+<PRE>BOOL IsWin98Gold()
+{
+    BOOL    fWin98Gold=TRUE;
+
+    // create a wave cyclic port
+    PPORT pPort = 0;
+    ntStatus = PcNewPort(&amp;pPort, CLSID_PortWaveCyclic);
+  
+    if (!NT_SUCCESS(ntStatus))
+    {
+        DOUT(DBG_ERROR, ("Error creating a Port"));
+        return (FALSE);
+    }
+   
+    // query an event interface (not supported in Windows&nbsp;98)
+    PPORTEVENTS pPortEvents = 0;
+    ntStatus = pPort-&gt;QueryInterface(IID_IPortEvents, (PVOID *)&amp;pPortEvents);
+    if (NT_SUCCESS(ntStatus))
+    {
+        fWin98Gold = FALSE;
+        pPortEvents-&gt;Release();
+    }
+    pPort-&gt;Release();
+    return (fWin98Gold);
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Installation%20Issues%20for%20an%20Audio%20Driver%20in%20Windows%2098"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

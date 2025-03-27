@@ -1,0 +1,73 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>CO_CALL_MANAGER_PARAMETERS</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="CO_CALL_MANAGER_PARAMETERS">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_co_call_manager_parameters_nr"></A>CO_CALL_MANAGER_PARAMETERS</H1>
+
+<P>The CO_CALL_MANAGER_PARAMETERS structure specifies parameters that a call manager uses to set up an outgoing call and that a connection-oriented client uses to determine whether to accept an incoming call. Connection-oriented clients and call managers can also use CO_CALL_MANAGER_PARAMETERS to request a change of call parameters for a VC. In addition, when adding a party to a multipoint call, a connection-oriented client uses CO_CALL_MANAGER_PARAMETERS to specify the address of the new party.</P>
+
+<PRE class=syntax>typedef struct _CO_CALL_MANAGER_PARAMETERS{
+  FLOWSPEC  Transmit;
+  FLOWSPEC  Receive;
+  CO_SPECIFIC_PARAMETERS  CallMgrSpecific;
+} CO_CALL_MANAGER_PARAMETERS, *PCO_CALL_MANAGER_PARAMETERS;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>Transmit</B></DT>
+
+<DD>Pointer to a FLOWSPEC structure that specifies generic quality of service (QoS) parameters such as token rate, latency, and bandwidth, for packet transmission. For more information on the FLOWSPEC structure, see the Platform SDK.</DD>
+
+<DT><B>Receive</B></DT>
+
+<DD>Pointer to a FLOWSPEC structure that specifies generic QoS parameters such as token rate, latency, and bandwidth, for packet reception. For more information on the FLOWSPEC structure, see the Platform SDK.</DD>
+
+<DT><B>CallMgrSpecific</B></DT>
+
+<DD>Pointer to a <A HREF="105nstru_5zw2.htm">CO_SPECIFIC_PARAMETERS</A> structure that contains information specific to the signaling protocol used by the call manager and that can be specific to the call manager, as well.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ndis.h</I>. Include <I>ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The address of a buffered CO_CALL_MANAGER_PARAMETERS structure is a member of a CO_CALL_PARAMETERS structure. The CO_CALL_MANAGER_PARAMETERS structure specifies generic transmit and receive parameters that are of interest to all connection-oriented miniport drivers. The CO_CALL_MANAGER_PARAMETERS structure also contains call manager-specific parameters that are specific to a signaling protocol and possibly to a particular call manager that supports the protocol.</P>
+
+<P>The following sections describe the role of the CO_CALL_MANAGER_PARAMETERS structure in connection-oriented operations:</P>
+
+<P><B>Making an Outgoing Call</B></P>
+
+<P>Before making an outgoing call with <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>, a client must fill in the portions of the CO_CALL_MANAGER_PARAMETERS structure that the call manager needs to set up the call. Typically, the client fills in the structures at <B>Transmit</B> and <B>Receive</B> to specify the quality of service (QoS) for the call. The client can also fill in the structure at <B>CallMgrSpecific</B> with any protocol-specific information, such as the destination address, needed to set up the call. The call manager typically interprets values in the buffers at <B>Transmit</B> and <B>Receive</B> to set up any protocol-specific state needed in its call setup messages and to set up media-specific parameters needed to activate the VC after establishing a connection through the network.</P>
+
+<P>The mix of generic and specific parameters that a client supplies to the call manager depends on the requirements and capabilities of both the client and call manager. Note that call manager-specific parameters override any conflicting generic call manager parameters. The client can specify media-specific information at <B>MediaParameters</B> in the CO_CALL_PARAMETERS structure, but the call manager can overwrite these parameters if the call parameters for the call are changed through negotiation.</P>
+
+<P><B>Indicating an Incoming Call</B></P>
+
+<P>On an incoming call, the call manager extracts call parameters from a signaling message and maps these values to call-manager parameters at <B>CallMgrParameters</B> and media parameters at <B>MediaParameters</B> of the CO_CALL_PARAMETERS structure. Before calling <A HREF="103ndisx_2v76.htm"><B>NdisCmDispatchIncomingCall</B></A><B> </B>or <A HREF="103ndisx_5zoy.htm"><B>NdisMCmDispatchIncomingCall</B></A>, the call manager must fill in the call manager-specific parameters in the CO_CALL_MANAGER_PARAMETERS structure that the client requires to determine whether to accept the call. These parameters might include the destination SAP and the source SAP of the incoming call. The call manager can also supply generic (FLOWSPEC) parameters that the client can inspect to determine whether to accept the call, reject the call, or request a change in QoS, depending on the signaling protocol.</P>
+
+<P><B>Requesting a Change in Call Parameters for a VC</B></P>
+
+<P>Before requesting a change in call parameters on a VC by calling <A HREF="103ndisx_7jhu.htm"><B>NdisClModifyCallQoS</B></A>, the client must fill in the appropriate generic and/or call manager-specific parameters in the CO_CALL_MANAGER_PARAMETERS structure. The call manager must do the same before calling <A HREF="103ndisx_98xe.htm"><B>NdisCmDispatchIncomingCallQoSChange</B></A> or <B>NdisMCmDispatchIncomingCallQoSChange </B>to indicate an incoming request to change the call parameters on a VC. The signaling protocol determines which parameters, if any, can be changed. The client's and call manager's capabilities determine the possible mix of generic and specific call manager parameters. Note that call manager-specific parameters override any conflicting generic call manager parameters.</P>
+
+<P><B>Adding a Party to a Multipoint VC</B></P>
+
+<P>Before calling <A HREF="103ndisx_5fua.htm"><B>NdisClAddParty</B></A>, a client must specify the address of the new party in the call-manager-specific parameters at <B>CallMgrSpecific</B> of the CO_CALL_MANAGER_PARAMETERS structure. The underlying network medium determines whether a client can specify per-party traffic parameters on a multipoint VC for an outgoing call.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A>, <A HREF="105nstru_74oi.htm">CO_MEDIA_PARAMETERS</A>, <A HREF="105nstru_5zw2.htm">CO_SPECIFIC_PARAMETERS</A>, <A HREF="103ndisx_5fua.htm"><B>NdisClAddParty</B></A>, <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>, <A HREF="103ndisx_7jhu.htm"><B>NdisClModifyCallQoS</B></A>, <A HREF="103ndisx_98xe.htm"><B>NdisCmDispatchIncomingCallQoSChange</B></A>, <A HREF="103ndisx_65f6.htm"><B>NdisMCmDispatchIncomingCallQoSChange</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: CO_CALL_MANAGER_PARAMETERS"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

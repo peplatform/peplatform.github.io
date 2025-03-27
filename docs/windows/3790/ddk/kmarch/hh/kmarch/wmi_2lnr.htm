@@ -1,0 +1,60 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling IRP_MN_REGINFO and IRP_MN_REGINFO_EX to Register Blocks</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling IRP_MN_REGINFO and IRP_MN_REGINFO_EX to Register Blocks">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_handling_irp_mn_reginfo_and_irp_mn_reginfo_ex_to_register_blocks_kg"></A>Handling IRP_MN_REGINFO and IRP_MN_REGINFO_EX to Register Blocks</H2>
+
+<P>On Windows 98 and Windows 2000, the system sends the <A HREF="k901_4omq.htm">IRP_MN_REGINFO</A> request to a driver to allow a driver to register its WMI classes.  On Windows XP and later, the system sends the <A HREF="k901_9d4i.htm">IRP_MN_REGINFO_EX</A> request instead.  Most drivers can handle these requests by using <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A> to provide a callback routine.  See <A HREF="wmi_81ev.htm">Using the WMI Library to Register Blocks</A> for details.</P>
+
+<P>A driver must handle IRP_MN_REGINFO or IRP_MN_REGINFO_EX requests to register blocks that use dynamic instance names or that use a list of driver-defined static instance names; it cannot call <B>WmiSystemControl</B> to register such blocks. A driver can optionally handle this request to register blocks that use static instance names based on the PDO or a driver-defined base name string. </P>
+
+<P>In this case, the driver:
+
+<OL>
+	<LI>Fills in a <A HREF="k112_2j76.htm">WMIREGINFO</A> structure at <B>Parameters.WMI.Buffer</B> that specifies:
+<UL>
+	<LI>The number of bytes of all registration data supplied by the driver, including data supplied on behalf of another driver.</LI>
+
+	<LI>The driver's registry path.</LI>
+
+	<LI>The name of the driver's MOF resource.</LI>
+
+	<LI>The number of blocks to register.</LI>
+
+	<LI>An array of <A HREF="k112_3ulu.htm">WMIREGGUID</A> structures, one for each block. </LI>
+</UL>
+</LI>
+
+	<LI>For each block, the driver fills in a WMIREGGUID structure that specifies:
+<UL>
+	<LI>The GUID that represents the block.</LI>
+
+	<LI>Flags that provide information about instance names and other characteristics of the block, such as whether the block is expensive to collect. For more information, see <A HREF="wmi_17zb.htm">WMI Registration Flags</A>.</LI>
+</UL>
+
+<P>If the block is being registered with static instance names, the driver sets one of the following members to specify static instance name data for the block:
+
+<UL>
+	<LI>If the driver sets <B>Flags</B> with WMIREG_FLAG_INSTANCE_LIST, it sets <B>InstanceNameList</B> to an offset to a list of static instance name strings. WMI specifies instances in subsequent requests by index into this list.</LI>
+
+	<LI>If the driver sets <B>Flags </B>with WMIREG_FLAG_INSTANCE_BASENAME, it sets <B>BaseNameOffset</B> to an offset to a base name string. WMI uses this string to generate static instance names for the block.</LI>
+
+	<LI>If the driver sets <B>Flags </B>with WMIREG_FLAG_INSTANCE_PDO, it sets <B>Pdo</B> to the PDO passed to the driver's <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine. WMI uses the device instance path of the PDO to generate static instance names for the block. When handling an IRP_MN_REGINFO_EX request, drivers must call the <A HREF="k107_0tyq.htm"><B>ObReferenceObject</B></A> routine on the physical device object passed in <B>Pdo</B>. (The system will automatically call <A HREF="k107_6vg2.htm"><B>ObDereferenceObject</B></A> to dereference the object; the driver must not do so.)</LI>
+</UL>
+
+<P>The driver writes instance name strings or a base name string at the offset indicated by <B>InstanceNameList</B> or <B>BaseName</B>, respectively. 
+</LI>
+
+	<LI>If the driver is registering blocks on behalf of another driver (as a class driver might on behalf of a miniclass driver), the driver fills in another <A HREF="k112_2j76.htm">WMIREGINFO</A> structure and list of <A HREF="k112_3ulu.htm">WMIREGGUID</A> structures with registration information for the other driver's blocks, and sets <B>NextWmiRegInfo</B> in the first WMIREGINFO to the offset in bytes from the beginning of the first WMIREGINFO to the beginning of the second WMIREGINFO structure.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20IRP_MN_REGINFO%20and%20IRP_MN_REGINFO_EX%20to%20Register%20Blocks"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

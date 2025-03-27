@@ -1,0 +1,72 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Querying for USB Interfaces</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Querying for USB Interfaces">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_query_interface_dr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iocalldriver_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_querying_for_usb_interfaces_kg"></A>Querying for USB Interfaces</H1>
+
+<P>In Windows&nbsp;XP and later operating systems, both the bus driver and the port driver expose interfaces that permit drivers higher in the driver stack to bypass the usual I/O Request Packet (IRP) mechanism and access bus and port driver routines by means of a simple function call. </P>
+
+<P>Using a bus driver interface provides several advantages for clients:
+
+<UL>
+	<LI>Client drivers can use the services provided by the interface without allocating an IRP.</LI>
+
+	<LI>Clients can call the interface's routines at raised IRQL.</LI>
+</UL>
+
+<P>To obtain any of these interfaces, a driver must send an <A HREF="JavaScript:hhobj_1.Click()">IRP_MN_QUERY_INTERFACE</A> request to the driver exposing the interface (either the bus driver or the port driver). </P>
+
+<P>First, the driver that retrieves the interface must create an IRP and define it to be of type IRP_MN_QUERY_INTERFACE in the next stack location:</P>
+
+<PRE>irpstack = IoGetNextIrpStackLocation(irp);
+irpstack-&gt;MajorFunction= IRP_MJ_PNP;
+irpstack-&gt;MinorFunction= IRP_MN_QUERY_INTERFACE;</PRE>
+
+<P>Next, the driver must allocate memory for the interface and make the stack point to the newly allocated memory. The following code snippet illustrates how to allocate memory for an interface of type <A HREF="usbinterkr_3ho2.htm">USB_BUS_INTERFACE_USBDI_V0</A>:</P>
+
+<PRE>irpstack-&gt;Parameters.QueryInterface.Interface = (USB_BUS_INTERFACE_USBDI_V0) <I>newly allocated interface buffer</I>;</PRE>
+
+<P>After that, the driver must assign a NULL to the <B>InterfaceSpecificData</B> member of the IRP:</P>
+
+<PRE>irpstack-&gt;Parameters.QueryInterface.InterfaceSpecificData = NULL;</PRE>
+
+<P>Finally, the driver must initialize the IRP stack with the appropriate interface GUID, the size of the interface and the version of the interface. After it finishes initializing the stack, it must call <A HREF="JavaScript:hhobj_2.Click()"><B>IoCallDriver</B></A> to pass the query interface IRP down the stack. The following code snippet illustrates this procedure for the USB_BUS_INTERFACE_USBDI_V0 interface: </P>
+
+<PRE>irpstack-&gt;Parameters.QueryInterface.InterfaceType = &amp;USB_BUS_INTERFACE_USBDI_GUID;
+irpstack-&gt;Parameters.QueryInterface.Size = sizeof(USB_BUS_INTERFACE_USBDI_V0);
+irpstack-&gt;Parameters.QueryInterface.Version = USB_BUSIF_USBDI_VERSION_0;
+ntStatus = IoCallDriver(<I>PDO that the client passes URBs to</I>, irp);</PRE>
+
+<P>To retrieve a port driver interface instead of a bus driver interface, assign the GUID for the port driver interfaces to <B>InterfaceType</B>:</P>
+
+<PRE>irpstack-&gt;Parameters.QueryInterface.InterfaceType = USB_BUS_INTERFACE_HUB_GUID</PRE>
+
+<P>For further information on USB interfaces see <A HREF="usbinterkr_7k4y.htm">USB Interfaces</A>.</P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Querying%20for%20USB%20Interfaces"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

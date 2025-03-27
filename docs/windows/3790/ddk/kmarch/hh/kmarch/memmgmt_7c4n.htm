@@ -1,0 +1,34 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Paging an Entire Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Paging an Entire Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_paging_an_entire_driver_kg"></A>Paging an Entire Driver</H3>
+
+<P>A driver that uses the <B>MmLockPagableXxx</B> support routines and specifies paged and discardable sections consists of nonpaged sections, paged sections, and an INIT section that is discarded after driver initialization.</P>
+
+<P>After a device driver connects interrupts for the devices it manages, the driver's interrupt handling path must be resident in system space. The interrupt-handling code must be part of the driver section that cannot be paged out, in case an interrupt occurs.</P>
+
+<P>Two additional Memory Manager routines, <A HREF="k106_7os2.htm"><B>MmPageEntireDriver</B></A> and <A HREF="k106_70s2.htm"><B>MmResetDriverPaging</B></A>, can be used to override the pageable or nonpageable attributes of all sections that make up a driver image. These routines allow a driver to be paged out in its entirety when the device it manages is not in use and cannot generate interrupts.</P>
+
+<P>Examples of system drivers that are completely pageable are the <I>win32.sys</I> driver, the serial driver, the mailslot driver, the beep driver and the null driver.</P>
+
+<P>A serial driver is typically used intermittently. Until a port it manages is opened, a serial driver can be paged out entirely. As soon as a port is opened, the parts of the serial driver that must be memory-resident must be brought into nonpaged system space. Other parts of the driver can remain pageable.</P>
+
+<P>A driver that can be completely paged out should call <B>MmPageEntireDriver</B> during driver initialization before interrupts are connected.</P>
+
+<P>When a device managed by a paged-out driver receives an open request, the driver is paged in. Then, the driver must call <A HREF="k106_70s2.htm"><B>MmResetDriverPaging</B></A> before it connects to interrupts. Calling <B>MmResetDriverPaging</B> causes the Memory Manager to treat the driver's sections according to the attributes acquired during compilation and linkage. Any section that is nonpaged, such as a text section, will be paged into nonpaged system memory; pageable sections will be paged in as they are referenced.</P>
+
+<P>Such a driver must keep a reference count of open handles to its devices. The driver increments the count at each open request for any device and decrements the count at each close request. When the count reaches zero, the driver should disconnect interrupts and then call <B>MmPageEntireDriver</B>. If a driver manages more than one device, the count must be zero for all such devices before the driver can call <B>MmPageEntireDriver</B>.</P>
+
+<P>It is the driver's responsibility to do whatever synchronization is necessary when changing the reference count, and to prevent the reference count from changing while the pageable state of the driver is changing. That is, in SMP machines, the driver must ensure that <B>MmPageEntireDriver</B> cannot be in progress on one processor, while on another processor, an open call is causing interrupts to be connected and the reference count to be incremented.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Paging%20an%20Entire%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

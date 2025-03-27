@@ -1,0 +1,71 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Registering Your Synthesizer</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Registering Your Synthesizer">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_registering_your_synthesizer_ksg"></A>Registering Your Synthesizer</H3>
+
+<P>After your software synthesizer is created, it must be added to the system registry so that it is available to applications as a DirectMusic port that can be enumerated. When the installation program calls your DLL's <B>DllRegisterServer</B> COM function to tell the DLL to register itself as a COM object, the function can register the synthesizer as well. To do so, the function adds an entry to the list of available software synthesizers by creating a key in the following path:</P>
+
+<PRE>  HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\DirectMusic\SoftwareSynths</PRE>
+
+<P>This path is defined in <I>dmusicc.h </I>as REGSTR_PATH_SOFTWARESYNTHS.</P>
+
+<P>The key is named with the class identifier of the synthesizer COM object. Within the key is a string field called "Description" with the name of the synthesizer.</P>
+
+<P>The following example code shows a function, <B>RegisterSynth</B>, that can be called from <B>DllRegisterServer</B> to register the synthesizer:</P>
+
+<PRE>  const char cszSynthRegRoot[] = REGSTR_PATH_SOFTWARESYNTHS "\\";
+  const char cszDescriptionKey[] = "Description";
+  const int CLSID_STRING_SIZE = 39;
+  HRESULT CLSIDToStr(const CLSID &amp;clsid, char *szStr, int cbStr);
+ 
+  HRESULT RegisterSynth(REFGUID guid,
+                        const char szDescription[])
+  {
+      HKEY hk;
+      char szCLSID[CLSID_STRING_SIZE];
+      char szRegKey[256];
+ 
+      HRESULT hr = CLSIDToStr(guid, szCLSID, sizeof(szCLSID));
+      if (!SUCCEEDED(hr))
+      {
+          return hr;
+      }
+ 
+      strcpy(szRegKey, cszSynthRegRoot);
+      strcat(szRegKey, szCLSID);
+ 
+      if (RegCreateKey(HKEY_LOCAL_MACHINE,
+                       szRegKey,
+                       &amp;hk))
+      {
+          return E_FAIL;
+      }
+ 
+      hr = S_OK;
+      if (RegSetValueEx(hk,
+                        cszDescriptionKey,
+                        0L,
+                        REG_SZ,
+                        (const unsigned char *)szDescription,
+                        strlen(szDescription) + 1))
+      {
+          hr = E_FAIL;
+      }
+ 
+      RegCloseKey(hk);
+      return hr;
+  }</PRE>
+
+<P><I>CLSIDToStr</I> is a locally defined function (not shown in the preceding code example) that converts a CLSID value to a character string. It is similar to the <B>StringFromCLSID</B> function that is described in the Platform SDK documentation.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Registering%20Your%20Synthesizer"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

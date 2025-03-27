@@ -1,0 +1,108 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NDIS_PACKET</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NDIS_PACKET">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndis_packet_nr"></A>NDIS_PACKET</H1>
+
+<P>The NDIS_PACKET structure defines the packet descriptors with chained buffer descriptors for which pointers are passed to many <B>Ndis</B><I>Xxx</I>, Miniport<I>Xxx</I>, and Protocol<I>Xxx</I> functions. </P>
+
+<PRE class=syntax>typedef struct _NDIS_PACKET {
+    NDIS_PACKET_PRIVATE  Private;
+    union {
+        struct {
+             UCHAR       MiniportReserved[2*sizeof(PVOID)];
+             UCHAR       WrapperReserved[2*sizeof(PVOID)];
+        };
+        struct {
+             UCHAR       MiniportReservedEx[3*sizeof(PVOID)];
+             UCHAR       WrapperReservedEx[sizeof(PVOID)];
+        };
+        struct {
+             UCHAR       MacReserved[4*sizeof(PVOID)];
+        };
+    };
+    ULONG_PTR            Reserved[2];
+    UCHAR                ProtocolReserved[1];
+} NDIS_PACKET, *PNDIS_PACKET, **PPNDIS_PACKET;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>Private</B></DT>
+
+<DD>This is reserved for use exclusively by NDIS. Drivers must call the appropriate <B>Ndis</B><I>Xxx</I> functions or NDIS-supplied macros to affect the contents of this area.</DD>
+
+<DT><B>MiniportReserved</B></DT>
+
+<DD>Serialized miniport drivers and NDIS intermediate drivers can use this area for their own purposes. </DD>
+
+<DT><B>WrapperReserved</B></DT>
+
+<DD>This is reserved for use exclusively by NDIS. </DD>
+
+<DT><B>MiniportReservedEx</B></DT>
+
+<DD>Deserialized and connection-oriented miniport drivers can use this area for their own purposes.</DD>
+
+<DT><B>WrapperReservedEx</B></DT>
+
+<DD>This is reserved for use exclusively by NDIS. </DD>
+
+<DT><B>Reserved</B></DT>
+
+<DD>This is for compatibility with Windows 95/98/Me.</DD>
+
+<DT><B>MacReserved</B></DT>
+
+<DD>This is reserved for use by legacy drivers.</DD>
+
+<DT><B>ProtocolReserved</B></DT>
+
+<DD>Highest-level protocol drivers and NDIS intermediate drivers can use this variable-sized area for their own purposes, as long as each such driver is given a fresh packet descriptor. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ndis.h</I>. Include <I>ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>NDIS drivers must call <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A> or <B>NdisAllocatePacketEx</B> to allocate all packet descriptors they use to indicate receives to higher-level drivers with <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>. NDIS drivers must call <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A> to allocate all packet descriptors they use for sends to underlying drivers with <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A> or <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A>, as well as packet descriptors they pass to <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A>. </P>
+
+<P>Chained to each packet descriptor are one or more buffer descriptors mapping buffers that contain network packet data, either received or to be transmitted. NIC drivers and intermediate drivers allocate packet descriptors with four pointer’s worth (4*<B>sizeof</B>(PVOID)) of <B>ProtocolReserved</B> space to be used by protocols for receive indications. On 32-bit systems, four pointer’s worth of <B>ProtocolReserved</B> space equals 16 bytes. On 64-bit systems, four pointer’s worth of <B>ProtocolReserved</B> space equals 32 bytes.</P>
+
+<P>Any buffers allocated by lower-level NDIS drivers must be mapped by buffer descriptors that were allocated from buffer pool with <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A>. Only highest-level Windows®&nbsp;2000 and later protocols can use MDLs set up by still higher-level drivers as substitutes for NDIS_BUFFER-type descriptors. </P>
+
+<P>NDIS drivers typically use their respective <I>Xxx</I><B>Reserved</B> areas to maintain per-packet state about outstanding transfers. For example, a protocol might store a pointer to a protocol-allocated buffer containing lookahead data, which its <I>ProtocolReceive</I> function has already copied, in the <B>ProtocolReserved</B> area of a packet descriptor that the protocol allocates for a call to <B>NdisTransferData</B>. </P>
+
+<P>A single driver can use the <B>MiniportReserved(Ex)</B> area and a single driver can use the <B>ProtocolReserved</B> area while a particular packet descriptor is being used in a transfer operation. Consequently, NDIS intermediate drivers, which have both Miniport<I>Xxx</I> and Protocol<I>Xxx</I> functions, cannot use these areas in incoming packet descriptors for their own purposes. </P>
+
+<P>Drivers that supply and consume out-of-band data on network transfers and drivers that support multipacket receives and/or sends must use the member-specific NDIS_GET/SET_<I>XXX</I> macros or the NDIS_OOB_DATA_FROM_PACKET macro to access the NDIS_PACKET_OOB_DATA block associated with each packet descriptor. </P>
+
+<P>When a protocol driver calls <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A> or <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>,<B> </B>or <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A> with a packet descriptor, it relinquishes ownership of the following until that packet descriptor is returned to its <I>ProtocolSendComplete</I> function:
+
+<UL>
+	<LI>The protocol-allocated packet descriptor(s)</LI>
+
+	<LI>All data buffers mapped by buffer descriptors chained to the packet descriptor(s)</LI>
+
+	<LI>All <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A> blocks associated with each protocol-allocated packet descriptor</LI>
+
+	<LI>Any out-of-band data buffer specified in an NDIS_PACKET_OOB_DATA block for an associated buffer descriptor</LI>
+</UL>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_7svm.htm"><I>MiniportSend</I></A>, <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A>, <A HREF="101mini_9a42.htm"><I>MiniportTransferData</I></A>, <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A>, <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_990y.htm"><B>NdisChainBufferAtBack</B></A>, <A HREF="103ndisx_3c36.htm"><B>NdisChainBufferAtFront</B></A>, <A HREF="103ndisx_2ak2.htm"><B>NdisCopyFromPacketToPacket</B></A>, <A HREF="103ndisx_47le.htm"><B>NdisFreePacket</B></A>, <A HREF="103ndisx_146q.htm"><B>NdisGetFirstBufferFromPacket</B></A>, <A HREF="103ndisx_92wi.htm"><B>NdisGetFirstBufferFromPacketSafe</B></A>, <A HREF="103ndisx_67si.htm"><B>NdisGetPacketFlags</B></A>, <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A>, <A HREF="103ndisx_6nhu.htm"><B>NdisMTransferDataComplete</B></A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="103ndisx_4ooi.htm"><B>NdisQueryPacket</B></A>, <A HREF="103ndisx_51iq.htm"><B>NdisRecalculatePacketCounts</B></A>, <A HREF="103ndisx_87hu.htm"><B>NdisReinitializePacket</B></A>, <A HREF="103ndisx_61de.htm"><B>NdisReturnPackets</B></A>, <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A>, <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>, <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A>, <A HREF="103ndisx_5sdu.htm"><B>NdisSetPacketFlags</B></A>, <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A>, <A HREF="103ndisx_9vci.htm"><B>NdisUnchainBufferAtBack</B></A>, <A HREF="103ndisx_30mq.htm"><B>NdisUnchainBufferAtFront</B></A>, <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A>, <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A>, <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A>, <A HREF="104tdlow_8u7m.htm"><I>ProtocolTransferDataComplete</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NDIS_PACKET"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>BUS_INTERFACE_STANDARD</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="BUS_INTERFACE_STANDARD">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_bus_interface_standard_dr"></A>BUS_INTERFACE_STANDARD</H1>
+
+<P>The BUS_INTERFACE_STANDARD interface structure allows device drivers to make direct calls to parent bus driver routines. </P>
+
+<PRE class=syntax>typedef struct _BUS_INTERFACE_STANDARD {
+  // generic interface header
+  USHORT Size;
+  USHORT Version;
+  PVOID Context;
+  PINTERFACE_REFERENCE InterfaceReference;
+  PINTERFACE_DEREFERENCE InterfaceDereference;
+  // standard bus interface
+  PTRANSLATE_BUS_ADDRESS TranslateBusAddress;
+  PGET_DMA_ADAPTER GetDmaAdapter;
+  PGET_SET_DEVICE_DATA SetBusData;
+  PGET_SET_DEVICE_DATA GetBusData;
+} BUS_INTERFACE_STANDARD, *PBUS_INTERFACE_STANDARD;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>Size</B></DT>
+
+<DD>Indicates the size, in bytes, of this structure. </DD>
+
+<DT><B>Version</B></DT>
+
+<DD>Indicates the driver-defined interface version. </DD>
+
+<DT><B>Context</B></DT>
+
+<DD>Pointer to interface-specific context information. </DD>
+
+<DT><B>InterfaceReference</B></DT>
+
+<DD>Pointer to a routine that increments the interface's reference count. </DD>
+
+<DT><B>InterfaceDereference</B></DT>
+
+<DD>Pointer to a routine that decrements the interface's reference count. </DD>
+
+<DT><B>TranslateBusAddress</B></DT>
+
+<DD>Pointer to a routine of type <A HREF="drvr_interface_1yeq.htm">PTRANSLATE_BUS_ADDRESS</A> that translates addresses on the parent bus to logical addresses. </DD>
+
+<DT><B>GetDmaAdapter</B></DT>
+
+<DD>Pointer to a routine of type <A HREF="drvr_interface_2s8i.htm">PGET_DMA_ADAPTER</A> that returns a DMA adapter structure (<A HREF="k112_86k2.htm">DMA_ADAPTER</A>) for the target device. </DD>
+
+<DT><B>SetBusData</B></DT>
+
+<DD>Pointer to a routine of type <A HREF="drvr_interface_2f3m.htm">PGET_SET_DEVICE_DATA</A> that writes data to the device's configuration space. </DD>
+
+<DT><B>GetBusData</B></DT>
+
+<DD>Pointer to a routine of type <A HREF="drvr_interface_2f3m.htm">PGET_SET_DEVICE_DATA</A> that reads data from the device's configuration space. </DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ntddk.h. </I>Include <I>ntddk.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P>BUS_INTERFACE_STANDARD is an extension of the <A HREF="k112_7h4i.htm">INTERFACE</A> structure. For a description of the function prototypes of members <B>InterfaceReference</B> and <B>InterfaceDereference</B>, see the reference page for the INTERFACE structure.</P>
+
+<P>Some operations on a device are reserved for the device's parent bus driver. Such operations might include accessing the device-specific configuration space of a bus, or programming a DMA controller.</P>
+
+<P>To read from or write to a device's configuration space, a device driver must rely on the agency of the bus driver in either of two ways:
+
+<UL>
+	<LI>By sending I/O request packets (IRPs) <A HREF="pnp-irps_9ipe.htm">IRP_MN_READ_CONFIG</A> and <A HREF="pnp-irps_0rjm.htm">IRP_MN_WRITE_CONFIG</A> to the bus driver.</LI>
+
+	<LI>By obtaining an interface from the bus driver. The device driver can then access its device's configuration space by making direct calls to the bus driver routines provided by the interface. BUS_INTERFACE_STANDARD is such an interface, and its member routines, <B>GetBusData</B> and <B>SetBusData</B>, can be used to read from and write to a device's configuration space respectively.</LI>
+</UL>
+
+<P>For more information on the methods of access configuration space, see <A HREF="iputoput_08fb.htm">Accessing Device Configuration Space</A>.</P>
+
+<P>Some devices, such as bus-mastering storage devices, have on-board DMA controllers, but the device drivers for these devices can not program these DMA controllers directly. Instead they must rely on routines provided by the parent bus driver. For a device driver to program the DMA controller for its device, it must first request an adapter object from the parent bus driver. The adapter object contains the routines supplied by the bus driver that can be used to program the device's DMA controller. Device drivers must rely on the BUS_INTERFACE_STANDARD, either directly or indirectly, to obtain the adapter object.</P>
+
+<P>If the driver is executing at IRQL = PASSIVE_LEVEL should obtain a device's DMA adapter object by calling <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A>. <B>IoGetDmaAdapter</B> detects whether the bus driver supports the BUS_INTERFACE_STANDARD interface, and if it does, <B>IoGetDmaAdapter</B> calls the routine pointed to by the <B>GetDmaAdapter</B> member of this interface to obtain the adapter object. Otherwise, <B>IoGetDmaAdapter</B> calls an equivalent legacy routine.</P>
+
+<P>However, if a driver must obtain an adapter object while running at IRQL &gt;= DISPATCH_LEVEL, it cannot do so with <B>IoGetDmaAdapter</B>. In such a case, the driver must query for the BUS_INTERFACE_STANDARD interface while still at IRQL = PASSIVE_LEVEL using <A HREF="pnp-irps_9k36.htm">IRP_MN_QUERY_INTERFACE</A>. The driver can then call the interface routine pointed to by <B>GetDmaAdapter</B> directly while running at IRQL &gt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A>, <A HREF="k112_7f76.htm">DEVICE_DESCRIPTION</A>, <A HREF="k112_86k2.htm">DMA_ADAPTER</A>, <A HREF="pnp-irps_9k36.htm">IRP_MN_QUERY_INTERFACE</A>, <A HREF="k112_7h4i.htm">INTERFACE</A>, <A HREF="pnp-irps_9ipe.htm">IRP_MN_READ_CONFIG</A>, <A HREF="pnp-irps_0rjm.htm">IRP_MN_WRITE_CONFIG</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: BUS_INTERFACE_STANDARD"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Points to Consider When Canceling IRPs</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Points to Consider When Canceling IRPs">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_points_to_consider_when_canceling_irps_kg"></A>Points to Consider When Canceling IRPs</H2>
+
+<P>This section discusses guidelines for implementing a <I>Cancel </I>routine and handling cancelable IRPs.</P>
+
+<H4>General Guidelines for All <I>Cancel </I>Routines</H4>
+
+<P>The I/O Manager holds the cancel spin lock any time it calls a driver's <I>Cancel </I>routine. Consequently, every <I>Cancel </I>routine must:
+
+<UL>
+	<LI>Call <A HREF="k104_5po2.htm"><B>IoReleaseCancelSpinLock</B></A> before it returns control.</LI>
+
+	<LI>Not call <A HREF="k104_9fw2.htm"><B>IoAcquireCancelSpinLock</B></A> unless it calls <B>IoReleaseCancelSpinLock</B> first.</LI>
+
+	<LI>Make a reciprocal call to <B>IoReleaseCancelSpinLock</B> for each call it makes to <B>IoAcquireCancelSpinLock</B>. </LI>
+</UL>
+
+<P>Each time the <I>Cancel </I>routine calls <B>IoReleaseCancelSpinLock</B>, it must pass the IRQL returned by the most recent call to <B>IoAcquireCancelSpinLock</B>. When releasing the spin lock acquired by the I/O Manager (and held when the <I>Cancel </I>routine was called), the <I>Cancel </I>routine must pass <B>Irp-&gt;CancelIrql</B>.</P>
+
+<P>A driver must not call outside  routines (such as <B>IoCompleteRequest</B>) while holding a spin lock because a deadlock can result.</P>
+
+<H4>Using the Queue Defined by the I/O Manager </H4>
+
+<P>Unless a driver manages its own internal queues of IRPs, its <I>Cancel </I>routine is called with an incoming IRP that could be either of the following:
+
+<UL>
+	<LI>The <B>CurrentIrp</B> in the input target device object</LI>
+
+	<LI>An entry in the device queue associated with the target device object</LI>
+</UL>
+
+<P>Unless a driver manages its own internal queues of IRPs, its <I>Cancel </I>routine should call <A HREF="k105_6l9u.htm"><B>KeRemoveEntryDeviceQueue</B></A> with the input IRP to test whether it is an entry in the device queue associated with the target device object. The driver’s <I>Cancel </I>routine <I>cannot</I> call <B>KeRemoveDeviceQueue</B> or <B>KeRemoveByKeyDeviceQueue</B> because it cannot assume that the given IRP is at any particular position in the device queue.</P>
+
+<H4>Current State of the Input IRP</H4>
+
+<P>If a <I>Cancel </I>routine is called with an IRP for which the driver has already started I/O processing and the request will be completed soon, the <I>Cancel </I>routine should release the system cancel spin lock and return control.</P>
+
+<P>If the current state of the input IRP is Pending, a <I>Cancel </I>routine must do the following:
+
+<OL>
+	<LI>Set the input IRP’s I/O status block with STATUS_CANCELLED for <B>Status</B> and zero for <B>Information</B>.</LI>
+
+	<LI>Release any spin locks it is holding, including the system cancel spin lock.</LI>
+
+	<LI>Call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with the given IRP.</LI>
+</OL>
+
+<H4>Holding IRPs in a Cancelable State</H4>
+
+<P>Any driver routine that holds an IRP in a cancelable state must call <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A> and must call <A HREF="k104_6hiq.htm"><B>IoSetCancelRoutine</B></A> to set its entry point for the <I>Cancel </I>routine in the IRP. Only then can that driver routine call additional support routines such as <B>IoStartPacket</B>, <B>IoAllocateController</B>, or an <B>ExInterlockedInsert..List</B> routine.</P>
+
+<P>Any driver routine that subsequently processes cancelable IRPs must check whether an IRP has already been canceled before it begins operations to satisfy the request. The routine must call <B>IoSetCancelRoutine</B> to reset its entry point for the <I>Cancel </I>routine to NULL in the IRP. Only then can that routine begin its I/O processing for the input IRP.</P>
+
+<P>A routine might have to reset the entry point for a <I>Cancel </I>routine in an IRP if it, too, passes IRPs on for further processing by other driver routines and those IRPs might be held in a cancelable state.</P>
+
+<P>Any higher-level driver that holds an IRP in a cancelable state must reset its <I>Cancel </I>entry point to NULL before it passes the IRP on to the next-lower driver with <B>IoCallDriver</B>.</P>
+
+<H4>Canceling an IRP</H4>
+
+<P>Any higher-level driver can call <A HREF="k104_1j8y.htm"><B>IoCancelIrp</B></A> with an IRP that it has allocated and passed on for further processing by lower-level drivers. However, such a driver cannot assume that the given IRP will be completed with STATUS_CANCELLED by lower drivers.</P>
+
+<H4>Synchronization</H4>
+
+<P>A driver can (or must, depending on its design) maintain additional state information in its device extension to track the cancelable status of IRPs. If this state is shared by driver routines running at IRQL&nbsp;&lt;= DISPATCH_LEVEL, the shared data should be protected with a driver-allocated and initialized spin lock.</P>
+
+<P>The driver should manage its acquisitions and releases of the system cancel spin lock and its own spin locks carefully. It should hold the system cancel spin lock for the shortest possible intervals. Before accessing a cancelable IRP, such a driver should always check the return value of <A HREF="k104_6hiq.htm"><B>IoSetCancelRoutine</B></A> to determine whether the <I>Cancel </I>routine is already running (or is about to run); if so, it should let the <I>Cancel </I>routine complete the IRP.</P>
+
+<P>If a device driver maintains state information about cancelable IRPs that various driver routines share with its ISR, these other routines must synchronize access to the shared state with the ISR. Only a driver-supplied <I>SynchCritSection</I> routine can access state information that is shared with the ISR in a multiprocessor-safe way.</P>
+
+<P>For more information, see <A HREF="synchro_2dgn.htm">Synchronization Techniques</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Points%20to%20Consider%20When%20Canceling%20IRPs"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,161 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ClientEventReceiveDatagram</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ClientEventReceiveDatagram">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_clienteventreceivedatagram_nr"></A>ClientEventReceiveDatagram</H1>
+
+<P>The ClientEventReceiveDatagram routine is an event handler that the underlying TDI transport calls in response to an incoming receive from a remote node that was directed to a local-node transport address that the client has opened. </P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>ClientEventReceiveDatagram(
+</B>    <B>IN PVOID</B>  <I>TdiEventContext</I><B>,
+</B>    <B>IN LONG</B>  <I>SourceAddressLength</I><B>,
+</B>    <B>IN PVOID</B>  <I>SourceAddress</I><B>,
+</B>    <B>IN LONG</B>  <I>OptionsLength</I><B>,
+</B>    <B>IN PVOID</B>  <I>Options</I><B>,
+</B>    <B>IN ULONG</B>  <I>ReceiveDatagramFlags</I><B>,
+</B>    <B>IN ULONG</B>  <I>BytesIndicated</I><B>,
+</B>    <B>IN ULONG</B>  <I>BytesAvailable</I><B>,
+</B>    <B>OUT ULONG</B>  <B>*</B><I>BytesTaken</I><B>,
+</B>    <B>IN PVOID</B>  <I>Tsdu</I><B>,
+</B>    <B>OUT PIRP</B>  <B>*</B><I>IoRequestPacket
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>TdiEventContext</I></DT>
+
+<DD>Pointer to the client-supplied context provided in the IRP that was set up with <B>TdiBuildSetEventHandler</B> when ClientEventReceiveDatagram was registered with the underlying transport.</DD>
+
+<DT><I>SourceAddressLength</I></DT>
+
+<DD>Specifies the size in bytes of the buffer at <I>SourceAddress</I>.</DD>
+
+<DT><I>SourceAddress</I></DT>
+
+<DD>Pointer to a buffer specifying the remote-node transport address from which the datagram was sent.</DD>
+
+<DT><I>OptionsLength</I></DT>
+
+<DD>Specifies the size in bytes of the buffer at <I>Options</I>. Zero implies no option string is available. <I>Options</I> is NULL if this parameter is zero. </DD>
+
+<DT><I>Options</I></DT>
+
+<DD>Pointer to a buffer specifying a string of transport-specific options sent with the datagram. This pointer is NULL if <I>OptionsLength</I> is zero. </DD>
+
+<DT><I>ReceiveDatagramFlags</I></DT>
+
+<DD>Specifies the nature of the receive-datagram indication as a combination (ORed) of the following flags:
+
+<DL>
+<DT>TDI_RECEIVE_ENTIRE_MESSAGE</DT>
+
+<DD>The buffer at <I>Tsdu</I> contains a full TSDU. The client should return control as quickly as possible after copying the indicated data into an internal buffer if it accepts the TSDU. 
+
+<P>If this flag is clear (or if TDI_RECEIVE_PARTIAL is set by a legacy transport), ClientEventReceiveDatagram must check the <I>BytesAvailable</I> and <I>BytesIndicated</I> parameters to determine how much of the TSDU has been provided. Although legacy transports continue to set the TDI_RECEIVE_PARTIAL flag, newer transports leave clear the TDI_RECEIVE_ENTIRE_MESSAGE flag to indicate partial TSDUs to their clients. 
+</DD>
+
+<DT>TDI_RECEIVE_COPY_LOOKAHEAD</DT>
+
+<DD>Unless TDI_RECEIVE_ENTIRE_MESSAGE is set, <I>BytesAvailable</I> is something less than <I>BytesIndicated</I>, and ClientEventReceiveDatagram should copy the number of bytes available into an internal buffer, set the variable at <I>BytesTaken</I>, and return control. The client will subsequently submit one or more TDI_RECEIVE_DATAGRAM requests to get the remainder of the TSDU. </DD>
+
+<DT>TDI_RECEIVE_BROADCAST</DT>
+
+<DD>The receive was broadcast.</DD>
+
+<DT>TDI_RECEIVE_MULTICAST</DT>
+
+<DD>The receive was multicast. </DD>
+
+<DT>TDI_RECEIVE_PEEK</DT>
+
+<DD>The transport has buffered some receive data internally, but not yet the full TSDU. The client can examine the buffer at <I>Tsdu</I> to decide whether to submit a TDI_RECEIVE_DATAGRAM request for the TSDU. </DD>
+</DL>
+</DD>
+
+<DT><I>BytesIndicated</I></DT>
+
+<DD>Specifies the number of bytes of data in the buffer at <I>Tsdu</I>. This parameter is always less than or equal to the value of <I>BytesAvailable</I>. A TDI transport provides at least 128 bytes of data in a receive indication to its client, unless the received datagram is less than 128 bytes in length. If <I>BytesAvailable</I> is greater than <I>BytesIndicated</I>, the transport has received data that it does not present when it calls ClientEventReceiveDatagram.</DD>
+
+<DT><I>BytesAvailable</I></DT>
+
+<DD>Specifies the total number of bytes in the received TSDU. </DD>
+
+<DT><I>BytesTaken</I></DT>
+
+<DD>Pointer to a caller-supplied variable in which ClientEventReceiveDatagram returns the number of bytes of data it copied from the datagram.</DD>
+
+<DT><I>Tsdu</I></DT>
+
+<DD>Pointer to a buffer containing the received TSDU data. </DD>
+
+<DT><I>IoRequestPacket</I></DT>
+
+<DD>Pointer to a caller-supplied variable in which ClientEventReceiveDatagram returns a pointer to an IRP that it set up with <B>TdiBuildReceiveDatagram</B>. If this parameter is NULL, the client will not be making a receive request for the remainder of the TSDU.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>ClientEventReceiveDatagram can return one of the following:
+
+<DL>
+<DT>STATUS_SUCCESS</DT>
+
+<DD>Indicates the client copied all the data in the given TSDU and set the variable at <I>BytesTaken</I> to the value at <I>BytesIndicated</I>.</DD>
+
+<DT>STATUS_MORE_PROCESSING_REQUIRED</DT>
+
+<DD>Indicates the client has supplied an IRP requesting the remainder of the TSDU, usually after copying <I>BytesIndicated</I> into an internal buffer. </DD>
+
+<DT>STATUS_DATA_NOT_ACCEPTED</DT>
+
+<DD>Indicates this client is not interested in the TSDU. 
+</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>When a datagram arrives from a remote node, the transport calls the registered ClientEvent(Chained)ReceiveDatagram handlers for each client with an open file object representing an address that matches the destination address of the datagram. Because a datagram is not associated with an established connection, the TDI driver passes the transport address of the remote-node sender at <I>SourceAddress</I> to the receiving client along with the datagram. </P>
+
+<P>ClientEventReceiveDatagram accepts or rejects a TSDU that the TDI driver has received on a particular transport address that the client opened with a preceding call to <B>ZwCreateFile</B>. A datagram TSDU is discrete. Unlike a normal or expedited TSDU, it cannot be transmitted as a sequence of records. In other words, a full datagram is available to the TDI transport, although the driver might not pass all of it in a single call to ClientEventReceiveDatagram. </P>
+
+<P>The transport has removed the transport-layer header from the TSDU before it calls ClientEventReceiveDatagram. </P>
+
+<P>The driver does not call ClientEventReceiveDatagram if the client has an outstanding receive or receive-datagram request on the local transport address that is the target of an incoming datagram.</P>
+
+<P>When ClientEventReceiveDatagram is called, it can do one of the following:
+
+<UL>
+	<LI>Reject the indicated TSDU if it has no use for the data by returning STATUS_DATA_NOT_ACCEPTED</LI>
+
+	<LI>Copy all of the data into an internal buffer if TDI_RECEIVE_ENTIRE_MESSAGE is set in the <I>ReceiveFlags</I> and return STATUS_SUCCESS
+<P>When it has finished copying receive data, ClientEventReceiveDatagram sets the variable at <I>BytesTaken</I> to the number of bytes of data accepted before it returns control.
+</LI>
+
+	<LI>If TDI_RECEIVE_ENTIRE_MESSAGE is clear (or TDI_RECEIVE_PARTIAL is set), copy all of the indicated data, set up an IRP for a TDI_RECEIVE_DATAGRAM request, and return STATUS_MORE_PROCESSING_REQUIRED
+<P>If the ClientEventReceiveDatagram issues a receive-datagram request, the transport retrieves any data that ClientEventReceiveDatagram did not receive, along with any new data the TDI transport has available. If the client does not make such a receive-datagram request, it loses this data.
+</LI>
+</UL>
+
+<P>Any TDI transport driver that supports internal buffering should retain a datagram during its clients' receive-datagram operations to satisfy any subsequent receive-datagram requests. The client of such a TDI driver can determine the total amount of buffer space it allocates for received datagrams by submitting a request, set up with <B>TdiBuildQueryInformation</B> for the <I>QType</I> TDI_QUERY_DATAGRAM_INFO or TDI_QUERY_MAX_DATAGRAM_INFO. Usually, such a transport's buffer space for datagrams is around four kilobytes. </P>
+
+<P>To receive indications for broadcast datagrams that the TDI driver receives on the network, the client must open the local-node broadcast address of its underlying transport and register a ClientEvent(Chained)ReceiveDatagram handler on the address. </P>
+
+<P>ClientEventReceiveDatagram must be capable of carrying out its operations at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_0jci.htm"><B>ClientEventChainedReceiveDatagram</B></A>, <A HREF="35tdicli_7yeq.htm"><B>ClientEventReceive</B></A>, <A HREF="34bldmac_8df6.htm"><B>TdiBuildInternalDeviceControlIrp</B></A>, <A HREF="34bldmac_0aya.htm"><B>TdiBuildReceiveDatagram</B></A>, <A HREF="34bldmac_6sxe.htm"><B>TdiBuildSetEventHandler</B></A>, <A HREF="36tdstrc_8b8y.htm"><B>TA_ADDRESS</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ClientEventReceiveDatagram"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TDI_LISTEN</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TDI_LISTEN">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdi_listen_nr"></A>TDI_LISTEN</H1>
+
+<P>When a kernel-mode client makes a TDI_LISTEN request, it asks the underlying TDI transport driver to listen for an offer to make an endpoint-to-endpoint connection from a remote node. </P>
+
+<H4>IRP</H4>
+
+<P>The transport calls <B>IoGetCurrentIrpStackLocation</B> with the given <I>Irp</I> to get a pointer to its own I/O stack location in the IRP, shown in the following list as <B>IrpSp</B>. The pointer to the IRP is shown in the following list as <B>Irp</B>. IRP members relevant to this request include the following:
+
+<DL>
+<DT><B>Irp-&gt;IoStatus.Status</B></DT>
+
+<DD>Specifies the final status of the listen request. The transport sets this member before it completes the IRP, possibly to one of the following:
+
+<P>STATUS_SUCCESS<BR>
+STATUS_PENDING<BR>
+STATUS_INSUFFICIENT_RESOURCES<BR>
+STATUS_INVALID_CONNECTION
+</DD>
+
+<DT><B>IrpSp-&gt;MajorFunction</B></DT>
+
+<DD>Specifies IRP_MJ_INTERNAL_DEVICE_CONTROL. The transport can ignore this member if it exports a <B>TdiDispatchInternalDeviceControl</B> routine that handles only TDI_<I>XXX</I> requests. </DD>
+
+<DT><B>IrpSp-&gt;MinorFunction</B></DT>
+
+<DD>Specifies TDI_LISTEN.</DD>
+
+<DT><B>IrpSp-&gt;FileObject</B></DT>
+
+<DD>Pointer to an open file object representing the connection endpoint. The transport uses the <B>FsContext</B> and, possibly, <B>FsContext2</B> fields to access the state it maintains about this connection. 
+
+<P>This connection endpoint was previously associated with a local-node address when the client made a successful TDI_ASSOCIATE_ADDRESS request to the transport. 
+</DD>
+
+<DT><B>IrpSp-&gt;Parameters</B></DT>
+
+<DD>Pointer to a TDI_REQUEST_KERNEL_LISTEN structure, equivalent to the TDI_REQUEST_KERNEL structure. 
+
+<P>A client can set the <B>RequestFlags </B>member with TDI_QUERY_ACCEPT, directing the transport to make a delayed-connection acceptance: that is, to complete this listen request to the client when an appropriate connection offer, as specified by <B>RequestConnectionInformation</B>, comes in from the remote node so the client can determine whether to accept the connection by issuing a TDI_ACCEPT request or to reject the remote-node connection offer with a TDI_DISCONNECT request. 
+
+
+<P>Otherwise, when <B>RequestFlags</B> is zero, the underlying transport should accept any appropriate incoming connection offer immediately. If TDI_QUERY_ACCEPT is set but the transport does not support delayed-connection acceptances, the transport fails this listen request. 
+
+
+<P>The client supplies information in the TDI_CONNECTION_INFORMATION-type buffer at <B>RequestConnectionInformation</B> that the transport subsequently uses to determine whether to accept a connection offer from a remote node, as follows: 
+
+
+<DL>
+<DT><B>UserData</B></DT>
+
+<DD>Pointer to a buffer of client-supplied data for the tranport to transmit to the remote node that requests a connection. This member is NULL if the transport supports delayed-connection acceptances and the client set <B>RequestFlags</B> with TDI_QUERY_ACCEPT.</DD>
+
+<DT><B>UserDataLength</B></DT>
+
+<DD>Specifies the size in bytes of the buffer at <B>UserData</B>, zero if <B>UserData</B> is NULL. </DD>
+
+<DT><B>Options</B></DT>
+
+<DD>Matches the value set in the <B>RequestFlags</B> member of the TDI_REQUEST_KERNEL_LISTEN structure. </DD>
+
+<DT><B>OptionsLength</B></DT>
+
+<DD>Should be set to <B>sizeof(</B>ULONG<B>)</B>; irrelevant if TDI_QUERY_ACCEPT is not set in <B>RequestFlags</B>. </DD>
+
+<DT><B>RemoteAddress</B></DT>
+
+<DD>Pointer to a buffer specifying the remote-node address for which the local-node client listens in anticipation of a connection offer. This specification can be a partial address if the underlying transport defines the conventions and syntax for specifying partial addresses. This member also can be NULL, indicating that the client will accept an endpoint-to-endpoint connection offer from any remote node.</DD>
+
+<DT><B>RemoteAddressLength</B></DT>
+
+<DD>Specifies the size in bytes of the buffer at <B>RemoteAddress</B>. Zero indicates that a connection offer from any remote node is acceptable to this client.</DD>
+</DL>
+
+
+<P>The client-supplied buffer at <B>ReturnConnectionInformation</B> in the TDI_REQUEST_KERNEL structure is also formatted as a TDI_CONNECTION_INFORMATION structure. The transport returns information about the connection offer from the remote node in this buffer on completion of this listen request. 
+
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>TdiKrnl.h</I>. Include <I>TdiKrnl.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Depending on whether TDI_QUERY_ACCEPT is set in the <B>RequestFlags</B>, the transport completes the listen request either by accepting an offered remote-node connection on behalf of its local-node client or by deferring acceptance or rejection of such an offer to that client. </P>
+
+<P>To initiate a listen request successfully, the local-node client must have its transport address already associated with an idle connection endpoint. That is, the transport has previously satisfied a TDI_ASSOCIATE_ADDRESS request for the file object at <B>IrpSp-&gt;FileObject</B> that represents the connection. Part of the context that each transport maintains at <B>FsContext</B> or <B>FsContext2</B> for a connection endpoint is a pointer to the file object that represents the associated address, which the transport sets up when it makes the association. </P>
+
+<P>After issuing a successful TDI_ASSOCIATE_ADDRESS request, a client can then issue any number of TDI_LISTEN requests, which the transport driver should process in FIFO order until the client accepts an offered connection. </P>
+
+<P>The transport can process requests coming in from all its clients in any driver-determined order. </P>
+
+<P>If a client registered its ClientEvent(Chained)Receive and/or ClientEvent(Chained)ReceiveExpedited handlers on the address associated with the connection endpoint before making its TDI_LISTEN request, receives can come in for that client as soon as the transport accepts the connection from a remote node, even before the transport has completed the client's listen request. Such a client must be prepared for an endpoint-to-endpoint connection to be established as soon as it makes a listen request, and the tranport must be prepared to indicate receives to that client concurrently with completion of the listen request. </P>
+
+<P>In general, a TDI transport driver cannot call a registered ClientEventConnect handler as long as a listen request is pending on the client's open file object that represents the associated local-node address. However, the driver can call ClientEventConnect when such a listen is pending if the transport determines that the remote-address acceptance criteria supplied at <B>IrpSp-&gt;Parameters.RequestConnectionInformation</B> will prevent the listen operation from being completed.</P>
+
+<P>Client-supplied remote-node addressing information acts as a filter that the transport applies before checking the <B>RequestFlags</B> for a pending listen request. When an incoming connection offer comes from a remote-node address that does not match the address specified in the listen IRP, the transport cannot complete the listen for its client. When an incoming connection offer from a remote node satisfies the given address-acceptance criteria, the transport can satisfy the client's listen request in either of the following ways:
+
+<UL>
+	<LI>If TDI_QUERY_ACCEPT is not set in the <B>RequestFlags</B> or if the driver does not support delayed-connection acceptance, the transport sends an acceptance to the remote node, sets up the buffer at <B>IrpSp-&gt;Parameters.ReturnConectionInformation</B> with appropriate data, as well as setting the status block of the IRP, and returns control. </LI>
+
+	<LI>If TDI_QUERY_ACCEPT is set in the <B>RequestFlags</B>, the transport sets up the buffer at <B>IrpSp-&gt;Parameters.ReturnConnectionInformation</B> and sets the status block of the IRP, sets up a time-out interval for waiting on the client's acceptance or rejection of the offered connection, and returns control. The local-node client must either accept or reject the offered connection within the time-out interval; otherwise, the tranport must send a rejection to the remote node. </LI>
+</UL>
+
+<P>TDI drivers vary in how they handle partial addresses. Because the syntax of a transport address is TDI-driver-specific, the mechanism for specifying a partial address is also specific to each transport driver.</P>
+
+<P>In addition to supporting partial-address specifications on listens, TDI transports can support quality-of-service (QOS) specifications by their clients. For example, a transport might allow its clients to specify QOS using a variable-length counted string with TDI-driver-specific syntax and semantics.</P>
+
+<P><B>TdiBuildListen</B> is the macro a client uses to fill in this IRP.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_56r6.htm"><B>ClientEventConnect</B></A>, <A HREF="35tdicli_4qnm.htm"><B>ClientEventChainedReceive</B></A>, <A HREF="35tdicli_57n6.htm"><B>ClientEventChainedReceiveExpedited</B></A>, <A HREF="35tdicli_7yeq.htm"><B>ClientEventReceive</B></A>, <A HREF="35tdicli_7jea.htm"><B>ClientEventReceiveExpedited</B></A>, <A HREF="32ioctl_3376.htm"><B>TDI_ACCEPT</B></A>, <A HREF="32ioctl_2epe.htm"><B>TDI_ASSOCIATE_ADDRESS</B></A>, <A HREF="34bldmac_6cc2.htm"><B>TdiBuildListen</B></A>, <A HREF="36tdstrc_9vg2.htm"><B>TDI_CONNECTION_INFORMATION</B></A>, <A HREF="32ioctl_4hgy.htm"><B>TDI_DISCONNECT</B></A>, <A HREF="31tddisp_2sfm.htm"><B>TdiDispatchInternalDeviceControl</B></A>, <A HREF="36tdstrc_1q7m.htm"><B>TDI_REQUEST_KERNEL</B></A>, <A HREF="32ioctl_4hde.htm"><B>TDI_SET_EVENT_HANDLER</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TDI_LISTEN"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

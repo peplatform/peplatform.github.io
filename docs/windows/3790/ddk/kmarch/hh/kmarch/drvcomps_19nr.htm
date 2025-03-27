@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Separate DispatchCreate and DispatchClose Routines</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Separate DispatchCreate and DispatchClose Routines">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_separate_dispatchcreate_and_dispatchclose_routines_kg"></A>Separate <I>DispatchCreate</I> and <I>DispatchClose</I> Routines</H3>
+
+<P>A driver’s <I>Dispatch</I> routines for <A HREF="k113_02lu.htm">IRP_MJ_CREATE</A> and <A HREF="k113_3naq.htm">IRP_MJ_CLOSE</A> requests might do nothing more than complete the input IRP with STATUS_SUCCESS. For more information, see <A HREF="irps_6crr.htm">Completing IRPs</A>.</P>
+
+<P>Another driver’s <I>Dispatch</I> routines for IRP_MJ_CREATE and IRP_MJ_CLOSE requests might do more work, depending on the underlying device driver or on the underlying device. Consider the following scenarios:
+
+<UL>
+	<LI>On receipt of a create request, a class driver might initialize an internal queue and send an <A HREF="k113_2yia.htm">IRP_MJ_INTERNAL_DEVICE_CONTROL</A> request down to the corresponding port driver requesting device configuration information or exclusive access to a controller port. </LI>
+
+	<LI>Receipt of IRP_MJ_CLOSE indicates that the last reference to the file object that is associated with the target device object has been removed. This implies that all handles to the file object has been closed and all outstanding I/O requests have been completed or canceled.</LI>
+
+	<LI>On receipt of a create request, a driver of an infrequently used device might call <A HREF="k106_2dde.htm"><B>MmLockPagableCodeSection</B></A> to make resident some of the driver routines that process other IRP_MJ_<I>XXX</I> requests. On receipt of a reciprocal close request, the driver might call <A HREF="k106_5jxu.htm"><B>MmUnlockPagableImageSection</B></A> to conserve system memory by having its pageable-image section paged out when all file object handles for such a driver’s device object(s) are closed. </LI>
+</UL>
+
+<P>Some drivers handle <A HREF="k113_3naq.htm">IRP_MJ_CLOSE</A> requests only for symmetry because, after their device objects have been opened by a protected subsystem or higher-level driver, the lower-level drivers’ device objects are not closed until the system itself is shut down. For example, keyboard and mouse drivers set up device objects representing physical devices that must be functional while the system is running, so these drivers might have minimal <I>DispatchClose</I> routines for symmetry, or they might have combined <I>DispatchCreateClose</I> routines.</P>
+
+<P></P>
+
+<P>If the device controlled by a lower-level driver must be available for the system to continue running, the driver's <I>DispatchClose</I> routine generally will not be called. For example, some of the system disk drivers have no <I>DispatchClose</I> routine, but these drivers usually have <I>DispatchFlushBuffer</I> and <I>DispatchShutdown</I> routines to complete any outstanding file I/O operations before the system is shut down. </P>
+
+<P>While you can implement separate <I>DispatchCreate</I> and <I>DispatchClose</I> routines, drivers sometimes have <A HREF="drvcomps_88mf.htm">a single <I>DispatchCreateClose</I> routine</A> for handling both create and close requests.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Separate%20DispatchCreate%20and%20DispatchClose%20Routines"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

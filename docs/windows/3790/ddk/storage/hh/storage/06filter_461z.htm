@@ -1,0 +1,61 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Storage Filter Driver's Dispatch Routines</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Storage Filter Driver's Dispatch Routines">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_writing_dispatch_routines_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_storage_filter_drivers_dispatch_routines_kg"></A>Storage Filter Driver's Dispatch Routines</H1>
+
+<P>Like any other higher-level kernel-mode driver, a storage filter driver must have one or more Dispatch routines to handle every IRP_MJ_<I>XXX</I>  request for which the underlying storage driver supplies a Dispatch entry point. Depending on the nature of its device, the Dispatch entry point of an SFD might do one of the following for any given request: 
+
+<UL>
+	<LI>For a request that requires no special handling, set up the I/O stack location in the IRP for the next-lower driver, possibly call <B>IoSetCompletionRoutine</B> to set up its <I>IoCompletion</I> routine for the IRP, and pass the IRP on for further processing by lower drivers with <B>IoCallDriver </B></LI>
+
+	<LI>For a request already handled by a storage class driver, modify the SRB in the I/O stack location of the IRP before setting up the I/O stack location, possibly set an <I>IoCompletion</I> routine, and pass the IRP to the next-lower driver with <B>IoCallDriver</B> </LI>
+
+	<LI>Set up a new IRP with an SRB and CDB for its device, call <B>IoSetCompletionRoutine</B> so the SRB (and the IRP if the driver calls <B>IoAllocateIrp</B> or <B>IoBuildAsynchronousFsdRequest</B>) can be freed, and pass the IRP on with <B>IoCallDriver </B>
+<P>An SFD is most likely to set up new IRPs with the major function code IRP_MJ_INTERNAL_DEVICE_CONTROL. 
+</LI>
+</UL>
+
+<P>For requests that require no special handling, the Dispatch routine of an SFD usually calls <B>IoSkipCurrentIrpStackLocation</B> with an input IRP and then calls <B>IoCallDriver</B> with pointers to the class driver's device object and the IRP. Note that an SFD seldom sets its <I>IoCompletion</I> routine in IRPs that require no special handling both because a call to the <I>IoCompletion</I> routine is unnecessary and because it degrades I/O throughput for the driver's devices. If an SFD does set an <I>IoCompletion</I> routine, it calls <B>IoCopyCurrentIrpStackLocationToNext</B> instead of <B>IoSkipCurrentIrpStackLocation</B> and then calls <B>IoSetCompletionRoutine</B> before calling <B>IoCallDriver</B>.</P>
+
+<P>For requests that do require special handling, the SFD can do the following: 
+
+<OL>
+	<LI>Create a new IRP with <B>IoBuildDeviceIoControlRequest</B>, <B>IoAllocateIrp</B>, <B>IoBuildSynchronousFsdRequest</B>, or <B>IoBuildAsynchronousFsdRequest</B>, usually specifying an I/O stack location for itself. </LI>
+
+	<LI>Check the returned IRP pointer for NULL and return STATUS_INSUFFICIENT_RESOURCES if an IRP could not be allocated. </LI>
+
+	<LI>If the driver-created IRP includes an I/O stack location for the SFD, call <B>IoSetNextIrpStackLocation</B> to set up the IRP stack location pointer. Then, call <B>IoGetCurrentIrpStackLocation</B> to get a pointer to its own I/O stack location in the driver-created IRP and set up it up with state to be used by its own <I>IoCompletion</I> routine. </LI>
+
+	<LI>Call <B>IoGetNextIrpStackLocation</B> to get a pointer to the next-lower driver's I/O stack location in the driver-created IRP and set it up with the major function code IRP_MJ_SCSI and an SRB (see <A HREF="03class_1k13.htm">Storage Class Drivers</A>). </LI>
+
+	<LI>Translate data to be transferred to the device into a device-specific, nonstandard format if necessary. </LI>
+
+	<LI>Call <B>IoSetCompletionRoutine</B> if the driver allocated any memory, such as memory for an SRB, SCSI request-sense buffer, MDL, and/or IRP with a call to <B>IoAllocateIrp</B> or <B>IoBuildAsynchronousFsdRequest</B>, or if the driver must translate data transferred from the device in a device-specific, nonstandard format. </LI>
+
+	<LI>Pass the driver-created IRP to (and through) the next-lower driver with <B>IoCallDriver</B>. </LI>
+</OL>
+
+<P>Like a storage class driver, an SFD might have BuildRequest or SplitTransferRequest routines to be called from the driver's Dispatch routines, or might implement the same functionality inline. </P>
+
+<P>For more information about BuildRequest and SplitTransferRequest routines, see <A HREF="03class_1k13.htm">Storage Class Drivers</A>. For more information about general requirements for Dispatch routines, see <A HREF="JavaScript:hhobj_1.Click()">Writing Dispatch Routines</A>. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Storage%20Filter%20Driver's%20Dispatch%20Routines"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,24 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Supporting the DitherOnRealize Flag</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Supporting the DitherOnRealize Flag">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_supporting_the_ditheronrealize_flag_gg"></A>Supporting the DitherOnRealize Flag</H1>
+
+<P>In earlier versions of GDI and the graphics DDI, two calls by GDI to display driver functions were required to dither a specified color and then realize a brush for that color. For example, when an application requests that a rectangle be filled with a dithered color, GDI typically calls <A HREF="ddifncs_8z3b.htm"><I>DrvBitBlt</I></A>, passing the extents of the rectangle and the brush object to use. The display driver then checks the brush, finds that it has not been realized, and calls back to GDI with <A HREF="gdifncs_2enb.htm"><B>BRUSHOBJ_pvGetRbrush</B></A> for GDI’s realization of the brush. Because the display driver, not GDI, performs the dithering of a brush, GDI passes the RGB that the application originally supplied for dithering in a <A HREF="ddifncs_87mv.htm"><I>DrvDitherColor</I></A><B> </B>callback to the display driver.</P>
+
+<P><I>DrvDitherColor</I> returns a pointer to an array of color indexes that describe the dither information for the supplied color back to GDI. GDI immediately passes this dither information back to the display driver in a call to <A HREF="ddifncs_6krr.htm"><I>DrvRealizeBrush</I></A>. With the <A HREF="grstrcts_4gbr.htm">BRUSHOBJ</A> realized, control returns back to GDI and subsequently back to the original <I>DrvBitBlt</I> function.</P>
+
+<P>To accomplish dithering using the above technique, GDI must call <I>DrvDitherColor</I>, followed immediately by a call to <I>DrvRealizeBrush</I> — two separate function calls. Setting a GCAPS_DITHERONREALIZE flag in the <A HREF="grstrcts_4ilj.htm">DEVINFO</A> structure and modifying <I>DrvRealizeBrush</I> to effectively combine these two functions eliminates the need for the separate call to <I>DrvDitherColor</I> and also saves some memory allocation. Under this scheme, if the display driver sets GCAPS_DITHERONREALIZE, GDI calls <I>DrvRealizeBrush</I> with the RGB to be dithered and with the RB_DITHERCOLOR flag set in <I>iHatch</I>. The RB_DITHERCOLOR flag is set in the high byte of <I>iHatch</I>, while the RGB color to be dithered is contained in the three low-order bytes. The need to call <I>DrvDitherColor</I> is eliminated in this situation because the functionality of both calls is put into one.</P>
+
+<P>For example code, refer to the <I>permedia</I> sample display drivers.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Supporting%20the%20DitherOnRealize%20Flag"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

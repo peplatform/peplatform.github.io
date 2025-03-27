@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>D3dDrawPrimitives2</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="D3dDrawPrimitives2">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_d3ddrawprimitives2_gg"></A><I>D3dDrawPrimitives2</I></H1>
+
+<P>The<I> D3dDrawPrimitives2</I> function renders primitives and returns the updated render state.</P>
+
+<PRE class=syntax><B>DWORD
+  (APIENTRY *LPD3DHAL_DRAWPRIMITIVES2CB)(</B>
+    <B>LPD3DHAL_DRAWPRIMITIVES2DATA</B>  <I>pdp</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>pdp</I></DT>
+
+<DD>Points to a <A HREF="d3dstrct_47fr.htm">D3DHAL_DRAWPRIMITIVES2DATA</A> structure that contains the information required for the driver to render one or more primitives.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>D3dDrawPrimitives2</I> returns one of the following callback codes:</P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_handled_gg">DDHAL_DRIVER_HANDLED</A> </P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_nothandled_gg">DDHAL_DRIVER_NOTHANDLED</A> </P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>d3dhal.h</I>. Include <I>d3dhal.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P><I>D3dDrawPrimitives2</I> must be implemented in Direct3D drivers.</P>
+
+<P>The driver must do the following:
+
+<UL>
+	<LI>Ensure that the context handle specified by the <B>dwhContext</B> member of the D3DHAL_DRAWPRIMITIVES2DATA structure at <I>pdp</I> is valid.</LI>
+
+	<LI>Check that a flip to the drawing surface associated with the context is not in progress. If the drawing surface is involved in a flip, the driver should set the <B>ddrval</B> member of D3DHAL_DRAWPRIMITIVES2DATA to DDERR_WASSTILLDRAWING and return DDHAL_DRIVER_HANDLED.</LI>
+
+	<LI>Determine the location of the first <A HREF="d3dstrct_9w6f.htm">D3DHAL_DP2COMMAND</A> structure by adding the number of bytes in the <B>dwCommandOffset</B> member of D3DHAL_DRAWPRIMITIVES2DATA to the command buffer to which the <B>lpDDCommands</B> member of D3DHAL_DRAWPRIMITIVES2DATA points.</LI>
+
+	<LI>Determine the location of the first vertex in the vertex buffer. <I>This should only be done if there is data in the vertex buffer</I>; that is, when a D3DDP2OP_<I>Xxx</I> command token is received (except when the token is <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_linelist_imm_gg">D3DDP2OP_LINELIST_IMM</A> or <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_trianglefan_imm_gg">D3DDP2OP_TRIANGLEFAN_IMM</A>). These two opcodes indicate that the vertex data is passed immediately in the command stream, rather than in a vertex buffer. So, assuming there is data in the vertex buffer, if the vertex buffer is in user memory, the first vertex is <B>dwVertexOffset</B> bytes into the buffer that <B>lpVertices</B> points to. Otherwise, the driver should apply <B>dwVertexOffset</B> to the memory associated with the <A HREF="ddstrcts_1vl4.htm">DD_SURFACE_LOCAL</A> structure to which <B>lpDDVertex</B> points. <B>dwVertexOffset</B>, <B>lpVertices</B>, and <B>lpDDVertex</B> are members of D3DHAL_DRAWPRIMITIVES2DATA.</LI>
+
+	<LI>Check the <B>dwVertexType</B> member of D3DHAL_DRAWPRIMITIVES2DATA to ensure that the driver supports the requested <A HREF="d3d_449z.htm">FVF</A>. The driver should fail the call if any of the following conditions exist:
+<UL>
+	<LI>Vertex coordinates are not specified; that is, if D3DFVF_XYZRHW is not set.</LI>
+
+	<LI>Normals are specified; that is, if D3DFVF_NORMAL is set.</LI>
+
+	<LI>Any of the reserved D3DFVF_RESERVED<I>x</I> bits are set.</LI>
+</UL>
+</LI>
+
+	<LI>Process all of the commands in the command buffer sequentially. For each D3DHAL_DP2COMMAND structure, the driver should do the following:
+<UL>
+	<LI>If the command is <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_renderstate_gg">D3DDP2OP_RENDERSTATE</A>, process the <B>wStateCount</B> <A HREF="d3dstrct_8pif.htm">D3DHAL_DP2RENDERSTATE</A> structures that follow in the command buffer, updating the driver state for each render state structure. When the D3DHALDP2_EXECUTEBUFFER flag is set, the driver should also reflect the state change in the array that <B>lpdwRStates</B> points to. <B>wStateCount</B> and <B>lpdwRStates</B> are members of D3DHAL_DRAWPRIMITIVES2DATA.</LI>
+
+	<LI>If the command is <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_texturestagestate_gg">D3DDP2OP_TEXTURESTAGESTATE</A>, process the <B>wStateCount</B> <A HREF="d3dstrct_2ihz.htm">D3DHAL_DP2TEXTURESTAGESTATE</A> structures that follow in the command buffer, updating the driver's texture state associated with the specified texture stage for each texture state structure.</LI>
+
+	<LI>If the command is <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_viewportinfo_gg">D3DDP2OP_VIEWPORTINFO</A>, process the <A HREF="d3dstrct_4u5j.htm">D3DHAL_DP2VIEWPORTINFO</A> structure that follows in the command buffer, updating the viewport information stored in the driver's internal rendering context.</LI>
+
+	<LI>If the command is <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_winfo_gg">D3DDP2OP_WINFO</A>, process the <A HREF="d3dstrct_92g7.htm">D3DHAL_DP2WINFO</A> structure that follows in the command buffer, updating the w-buffering information stored in the driver's internal rendering context.</LI>
+
+	<LI>Otherwise, process the D3DHAL_DP2<I>Xxx</I> primitive structures that follow the D3DDP2OP_<I>Xxx</I> primitive rendering command in the command buffer.</LI>
+
+	<LI>If the command is unknown, call the runtime's <B>D3dParseUnknownCommand</B> callback. The runtime provides this callback to the driver's <A HREF="ddfncs_0yhz.htm"><I>DdGetDriverInfo</I></A> callback with the GUID_D3DParseUnknownCommandCallback GUID. </LI>
+</UL>
+</LI>
+</UL>
+
+<P>The driver does not need to probe for readability of the memory where the command and vertex buffers are stored. However, the driver must stay within the bounds specified by the <B>dwCommandLength</B> and <B>dwVertexLength</B> members of D3DHAL_DRAWPRIMITIVES2DATA.</P>
+
+<P>If the driver must fail <I>D3dDrawPrimitives2</I>, it should fill in the <B>dwErrorOffset</B> member of D3DHAL_DRAWPRIMITIVES2DATA with the offset into the command buffer where the first unhandled D3DHAL_DP2COMMAND can be found.</P>
+
+<P>If the driver is used with a DirectX 8.1 or later runtime, the driver's <I>D3dDrawPrimitives2</I> function should never cause rendering from the current vertex buffer (passed in via <B>lpDDVertex</B>) to stall if the buffer is implicit. If the buffer is explicit and there is an outstanding lock on it, the driver should stall at the end of its <I>D3dDrawPrimitives2</I> function if it does not rename the buffer (does not set D3DHALDP2_SWAPVERTEXBUFFER). If the driver renames the buffer, then the driver does not stall. DirectX 8.1 and later runtimes call the driver's <I>D3dDrawPrimitives2</I> function to render from a locked explicit vertex buffer only when necessary so performance is rarely affected. An implicit vertex buffer is created by the driver's <A HREF="d3dfncs_29bb.htm"><I>CreateD3DBuffer</I></A> callback with only the DDSCAPS_EXECUTEBUFFER flag set. An explicit vertex buffer is created by the driver's <I>CreateD3DBuffer</I> callback with the DDSCAPS_EXECUTEBUFFER and DDSCAPS2_VERTEXBUFFER flags set. The explicit vertex buffer becomes locked by the driver's <A HREF="d3dfncs_1bqf.htm"><I>LockD3DBuffer</I></A> callback. </P>
+
+<P>If the driver is used with a DirectX 8.0 runtime, the driver should sometimes stall when rendering from an implicit vertex buffer to prevent synchronization issues and resulting corruption. In addition, the DirectX 8.0 runtime calls the driver's <I>D3dDrawPrimitives2</I> function to render from a locked explicit vertex buffer more often then really necessary so performance is degraded. The following are stalling workarounds for a driver that is used with a DirectX 8.0 runtime:
+
+<UL>
+	<LI>The driver should stall when it transitions between rendering user-memory primitives (identified by D3DHALDP2_USERMEMVERTICES) and rendering from an implicit vertex buffer only if it does not rename the buffer (does not set D3DHALDP2_SWAPVERTEXBUFFER).
+<P>The following example shows when <I>D3dDrawPrimitives2</I> should stall on an implicit vertex buffer:
+
+<PRE>DrawPrimitives2(p*, D3DHALDP2_USERMEMVERTICES); // Do not stall
+DrawPrimitives2(Implicit VB, 0); // Stall </PRE>
+
+<P>The following example shows when <I>D3dDrawPrimitives2</I> should not stall on an implicit vertex buffer:
+
+<PRE>DrawPrimitives2(p*, D3DHALDP2_USERMEMVERTICES); // Do not stall
+DrawPrimitives2(Explicit VB, 0); // Do not stall if not locked
+DrawPrimitives2(Explicit VB, D3DHALDP2_SWAPVERTEXBUFFER); // Do not stall whether or not locked
+DrawPrimitives2(Implicit VB, 0); // Do not stall whether or not locked
+DrawPrimitives2(Implicit VB, 0); // Do not stall whether or not locked
+DrawPrimitives2(p*, D3DHALDP2_USERMEMVERTICES); // Do not stall
+DrawPrimitives2(Implicit VB, D3DHALDP2_SWAPVERTEXBUFFER); // Do not stall because D3DHALDP2_SWAPVERTEXBUFFER is set</PRE>
+</LI>
+
+	<LI>If the runtime sets the D3DHALDP2_REQCOMMANDBUFSIZE flag, then the driver is not required to stall. By coincidence, the DirectX 8.0 runtime also sets D3DHALDP2_REQCOMMANDBUFSIZE when it most commonly renders from a locked explicit vertex buffer. The driver can therefore improve performance by not stalling when it detects D3DHALDP2_REQCOMMANDBUFSIZE while rendering from a locked explicit vertex buffer.
+<P>The following example shows when <I>D3dDrawPrimitives2</I> should stall on an explicit vertex buffer:
+
+<PRE>DrawPrimitives2(Explicit VB, 0); // Stall when locked (happens rarely)</PRE>
+
+<P>The following example shows when <I>D3dDrawPrimitives2</I> should not stall on an explicit vertex buffer:
+
+<PRE>DrawPrimitives2(Explicit VB, D3DHALDP2_REQCOMMANDBUFSIZE); // Do not stall whether or not locked
+DrawPrimitives2(Explicit VB, D3DHALDP2_SWAPVERTEXBUFFER); // Do not stall whether or not locked
+DrawPrimitives2(Explicit VB, D3DHALDP2_SWAPVERTEXBUFFER | D3DHALDP2_REQCOMMANDBUFSIZE); // Do not stall</PRE>
+</LI>
+</UL>
+
+<H4>See Also</H4>
+
+<P><A HREF="d3dstrct_0o13.htm">D3DHAL_DP2INDEXEDLINELIST</A>, <A HREF="d3dstrct_4yav.htm">D3DHAL_DP2INDEXEDLINESTRIP</A>, <A HREF="d3dstrct_35pj.htm">D3DHAL_DP2INDEXEDTRIANGLEFAN</A>, <A HREF="d3dstrct_0sdj.htm">D3DHAL_DP2INDEXEDTRIANGLELIST</A>, <A HREF="d3dstrct_2ofb.htm">D3DHAL_DP2INDEXEDTRIANGLESTRIP</A>, <A HREF="d3dstrct_8mqv.htm">D3DHAL_DP2LINELIST</A>, <A HREF="d3dstrct_4o4n.htm">D3DHAL_DP2LINESTRIP</A>, <A HREF="d3dstrct_59d3.htm">D3DHAL_DP2POINTS</A>, <A HREF="d3dstrct_5prb.htm">D3DHAL_DP2TRIANGLEFAN</A>, <A HREF="d3dstrct_4fjb.htm">D3DHAL_DP2TRIANGLELIST</A>, <A HREF="d3dstrct_5up3.htm">D3DHAL_DP2TRIANGLESTRIP</A>, <A HREF="d3d_449z.htm">FVF</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: D3dDrawPrimitives2"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,170 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>REQUEST_ASYNC_WRITE</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="REQUEST_ASYNC_WRITE">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_request_async_write_kr"></A>REQUEST_ASYNC_WRITE</H1>
+
+<P>The REQUEST_ASYNC_WRITE request performs an asynchronous write operation to the device specified. </P>
+
+<P>The relevant members of the IRB for this request are:</P>
+
+<PRE class=syntax>typedef struct _IRB {
+  ULONG FunctionNumber;
+    .
+    .
+    .
+  union {
+    struct {
+      IO_ADDRESS    DestinationAddress;
+      ULONG         nNumberOfBytesToWrite;
+      ULONG         nBlockSize;
+      ULONG         fulFlags;
+      PMDL          Mdl;
+      ULONG         ulGeneration;
+      UCHAR         chPriority;
+      UCHAR         nSpeed;
+      UCHAR         tCode;
+      ULONG         Reserved;
+    } AsyncWrite;
+    .
+    .
+    .
+  } u;
+} IRB;</PRE>
+
+<H4>IRB Input</H4>
+
+<DL>
+<DT><B>FunctionNumber</B></DT>
+
+<DD>REQUEST_ASYNC_WRITE</DD>
+
+<DT><B>u.AsyncWrite.DestinationAddress</B></DT>
+
+<DD>Specifies the 1394 64-bit destination address for this write operation. The driver only must fill in the <B>IA_Destination_Offset</B> member of <B>u.AsyncWrite.DestinationAddress</B>; the bus driver fills in the <B>IA_Destination_ID</B> member. See <A HREF="1394stct_12cy.htm">IO_ADDRESS</A> for the structure description.</DD>
+
+<DT><B>u.AsyncWrite.nNumberOfBytesToWrite</B></DT>
+
+<DD>Specifies the number of bytes to write to the 1394 node.</DD>
+
+<DT><B>u.AsyncWrite.nBlockSize</B></DT>
+
+<DD>Specifies the size of each individual block within the data stream that is written as a whole to the node. If this parameter is zero, then the maximum packet size for the speed selected is used in breaking up these write requests.</DD>
+
+<DT><B>u.AsyncWrite.fulFlags</B></DT>
+
+<DD>Specifies any nondefault settings for this operation. The following flags are provided.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=57%>Flag</TH>
+<TH align=left width=43%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>ASYNC_FLAGS_NONINCREMENTING</TD>
+<TD width=43%>Do not increment 1394 address during asynchronous operation. This flag is set only in large asynchronous requests (that is, those greater than asynchronous packet size).</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>ASYNC_FLAGS_NO_STATUS</TD>
+<TD width=43%>Always return success from the write operation, whether the write succeeds or fails.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>ASYNC_FLAGS_BROADCAST</TD>
+<TD width=43%>Broadcast to all nodes on the bus.</TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>Use the bit-wise operator OR to combine the settings.
+</DD>
+
+<DT><B>u.AsyncWrite.Mdl</B></DT>
+
+<DD>Points to an MDL that describes the device driver’s buffer, which receives data from the 1394 node.</DD>
+
+<DT><B>u.AsyncWrite.ulGeneration</B></DT>
+</DL>
+
+<P>Specifies the bus reset generation as known by the device driver that submitted this asynchronous request. If the generation count specified does not match the actual generation of the bus, this request is returned with a status of STATUS_INVALID_GENERATION.  
+
+<DL>
+<DT><B>u.AsyncWrite.chPriority</B></DT>
+
+<DD>Reserved.</DD>
+
+<DT><B>u.AsyncWrite.nSpeed</B></DT>
+
+<DD>Reserved.</DD>
+
+<DT><B>u.AsyncWrite.tCode</B></DT>
+
+<DD>Reserved.</DD>
+
+<DT><B>u.AsyncWrite.Reserved</B></DT>
+
+<DD>Reserved.
+</DD>
+</DL>
+
+<H4>I/O Status Block</H4>
+
+<P>If successful, the bus driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS. If <B>u.AsyncLock.ulGeneration</B> does not match the current bus reset generation count, the bus driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_INVALID_GENERATION.</P>
+
+<H4>Operation</H4>
+
+<P>The REQUEST_ASYNC_WRITE request writes the data buffer into the device's address space, beginning at the <B>u.AsyncWrite.AddressOffset</B> member of <B>u.AsyncWrite.DestinationAddress</B>. The buffer is broken up into blocks, and one block is written for each transaction. If the ASYNC_FLAGS_NONINCREMENTING flag is set, the bus driver writes each block beginning at <B>u.AsyncWrite.DestinationAddress</B>, otherwise it writes the buffer to consecutive addresses in the memory space of the device.</P>
+
+<P>The <I>IEEE 1394-1995 Specification</I> constrains the size of write operations to be ASYNC_PAYLOAD_xxx_RATE, where xxx is the approximate connection speed in megabits per second. (The speeds allowed are 100, 200, and 400 Mb/s.) </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=57%>Payload Rate</TH>
+<TH align=left width=43%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>ASYNC_PAYLOAD_100_RATE</TD>
+<TD width=43%>100 Mb/s</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>ASYNC_PAYLOAD_200_RATE</TD>
+<TD width=43%>200 Mb/s</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>ASYNC_PAYLOAD_400_RATE</TD>
+<TD width=43%>400 Mb/s</TD>
+</TR>
+</TABLE><BR>
+
+<P>If the block size exceeds the maximum payload size, the payload size is used as the block size. </P>
+
+<P>The size of packets may also be constrained by the device itself. The device reports the maximum packet size in the MAX_REC field of its configuration ROM. If this value is smaller than requested block size and the maximum payload size, the bus driver uses this as the block size.</P>
+
+<P>The ASYNC_FLAGS_NO_STATUS flag should only be set if the driver has a higher-level error recovery protocol, and should only be used for quadlet-sized writes. </P>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>1394.h</I>. Include <I>1394.h</I>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="1394irp_06ya.htm">IOCTL_IEEE1394_API_REQUEST</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: REQUEST_ASYNC_WRITE"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

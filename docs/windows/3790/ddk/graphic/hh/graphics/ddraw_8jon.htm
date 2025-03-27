@@ -1,0 +1,55 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Responsibilities of DMA Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Responsibilities of DMA Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_responsibilities_of_dma_drivers_gg"></A>Responsibilities of DMA Drivers</H4>
+
+<P><B>This topic applies only to Windows 98/Me.</B></P>
+
+<P>Drivers must expose the <A HREF="ddfncs_8lk7.htm"><I>DdGetSysmemBltStatus</I></A> HAL callback (system-memory-surface version of this callback) to enable asynchronous DMA. If drivers do not expose this callback, then, as explained in the previous section, DirectDraw repeatedly calls <A HREF="ddfncs_8lk7.htm"><I>DdGetBltStatus</I></A> until the operation is completed, even though DMA operations may still be scheduled. This fails to exploit the parallelism offered by using the processor and the DMA controller to do useful work at the same time. </P>
+
+<P>DirectDraw does not call the HAL prior to scheduling a second DMA request on the same surface. This is the one scenario in which DirectDraw does not call <I>GetSysmemBltStatus</I> to ensure that DMA operations have been completed before allowing further requests to proceed. This design choice aims to reduce the number of DirectDraw-to-driver transitions required on a blt, but requires that the driver's <A HREF="ddfncs_7lpj.htm"><I>DdBlt</I></A> routine check for existing pending DMA operations on system memory surfaces before scheduling further operations. </P>
+
+<P>Driver writers should also take care to ensure that any interdependencies between their accelerators and DMA controllers are reflected in their driver's behavior with respect to scheduling new blts. If an asynchronous DMA operation is scheduled, for instance, and a second video-to-video blt is requested, the driver should check that the DMA operation and the blt operation do not intersect. In such a case, the driver returns DDERR_WASSTILLDRAWING. </P>
+
+<P>The following members of the <A HREF="ddstrcts_42ef.htm">DDRAWI_DDRAWSURFACE_GBL_MORE</A> structure are of interest to writers of drivers of DMA-capable hardware: 
+
+<DL>
+<DT><B>dwPhysicalPageTable</B> </DT>
+
+<DD>Is a physical pointer to the page table. The format of the physical page table is made up of one DWORD per page. Each DWORD holds the physical address of the page. The first DWORD may not point to the beginning of a page, but each subsequent DWORD holds a pointer that is aligned on a 4K page boundary. </DD>
+
+<DT><B>pPageTable</B> </DT>
+
+<DD>Is a linear pointer to the page table. </DD>
+
+<DT><B>fpPhysicalVidMem</B> </DT>
+
+<DD>Is a physical pointer to the surface contents. </DD>
+
+<DT><B>cPages</B> </DT>
+
+<DD>Specifies the number of entries in the page table. </DD>
+
+<DT><B>cPageUnlocks</B> </DT>
+
+<DD>Is incremented on every page unlock. A driver can cache page table information and only update its cache if the <B>cPageUnlocks</B> value has changed since the page table was cached. 
+
+
+<P class=note><B>Note</B>&nbsp;&nbsp;DirectDraw insulates the driver from the need to know about an application's nested <B>PageLock</B>/<B>PageUnlock</B> calls by referring to the <B>dwPageLockCount</B> value. This value is incremented whenever the application calls <B>PageLock</B> and decremented whenever it calls <B>PageUnlock</B>. Only the transitions to and from zero cause an actual page lock/page unlock operation to be performed. 
+
+</DD>
+</DL>
+
+<P>Because all these fields reside in the DDRAWI_DDRAWSURFACE_GBL_MORE structure, driver writers should use the <B>GET_LPDDRAWSURFACE_GBL_MORE</B> macro from <I>ddrawi.h</I> to traverse from a pointer in a DDRAWI_DDRAWSURFACE_GBL structure to a DDRAWI_DDRAWSURFACE_GBL_MORE structure. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Responsibilities%20of%20DMA%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

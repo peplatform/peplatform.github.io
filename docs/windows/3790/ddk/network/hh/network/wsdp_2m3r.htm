@@ -1,0 +1,28 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Blocking Calls for a SAN</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Blocking Calls for a SAN">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_blocking_calls_for_a_san_ng"></A>Blocking Calls for a SAN</H2>
+
+<P>The Windows Sockets switch handles blocking calls and the cancellation of such calls internally or forwards them to the TCP/IP service provider. The switch never calls a <B>WSPCancelBlockingCall</B> function for a SAN service provider to cancel a blocking request that is in progress. Therefore, a SAN service provider is not required to implement a <B>WSPCancelBlockingCall</B> function. </P>
+
+<P>The switch handles the following blocking requests and corresponding cancellations in the following ways: 
+
+<UL>
+	<LI>When an application requests to connect a SAN socket to a specific destination address in blocking mode, the switch receives a blocking <B>WSPConnect</B> call. The switch forwards the connect request in nonblocking mode to the appropriate SAN service provider's <A HREF="wsdpref_7enm.htm"><B>WSPConnect</B></A> function. If the switch must cancel this connection request for some reason, it calls the SAN service provider's <A HREF="wsdpref_4fsi.htm"><B>WSPCloseSocket</B></A> function. The SAN service provider must promptly abort the connection request and release resources for the socket. </LI>
+
+	<LI>When the switch receives a blocking request that was initiated by an application to perform a data transfer operation on a SAN socket, it forwards the data transfer request in an overlapped (nonblocking) manner to the appropriate SAN service provider. For example, if the switch receives a synchronous (blocking) <B>WSPSend</B> call, it calls the appropriate SAN service provider's <A HREF="wsdpref_6rqq.htm"><B>WSPSend</B></A> function in an overlapped (nonblocking) manner. If the application later cancels the data transfer operation and the switch has control of the application’s buffer, the switch completes the application’s request with a failure status. If the application’s buffer is involved in an outstanding RDMA operation, the switch waits for the operation to complete. If an RDMA transfer takes too long to complete, the switch calls the appropriate SAN service provider's <B>WSPCloseSocket</B> function to close the connection in an abortive manner, thereby forcing completion. </LI>
+</UL>
+
+<P class=note><B>Important</B>&nbsp;&nbsp;If an application cancels a blocking call, it cannot rely on a connection being preserved. Only the <B>WSPCloseSocket</B> call is guaranteed to succeed on the socket after the cancellation of a blocking request. For more information, see the Windows Sockets SPI documentation in the Platform SDK.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Blocking%20Calls%20for%20a%20SAN"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

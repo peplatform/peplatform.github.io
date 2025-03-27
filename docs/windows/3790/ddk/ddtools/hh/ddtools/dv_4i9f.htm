@@ -1,0 +1,143 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DMA Verification</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Driver Verifier options, DMA Verification (HAL Verification)">
+<META NAME="MS-HKWD" CONTENT="DMA Verification">
+<META NAME="MS-HKWD" CONTENT="HAL Verification">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_halgetadapter_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iogetdmaadapter_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Driver&nbsp;Development&nbsp;Tools:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_dma_verification_tools"></A>DMA Verification</H3>
+
+<P>DMA Verification monitors the use of Direct Memory Access (DMA). Since the DMA routines have changed as Windows has developed, many drivers make incorrect use of DMA calls. Moreover, some driver writers attempt to bypass the HAL DMA subsystem altogether. This practice can introduce insidious bugs into the driver.</P>
+
+<P>The DMA Verification option of Driver Verifier attempts to catch common DMA errors. Along with the <B>!dma</B> kernel debugger extension, it can be used to verify that a driver is using DMA in a proper manner.</P>
+
+<P>This Driver Verifier option is also called <B>HAL Verification</B>. Some error messages produced by Driver Verifier may use this term.</P>
+
+<P><I>This Driver Verifier option is only available in Windows XP and later.</I></P>
+
+<H4>Different Types of DMA</H4>
+
+<P>DMA is a mechanism through which a hardware device can transfer data to or from memory without using the processor. The processor is required to set up the transfer, and the device will signal the processor when it has completed the transfer. The advantage of this system is that the processor can perform other tasks while the DMA transfer is being performed. </P>
+
+<P>There are several types of DMA used in Windows&nbsp;2000 and later:
+
+<DL>
+<DT><I>Common-buffer DMA</I></DT>
+
+<DD>Common-buffer DMA is performed when the system can allocate a single buffer that is accessible by both the hardware and the software. The driver is responsible for synchronizing accesses to the buffer. The memory is not cached, making this synchronization easier for the driver. After setting up a common buffer, both the driver and the hardware can write directly to the addresses in the buffer without any intervention from the HAL.</DD>
+
+<DT><I>Packet DMA</I></DT>
+
+<DD>Packet DMA is performed when there is a single existing buffer that must be mapped for use by the hardware. An example of using packet DMA is the transfer of a file from memory to a disk. Using common-buffer DMA in this situation would be wasteful, because the file would have to be transferred to the common buffer before the hardware could transfer it to the disk. Instead, the HAL is consulted; it gives the driver the information it needs to help the hardware find the actual buffer in memory. This operation is complicated by the need for the routines involved to work across different architectures.   </DD>
+
+<DT><I>Scatter-Gather DMA</I></DT>
+
+<DD>Scatter-gather DMA is a shortcut method that sets up several packet DMA transfers at once. If you are transferring a packet over the network, for example, each part of the network stack adds its own header (TCP, IP, Ethernet, and so forth). These headers are all allocated from different places in memory. In this case, the scatter-gather DMA saves time by issuing a batch request to the HAL to map each header plus the data segment for access by the hardware. Instead of having to call the packet DMA routines on each part of the packet, this method calls each routine once, and lets the HAL be responsible for mapping each one individually.</DD>
+
+<DT><I>System DMA</I></DT>
+
+<DD>System DMA is performed by programming the system DMA controller on the motherboard to do the transfer directly. Only ISA cards can use system DMA.
+
+
+
+<P class=note><B>Note</B>&nbsp;&nbsp;<I>Scatter-gather capability</I> does not mean that the device can use the scatter-gather routines. Scatter-gather capability refers to a flag in the device description that indicates that the device is able to read or write from any area in memory, instead of just a certain range.
+
+</DD>
+</DL>
+
+<H4>Effects of DMA Verification</H4>
+
+<P>When DMA Verification is active, Driver Verifier detects misuses of DMA routines, including:
+
+<UL>
+	<LI>Overrunning or overrunning the DMA memory buffer (these errors can be made by the hardware or the driver).</LI>
+
+	<LI>Double-freeing a common buffer, adapter channel, map register, or scatter-gather list.</LI>
+
+	<LI>Leaking memory by not freeing common buffers, adapter channels, map registers, scatter/gather lists, or adapters.</LI>
+
+	<LI>Having more than one adapter channel present for an adapter at one time.</LI>
+
+	<LI>Attempting to use an adapter that has already been freed and no longer exists.</LI>
+
+	<LI>Not flushing an adapter buffer.</LI>
+
+	<LI>Having too many outstanding reference counts for an adapter.</LI>
+
+	<LI>Performing DMA on a pageable buffer (all buffers should be locked before DMA transfer begins).</LI>
+
+	<LI>Performing DMA on an MDL with mangled flags.</LI>
+
+	<LI>Referencing an invalid system address, either before the first MDL, or after the end of the first MDL, or using a transfer length that is longer than the MDL buffer and crosses a page boundary within the MDL.</LI>
+
+	<LI>Allocating too many map registers at one time, or allocating more map registers than the maximum number that is allowed.</LI>
+
+	<LI>Double-mapping of map registers.</LI>
+
+	<LI>Attempting to free map registers while some are still mapped.</LI>
+
+	<LI>Attempting to flush a map register that hasn't been mapped.</LI>
+
+	<LI>Attempting to flush too many bytes at the end of the map register file.</LI>
+
+	<LI>Calling DMA routines at an improper IRQL.</LI>
+
+	<LI>Passing a null-value DMA_ADAPTER to a HAL routine.</LI>
+
+	<LI>Passing an address and an MDL to a HAL routine when the address is not contained in the MDL.</LI>
+
+	<LI>Attempting to map an address range that has already been mapped.</LI>
+
+	<LI>Attempting to flush a buffer that isn't mapped.</LI>
+
+	<LI>Attempting to map a zero-length buffer for transfer.</LI>
+
+	<LI>Calling the obsolete function <A HREF="JavaScript:hhobj_1.Click()"><B>HalGetAdapter</B></A> (all drivers must use <A HREF="JavaScript:hhobj_2.Click()"><B>IoGetDmaAdapter</B></A> instead).</LI>
+</UL>
+
+<P>Driver Verifier monitors the driver's behavior and issues bug check 0xE6 if any of these violations occur. See <A HREF="bccodes_4ysn.htm">Bug Check 0xE6</A> (DRIVER_VERIFIER_DMA_VIOLATION) for a list of the bug check parameters<I>.</I></P>
+
+<H4>When is DMA Verification Useful?</H4>
+
+<P>All drivers that use DMA directly (by calling the HAL DMA routines) should be tested with DMA Verification.</P>
+
+<P>In addition, miniport drivers should also be tested, since they often use DMA indirectly (by calling port drivers that use DMA). </P>
+
+<P>DMA Verification can also be an effective way to detect memory corruption, since it can spot when either a driver or a hardware device overruns a DMA buffer. </P>
+
+<H4>Monitoring DMA Verification</H4>
+
+<P>The kernel debugger extension <B>!dma</B> can be used to display a wealth of DMA information. It can display various details about the behavior of each DMA adapter. There is a detailed example of the <B>!dma</B> extension, as well as general information about debugger extensions, in the documentation in the Debugging Tools for Windows package. See <A HREF="dbgblurb_25bn.htm">Debugging Tools for NT-Based Operating Systems</A> for details.</P>
+
+<H4>Activating This Option</H4>
+
+<P>The DMA Verification option can be activated by using the Driver Verifier Manager graphical interface or the <I>verifier.exe</I> command line. This activation will take effect after the next boot. See <A HREF="dv_5q43.htm">Selecting Driver Verifier Options</A> for details.</P>
+
+<H4>Graphics Drivers</H4>
+
+<P>The DMA Verification option is not used for graphics drivers. If selected, it has no effect.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DMA%20Verification"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

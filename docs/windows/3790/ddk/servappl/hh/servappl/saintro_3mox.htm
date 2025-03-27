@@ -1,0 +1,47 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Transferring Key-Press Information</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Transferring Key-Press Information">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Server&nbsp;Appliance&nbsp;High&nbsp;Availability&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_transferring_key_press_information_sa"></A>Transferring Key-Press Information</H2>
+
+<P>The keypad miniport driver reads key-press information received from the keypad device. The driver only reads data when an application makes a read request. The following figure shows an overview of how the miniport driver can give the appearance of simultaneously receiving input from its keypad device and passing such input to the requesting application. </P>
+
+<P><IMG SRC="images/keyxfer.gif" ALT="" BORDER=0></P>
+
+<P><B>Server availability key-press data transfer</B></P>
+
+<P>The following sequence of steps describe the actions in the preceding figure:
+
+<OL>
+	<LI>An application makes a read request. </LI>
+
+	<LI>The server availability (SA) port driver calls the miniport driver's <A HREF="samini_27c1.htm"><I>SaRead</I></A> function. In this call, the port driver passes an external buffer to receive the data from the keypad device. Before accessing members of the <A HREF="saintro_9q8y.htm">device extension</A> structure, the miniport driver's <I>SaRead</I> function acquires the device extension's synchronization object to prevent other threads from accessing these members at the same time. <I>SaRead</I> then examines the device extension's last-key-pressed variable and determines that this variable's content is zero because a key has not yet been pressed. <I>SaRead</I> then assigns the external buffer to the device extension's internal buffer to indicate that a read request is in process. The miniport driver's <I>SaRead</I> function then releases the synchronization object and returns STATUS_PENDING to indicate that the request is pending until the driver detects that a key has been pressed. </LI>
+
+	<LI>The keypad device issues an interrupt when a user presses a key. </LI>
+
+	<LI>The miniport driver's <A HREF="samini_9vkx.htm"><I>SaInterruptServiceRoutine</I></A> function must handle this interrupt. </LI>
+
+	<LI>To quickly service this interrupt and complete the I/O processing at a lower IRQL, <I>SaInterruptServiceRoutine</I> calls the <A HREF="saport_1m75.htm"><B>SaPortRequestDpc</B></A> function, which queues the miniport driver's <A HREF="samini_3jfl.htm"><I>SaIsrForDpcRoutine</I></A> function. </LI>
+
+	<LI>When the SA port driver calls <I>SaIsrForDpcRoutine</I>, the miniport driver acquires the synchronization object to prevent other threads from accessing members of the <A HREF="saintro_9q8y.htm">device extension</A> structure at the same time. The miniport driver's <I>SaIsrForDpcRoutine </I>function examines the device extension's internal buffer to determine if a read request is in process. If it is not in progress (that is, the internal buffer is NULL), the miniport driver's <I>SaIsrForDpcRoutine </I>function releases the synchronization object and returns without processing the key-press data. If it is in progress (that is, the internal buffer is not NULL), the miniport driver's <I>SaIsrForDpcRoutine </I>function copies the key-press data into the device extension's last-key-pressed variable (see <A HREF="saintro_9q8y.htm">Creating the Device Extension for the Keypad Device</A>). </LI>
+
+	<LI>The miniport driver's <I>SaIsrForDpcRoutine </I>function then releases the synchronization object and calls the <A HREF="saport_4ntt.htm"><B>SaPortCompleteRequest</B></A> function to complete all I/O requests.</LI>
+
+	<LI>To complete the read request, the SA port driver again calls the miniport driver's <I>SaRead</I> function. In this call, the port driver passes an external buffer to receive the key-press data. The miniport driver's <I>SaRead</I> function acquires the device extension's synchronization object. <I>SaRead</I> then examines device extension's last-key-pressed variable and determines that this variable's content is nonzero. This time, <I>SaRead</I> stores the key-press data into the external buffer, releases the synchronization object, and returns STATUS_SUCCESS.<BR>
+The miniport driver's <I>SaIsrForDpcRoutine </I>function again acquires the synchronization object, sets the device extension's last-key-pressed variable to zero to prepare for the next key-press-read operation, and releases the synchronization object.</LI>
+
+	<LI>The requesting application then receives the key-press data.</LI>
+</OL>
+
+<P>In the preceding sequence of steps, each call to the miniport driver's <I>SaRead</I> function reads only one instance of a key press.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Transferring%20Key-Press%20Information"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

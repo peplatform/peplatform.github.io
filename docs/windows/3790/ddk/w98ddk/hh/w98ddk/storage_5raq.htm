@@ -1,0 +1,181 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DCB</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_4252"></A>DCB</H3>
+
+<PRE>#include &lt;dcb.h&gt;
+
+typedef struct  _DCB { 
+    DCB_COMMON  DCB_cmn;              // common information
+    ULONG  DCB_max_xfer_len;          // maximum transfer length 
+
+// Actual geometry data (as seen below the TSD)
+    ULONG  DCB_actual_sector_cnt[2];  // number of sectors 
+    ULONG  DCB_actual_blk_size;       // actual block size of the device  
+    ULONG  DCB_actual_head_cnt;       // number of heads
+    ULONG  DCB_actual_cyl_cnt;        // number of cylinders
+    ULONG  DCB_actual_spt;            // number of sectors per track
+
+    PVOID  DCB_next_ddb_dcb;          // link to next DCB on DDB chain 
+    PVOID  DCB_dev_node;              // address of dev node for device 
+    BYTE   DCB_bus_type;              // Bus type; see below
+    BYTE   DCB_bus_number;            // channel (cable) within adapter   
+    UCHAR  DCB_queue_freeze;          // queue freeze depth counter 
+    UCHAR  DCB_max_sg_elements;       // max # s/g elements; see below
+
+// Volume tracking layer use only
+    UCHAR  DCB_io_pend_count;         // # of pending requests for DCB
+    UCHAR  DCB_lock_count;            // # of LOCK MEDIA commands 
+
+// SCSI
+    USHORT DCB_SCSI_VSD_FLAGS;        // Flags for SRB builder
+    BYTE   DCB_scsi_target_id;        // SCSI target ID 
+    BYTE   DCB_scsi_lun;              // SCSI logical unit number      
+    BYTE   DCB_scsi_hba;              // prot-driver-relative adapter #
+    BYTE   DCB_max_sense_data_len;    // Maximum sense length
+    USHORT DCB_srb_ext_size;          // miniport srb extension length
+
+    BYTE   DCB_inquiry_flags[8];      // Device inquiry flags
+    BYTE   DCB_vendor_id[8];          // Vendor ID string
+    BYTE   DCB_product_id[16];        // Product ID string
+    BYTE   DCB_rev_level[4];          // Product revision level
+    BYTE   DCB_port_name[8];          // 
+    UCHAR  DCB_current_unit;          // current unit #; see below
+
+// Volume tracking layer use only
+    ULONG  DCB_blocked_iop;           // address of requests for an 
+                                      //  inactive volume 
+
+    ULONG  DCB_vol_unlock_timer;      // unlock timer handle 
+    UCHAR  DCB_access_timer;          // time measure between accesses 
+
+// Volume tracking layer use only
+    UCHAR  DCB_Vol_Flags;             // Volume tracking; see below
+
+    BYTE  DCB_q_algo;                 // algorithm index; see below
+    BYTE  DCB_unit_on_ctl;            // zero-based device number on ctlr
+    ULONG  DCB_Port_Specific;         // bytes for port driver use
+    ULONG  DCB_spindown_timer;        // timer for drive spin down
+
+    DCB_BLOCKDEV  DCB_bdd;
+} DCB, *PDCB;
+</PRE>
+
+<P>Contains device control block information for physical devices. 
+
+<DL>
+<DT><B>DCB_bus_type</B> </DT>
+
+<DD>Bus type. Can be one of these values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=42%>DCB_BUS_ESDI </TD>
+<TD width=58%>ESDI BUS </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%>DCB_BUS_SCSI </TD>
+<TD width=58%>SCSI BUS </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%>DCB_BUS_NEC </TD>
+<TD width=58%>NEC BUS </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%>DCB_BUS_SMART </TD>
+<TD width=58%>SMART BUS </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%>DCB_BUS_ABIOS </TD>
+<TD width=58%>ABIOS BUS </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>DCB_max_sg_elements</B> </DT>
+
+<DD>Maximum number of scatter/gather elements. This value is set initially by the port driver, but may be more restrictively updated by other layer drivers. </DD>
+
+<DT><B>DCB_current_unit</B> </DT>
+
+<DD>Used to emulate multiple logical devices with a single physical device. </DD>
+
+<DT><B>DCB_vol_flags</B> </DT>
+
+<DD>Volume tracking flags. Can be one of these values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=42%>DCB_VF_INHIBIT_LOCKING </TD>
+<TD width=58%>Indicates locking is temporarily inhibited </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%>DCB_VF_INHIBIT_IO </TD>
+<TD width=58%>Indicates I/O is temporarily inhibited (event scheduled in volume tracker). </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%>DCB_VF_INHIBIT_GEOM_RECOMPUTE </TD>
+<TD width=58%>Indicates geometry recompute is temporarily inhibited. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%>DCB_VF_UNLOCK_SCHED </TD>
+<TD width=58%>Indicates unlock event is scheduled. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%>DCB_VF_NEED_PHYS_RECOMP </TD>
+<TD width=58%>Indicates that a mapper drive needs a compute geometry request sent to the physical drive with same number as the given logical drive. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%>DCB_VF_PROT_NEC_DRIVE </TD>
+<TD width=58%>Indicates that this DCB has a corresponding protected mode physical NEC driver. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>DCB_q_algo</B> </DT>
+
+<DD>Queuing algorithm index. Can be one of these values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=42%>DCB_q_fi_fo </TD>
+<TD width=58%>First in, first out. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%>DCB_q_sort </TD>
+<TD width=58%>Special algorithm for disk. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+</DL>
+
+<H4>See Also</H4>
+
+<P><B>DCB_COMMON</B>, <B>DCB_BLOCKDEV</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DCB"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

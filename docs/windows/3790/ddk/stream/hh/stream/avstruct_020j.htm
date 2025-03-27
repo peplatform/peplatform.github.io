@@ -1,0 +1,101 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>KSPROCESSPIN</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="KSPROCESSPIN">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_inplace_kg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ksprocesspin_ks"></A>KSPROCESSPIN</H1>
+
+<P>The KSPROCESSPIN structure is used in <A HREF="avsover_702v.htm">filter-centric processing</A> as a means to easily access data available on a specific input pin or to write out data that has been processed to an output pin. The structure describes the process state of a specific pin.</P>
+
+<PRE class=syntax>typedef struct {
+  PKSPIN  Pin;
+  PKSSTREAM_POINTER  StreamPointer;
+  PKSPROCESSPIN  InPlaceCounterpart;
+  PKSPROCESSPIN  DelegateBranch;
+  PKSPROCESSPIN  CopySource;
+  PVOID  Data;
+  ULONG  BytesAvailable;
+  ULONG  BytesUsed;
+  ULONG  Flags;
+  BOOLEAN  Terminate;
+} KSPROCESSPIN, *PKSPROCESSPIN;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>Pin</B></DT>
+
+<DD>Pointer to a <A HREF="avstruct_5s4z.htm">KSPIN</A> structure that this process structure is describing. Everything in the structure refers to this pin.</DD>
+
+<DT><B>StreamPointer</B></DT>
+
+<DD>Pointer to a <A HREF="avstruct_9hyr.htm">KSSTREAM_POINTER</A> structure pointing into the input stream at the current input location or into the output stream at the current output location. This can be used, for example, by output pins to stamp information onto the associated <A HREF="ks-struct_7l4j.htm">KSSTREAM_HEADER</A> (ProcessPin-&gt;StreamPointer-&gt;StreamHeader-&gt;Flags=...).</DD>
+
+<DT><B>InPlaceCounterpart</B></DT>
+
+<DD>Pointer to a KSPROCESSPIN structure. If the pipe section to which this process pin belongs corresponds to an <A HREF="JavaScript:hhobj_1.Click()">inplace</A> transform, <B>InPlaceCounterPart</B> points to the counterpart pin of this process pin. In other words, if the structure of which <B>InPlaceCounterpart</B> is a member is the input to the inplace transform, <B>InPlaceCounterPart</B> points to the output process pin for the transform. Similarly,. if the structure of which <B>InPlaceCounterpart</B> is a member is the output of the inplace transform, <B>InPlaceCounterPart</B> points to the input process pin for the transform.</DD>
+
+<DT><B>DelegateBranch</B></DT>
+
+<DD>Pointer to a KSPROCESSPIN structure. If frames coming out of this process pin are being split and sent to multiple sink pins, and the split does not cause a data copy (that is, the split sends the frames in a read-only manner and all of the split pin instances are in the same pipe), <B>DelegateBranch</B> points to the first instance of the process pin. The splitter automatically handles any process pin that has a non-NULL <B>DelegateBranch</B>.</DD>
+
+<DT><B>CopySource</B></DT>
+
+<DD>Pointer to a KSPROCESSPIN structure. If frames coming out of this process pin are being split and sent to multiple sink pins in a manner that causes a data copy (that is, one of the downstream filters is modifying the data frame via an in-place transform), <B>CopySource</B> points to the process pin from which the frame was copied. The splitter automatically handles any process pin that has a non-NULL <B>CopySource</B>.</DD>
+
+<DT><B>Data</B></DT>
+
+<DD>Pointer to a buffer. If the pin described by this process entry is an input pin, <B>Data</B> points to the next available byte of data to be input. If the pin described by this process entry is an output pin, <B>Data</B> points to an output buffer where processed data is placed.</DD>
+
+<DT><B>BytesAvailable</B></DT>
+
+<DD>Specifies how many bytes of data are available in <B>Data</B>.</DD>
+
+<DT><B>BytesUsed</B></DT>
+
+<DD>Specifies how many bytes of this data frame have been used by the process function. Clients should set this member to update how much they have read or written.</DD>
+
+<DT><B>Flags</B></DT>
+
+<DD>Contains a copy of the flags from the relevant <A HREF="ks-struct_7l4j.htm">KSSTREAM_HEADER</A> structure, if the structure of which <B>Flags</B> is a member is an input pin.</DD>
+
+<DT><B>Terminate</B></DT>
+
+<DD>Indicates whether the current data frame should be sent downstream after the process dispatch finishes. If TRUE, the frame is sent downstream even if all data has not been consumed. If FALSE, the frame is not released until all data is consumed.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ks.h</I>. Include <I>ks.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>This structure is available in Windows XP and later operating systems and in DirectX 8.0 and later versions.</P>
+
+<P>Only filter-centric clients use process pins. Further, process pins that have a non-NULL <B>DelegateBranch</B> or a non-NULL <B>CopySource</B> typically are not of concern to the client. The splitter automatically handles process pins with these pointers.</P>
+
+<P>Most clients are concerned with the members <B>Pin</B>, <B>Data</B>, <B>BytesAvailable</B>, <B>BytesUsed</B>, <B>Flags</B>, and <B>Terminate</B>. Data can be read from the stream or written into the stream through the <B>Data</B> member; <B>BytesAvailable</B> tells the client how many bytes of data are available in the current data frame (buffer) that <B>Data</B> points to. As the client minidriver reads from or writes to the stream, <B>BytesUsed</B> should be updated to reflect how many bytes of data have been consumed. The <B>Terminate</B> flag can be set if the minidriver is done with the current frame despite the fact that <B>BytesUsed</B> is not equal to <B>BytesAvailable</B>. After the minidriver exits the processing dispatch, pointers are advanced, and frames are completed as appropriate.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="avstruct_6gxf.htm">KSPROCESSPIN_INDEXENTRY</A>, <A HREF="avstruct_5s4z.htm">KSPIN</A>, <A HREF="avstruct_9hyr.htm">KSSTREAM_POINTER</A>, <A HREF="ks-struct_7l4j.htm">KSSTREAM_HEADER</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: KSPROCESSPIN"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

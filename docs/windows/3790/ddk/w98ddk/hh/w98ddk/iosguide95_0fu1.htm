@@ -1,0 +1,30 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Windows NT IOCTL Unavailable with Windows 95</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Windows NT IOCTL Unavailable with Windows 95">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_windows_nt_ioctl_unavailable_with_windows_95_si"></A>Windows NT IOCTL Unavailable with Windows 95</H2>
+
+<P>Windows NT uses a miniport IOCTL interface that is not available with Windows 95. </P>
+
+<P>Windows NT allows you to send IOCTLs to SCSI miniports, using CreateFile, and a filespec such as  “\\.\Scsi0” and “\\.\c:”. A sample application that uses this technique is found in the Windows NT DDK: \ddk\src\storage\class\spti.</P>
+
+<P>Windows 95 does not support this Windows NT IOCTL technique.</P>
+
+<P>If you want to issue private commands to a (Windows 95) miniport, you can send a SCSI request to it using ASPI16 or ASPI32 (which uses the IOS “SCSI passthrough” message structure). Create a unique function code in the CDB being sent to it, that your miniport can interpret as a custom command. There is sample code in the Windows 95 DDK (\DDK\Block\SAMPLES\WNASPI32, documentation is in \DDK\Docs\DESGUIDE\STORAGE.DOC), which performs simple drive inquiry functions. ASPI is implemented using WINASPI.DLL (for 16-bit applications) or WNASPI32.DLL (32-bit applications) at Ring 3. These DLLs communicate with (ring 0) APIX.VXD, located in the IOS layered hierarchy. APIX, located at layer 11 of IOS, injects IOR_SCSI_PASS_THROUGH commands into IOS.</P>
+
+<P>Another possible communications technique under Windows 95 is to write a "helper" Vendor Supplied Driver (VSD) that communicates with the user application using (Windows 95) DeviceIoControl(), behaving similarly to APIX.VXD (used by ASPI). The VSD could set up its own private IOP pointing to a private SRB that contains the appropriate SRB_FUNCTION_IO_CONTROL function. The VSD could then issue an ILB_internal_request, which sends the IOP request down to the miniport driver.</P>
+
+<P>A sample passthrough VSD, available from the Windows 95 DDK Support Team, is bundled in the following file: PASSTHRU.ZIP (see IOS Sample Code). This sample demonstrates how to build the necessary SCSI Passthrough IOP packet. The sample will require changes, for example, in its IOCTL handler, which currently does nothing but will need to be modified to forward requests using ILB_internal_request.</P>
+
+<P>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Windows%20NT%20IOCTL%20Unavailable%20with%20Windows%2095"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

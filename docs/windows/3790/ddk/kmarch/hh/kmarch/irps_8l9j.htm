@@ -1,0 +1,38 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Cancel Routines in Drivers with StartIo Routines</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Cancel Routines in Drivers with StartIo Routines">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_cancel_routines_in_drivers_with_startio_routines_kg"></A><I>Cancel</I> Routines in Drivers with <I>StartIo </I>Routines</H3>
+
+<P>The I/O Manager maintains the <B>CurrentIrp</B> field in a device object only if IRPs are queued in the associated device queue object. That is, the field is valid only if the driver has a <I>StartIo </I>routine.</P>
+
+<P>In a driver that has a <I>StartIo </I>routine, a typical <I>Cancel </I>routine must do the following:
+
+<OL>
+	<LI>Check whether the pointer for the input IRP matches the target device object’s <B>CurrentIrp</B> address.
+<P>If these pointers are equivalent, the <I>Cancel </I>routine calls <A HREF="k104_5po2.htm"><B>IoReleaseCancelSpinLock</B></A>, passing <B>Irp-&gt; CancelIrql</B>, and returns control.
+</LI>
+
+	<LI>If the canceled IRP is not the current IRP, check whether the input canceled IRP is in the device queue associated with the target device object by calling <A HREF="k105_6l9u.htm"><B>KeRemoveEntryDeviceQueue</B></A> with the IRP’s <B>Tail.Overlay.DeviceQueueEntry</B> pointer.
+<UL>
+	<LI>If the IRP is in the device queue, calling <B>KeRemoveEntryDeviceQueue</B> removes it from the queue. The <I>Cancel </I>routine calls <A HREF="k104_5po2.htm"><B>IoReleaseCancelSpinLock</B></A>, sets the IRP’s I/O status block with STATUS_CANCELLED for <B>Status</B> and zero for <B>Information</B>, calls <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> with the canceled IRP, and returns control.</LI>
+
+	<LI>If the IRP is not in the device queue, the <I>Cancel </I>routine calls <B>IoReleaseCancelSpinLock</B> and returns control.</LI>
+</UL>
+</LI>
+</OL>
+
+<P>The driver’s <I>Cancel </I>routine should call <B>KeRemoveEntryDeviceQueue</B> to test whether the IRP is in the device queue. This support routine either removes the given IRP from the device queue or does nothing except return FALSE, indicating that the given entry was not queued. A <I>Cancel </I>routine cannot assume that the input IRP is at any particular position in the device queue, so it cannot call <B>KeRemoveDeviceQueue</B> or <B>KeRemoveByKeyDeviceQueue</B> to compare the pointers to the returned IRP and input IRP.</P>
+
+<P>Drivers with <I>Cancel </I>routines can handle IRP_MJ_CLEANUP requests as well. See <A HREF="drvrrtns_2xf6.htm"><I>DispatchCleanup</I></A> for more information about IRP_MJ_CLEANUP requests.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Cancel%20Routines%20in%20Drivers%20with%20StartIo%20Routines"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

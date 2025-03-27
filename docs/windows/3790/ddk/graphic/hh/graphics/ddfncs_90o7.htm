@@ -1,0 +1,149 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Flip32</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_flip32_gg"></A><I>Flip32</I></H1>
+
+<P>The<I> Flip32</I> callback function causes the surface memory associated with the target surface to become the primary surface, and the current surface to become the nonprimary surface.</P>
+
+<PRE class=syntax><B>DWORD
+  (FAR PASCAL *LPDDHALSURFCB_FLIP)(</B>
+    <B>LPDDHAL_FLIPDATA</B>  <I>pfd
+</I><B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>pfd</I></DT>
+
+<DD>Points to a <A HREF="ddstrcts_8xlz.htm">DDHAL_FLIPDATA</A> structure that contains the information required to perform the flip.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>Flip32</I> returns one of the following callback codes:</P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_handled_gg">DDHAL_DRIVER_HANDLED</A> </P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_nothandled_gg">DDHAL_DRIVER_NOTHANDLED</A> </P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ddrawi.h</I>. Include <I>ddrawi.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The <I>Flip32</I> callback handles flipping of surfaces, including primary surfaces, overlays and textures. </P>
+
+<P>When a flip occurs in DirectDraw, the front buffer object remains the front buffer object; only the surface memory to which it points changes. The key issue is to eliminate tearing. The surface being displayed is indicated by the <B>lpSurfCurr</B> member of the DDHAL_FLIPDATA structure and the surface that should be displayed next is indicated by the <B>lpSurfTarg</B> member of the same structure. Do not flip while any flips involving this surface chain are pending (typically if a flip is pending, the <A HREF="ddfncs_1ktj.htm"><I>updateFlipStatus</I></A> function handles this). In addition, do not flip if the blitter is busy; if it is blitting to the target surface, this could result in a tear (the macro in the following sample implementation, DRAW_ENGINE_BUSY, handles this test). The DRAW_ENGINE_BUSY macro in this sample implementation can be written to test whether your blitter is busy. </P>
+
+<P>When the hardware registers are pointed at the new surface, the surface that was flipped away from needs to be tracked. One possible method of tracking the surface is by using a <A HREF="ddstrcts_7k4n.htm">FLIPRECORD</A> structure. If the user tries to lock the surface, it is possible to verify whether it has finished being displayed. The FLIPRECORD structure itself is not mandatory, but you need a way to keep track of the surface. If you can have multiple flips (that is, flipping overlays and flipping textures), you need to have more than one FLIPRECORD structure (or an analog to it). </P>
+
+<P><I>Flip32</I> sends out a debug message to verify the current and target surfaces and the <I>fpVidMem</I> pointers that correspond to each. (Of course, the debug messages in the sample implementation are merely suggestions and are purely up to the discretion of the driver writer.) The <I>updateFlipStatus</I> function is called with a 0 parameter to see whether a flip is pending. </P>
+
+<P>If the return value from <I>updateFlipStatus</I> is not equal to DD_OK, a flip cannot happen at this time. The <B>ddRVal</B> member of the DDHAL_FLIPDATA structure is set to the value returned from the <I>updateFlipStatus</I> function, and DDHAL_DRIVER_HANDLED is returned from <I>Flip32</I> because the request has been processed. </P>
+
+<P>If the return value is equal to DD_OK, and the blit engine is not busy, it is okay to flip. (You may want to write a macro called SET_FLIP_REGISTER or just add the code that sets the register, which is read when the next surface is to be displayed.) If the blitter is busy, the flip cannot be done at this time, DDERR_WASSTILLDRAWING is passed in the <B>ddRVal</B> member of the DDHAL_FLIPDATA structure, and DDHAL_DRIVER_HANDLED is returned. The <I>updateFlipStatus</I> function does not work unless one or more FLIPRECORD structures are maintained properly. </P>
+
+<P>If all of the conditions for allowing a flip are met, you can check the bit that tells whether the flip has occurred (assuming the hardware has such a bit). If your hardware does not have such a bit, the <B>QueryPerformanceCounter</B> Win32 function is called to set the beginning flip time. This can be polled later to see whether enough time has elapsed to go through an entire refresh cycle. The <B>bFlipFlag</B> member of the FLIPRECORD structure is set to TRUE to indicate a pending flip. Then the <B>fpFlipFrom</B> member of the same structure is set to the value of the <B>fpVidMem</B> member of the <A HREF="ddstrcts_5mw7.htm">DDRAWI_DDRAWSURFACE_GBL</A> structure that is contained in the <A HREF="ddstrcts_5aqv.htm">DDRAWI_DDRAWSURFACE_LCL</A> structure (<B>lpGbl</B>) that is pointed to by the <B>lpSurfCurr</B> member of the DDHAL_FLIPDATA structure. In addition, the <B>bHaveEverCrossedVBlank</B> member of the FLIPRECORD structure is reset to FALSE (to verify whether the surface has been completely displayed—for more information, see <A HREF="ddraw_4eqv.htm">Timing a Flip</A>). </P>
+
+<P>If the scan line is in vertical blank, the <B>dwFlipScanLine</B> member of the FLIPRECORD structure is set to 0 and the <B>bWasEverInDisplay</B> member is set to FALSE. If you have a multiregister flip (that is, more than one register must be changed to do a flip), do not do this when the scan line is in the vertical blank. In that case, if the DDFLIP_WAIT flag is not set, return out of <I>Flip32</I> with the DDERR_WASSTILLDRAWING error, and avoid doing the flip while in vertical blank. If the DDFLIP_WAIT flag is set, wait until the scan line is out of vertical blank and then do the flip. That is the only way to be sure not to tear when you have multiregister flips. Otherwise the <B>dwFlipScanLine</B> member is set to the result of the CURRENT_VLINE (an implementation-specific macro that determines the scan line), and the <B>bWasEverInDisplay</B> member of the FLIPRECORD structure is set to TRUE. Again, this is to keep track of where you are in the display cycle. DD_OK is passed as the return value in the <B>ddRVal</B> member of the DDHAL_FLIPDATA structure, and DDHAL_DRIVER_HANDLED is returned after a successful flip.</P>
+
+<P>The equivalent NT-based callback is <A HREF="ddfncs_3e07.htm"><I>DdFlip</I></A>.</P>
+
+<P>The following is the sample implementation of <I>Flip32</I>: </P>
+
+<PRE>/*
+ * Flip32
+ */
+DWORD __stdcall Flip32( LPDDHAL_FLIPDATA pfd )
+{
+    HRESULT     ddrval;       // DirectDraw return value
+
+    /*
+     * NOTES:
+     *
+     * This callback is invoked whenever we are about to flip from
+     * one surface to another. pfd-&gt;lpSurfCurr is the surface we were
+     * at; pfd-&gt;lpSurfTarg is the one we are flipping to.
+     *
+     * You should point the hardware registers at the new surface, and
+     * also keep track of the surface that was flipped away from, so
+     * that if the user tries to lock it, you can be sure that it is
+     * done being displayed.
+     */
+    DPF( "Flip32: curr=%08lx, targ=%08lx", pfd-&gt;lpSurfCurr, 
+                              pfd-&gt;lpSurfTarg );
+    DPF( "        vidmem ptrs change: %08lx-&gt;%08lx",
+                        pfd-&gt;lpSurfCurr-&gt;lpGbl-&gt;fpVidMem,
+                        pfd-&gt;lpSurfTarg-&gt;lpGbl-&gt;fpVidMem );
+
+    ddrval = updateFlipStatus(0);   // Are there any flips pending?
+
+    if (ddrval != DD_OK)
+    {
+        pfd-&gt;ddRVal = ddrval;       // Pass the return value
+        return DDHAL_DRIVER_HANDLED;// Exit function without flipping
+    }
+
+
+    /*
+     * Is the blitter busy right now?
+     */
+    if (DRAW_ENGINE_BUSY)
+    {
+        pfd-&gt;ddRVal = DDERR_WASSTILLDRAWING; // Pass the return value
+        return DDHAL_DRIVER_HANDLED;    // Draw engine busy, exit
+    }
+
+    /*
+     *  Everything is OK, do the flip here. Suggest writing a 
+     *  SET_FLIP_REGISTER macro to use here.
+     */
+
+    /*
+     * Remember where/when we were when we did the flip
+     * (Only required if we have a piece of hardware that doesn't have 
+     * a bit that is set when a flip occurs.)
+     */
+    QueryPerformanceCounter((LARGE_INTEGER*)&amp;flipRecord.liFlipTime);
+    flipRecord.bFlipFlag = TRUE;
+    flipRecord.fpFlipFrom = pfd-&gt;lpSurfCurr-&gt;lpGbl-&gt;fpVidMem;
+    flipRecord.bHaveEverCrossedVBlank = FALSE;
+ 
+    /*
+     * Update flipRecord structure so updateFlipStatus can determine
+     * whether we have been through a complete
+     * display cycle later
+     */ 
+    if (IN_VBLANK)
+    {
+        flipRecord.dwFlipScanLine = 0;
+        flipRecord.bWasEverInDisplay = FALSE;
+    }
+    else
+    {
+        flipRecord.dwFlipScanLine = CURRENT_VLINE;
+        flipRecord.bWasEverInDisplay = TRUE;
+    }
+
+    pfd-&gt;ddRVal = DD_OK;
+    return DDHAL_DRIVER_HANDLED;
+
+} /* Flip32 */
+ </PRE>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddstrcts_5mw7.htm">DDRAWI_DDRAWSURFACE_GBL</A>, <A HREF="ddstrcts_5aqv.htm">DDRAWI_DDRAWSURFACE_LCL</A>, <A HREF="ddstrcts_7k4n.htm">FLIPRECORD</A>, <A HREF="ddfncs_1ktj.htm"><I>updateFlipStatus</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Flip32"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

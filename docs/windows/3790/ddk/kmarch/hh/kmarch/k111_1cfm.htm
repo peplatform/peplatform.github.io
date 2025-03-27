@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ZwCreateDirectoryObject</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ZwCreateDirectoryObject">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_zwcreatedirectoryobject_kr"></A>ZwCreateDirectoryObject</H1>
+
+<P>The <B>ZwCreateDirectoryObject</B> routine creates or opens a directory object, which is a container for other objects.</P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>ZwCreateDirectoryObject(</B>
+    <B>OUT PHANDLE</B>  <I>DirectoryHandle</I><B>,</B>
+    <B>IN ACCESS_MASK</B>  <I>DesiredAccess</I><B>,</B>
+    <B>IN POBJECT_ATTRIBUTES</B>  <I>ObjectAttributes</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DirectoryHandle</I></DT>
+
+<DD>Pointer to a variable that receives the directory object handle if the call is successful. The driver must close the handle with <A HREF="k111_03aq.htm"><B>ZwClose</B></A> once the handle is no longer in use.</DD>
+
+<DT><I>DesiredAccess</I></DT>
+
+<DD>Specifies the <A HREF="k112_9sfm.htm">ACCESS_MASK</A> value that expresses the type of access that the caller requires to the directory object. This value is compared with the granted access on an existing directory object. A caller can specify one or a combination of the following.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=58%>DesiredAccess Flags</TH>
+<TH align=left width=42%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>DIRECTORY_QUERY</TD>
+<TD width=42%>Query access to the directory object</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>DIRECTORY_TRAVERSE</TD>
+<TD width=42%>Name-lookup access to the directory object</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>DIRECTORY_CREATE_OBJECT</TD>
+<TD width=42%>Name-creation access to the directory object</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>DIRECTORY_CREATE_SUBDIRECTORY</TD>
+<TD width=42%>Subdirectory-creation access to the directory object</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=58%>DIRECTORY_ALL_ACCESS</TD>
+<TD width=42%>All of the preceding</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><I>ObjectAttributes</I></DT>
+
+<DD>Pointer to a structure that specifies the object's attributes, which has already been initialized with <A HREF="k109_66uq.htm"><B>InitializeObjectAttributes</B></A>. If the caller is not running in the system process context, it must set the OBJ_KERNEL_HANDLE attribute for <I>ObjectAttributes</I>.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>. </P>
+
+<H4>Return Value</H4>
+
+<P><B>ZwCreateDirectoryObject</B> returns an NTSTATUS value. Possible return values include:</P>
+
+<P class=indent1>STATUS_SUCCESS<BR>
+STATUS_ACCESS_DENIED<BR>
+STATUS_ACCESS_VIOLATION<BR>
+STATUS_DATATYPE_MISALIGNMENT</P>
+
+<H4>Comments</H4>
+
+<P>A directory object is a container for other objects. Note that file system directories are <I>not</I> represented by directory objects, but rather by file objects.</P>
+
+<P>Directory objects are an integral part of the system's object management and are manipulated indirectly as a result of other operations. For example, when a device object is created, its name is inserted in a directory object and the pointer counts of both the directory object and the named device object are incremented. Any named object's header contains a pointer to the directory object containing that object's name.</P>
+
+<P>Drivers that create a set of device objects might set up a directory object when they initialize. For example, a disk driver might use this technique to group the device object representing a physical disk and the device objects representing partitions on that disk in a driver-created directory object.</P>
+
+<P>Before the <A HREF="drvrrtns_6r76.htm"><B>DriverEntry</B></A> routine returns control, such a driver calls <A HREF="k111_4oc2.htm"><B>ZwMakeTemporaryObject</B></A> if its directory object was initialized with the OBJ_PERMANENT attribute, and <A HREF="k111_03aq.htm"><B>ZwClose</B></A> to release the directory object that was created to hold such a group of related device objects.</P>
+
+<P>If a directory object was initialized as temporary and its handle count becomes zero, the directory object's name is deleted. Name deletion occurs for a temporary object when the last handle to the object has been closed. A driver also can use this technique to delete a directory object it creates when the object is no longer required.</P>
+
+<P>Driver routines that run in a process context other than that of the system process must set the OBJ_KERNEL_HANDLE attribute for the <I>ObjectAttributes</I> parameter of <B>ZwCreateDirectoryObject</B>. This restricts the use of the handle returned by <B>ZwCreateDirectoryObject</B> to processes running only in kernel mode. Otherwise, the handle can be accessed by the process in whose context the driver is running. Drivers can call <A HREF="k109_66uq.htm"><B>InitializeObjectAttributes</B></A> to set the OBJ_KERNEL_HANDLE attribute as follows.</P>
+
+<PRE>InitializeObjectAttributes(&amp;ObjectAttributes, NULL, OBJ_KERNEL_HANDLE, NULL, NULL);
+</PRE>
+
+<P>Callers of <B>ZwCreateDirectoryObject</B> must be running at IRQL&nbsp;= PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k112_9sfm.htm">ACCESS_MASK</A>, <A HREF="k109_66uq.htm"><B>InitializeObjectAttributes</B></A>, <A HREF="k107_6vg2.htm"><B>ObDereferenceObject</B></A>, <A HREF="k111_03aq.htm"><B>ZwClose</B></A>, <A HREF="k111_4oc2.htm"><B>ZwMakeTemporaryObject</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ZwCreateDirectoryObject"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

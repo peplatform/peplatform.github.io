@@ -1,0 +1,191 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NET_PNP_EVENT for Protocol Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NET_PNP_EVENT">
+<META NAME="MS-HKWD" CONTENT="NET_PNP_EVENT,for protocol drivers">
+<META NAME="MS-HKWD" CONTENT="protocol drivers">
+<META NAME="MS-HKWD" CONTENT="protocol drivers,and NET_PNP_EVENT">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_net_pnp_event_for_protocol_drivers_nr"></A>NET_PNP_EVENT for Protocol Drivers</H1>
+
+<P>The NET_PNP_EVENT structure describes a Plug and Play event or a Power Management event.</P>
+
+<PRE class=syntax>typedef struct _NET_PNP_EVENT {
+  NET_PNP_EVENT_CODE  NetEvent;
+  PVOID  Buffer;
+  ULONG  BufferLength;
+  ULONG_PTR  NdisReserved[4];
+  ULONG_PTR  TransportReserved[4];
+  ULONG_PTR  TdiReserved[4];
+  ULONG_PTR  TdiClientReserved[4];
+} NET_PNP_EVENT, *PNET_PNP_EVENT;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>NetEvent</B></DT>
+
+<DD>An event code that describes the Plug and Play or Power Management event as one of the following:
+
+<DL>
+<DT><B>NetEventSetPower</B></DT>
+
+<DD>Indicates that the Power Manager has sent a Set Power request, which specifies a transition to a system power state. NDIS translates this state to an appropriate device power state for the device.</DD>
+
+<DT><B>NetEventQueryPower</B></DT>
+
+<DD>Indicates that the Power Manager has sent a Query Power request, which requests a transition to a system power state. NDIS translates this state to an appropriate device power state for the device.</DD>
+
+<DT><B>NetEventQueryRemoveDevice</B></DT>
+
+<DD>Indicates that the Plug and Play Manager has sent a Query Remove Device request. The Plug and Play Manager sends this request to query whether a device can be removed without disrupting operations.</DD>
+
+<DT><B>NetEventCancelRemoveDevice</B></DT>
+
+<DD>Indicates that the Plug and Play Manager has sent a  Cancel Remove Device request. The PnP Manager sends this request after sending an a Query Remove Device request to cancel the removal of the device.</DD>
+
+<DT><B>NetEventReconfigure</B></DT>
+
+<DD>Indicates that the configuration has changed for a network component. For example, if a user, through the Network and Dial-up Connections folder, changes the IP address for TCP/IP, NDIS indicates this event to the TCP/IP protocol with the <B>NetEventReconfigure</B> code.</DD>
+
+<DT><B>NetEventBindList</B></DT>
+
+<DD>Indicates to a protocol driver that its bind list processing order has been reconfigured. This list indicates a relative order to be applied to the protocol's bindings when processing, for example, a user request that might be routed to one of several bindings. The buffer passed with this event contains a list of device names formatted as NULL-terminated Unicode strings. The format of each device name is identical to the DeviceName parameter passed to a call to <A HREF="104tdlow_2bqq.htm"><I>ProtocolBindAdapter</I></A>.</DD>
+
+<DT><B>NetEventBindsComplete</B></DT>
+
+<DD>Indicates that a protocol driver has bound to all the NICs that it can bind to. NDIS will not indicate any more NICs to the protocol unless a Plug and Play NIC is plugged into the system.</DD>
+
+<DT><B>NetEventPnPCapabilities</B></DT>
+
+<DD>Indicates whether the wake-up capabilities of the NIC on the specified binding have changed. (The binding is specified by the <I>ProtocolBindingContext</I> passed to <A HREF="104tdlow_5muq.htm"><I>ProtocolPnPEvent</I></A>.)</DD>
+</DL>
+</DD>
+
+<DT><B>Buffer</B></DT>
+
+<DD>Specifies the address of a buffer that contains information specific to the Plug and Play or Power Management event indicated by <B>NetEvent</B>.
+
+<DL>
+<DT><B>NetEventSetPower</B></DT>
+
+<DD>The buffer contains the device power state to which the device is transitioning.
+
+<P>When NDIS calls a protocol's <I>ProtocolPnPEvent</I> function, the device state is an NDIS_DEVICE_POWER_STATE, which can be one of the following values:
+
+
+<P><B>NdisDeviceStateUnspecified</B>
+
+
+<P>The network device does not support power management.
+
+
+<P><B>NdisDeviceStateD0</B>
+
+
+<P>The fully powered state, in which the device delivers full functionality and performance.
+
+
+<P><B>NdisDeviceStateD1</B>
+
+
+<P>A low-power state, in which transmit requests from the host are not honored by the device, data received by the device is not transferred to host memory, and no interrupts can occur. Some device context may be lost. Depending on the capabilities of the NIC and its miniport driver, the device may be able to generate a wake-up signal.
+
+
+<P><B>NdisDeviceStateD2</B>
+
+
+<P>A low-power state similar to NdisDeviceStateD1, except that usually more power and less context are saved, and more time is required to transition to the fully powered state.
+
+
+<P><B>NdisDeviceStateD3</B>
+
+
+<P>The off state, in which power has been fully removed from the device.
+</DD>
+</DL>
+
+
+<P>As far as a protocol is concerned, <B>NdisDeviceStateD0</B> means that the NIC is fully powered and is available for sending and receiving packets. Any other device state means that the device is not fully powered and is not available for sending and receiving packets.
+
+
+<DL>
+<DT><B>NetEventQueryPower</B></DT>
+
+<DD>The buffer contains the device power state requested for the device. The device state is an NDIS_DEVICE_POWER_STATE (described above).</DD>
+
+<DT><B>NetEventQueryRemoveDevice</B></DT>
+
+<DD>The buffer contents are NULL.</DD>
+
+<DT><B>NetEventCancelRemoveDevice</B></DT>
+
+<DD>The buffer contents are NULL.</DD>
+
+<DT><B>NetEventReconfigure</B></DT>
+
+<DD>The buffer can contain protocol-specific data. The protocol driver is responsible for validating this data.</DD>
+
+<DT><B>NetEventBindList</B></DT>
+
+<DD>The buffer contains a revised binding list for the network component to which the NET_PNP_EVENT structure is being passed. The bind list, which is a series of NULL-terminated Unicode strings, has a REG_MULTI_SZ format. Each of these strings is an adapter name. TDI clients bound to a protocol use this bind list to reorder their bindings. The protocol driver is responsible for validating this data.</DD>
+
+<DT><B>NetEventBindsComplete</B></DT>
+
+<DD>The buffer contents are NULL.</DD>
+
+<DT><B>NetEventPnPCapbilities</B></DT>
+
+<DD>The buffer contains a ULONG that contains the <B>NdisDeviceWakeUpEnable</B> flag. When set to 1, this flag indicates that the wake-up capabilities of the NIC on the specified binding are enabled. (The binding is specified by the <I>ProtocolBindingContext</I> passed to <A HREF="104tdlow_5muq.htm"><I>ProtocolPnPEvent</I></A>.) When set to zero, this flag indicates that the NIC's wake-up capabilities are disabled.</DD>
+</DL>
+</DD>
+
+<DT><B>BufferLength</B></DT>
+
+<DD>The number of bytes of event-specific information at <B>Buffer</B>.</DD>
+
+<DT><B>NdisReserved</B></DT>
+
+<DD>An area reserved for used by NDIS.</DD>
+
+<DT><B>TransportReserved</B></DT>
+
+<DD>An area reserved for used by the transport driver.</DD>
+
+<DT><B>TdiReserved</B></DT>
+
+<DD>An area reserved for used by TDI.</DD>
+
+<DT><B>TdiClientReserved</B></DT>
+
+<DD>An area reserved for used by a TDI client.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ndis.h</I>. Include <I>ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>When the operating system issues a Plug and Play event or a Power Management event to a target device object that represents a NIC, NDIS intercepts the event, translates it into a NET_PNP_EVENT structure, and passes a pointer to this structure to each protocol bound to the NIC by calling the protocol's <I>ProtocolPnPEvent</I> function. The protocol should save this pointer, because the pointer is an input parameter to <A HREF="103ndisx_0vaq.htm"><B>NdisCompletePnPEvent</B></A>, which the driver calls to complete the call to <I>ProtocolPnPEvent</I> asynchronously.</P>
+
+<P>NDIS can also call the <I>ProtocolPnPEvent</I> function of a particular protocol driver to notify that driver of a <B>NetEventBindsComplete</B> event. This event indicates to the protocol driver that it has bound to all the NICs that it can bind to in the system.</P>
+
+<P>The <B>NetEvent</B> code in the structure identifies the type of Plug and Play or Power Management event. The <B>Buffer</B> contains information specific to the type of event.</P>
+
+<P>Transports typically use the <B>TransportReserved</B> area to maintain state concerning the Plug and Play event or Power Management event.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="103ndisx_0vaq.htm"><B>NdisCompletePnPEvent</B></A>, <A HREF="104tdlow_5muq.htm"><I>ProtocolPnPEvent</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NET_PNP_EVENT%20for%20Protocol%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisMEthIndicateReceive</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisMEthIndicateReceive">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndismethindicatereceive_nr"></A>NdisMEthIndicateReceive</H1>
+
+<P><B>NdisMEthIndicateReceive</B> notifies NDIS that an Ethernet packet (or some initial lookahead portion of the packet) has arrived so NDIS can forward the packet to bound protocols. </P>
+
+<PRE class=syntax><B>VOID 
+  NdisMEthIndicateReceive(
+    IN NDIS_HANDLE</B>  <I>MiniportAdapterHandle</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>MiniportReceiveContext</I><B>,</B>
+    <B>IN PVOID</B>  <I>HeaderBuffer</I><B>,</B>
+    <B>IN UINT</B>  <I>HeaderBufferSize</I><B>,</B>
+    <B>IN PVOID</B>  <I>LookaheadBuffer</I><B>,</B>
+    <B>IN UINT</B>  <I>LookaheadBufferSize</I><B>,</B>
+    <B>IN UINT</B>  <I>PacketSize
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>MiniportAdapterHandle</I></DT>
+
+<DD>Specifies the handle originally input to <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>.</DD>
+
+<DT><I>MiniportReceiveContext</I></DT>
+
+<DD>Specifies a context handle supplied by the caller. NDIS returns this handle as an input parameter to the <A HREF="101mini_9a42.htm"><I>MiniportTransferData</I></A> function if it is called. The miniport driver can use the context area designated by this handle to determine which packet, on which NIC, is being received.</DD>
+
+<DT><I>HeaderBuffer</I></DT>
+
+<DD>Specifies the base virtual address of the buffered packet header. </DD>
+
+<DT><I>HeaderBufferSize</I></DT>
+
+<DD>Specifies the size in bytes of the packet header.</DD>
+
+<DT><I>LookaheadBuffer</I></DT>
+
+<DD>Specifies the base virtual address of a buffer containing the initial <I>LookaheadBufferSize</I> bytes of the data in the packet. </DD>
+
+<DT><I>LookaheadBufferSize</I></DT>
+
+<DD>Specifies the size in bytes of the lookahead buffer. This value must be at least as large as the lookahead size set when <A HREF="101mini_7ng2.htm"><I>MiniportSetInformation</I></A> was called with <A HREF="22genoid_1jzm.htm">OID_GEN_CURRENT_LOOKAHEAD</A>, or as large as the packet, whichever is smaller. When the packet is smaller than the lookahead size, the lookahead buffer contains the entire frame. 
+
+<P>A miniport driver can (and should) set <I>LookaheadBufferSize</I> to something larger than the minimum required if sufficient received data is available on its NIC. 
+</DD>
+
+<DT><I>PacketSize</I></DT>
+
+<DD>Specifies the size in bytes of the received packet data. This value does not include the <I>HeaderBufferSize</I>. 
+
+<P>When <I>PacketSize</I> is larger than the given <I>LookaheadBufferSize</I>, a protocol driver call to <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A> causes a subsequent call to the <I>MiniportTransferData</I> function, which transfers the remaining data in the packet. 
+
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A miniport driver calls <B>NdisMEthIndicateReceive</B> if it designates its NIC as of type <B>NdisMedium802_3</B> or <B>NdisMediumDix</B> in response to the <A HREF="22genoid_0tma.htm">OID_GEN_MEDIA_IN_USE</A> query, unless the miniport driver indicates receives with <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>. </P>
+
+<P>When a miniport driver calls <B>NdisMEthIndicateReceive</B>, NDIS passes a pointer to the header of the packet and a pointer to some or all of the data in the packet to the <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> function(s) of bound protocol driver(s). Each protocol that receives the indication can do the following:
+
+<OL>
+	<LI>Inspect the header and data in the packet to decide whether the indication is of interest to the protocol’s client(s).</LI>
+
+	<LI>If it is, copy as much of the header or data as is visible into protocol-allocated memory with <A HREF="103ndisx_87le.htm"><B>NdisMoveMemory</B></A>. </LI>
+
+	<LI>Get the remaining data, if any, for the indication by allocating a packet descriptor with sufficient chained buffer descriptors and calling <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A>. The call to <B>NdisTransferData</B> causes the NIC driver’s <A HREF="101mini_9a42.htm"><I>MiniportTransferData</I></A> function to copy the data into the protocol-supplied packet.</LI>
+</OL>
+
+<P>For any protocol driver that receives an indication through <B>NdisMEthIndicateReceive</B>, the <I>HeaderBuffer</I> and <I>LookaheadBuffer</I> addresses are valid only during the current call to its <I>ProtocolReceive</I> function, and these buffers are read-only. A protocol driver cannot retain a pointer to the indicated packet with these associated buffers nor can it retain any pointers to these buffers for later use. Any data that a protocol driver needs from such a packet must be copied and saved during the receive indication.</P>
+
+<P>The data in the header is the same as that received on the NIC. A miniport driver need not remove any headers or trailers from the data its NIC receives.</P>
+
+<P>The transmitting driver adds padding to any packet that is too short for the requirements of the medium. The receiving miniport driver can include such padding in the data and length it subsequently indicates. Each bound protocol is responsible for detecting any such padding and ignoring it.</P>
+
+<P>Serialized callers of <B>NdisMEthIndicateReceive</B> run at IRQL = DISPATCH_LEVEL. Deserialized callers of <B>NdisMEthIndicateReceive</B> can run at IRQL &lt;= DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_7s36.htm"><I>MiniportHandleInterrupt</I></A>, <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, <A HREF="101mini_2vw2.htm"><I>MiniportQueryInformation</I></A>, <A HREF="101mini_7ng2.htm"><I>MiniportSetInformation</I></A>, <A HREF="101mini_81v6.htm"><I>MiniportTimer</I></A>, <A HREF="101mini_9a42.htm"><I>MiniportTransferData</I></A>, <A HREF="103ndisx_969e.htm"><B>NdisMEthIndicateReceiveComplete</B></A>, <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, <A HREF="103ndisx_87le.htm"><B>NdisMoveMemory</B></A>, <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A>, <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisMEthIndicateReceive"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

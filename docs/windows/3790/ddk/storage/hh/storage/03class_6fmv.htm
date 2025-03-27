@@ -1,0 +1,53 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Storage Class Driver's BuildRequest Routine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Storage Class Driver's BuildRequest Routine">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_using_lookaside_lists_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_storage_class_drivers_buildrequest_routine_kg"></A>Storage Class Driver's <I>BuildRequest</I> Routine</H2>
+
+<P>Like all higher-level kernel-mode drivers, a storage class driver must set up the IRP's I/O stack location for the next-lower driver when <A HREF="03class_6tyf.htm">handling requests to storage peripherals</A>. In IRPs that the class driver sets up with SRBs for the system-supplied port driver, the port driver's I/O stack location is set with the following: 
+
+<UL>
+	<LI><B>MajorFunction</B> contains IRP_MJ_SCSI</LI>
+
+	<LI><B>Parameters.Scsi.Srb</B> contains a pointer to the SRB</LI>
+</UL>
+
+<P>Each class driver is responsible for allocating memory for SRBs as well as for setting them up with CDBs for the underlying storage port driver. The class driver can either set up a lookaside list for its SRBs with <B>ExInitializeNPageLookasideList</B> or call <B>ExAllocatePool</B> for nonpaged memory. See <A HREF="JavaScript:hhobj_1.Click()">Using Lookaside Lists</A> for more information about using lookaside lists and nonpaged pool. </P>
+
+<P>Whether it allocates memory from pool or from a driver-created lookaside list, every storage class driver is responsible for freeing the memory it allocates for SRBs. Storage class drivers' <I>IoCompletion</I> routines, described in <A HREF="03class_9dev.htm">Storage Class Driver's <I>IoCompletion</I> Routines</A>, usually release the memory allocated for SRBs back to a lookaside list. </P>
+
+<P>A class driver's <I>BuildRequest</I> routine must set appropriate values in the SRB members, including the length of the CDB it has set up to communicate with its device. For requests that return request-sense information and/or that the driver might need to retry, it sets an <I>IoCompletion</I> routine in the IRP. For read or write requests, it ORs the <B>SrbFlags</B> with the appropriate transfer direction, SRB_FLAGS_DATA_IN or SRB_FLAGS_DATA_OUT, respectively. </P>
+
+<P>A <I>BuildRequest</I> routine might share the responsibility for setting up an SRB with a pair of <I>SendSrbSynchronous</I> and <I>SendSrbAsynchronous</I> routines. That is, the <I>BuildRequest</I> routine could set up the SRB members that are commonly set up for all requests, while the <I>SendSrbXxx</I> routines each set SRB values pertinent only to each type of request. When an IRP is passed down to the port driver from a <I>SendSrbAsynchronous</I> routine, the IRP must be set up with a driver-supplied <I>IoCompletion</I> routine. </P>
+
+<P>After the class driver has loaded, it sets up most SRBs with the <B>Function</B> member set to SRB_FUNCTION_EXECUTE_SCSI, indicating a device I/O request to be sent over the bus. </P>
+
+<P>For more information about the system-defined SRB members and their values, see <A HREF="k306_0hte.htm">SCSI_REQUEST_BLOCK</A>. </P>
+
+<H4>Setting Up SRBs for Request Sense</H4>
+
+<P>A class driver can request that the port driver return SCSI request-sense or equivalent information when the target controller returns a check condition. To do this, the class driver sets up the <B>SenseInfoBuffer</B> pointer and <B>SenseInfoBufferLength</B> in the SRB, so the port driver can return the request-sense information if a check condition occurs. The port driver indicates that it returned request-sense information by setting the <B>SrbStatus</B> member with SRB_STATUS_AUTOSENSE_VALID when it returns the IRP. For more information about <I>InterpretSenseInfo</I> routines, see <A HREF="03class_9w9z.htm">Storage Class Driver's <I>InterpretRequestSense</I> Routine</A>. </P>
+
+<H4>Retries</H4>
+
+<P>Storage class drivers are responsible for retrying requests that fail due to target/controller errors, bus resets, or request time-outs. Consequently, many class drivers maintain a retry count in their own I/O stack location of the IRP. Such a class driver's <I>BuildRequest</I> routine also might initialize the retry limit for a given request before it sets up its <I>IoCompletion</I> routine and sends the IRP to the port driver. For more information about <I>RetryRequest</I> routines, see <A HREF="03class_7o6f.htm">Storage Class Driver's <I>RetryRequest</I> Routine</A>. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Storage%20Class%20Driver's%20BuildRequest%20Routine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

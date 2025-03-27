@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Unwind Data Definitions in C</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_unwind_data_definitions_in_c_kg"></A>Unwind Data Definitions in C</H4>
+
+<P>The following code is a C description of the unwind data:</P>
+
+<PRE>typedef enum _UNWIND_OP_CODES {
+    UWOP_PUSH_NONVOL = 0,
+    UWOP_ALLOC_LARGE,
+    UWOP_ALLOC_SMALL,
+    UWOP_SET_FPREG,  
+    UWOP_SAVE_NONVOL,
+    UWOP_SAVE_NONVOL_FAR, 
+    UWOP_SAVE_XMM, 
+    UWOP_SAVE_XMM_FAR, 
+    UWOP_SAVE_XMM128, 
+    UWOP_SAVE_XMM128_FAR, 
+    UWOP_PUSH_MACHFRAME   
+} UNWIND_CODE_OPS;
+
+typedef union _UNWIND_CODE {
+    struct {
+        UBYTE CodeOffset;
+        UBYTE UnwindOp : 4;
+        UBYTE OpInfo   : 4;
+    };
+    USHORT FrameOffset;
+} UNWIND_CODE, *PUNWIND_CODE;
+
+#define UNW_FLAG_EHANDLER  0x01
+#define UNW_FLAG_UHANDLER  0x02
+#define UNW_FLAG_CHAININFO 0x04
+
+typedef struct _UNWIND_INFO {
+    UBYTE Version       : 3;
+    UBYTE Flags         : 5;
+    UBYTE SizeOfProlog;
+    UBYTE CountOfCodes;
+    UBYTE FrameRegister : 4;
+    UBYTE FrameOffset   : 4;
+    UNWIND_CODE UnwindCode[1];
+/*  UNWIND_CODE MoreUnwindCode[((CountOfCodes + 1) &amp; ~1) - 1];
+*   union {
+*       OPTIONAL ULONG ExceptionHandler;
+*       OPTIONAL ULONG FunctionEntry;
+*   };
+*   OPTIONAL ULONG ExceptionData[]; */
+} UNWIND_INFO, *PUNWIND_INFO;
+
+typedef struct _RUNTIME_FUNCTION {
+    ULONG BeginAddress;
+    ULONG EndAddress;
+    ULONG UnwindData;
+} RUNTIME_FUNCTION, *PRUNTIME_FUNCTION;
+
+#define GetUnwindCodeEntry(info, index) \
+    ((info)-&gt;UnwindCode[index])
+
+#define GetLanguageSpecificDataPtr(info) \
+  ((PVOID)&amp;GetUnwindCodeEntry((info),((info)-&gt;CountOfCodes + 1) &amp; ~1))
+
+#define GetExceptionHandler(base, info) \
+    ((PEXCEPTION_HANDLER)((base) + \ 
+    *(PULONG)GetLanguageSpecificDataPtr(info)))
+
+#define GetChainedFunctionEntry(base, info) \
+    ((PRUNTIME_FUNCTION)((base) + \ 
+    *(PULONG)GetLanguageSpecificDataPtr(info)))
+
+#define GetExceptionDataPtr(info) \
+    ((PVOID)((PULONG)GetLanguageSpecificData(info) + 1)
+</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Unwind%20Data%20Definitions%20in%20C"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

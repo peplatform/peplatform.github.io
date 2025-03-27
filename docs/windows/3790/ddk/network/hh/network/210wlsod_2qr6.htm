@@ -1,0 +1,163 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>OID_WW_GEN_INDICATION_REQUEST</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="OID_WW_GEN_INDICATION_REQUEST">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_oid_ww_gen_indication_request_nr"></A>OID_WW_GEN_INDICATION_REQUEST</H1>
+
+<P>The OID_WW_GEN_INDICATION_REQUEST OID notifies the underlying miniport driver to place the specified indication request on its event queue. </P>
+
+<P>This OID allows bound protocols to register themselves to be notified of changes associated with particular wireless OIDs. Such a protocol passes an NDIS_WW_INDICATION_REQUEST structure, defined below, to <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A> that specifies an OID_WW_<I>XXX</I> code and, for some OID codes, a trigger value. On return from such an OID_WW_GEN_INDICATION_REQUEST, the current value of the specified OID code will be in the <B>InitialValue</B> member, unless otherwise stated in the definition for the OID_WW_<I>XXX</I> specified in the <B>Oid</B> member.</P>
+
+<P>Because a miniport driver calls <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A> to indicate status related to an OID to every bound protocol, this miniport driver must maintain its own copy of the NDIS_WW_INDICATION_REQUEST structure for the request. This miniport driver can free this structure after <B>NdisMIndicateStatus</B> returns. A miniport driver maintains its own copy of this structure for the following reason. After a protocol receives notification of an event related to an OID for which the protocol registered, the protocol releases its own indication-request structure. Because the miniport driver has its own copy of this structure, its copy remains valid. Therefore, other bound protocols will also receive valid status related to the OID. </P>
+
+<P>The NDIS_WW_INDICATION_REQUEST structure is defined as follows:</P>
+
+<PRE class=syntax>typedef struct _NDIS_WW_INDICATION_REQUEST {
+  NDIS_OID  Oid;  // IN 
+  UINT  uIndicationFlag;  // IN 
+  UINT  uApplicationToken;  // IN  
+  HANDLE  hIndicationHandle; // IN OUT 
+  INT  iPollingInterval;  // IN OUT 
+  NDIS_VAR_DATA_DESC  InitialValue;  // IN OUT 
+  NDIS_VAR_DATA_DESC  OIDIndicationValue; // OUT 
+  NDIS_VAR_DATA_DESC  TriggerValue;  // IN
+} NDIS_WW_INDICATION_REQUEST;</PRE>
+
+<P>The members of this structure contain the following information:
+
+<DL>
+<DT><B>Oid</B></DT>
+
+<DD>The OID_WW_<I>XXX</I> code for which the miniport driver should indicate events.
+
+<P>A protocol sets this member.
+</DD>
+
+<DT><B>uIndicationFlag</B></DT>
+
+<DD>Specifies a bitmask in which one of the following flags can be set:
+
+<DL>
+<DT>OID_INDICATION_REQUEST_ENABLE</DT>
+
+<DD>The miniport driver should call <B>NdisMIndicateStatus</B> if the event specified in this structure occurs. </DD>
+
+<DT>OID_INDICATION_REQUEST_CANCEL</DT>
+
+<DD>The miniport driver should cancel notifications for the specified event. The values supplied in the <B>Oid</B> and <B>hIndicationHandle</B> members must match the values specified in a preceding OID_WW_GEN_INDICATION_REQUEST. </DD>
+</DL>
+
+
+<P>All other bits in <B>uIndicationFlag</B> are reserved for future use. 
+
+
+<P>A protocol sets this member.
+</DD>
+
+<DT><B>uApplicationToken</B></DT>
+
+<DD>Specifies an application-defined (or protocol-defined) token that is returned by the miniport driver when it posts the specified event. The miniport driver must copy this member during indication-request operations prior to placing the event on the driver’s internal event queue. The miniport driver does so to ensure that the requesting protocol can correctly demulitplex the specified indication event.
+
+<P>The miniport driver ignores this member during cancel operations.
+
+
+<P>A protocol sets this member.
+</DD>
+
+<DT><B>hIndicationHandle</B></DT>
+
+<DD>Specifies a miniport driver-determined handle. The protocol or application will save this handle and possibly use it to cancel this request subsequently (see <B>uIndicationFlag</B>). The miniport driver must initialize this member during indication-request operations prior to placing the event on the driver’s internal event queue. The miniport driver does so to ensure that the requesting protocol can correctly demulitplex the specified indication event.
+
+<P>This member is returned by the miniport driver or is set by a protocol to cancel.
+</DD>
+
+<DT><B>iPollingInterval</B></DT>
+
+<DD>Specifies an interval, in milliseconds, at which the miniport driver should poll the wireless NIC to monitor the value of the given OID. 
+
+<P>If this member is set to -1, the miniport driver should use its own default settings to poll the device. Before returning, the miniport driver must set this member to the actual polling interval, in milliseconds, it will use for this indication. This allows the protocol or application to determine if the miniport driver is sampling the OID too often. The protocol or application can then possibly cancel its original request and make another request that requires the miniport driver to poll the NIC at a more appropriate interval. The returned value may be larger or smaller than the value that the protocol or application specifies. 
+
+
+<P>The miniport driver ignores this member during cancel operations.
+
+
+<P>This member is set by a protocol and is returned by the miniport driver.
+</DD>
+
+<DT><B>InitialValue</B></DT>
+
+<DD>On input, a <A HREF="210wlsod_7sky.htm">NDIS_VAR_DATA_DESC</A>-type buffer that can contain information necessary to initialize the requested notification, for instance, as in the case of OID_WW_GEN_CURRENT_ADDRESS. The miniport driver sets information about the current value of the specified OID in this buffer before returning. This same value is also returned by the miniport driver through its call to <B>NdisMIndicateStatus</B> after the actual indication event is triggered. 
+
+<P>The miniport driver ignores this member during cancel operations.
+
+
+<P>This member is set by a protocol and is returned by the miniport driver.
+</DD>
+
+<DT><B>OIDIndicationValue</B></DT>
+
+<DD>On input, contains an initialized NDIS_VAR_DATA_DESC-type buffer. The protocol must initialize at least the <B>MaximumLength</B> member of <B>OIDIndicationValue</B> during the indication request so that the miniport driver can determine if its response will fit in the protocol’s buffer. Before the miniport driver makes the event notification, it allocates a NDIS_VAR_DATA_DESC-type buffer to contain the value of the specified OID, and fills in its copy of the NDIS_WW_INDICATION_REQUEST structure. 
+
+<P>A protocol can reference the miniport-allocated buffer only during the status indication of the event. The allocating driver can deallocate this buffer and release all resources necessary to trigger the event on return from its call to <B>NdisMIndicateStatus</B> with this event. 
+
+
+<P>The miniport driver ignores this member during cancel operations.
+
+
+<P>Only the <B>MaximumLength</B> member of <B>OIDIndicationValue</B> is verified by the miniport driver at the time of the request. The other members of <B>OIDIndicationValue</B> are assigned by the miniport driver and only valid during the event notification.
+</DD>
+
+<DT><B>TriggerValue</B></DT>
+
+<DD>On input, specifies a NDIS_VAR_DATA_DESC-type buffer containing a value that the underlying miniport driver might use to determine when to indicate the specified event. The value of this member can be NULL depending on the specific OID code for which a protocol requests notification. If the value of this member is NULL, the miniport driver can ignore it. For example, the miniport driver can ignore this member for OID codes that trigger on a change in status. For more information, see the descriptions of individual OID_WW_<I>XXX</I> codes. The miniport driver ignores this member during cancel operations. 
+</DD>
+</DL>
+
+<P>The miniport driver must fill in the <B>InitialValue</B> and <B>iPollingInterval</B> members in both the protocol's and miniport driver's copy of the given structure with the state of the miniport driver’s current information. After the requested OID has reached the trigger value or after status related to the OID changes, the miniport driver fills in the <B>OIDIndicationValue</B> member in its copy of this structure. The protocol that initiates this request cannot access anything in the NDIS_WW_INDICATION_REQUEST structure it allocated until ownership is returned to the protocol. The protocol can easily determine if it again owns this structure by validating that the status that <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A> returns is not NDIS_STATUS_PENDING. Also, the status that is returned from OID_WW_GEN_INDICATION_REQUEST only indicates the successful queuing or canceling of the event by the miniport driver and is not indicative of the actual event firing.</P>
+
+<P>After event notifications for a particular OID have been enabled by this request, a wireless WAN miniport driver should fill in the appropriate information and call <B>NdisMIndicateStatus</B> with NDIS_STATUS_WW_INDICATION to notify NDIS, which forwards such a notification to all bound protocols, according to the following guidelines:
+
+<UL>
+	<LI>For OID_WW_GEN_<I>XXX</I> codes that use the <B>TriggerValue</B>:
+<UL>
+	<LI>While <B>InitialValue</B> &lt; <B>TriggerValue</B>, the miniport driver continues to monitor for the specified condition. It posts such an event when the present value for the OID becomes &gt;= the given <B>TriggerValue</B>.</LI>
+
+	<LI>If <B>InitialValue</B> = <B>TriggerValue</B>, the miniport driver fills in remaining information in the given structure and calls <B>NdisMIndicateStatus</B> to post the event immediately.</LI>
+
+	<LI>If <B>InitialValue</B> &gt; <B>TriggerValue</B>, the miniport driver should post the event when the present value for the OID becomes &lt;= <B>TriggerValue</B><I>.</I></LI>
+
+	<LI>If <B>InitialValue</B> is unknown, an event is posted after the current value of the OID changes to a value other than unknown.</LI>
+</UL>
+</LI>
+
+	<LI>For OID_WW_<I>XXX</I> codes that do not use the <B>TriggerValue</B>:
+<P class=indent1>The miniport driver should post the event when a status change occurs, as described for that OID_WW_<I>XXX</I>.</P>
+</LI>
+</UL>
+
+<P>After a requested event is posted, the calling protocol must submit another indication request to receive another NDIS_STATUS_WW_INDICATION event. Due to the asynchronous nature of calls to <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A>, a protocol writer should be aware that the requested event could be posted prior to the return of a call to <B>NdisRequest</B> with OID_WW_GEN_INDICATION_REQUEST. The <B>uApplicationToken</B> member can be used to facilitate demultiplexing of each such event. </P>
+
+<P>Any attempt to cancel an OID_WW_GEN_INDICATION_REQUEST that has already occurred can be ignored by the underlying driver.</P>
+
+<P>Many OID_WW_GEN_INDICATION_REQUESTs can be outstanding for a particular OID. Making several calls to <B>NdisRequest</B> with this OID can establish several trigger points. When one of several OID_WW_GEN_INDICATION_REQUESTs causes an event notification, only that trigger is canceled, but all other OID_WW_GEN_INDICATION_REQUESTs remain enabled.</P>
+
+<P>NDIS delivers a miniport driver's event indications to every protocol that is bound to that underlying driver serially. Consequently, NIC drivers must copy the contents of the indication request. A NIC driver must fill in the <B>hIndicationHandle</B> value prior to scheduling the request on its internal event queue and returning from the call to its set-information routine. This ensures that bound protocol(s) can detect their own respective event notifications when they occur. Consequently, a miniport driver should set a value in <B>hIndicationHandle</B> that is unique each time it processes this request, such as a monotonically increasing 32-bit value (transaction ID), to ensure that collisions do not occur. The value for this member can be reset to zero every time the miniport driver initializes. </P>
+
+<P>When a miniport driver indicates an event for this OID, it must pass a pointer to its copy of the indication request as the <I>Status</I> parameter when it calls <B>NdisMIndicateStatus</B>. Bound protocol drivers that receive the indication must copy the indicated information into their own internal buffer space, assuming any particular protocol determines that the <B>hIndicationHandle</B> value indicates an event of interest to that protocol. </P>
+
+<P>As a general rule, every protocol should check the <B>hIndicationHandle</B> value when an event notification is made and return control as soon as each protocol’s <I>ProtocolStatus</I> function determines the indicated event is not of interest. Otherwise, the effect of notifying all bound protocols of miniport driver-indicated events is a degradation in performance for the miniport driver and for all bound protocols. </P>
+
+<P>Event data is guaranteed to be valid only until a <I>ProtocolStatus</I> function returns control. On return from <B>NdisMIndicateStatus</B>, the indicating miniport driver can release all context for the specified event. </P>
+
+<P>Queries and indications are irrelevant for this OID. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: OID_WW_GEN_INDICATION_REQUEST"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

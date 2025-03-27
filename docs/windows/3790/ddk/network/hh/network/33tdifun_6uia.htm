@@ -1,0 +1,74 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TdiRegisterNetAddress</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TdiRegisterNetAddress">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdiregisternetaddress_nr"></A>TdiRegisterNetAddress</H1>
+
+<P>The <B>TdiRegisterNetAddress</B> function notifies a transport's clients that it has just established a connection to a remote node with a particular network address or that the transport has just created a new network address for the computer on which it is running. </P>
+
+<PRE class=syntax><B>NTSTATUS</B>
+  <B>TdiRegisterNetAddress(</B>
+    <B>IN PTA_ADDRESS</B>  <I>Address</I><B>,</B>
+    <B>IN PUNICODE_STRING</B>  <I>DeviceName</I><B>,</B>
+    <B>IN PTDI_PNP_CONTEXT</B>  <I>Context</I><B>,
+</B>    <B>OUT HANDLE</B>  <B>*</B><I>AddrRegistrationHandle</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Address</I></DT>
+
+<DD>Pointer to a caller-allocated buffer, formatted as a TA_ADDRESS structure, that contains the protocol-type-specific TDI_ADDRESS_<I>XXX</I> address specification. </DD>
+
+<DT><I>DeviceName</I></DT>
+
+<DD>Pointer to a caller-supplied buffered Unicode string identifying the transport-created device object that represents this transport-to-NIC binding. The transport previously registered this device object with TDI when it called <B>TdiRegisterDeviceObject</B>. In effect, this string identifies the transport-to-NIC binding on which this network address is being registered.</DD>
+
+<DT><I>Context</I></DT>
+
+<DD>Pointer to a transport-determined context associated with this address. 
+
+<P>For example, TCP/IP returns a pointer to the PDO of the physical device on which this address arrived. 
+</DD>
+
+<DT><I>AddrRegistrationHandle</I></DT>
+
+<DD>Specifies the caller-supplied location of a variable in which <B>TdiRegisterNetAddress</B> returns an opaque handle if this call succeeds. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>TdiRegisterNetAddress</B> returns STATUS_SUCCESS when it has notified all the transport's clients of the registration. Otherwise, it can return STATUS_INSUFFICIENT_RESOURCES. (Because the availability of system resources is dynamic, a subsequent call from the same transport can succeed.) </P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>TdiKrnl.h</I>. Include <I>TdiKrnl.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Before it calls <B>TdiRegisterNetAddress</B>, the transport allocates a buffer, which can be pageable, to contain the specification of the new network address. The transport should zero-initialize this buffer first and then set up the members of the TA_ADDRESS structure. When it makes this call, a transport must provide <I>only</I> the new network address in the remainder of the buffer starting at <B>Address</B>. That is, if any additional members are defined for collateral information in the transport's protocol-type-specific TDI_ADDRESS_<I>XXX</I> substructure, those members should be zero when the transport calls <B>TdiRegisterNetAddress</B>. </P>
+
+<P><B>TdiRegisterNetAddress</B> makes copies of the transport-supplied device name and context data, but it makes no attempt to interpret this caller-supplied information. At the discretion of the tranport developer, the input <I>Context</I> pointer can be NULL, or it can be used to pass any additional protocol-specific information about each newly registered network address from the transport to its clients. When it notifies each client, <B>TdiRegisterNetAddress</B> calls each registered ClientPnPAddNetAddress function with pointers to its copied device name and context information.</P>
+
+<P>Each ClientPnPAddNetAddress function can use whatever context information the underlying transport supplied at <I>Context</I> and, possibly, the device name, to determine whether the new address is of interest to that client. The input <I>Context</I> pointer remains valid until the transport calls <B>TdiDeregisterNetAddress</B>, thereby causing a call to the ClientPnpDelNetAddress routine. The input <I>DeviceName</I> pointer remains valid until the transport calls <B>TdiDeregisterDeviceObject,</B> thereby causing a call to the ClientPnPBindingChange routine with the PnPOpcode TDI_PNP_OP_DEL. However, every client must treat this TDI state as read-only information. </P>
+
+<P>A successful caller of <B>TdiRegisterNetAddress</B> should save the returned value at <B>*</B><I>AddrRegistrationHandle</I> for a subsequent and reciprocal call to <B>TdiDeregisterNetAddress</B>. </P>
+
+<P>Callers of <B>TdiRegisterNetAddress</B> must be running at IRQL &lt; DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_8d4i.htm"><B>ClientPnPAddNetAddress</B></A>, <A HREF="36tdstrc_8b8y.htm"><B>TA_ADDRESS</B></A>, <A HREF="33tdifun_1u2a.htm"><B>TdiDeregisterDeviceObject</B></A>, <A HREF="33tdifun_6ovm.htm"><B>TdiDeregisterNetAddress</B></A>, <A HREF="36tdstrc_0bqq.htm"><B>TDI_PNP_CONTEXT</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TdiRegisterNetAddress"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,242 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Creating a Keyboard Layout File</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_2195"></A>Creating a Keyboard Layout File</H3>
+
+<P>When Windows calls the <B>InquireEx</B> function with the INQEX_NLCID flag, the driver must return the number of keyboard layouts that it supports. The driver fills a buffer with a list of the keyboard layouts when the INQEX_LPLCID flag is specified. </P>
+
+<P>The format of a keyboard layout file is as follows. </P>
+
+<PRE>// Header block
+typedef struct     {
+    BYTE  KbdDesc[2];   // set to 'DS'
+    DWORD DefaultLCID;  // base language locale identifier
+    WORD  Version;      // set to zero
+    DWORD pKbdStart;    // start of the layout data
+    WORD  kbdSize;      // number of bytes in the data
+    DWORD pDibData;     // must be zero
+    WORD  dibSize;      // must be zero
+    DWORD pUnicode      // must be zero
+    DWORD nUnicode      // must be zero
+} HeaderBlock;
+</PRE>
+
+<P>The keyboard layout data begins at the location indicated by the <B>pKbdStart</B> field; typically, it follows immediately after the header. The KBDOFFSET values are offsets from the start of the header block, not the start of the file. </P>
+
+<PRE>typedef struct {
+    WORD Flags;
+    WORD nStateKeys;
+    WORD nStates;
+    WORD nDeadKeys;
+    WORD nLigKeys
+    KBDOFFSET pkbdxxStates;            // STATE_LIST
+    KBDOFFSET pkbdxxToAscStates;       //   TOASC_STATES
+    KBDOFFSET pkbdxxToAscStateTables;  //   STATETABLES
+    KBDOFFSET pkbdxxToAscVkeyList;     // VKEY_LISTS
+    KBDOFFSET pkbdxxToAscVKeyListLens; //   VKEY_LIST_LENS
+    KBDOFFSET pkbdxxVKShiftStates;     //   VK_STATES
+    KBDOFFSET pkbdxxScanToIdx;         // SCANTOIDX
+    KBDOFFSET pkbdxxVKeyToIdx;         //   VKEYTOIDX
+    WORD      ScanSize;                //   SCAN_SIZE
+    KBDOFFSET pkbdxxVKeyToAnsi;        // VKEYTOANSI
+    KBDOFFSET pkbdxxDeadKeyTable;      // DEAD_KEYS
+    KBDOFFSET pkbdxxDeadTrans;         //   DEAD_KEYTRANS
+    KBDOFFSET pkbdxxLigKeys;           // LIG_KEYS KBDOFFSET
+    KBDOFFSET pkbdxxCapsBits;          // VKEY CAPSLOCK Table
+    KBDOFFSET pkbdxxKanaNormal;        // DBCS platforms (optional)
+} KbdDataHeader;
+</PRE>
+
+<P>The entries in the <I>Vkey</I> and character table pairs must be in the same order. Also the scancode table (<B>pkbdxxScanToIdx</B>) is in the same order as the main Vkey table (<B>pkbdxxVKeyToIdx</B>). </P>
+
+<P>The <B>wFlags</B> field can have one of these values: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=21%>Value </TH>
+<TH align=left width=79%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>ALTGRUSED </TD>
+<TD width=79%>The keyboard layout has ALTGR keys (normal, shifted or both). CAPS LOCK here uses the same CAPS LOCK bitmap as the normal and shifted (non-ALTGR) layout layers. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>CAPSNORMAL </TD>
+<TD width=79%>The CAPS LOCK key assumes its normal function; that is, it converts alphabetic characters to upper or lower case. Only those keys which are enabled in the CAPS LOCK bitmap will be operated on. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>SHIFTLOCKUSED </TD>
+<TD width=79%>The keyboard layout does not have a CAPS LOCK key, but does have a SHIFT LOCK key. In the SHIFTLOCKED state all keys are placed in the shifted state, unlike the CAPS LOCK key which would operate only on specific keys. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>DEADCOMBOS </TD>
+<TD width=79%>Declares that the alternative deadkey list is being used, which allows specification of VKEY and shift states for each deadkey entry in the list. </TD>
+</TR>
+</TABLE><BR>
+
+<P>The CAPSNORMAL and SHIFTLOCKUSED flags are mutually exclusive. </P>
+
+
+
+<H4><A NAME="_pss_2196"></A>CAPS LOCK BITMAP</H4>
+
+<P>The <B>pKbdCapsBits</B> field points to an array of 32 bytes (consisting of 256 bits) where each bit is indexed by the VKEY. If a VKEY's corresponding bit is not set in this CAPS LOCK bitmap, then the CAPS LOCK function will not operate on that VKEY. The CAPSNORMAL flag must be set to enable this bitmap. If the CAPSNORMAL flag is not set then a separate capitalization VKEY and ANSI table must be used. The standard US bitmap is shown in the following, where only the A through Z keys are capitalized. </P>
+
+<PRE>pkbdxxCapsBits label byte        ; CAPSNORMAL flag must be = 1
+  db  0,0,0,0,0,0,0,0            ; Controls &amp; Numerals
+  db  0FEh,0FFh,0FFh,07h,0,0,0,0 ; VK_A -&gt; VK_Z &amp; Numpad &amp; Function Keys
+  db  0,0,0,0,0,0,0,0            ; Function Keys &amp; OEM Keys
+  db  0,0,0,0,0,0,0,0            ; OEM Keys, OEM Controls
+</PRE>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;A CAPS LOCK enabled VKEY is operated on by the CAPS LOCK function even in the ALTGR states, so that ALTGR keys will appear as ALTGR-SHIFT keys when operated on by the CAPS LOCK function. </P>
+
+
+
+<H4><A NAME="_pss_2197"></A>STATE TABLES</H4>
+
+<P>The State list table indicates which basic states are enabled. Only the VK_CAPITAL state is optional (used only when CAPSNORMAL = 0, when the CAPS LOCK bitmap is not used). </P>
+
+<PRE>pkbdxxStates    label byte
+  db  VK_MENU,    080H  ; 1 - Alt state
+  db  VK_SHIFT,   080H  ; 2 - Shift state
+  db  VK_CONTROL, 080H  ; 4 - Control state
+  db  VK_CAPITAL, 001H  ; 8 - CapsLock state (optional)
+NSTATEKEYS equ ($ - pkbdxxStates) shr 1
+</PRE>
+
+<P>The following two state tables are associated with the state list. The first table provides a list of the state indices. The second table provides the states themselves. State indices 8 through 15 are rarely used because the CAPS LOCK bitmap is usually adequate to provide character capitalization options. </P>
+
+<PRE>  db  0    ; Normal (must be outside the label)
+pkbdxxToAscStates  label byte
+  db  1    ; Alt
+  db  2    ; Shift
+  db  3    ; Alt+Shift
+  db  4    ; Control
+  db  6    ; Control+Shift
+  db  5    ; AltGr
+  db  7    ; AltGr+Shift
+  db  8    ; CapsLock
+  db  9    ; CapsLock + Alt
+  db  10   ; CapsLock + Shift    
+  db  11   ; CapsLock + Alt + Shift
+  db  12   ; CapsLock + Control
+  db  14   ; CapsLock + Control + Shift
+  db  13   ; CapsLock + AltGr
+  db  15   ; CapsLock + AltGr + Shift
+kbdxx_NSTATES equ $-pkbdxxToAscStates  (total states - 1)
+
+pkbdxxVKShiftStates label byte
+  db  0    ; unshifted
+  db  0    ; alt                        - (same as unshifted)
+  db  1    ; shifted
+  db  1    ; alt+shift                  - (same as shifted)
+  db  2    ; Control
+  db  3    ; Control + Shift
+  db  6    ; AltGr                      - \ Alternative characters
+  db  7    ; AltGr+Shift                - /
+  db  4    ; CapsLock                   - (selective keys shifted)
+  db  4    ; CapsLock + Alt             - (same as capslock)
+  db  5    ; CapsLock + Shift           - (same as unshifted)    
+  db  5    ; CapsLock + Alt + Shift     - (same as AltGr)
+  db  2    ; CapsLock + Control         - (capslock not applicable)
+  db  3    ; CapsLock + Control + Shift - (capslock not applicable)
+  db  6    ; CapsLock + AltGr           - (same as shifted AltGr)
+  db  7    ; CapsLock + AltGr + Shift   - (same as unshifted AltGr)
+</PRE>
+
+
+
+<H4><A NAME="_pss_2198"></A>LIGATURE TABLES</H4>
+
+<P>This allows a ligature codepoint to be unravelled into it's component parts by the keyboard driver prior to being sent to the application. </P>
+
+<P>The format of each entry is shown in the following, where the first four bytes holds the base defining element feature, followed by a count and 16-bit words holding the subsequent characters. There is no limit to the extent of ligatures. The table must be terminated with two zero bytes. </P>
+
+<PRE>   "1st-codepoint|VKEY|SHIFTSTATE|0|WLength|2nd-codepoint|0|...."
+
+pkbdxxLigKeys label byte
+    db 0E1H, VK_A, 0, 0, 1, 0C7H, 0     ;
+    db 0E1H, VK_A, 2, 0, 1, 0C2H, 0     ;
+    db 0F8H, VK_Q, 5, 0, 1, 0F3H, 0     ;
+      db 0,0                              ;table terminator
+</PRE>
+
+<P>The ligature itself is identified by the VKEY, associated shiftstate, and the initial character forming the ligature. </P>
+
+
+
+<H4><A NAME="_pss_2199"></A>DEADKEY TABLES</H4>
+
+<P>Non-spacing diacritics are supported with two tables: the first table offers a list of diacritics in one of two forms. The second table offers the combination and resultant tables back-to-back. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=25%><B>pkbdxxDeadKeyTable</B> </TD>
+<TD width=75%>a list of diacritic keys. Where there is no ambiguity the first table form is used. Where multiple keys are used for the same diacritic then the VKEYs and their associated shift states must be shown in the second form of the deadkey table. The DEADCOMBOS bit must be set in the <I>wFlags</I> field to signal use of the second table form. 
+<PRE>    form #1    pkbdxxDeadKeyTable  label byte
+       db  GRAVE      
+       db  UMLAUT      
+    NDEADKEYS  equ ($ - pkbdxxDeadKeyTable)
+
+    form #2    pkbdxxDeadKeyTable 
+       db CIRCUMFLEX, VKEY1, 005H, 000H ;
+       db RING,       VKEY2, 005H, 000H ;
+       db RING,       VKEY3, 002H, 000H ;
+    NDEADKEYS  equ  (($ - pkbdxxDeadKeyTable) shr 2)</PRE>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>&nbsp;</TD>
+<TD width=75%>The deadKey table with shift state, where each DWORD entry is as follows: 
+<PRE>        "diacritic-char | Vkey | shiftState | 0" </PRE>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%>&nbsp;</TD>
+<TD width=75%>Legal Shift states are: Normal=0, Shifted=2, AltGr=5, AltGrShift=7 </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%><B>pkbdxxDeadTrans</B> </TD>
+<TD width=75%>A pair of tables back-to-back. The first table gives the legal diacritic and letter codepoint value combinations. The second table provides the resultant codepoint. The tables must have the same order, and <B>pkbdxxDeadList1</B> and <B>pkbdxxDeadList2</B> must be back-to-back. 
+<PRE>    pkbdxxDeadTrans label byte ;combination list
+      dw  NDEADLIST
+    pkbdxxDeadList1 label byte ;(legal diacritic/codepoint combinations)
+      db  acute,      'a'
+      db  acute,      'A'
+      db  acute,      ' '   ;allows spacing acute
+      db  tilde,      'N'
+      db  tilde,      'N'
+      db  tilde,      ' '   ;allows spacing tilde
+    NDEADLIST  equ  (($-pkbdxxDeadTrans) shr 1)-1
+
+    pkbdxxDeadList2 label byte ;(resultant accented character codepoint)
+      db  0E1h      ;a-acute
+      db  0C1h      ;A-acute
+      db  acute     ;allows standalone acute
+      db  0e3h      ;n-tilde
+      db  0c3h      ;N-tilde
+      db  tilde     ;allows standalone tilde</PRE>
+</TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Creating%20a%20Keyboard%20Layout%20File"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

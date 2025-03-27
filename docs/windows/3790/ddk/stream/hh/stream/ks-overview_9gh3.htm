@@ -1,0 +1,32 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Master Clocks</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Master Clocks">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_master_clocks_ksg"></A>Master Clocks</H3>
+
+<P>Minidrivers can synchronize streams to clocks created by other minidrivers; multiple streams can be synchronized to one clock. If the pin uses or produces such a <I>master clock</I>, the minidriver should support <A HREF="ks-prop_804z.htm">KSPROPERTY_STREAM_MASTERCLOCK</A>. Clients also can use this property to set the master clock for the pin. Pins that perform rendering and capturing operations frequently use a master clock. The minidriver is responsible for releasing clock references upon termination.</P>
+
+<P>The interface to a master clock is a file object that supports methods, properties and events.</P>
+
+<P>All queries against the file object are available only at PASSIVE_LEVEL. However, the clock position query also is supported through a direct function call pointer available at DISPATCH_LEVEL, which is valid as long as the file object is valid. This direct call must be passed to the clock’s file object as a context parameter.</P>
+
+<P>The file handle is acquired through a create request on a filter pin instance, much as the pin creation is done by IRP_MJ_CREATE. The request causes a file handle to be created, just as a file handle to a pin is created, with its own context information. This file handle is then passed back to the caller and can be used to set the master clock for kernel mode filters. At the time the filter is being assigned the graph’s master clock, a pin instance can query the parent file object to determine if it owns the master clock.</P>
+
+<P>When a filter is given the file handle to this master clock, it can then be used to query properties. If a master clock is based on a kernel mode filter, it must support an interface to query the file handle to the kernel mode portion of the master clock. If the interface is not supported, then it is assumed that the clock is user mode-based, and kernel mode filters cannot synchronize to it.</P>
+
+<P>The DirectShow proxy filter requesting the master clock handle then passes it to its underlying kernel mode filter file handle. The kernel mode filter references the underlying file object. If the filter already had a master clock, it dereferences the file object and uses the new handle. To do this, the filter must be in <I>Stop state</I>.</P>
+
+<P>The physical time on the master clock object is frequently hardware-based. If a filter that presents the master clock has no physical clock, then the stream time progresses according to the time stamps of the data presented. In such a situation, time stamps may stop due to a lack of data.</P>
+
+<P>The physical time behind the master clock may be remote, in which case it is the responsibility of the local proxy to provide accurate readings. For example, the proxy has responsibility for compensating for the delay across a 1394 connection, or averaging the delay across a network. Additionally, if some other kernel filter is a proxy for a second device on the same 1394 bus, the two devices may negotiate a private method of interfacing with the master clock. In such a case, the devices must use private interfaces to determine clock type in order to verify compatibility.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Master%20Clocks"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

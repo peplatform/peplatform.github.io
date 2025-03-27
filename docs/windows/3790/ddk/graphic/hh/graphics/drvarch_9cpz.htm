@@ -1,0 +1,96 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Rendering a Print Job</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Rendering a Print Job">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_print_processor_gg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_rendering_a_print_job_gg"></A>Rendering a Print Job</H3>
+
+<P>Print jobs are either rendered as they are created, or they are written to a spool file as EMF records. In the case of EMF records, rendering takes place when the EMF <A HREF="JavaScript:hhobj_1.Click()">print processor</A> (<I>localspl.dll</I>) plays back the records. Rendering consists of a series of calls to the user-mode GDI drawing functions, beginning with <B>CreateDC</B>. The call to CreateDC starts a chain of actions involving the graphics rendering engine (GRE), also known as kernel-mode GDI, and the printer graphics DLL.</P>
+
+<P><IMG SRC="images/gdirendr2.gif" ALT="" BORDER=0></P>
+
+<P><B>Interaction between GDI and the Printer Graphics DLL</B></P>
+
+<P>The preceding figure shows the interaction between kernel-mode GDI and the printer graphics DLL after <B>CreateDC</B> is called.
+
+<OL>
+	<LI>When an application calls the <B>CreateDC</B> function to create a printer device context, GDI checks to see if the appropriate printer graphics DLL is loaded. If it is not, GDI loads the DLL and calls the <A HREF="ddifncs_9go7.htm"><B>DrvEnableDriver</B></A> function in the DLL. The function is not called again unless the driver is reloaded.</LI>
+
+	<LI>Next, GDI calls the printer graphics DLL's <A HREF="ddifncs_0zzb.htm"><I>DrvEnablePDEV</I></A> function so the driver can create a physical device instance and return device characteristics. GDI uses the returned information to create an internal description of the device instance.</LI>
+
+	<LI>GDI then calls the graphics DLL's <A HREF="ddifncs_13xj.htm"><I>DrvCompletePDEV</I></A> function to supply a GDI handle to the device instance. The graphics DLL must use this handle as input to some of the <B>Eng</B>-prefixed callbacks provided by the GDI drawing engine (see <A HREF="gdioview_39uv.htm">GDI Support Services</A>).</LI>
+
+	<LI>After GDI receives the device instance handle, it then makes a call to the graphics DLL's <A HREF="ddifncs_871j.htm"><I>DrvEnableSurface</I></A> function, which sets up the surface for drawing, and associates it with the physical device instance.</LI>
+
+	<LI>The driver can create a drawing surface for the device instance by calling <A HREF="gdifncs_9pgn.htm"><B>EngCreateBitmap</B></A>. Alternatively, if the drawing surface is device-managed, the driver can call <A HREF="gdifncs_995z.htm"><B>EngCreateDeviceSurface</B></A>.</LI>
+
+	<LI>If <B>EngCreateBitmap</B> cannot supply a bitmap large enough to contain an entire physical page, and if the driver supports page banding, <A HREF="gdifncs_2jon.htm"><B>EngMarkBandingSurface</B></A> can be called to inform GDI that banding will be employed.</LI>
+
+	<LI>Finally, the <A HREF="gdifncs_1wrr.htm"><B>EngAssociateSurface</B></A> must be called to allow GDI to associate the created surface with a specified device instance, and to let GDI know which driver-supplied graphics DDI drawing functions (if any) it should call when it draws on this particular surface.</LI>
+</OL>
+
+<P>At this point, a drawing surface has been created and rendering can begin. </P>
+
+<P>For each document to be rendered, GDI calls the following functions in the printer graphics DLL:</P>
+
+<P class=indent1><A HREF="ddifncs_4tuv.htm"><I>DrvStartDoc</I></A><BR>
+<I>For each physical page </I>{<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;<A HREF="ddifncs_6t5z.htm"><I>DrvStartPage</I></A><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;<A HREF="ddifncs_5up3.htm"><I>DrvStartBanding</I></A><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;<I>For each banding surface </I>{<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<A HREF="ddifncs_1uw7.htm"><I>DrvQueryPerBandInfo</I></A><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<I>Rendering operations<BR>
+</I>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<A HREF="ddifncs_41if.htm"><I>DrvNextBand</I></A><BR>
+&nbsp;&nbsp;&nbsp;&nbsp;}<BR>
+&nbsp;&nbsp;&nbsp;&nbsp;<A HREF="ddifncs_0b3b.htm"><I>DrvSendPage</I></A><BR>
+}<BR>
+<A HREF="ddifncs_6yzr.htm"><I>DrvEndDoc</I></A></P>
+
+<P>With the exception of <A HREF="ddifncs_1uw7.htm"><I>DrvQueryPerBandInfo</I></A>, these functions are intended to allow the printer graphics DLL to send control sequences to the printer hardware (by calling <A HREF="gdifncs_9v6v.htm"><B>EngWritePrinter</B></A><B>)</B>, and to perform any internal operations needed to initialize or complete processing of a document, page, or band.</P>
+
+<P>The printer graphics DLL is responsible for sending the rendered image (that is, the contents of the drawing surface) to the printer at appropriate times (by calling <B>EngWritePrinter</B>), as follows:
+
+<UL>
+	<LI>For GDI-managed or device-managed bitmap surfaces
+<P>The drawing surface is a GDI-supplied or driver-supplied bitmap. The printer graphics DLL might hook some drawing functions (see <A HREF="gdioview_599j.htm">Surface Negotiation</A>). If page banding is in use, the <A HREF="ddifncs_41if.htm"><I>DrvNextBand</I></A> function should send drawing surface contents. If banding is not in use, the <A HREF="ddifncs_0b3b.htm"><I>DrvSendPage</I></A> function should send the drawing surface contents.
+</LI>
+
+	<LI>For device-managed vector surfaces
+<P>The drawing surface is within the device. The printer graphics DLL hooks all drawing functions (see <A HREF="gdioview_599j.htm">Surface Negotiation</A>), and these functions send image data to the printer during rendering operations. Page banding is not used.
+</LI>
+</UL>
+
+<P>If you anticipate that any graphics DDI function provided by a printer graphics DLL could potentially take more than five seconds to execute, you should include code that calls <A HREF="gdifncs_3u7b.htm"><B>EngCheckAbort</B></A> at least every five seconds to see if the print job should be terminated.</P>
+
+<P>After GDI calls <A HREF="ddifncs_6yzr.htm"><I>DrvEndDoc</I></A> to indicate that a document has been completely rendered, it calls <A HREF="ddifncs_4b3b.htm"><I>DrvDisableSurface</I></A>. If <A HREF="ddifncs_871j.htm"><I>DrvEnableSurface</I></A> called <A HREF="gdifncs_9pgn.htm"><B>EngCreateBitmap</B></A>, then <I>DrvDisableSurface</I> must call <A HREF="gdifncs_776v.htm"><B>EngDeleteSurface</B></A>.</P>
+
+<P>GDI calls a printer graphics DLL's <A HREF="ddifncs_6ip3.htm"><I>DrvDisablePDEV</I></A> function when an application calls <B>DeleteDC</B>.</P>
+
+<P>If an application calls <B>ResetDC</B> function during the printing of a document, GDI creates a new device context and calls the printer graphics DLL's <A HREF="ddifncs_0zzb.htm"><I>DrvEnablePDEV</I></A> function for the new context. Then GDI calls the <A HREF="ddifncs_6vqf.htm"><I>DrvResetPDEV</I></A> function, so the graphics DLL can update the new context with information from the old one. Next, <A HREF="ddifncs_4b3b.htm"><I>DrvDisableSurface</I></A> and <A HREF="ddifncs_6ip3.htm"><I>DrvDisablePDEV</I></A> are called for the old context, followed by <A HREF="ddifncs_871j.htm"><I>DrvEnableSurface</I></A> for the new context. Finally, GDI calls <A HREF="ddifncs_4tuv.htm"><I>DrvStartDoc</I></A> and rendering resumes on a new page.</P>
+
+<P>GDI calls <A HREF="ddifncs_8xlz.htm"><I>DrvDisableDriver</I></A> prior to unloading the printer graphics DLL.</P>
+
+<P>If printer hardware supports drawing operations that are not supported by GDI drawing functions, the printer graphics DLL can provide a <A HREF="ddifncs_3jjb.htm"><I>DrvDrawEscape</I></A> function.</P>
+
+<P>A printer graphics DLL can provide a <A HREF="ddifncs_9tev.htm"><I>DrvEscape</I></A> function if it is necessary to support drawing or non-drawing operations that are not available through GDI functions. For example, the <A HREF="pscript_3jfr.htm">Microsoft Postscript printer driver</A> uses escapes to support Postscript injection points. Or, an application might need to obtain a fax machine's phone number. The <I>DrvEscape</I> function is also used for indicating the operations supported by the <I>DrvDrawEscape</I> function.</P>
+
+<P><B>CreateDC</B>, <B>ResetDC</B>, and <B>DeleteDC</B> are described in the Platform SDK documentation.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Rendering%20a%20Print%20Job"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

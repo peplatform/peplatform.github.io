@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Hooking Versus Punting</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Hooking Versus Punting">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_drawing_functions_gg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_rop_gg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_pdev_gg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_hooking_versus_punting_gg"></A>Hooking Versus Punting</H3>
+
+<P>The terms <I>hooking</I> and <I>punting</I> refer to driver decisions on whether it provides standard bitmap drawing operations, or relies on GDI to provide them. If the driver implements engine-managed surfaces, GDI can handle all drawing operations. A driver can, however, provide one or more of the <A HREF="JavaScript:hhobj_1.Click()">drawing functions</A> if its hardware can accelerate those operations. It does this by implementing, or hooking, a <I>DrvXxx</I> function.</P>
+
+<P>A driver writer may wish to implement only a subset of the drawing operations a particular graphics DDI entry point implements. For any operations the driver does not support, it can call the appropriate GDI functions to carry them out. This is referred to as punting to GDI. There are some situations in which the operation must be implemented in the driver. For example, if the driver implements a device-managed surface, certain drawing functions must be implemented in the display driver. </P>
+
+<H4>Hooking</H4>
+
+<P>By default, when a drawing surface is an engine-managed surface, GDI handles the drawing (rendering) operation. For a driver to take advantage of hardware that offers acceleration for some or all of these drawing functions for a given surface, or to make use of special block transfer hardware, it can hook these functions. To hook calls, the driver specifies the hooks as flags of the <I>flHook</I> parameter of the <A HREF="gdifncs_1wrr.htm"><B>EngAssociateSurface</B></A> and <A HREF="gdifncs_13c8.htm"><B>EngModifySurface</B></A> functions.</P>
+
+<P>If the driver specifies the hook flag of a function, it must provide that function in its list of supported graphics DDI entry points. The driver can optimize the operation where there is hardware support. Such a driver might handle only certain cases on a hooked call. For example, if complicated graphics are requested on a call that is hooked, it may still be more efficient to punt the call back to GDI, allowing GDI to handle the operation.</P>
+
+<P>Here is another example of a driver that chooses whether or not to handle a hooked call. Consider a driver that supports hardware capable of handling bit-block-transfer calls with certain <A HREF="JavaScript:hhobj_2.Click()">ROPs</A>. Even though this driver can carry out many operations on its own, it is otherwise just a frame buffer. Such a driver will return a handle to the bitmap surface for the frame buffer as the surface for its <A HREF="JavaScript:hhobj_3.Click()">PDEV</A>, but it will hook the <A HREF="ddifncs_8z3b.htm"><I>DrvBitBlt</I></A> call for itself. When GDI calls <I>DrvBitBlt</I>, the driver can check the ROP to see if it is one of those supported by the hardware. If not, the driver can pass the operation back to GDI with a call to the <A HREF="gdifncs_3nzb.htm"><B>EngBitBlt</B></A> function.</P>
+
+<P>Drivers that support device-managed surfaces must hook out some of the drawing functions; namely <A HREF="ddifncs_27mv.htm"><I>DrvCopyBits</I></A>, <A HREF="ddifncs_4kkn.htm"><I>DrvTextOut</I></A>, and <A HREF="ddifncs_81ev.htm"><I>DrvStrokePath</I></A>. Although GDI simulations can handle other drawing functions, it is recommended for performance reasons that drivers of this type hook out other functions, such as the <A HREF="ddifncs_8z3b.htm"><I>DrvBitBlt</I></A> and <A HREF="ddifncs_6krr.htm"><I>DrvRealizeBrush</I></A> functions, because simulation requires drawing from and to the surface.</P>
+
+<H4>Punting</H4>
+
+<P><I>Punting</I> the call back to GDI means to put in a call to the corresponding GDI simulation. In general, for every <I>DrvXxx</I> graphics call, there is a corresponding GDI <B>Eng</B><I>Xxx </I>simulation call that takes the same arguments. As long as the driver has made the bitmap non-opaque, all parameters can be passed without change to a GDI simulation. For each call the driver punts back to GDI, the size of the driver is reduced (since the code for that functionality can be omitted). However, because the engine owns the call, the driver does not have control over the execution speed. For some complicated cases, there may be no real advantage to providing support in the driver.</P>
+
+<H4>Hookable GDI Graphics Output Functions</H4>
+
+<P>The graphics output functions that the driver can hook and the corresponding GDI simulations are listed in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=50%>Driver Graphics Output Function</TH>
+<TH align=left width=50%>Corresponding GDI Simulation</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%><A HREF="ddifncs_8z3b.htm"><I>DrvBitBlt</I></A></TD>
+<TD width=50%><A HREF="gdifncs_3nzb.htm"><B>EngBitBlt</B></A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%><A HREF="ddifncs_79yf.htm"><I>DrvPlgBlt</I></A></TD>
+<TD width=50%><A HREF="gdifncs_1yuf.htm"><B>EngPlgBlt</B></A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%><A HREF="ddifncs_3ew7.htm"><I>DrvStretchBlt</I></A></TD>
+<TD width=50%><A HREF="gdifncs_0bs7.htm"><B>EngStretchBlt</B></A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%><A HREF="ddifncs_0z3b.htm"><I>DrvStretchBltROP</I></A></TD>
+<TD width=50%><A HREF="gdifncs_4jzb.htm"><B>EngStretchBltROP</B></A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%><A HREF="ddifncs_4kkn.htm"><I>DrvTextOut</I></A></TD>
+<TD width=50%><A HREF="gdifncs_4tgn.htm"><B>EngTextOut</B></A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%><A HREF="ddifncs_81ev.htm"><I>DrvStrokePath</I></A></TD>
+<TD width=50%><A HREF="gdifncs_4yaw.htm"><B>EngStrokePath</B></A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%><A HREF="ddifncs_3x2f.htm"><I>DrvFillPath</I></A></TD>
+<TD width=50%><A HREF="gdifncs_9pyf.htm"><B>EngFillPath</B></A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%><A HREF="ddifncs_750n.htm"><I>DrvStrokeAndFillPath</I></A></TD>
+<TD width=50%><A HREF="gdifncs_2xwn.htm"><B>EngStrokeAndFillPath</B></A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%><A HREF="ddifncs_7sx3.htm"><I>DrvLineTo</I></A></TD>
+<TD width=50%><A HREF="gdifncs_2ht3.htm"><B>EngLineTo</B></A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%><A HREF="ddifncs_27mv.htm"><I>DrvCopyBits</I></A></TD>
+<TD width=50%><A HREF="gdifncs_80iv.htm"><B>EngCopyBits</B></A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%><A HREF="ddifncs_40br.htm"><I>DrvAlphaBlend</I></A></TD>
+<TD width=50%><A HREF="gdifncs_0x7r.htm"><B>EngAlphaBlend</B></A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%><A HREF="ddifncs_6bvr.htm"><I>DrvGradientFill</I></A></TD>
+<TD width=50%><A HREF="gdifncs_4crr.htm"><B>EngGradientFill</B></A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%><A HREF="ddifncs_0bl3.htm"><I>DrvTransparentBlt</I></A></TD>
+<TD width=50%><A HREF="gdifncs_9gh3.htm"><B>EngTransparentBlt</B></A></TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Hooking%20Versus%20Punting"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,163 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IFSMgr_MetaMatch</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_4471"></A>IFSMgr_MetaMatch</H3>
+
+<PRE>IFSMgr_MetaMatch(
+ string_t pUniPattern,
+ string_t pUniName,
+ int matchSem
+ )
+ </PRE>
+
+<P>This service provides metacharacter pattern matching which is needed by FSDs when searching for files. There are a number of different meta-matching semantics that are provided. The caller should specify the appropriate semantics based on the kind of metamatching desired. All FSDs should use this service to search for files so that the entire system works consistently. Besides, if the metamatching semantics are changed at a later point of time, the FSDs can work unchanged with the new semantics. This service takes care of both single and double byte character sets, so FSDs do not need to do any localization work. </P>
+
+<P>There are three possible name formats that can be passed in under different situations to do metamatching. All of them use the Unicode character set. These are as follows: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=100%><B>FCB Name Format:</B> </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%>This format refers to a name or pattern as it occurs in a DOS directory entry. It consists of a "primary" component that is always 8 Unicode characters long and an "extension" component that is always 3 Unicode characters long. If necessary, primary or extension components are "right padded" with Unicode space characters until they meet their respective length requirements. There is no intervening dot character between primary and extension components. In this format the routine assumes that both the name and pattern are upcased Unicode. If the name was obtained from the media in OEM and was converted to Unicode it is in upcased form, because it was stored that way. The IFS manager always passes patterns in upcased Unicode form. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%><B>8.3 Name Format:</B> </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%>This format refers to a name or pattern as it occurs when a name is passed to a DOS name-based file I/O function (DOS FCB-style functions are excluded for the purposes of this definition). It consists of a "primary" component that is at least 1 but 8 or fewer Unicode chars long, and an "extension" component that is zero to 3 Unicode chars long. If a name has an extension, there is one intervening dot character between the primary and extension component. If the name has no extension, there is no dot character after the primary component. The IFS manager will never pass an 8.3-format name with a trailing dot. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%><B>Long Name Format:</B> </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%>This format refers to a name or pattern as it occurs when a name is passed to the new DOS long-name-based file I/O functions. Such a name is just a Unicode character string. They have no extension per-se. The dot character in such a name is treated just like any other character. Note that an 8.3-format name is just a special case of a long-format name, in that only 1 dot character is allowed. The IFS manager will never pass a long-format name with a trailing dot. The IFS manager can, however, pass a long-format pattern with a trailing dot if and only if the pattern contains metacharacters. See the following for the reason this is done. </TD>
+</TR>
+</TABLE><BR>
+
+<P>There are a number of different metamatching semantics that can be applied. There are also certain special rules about how names in the different formats are treated under the different metamatching semantics. The scenarios an FSD will encounter while doing metamatching and the appropriate parameters and name formats to use for each of these are described in the following: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=100%><B>Short Name API Matching Short Names From Media:</B> </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%>This service should be called with UFLG_DOS set. If there are metacharacters present in the pattern, UFLG_META must also be passed in. This will yield DOS compatible matching rules. Both the pattern and the name should be in Unicode FCB name format whenever UFLG_DOS is set. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%><B>Short Name API Matching Long Names From Media:</B> </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%>This is not supported by this service. If an FSD wants to support this, it will have to figure out its own rules to perform the appropriate mappings. In general, it is not recommended that FSDs support this. For  example, the FAT file system FSD provides short-name aliases for each long name and matches these short names on short name APIs to circumvent this issue. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%><B>Long Name API Matching Short Names From Media:</B> </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%>This service should be called with UFLG_NT set. If there are metacharacters present in the pattern, UFLG_META should also be passed in. In this case, the pattern can be anything allowed on the long-name APIs. However, the short name should be in 8.3-format (not FCB-format) and in the Unicode character set. There are, however, certain special quirks in DOS that create complications while matching short names. These are described in the following. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%>DOS has name matching idiosyncrasies with respect to short names (that is, 8.3 format) that do not have an "extension" and how they must be matched with patterns containing embedded or trailing dots. The following rule must be observed in order to get DOS compatible match behavior when this service is called from a long name API which is matching names which are stored on media in 8.3 format (that is, as short names). The rule is true irrespective of whether the matching pattern has metacharacters in it or not. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%>RULE: For this special case, we make a distinction between the following two kinds of short names: </TD>
+</TR>
+</TABLE><BR>
+
+<OL>
+	<LI>Having no dots in the name at all: This is the case of a short name with a primary component only. </LI>
+
+	<LI>An embedded dot. The name has a dot but the last character in the name is not a dot. This is the case of a short name with both primary and extension components. </LI>
+</OL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=100%>If the short name to be matched has an embedded dot, then nothing needs to be done to the name. The match can be done directly by calling this service. If the short name to be matched does not have a dot and the matching pattern has a dot, then append a trailing dot to the short name before calling this service. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%>Following this rule will yield MS-DOS and Windows NT/Windows 2000 compatible match results when using long name APIs to match short names retrieved from the media. The IFS manager passes a bit flag to FSDs indicating whether a matching pattern has a dot in it. This can be used by the FSDs to easily construct a name that can be correctly matched with a pattern. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%><B>Long Name API Matching Long Names From Media:</B> </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=100%>This service should be called with UFLG_NT set. If there are metacharacters present in the pattern, UFLG_META should also be passed in. In this case, both the pattern and the name can be anything allowed on the long-name APIs. Long-name APIs matching long names have no quirks. In long names, dots are just another character and are not accorded any special treatment. Dots are stored in long names as just another character. There is no need to add or remove dots from a long name prior to calling this service to match them. </TD>
+</TR>
+</TABLE><BR>
+
+<DL>
+<DT><I>pUniPattern</I> </DT>
+
+<DD>Supplies the matching pattern in Unicode in the appropriate name format, as discussed above. </DD>
+
+<DT><I>pUniName</I> </DT>
+
+<DD>Supplies the file name in Unicode to be matched against the pattern. The name should be in the appropriate format, as discussed above. </DD>
+
+<DT><I>matchSem</I> </DT>
+
+<DD>Supplies flags that determine the matching semantics to be used. 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=27%><B>Metamatching Semantics Flags:</B> </TD>
+<TD width=73%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>UFLG_NT </TD>
+<TD width=73%>Matching follows strict Windows NT/2000 semantics. These are the semantics used for matching long names on the long-name APIs. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>UFLG_DOS </TD>
+<TD width=73%>Matching follows strict DOS semantics. These are the semantics used for matching short names on the short-name APIs.  This refers to the 11 character fixed-length DOS FCB format.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>UFLG_NT_DOS </TD>
+<TD width=73%>Matching follows Windows NT/2000 semantics with certain exceptions applied to the strict regular expression matching that UFLG_NT implements. Exceptions to regular expression matching are applied, like assuming a name which has no dots will match a pattern which fully matches the name but ends in a "?" or ends in a "*.*" or ends in a ".*". If neither UFLG_NT or UFLG_NT_DOS is specified, the matching defaults to DOS semantics. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>UFLG_META </TD>
+<TD width=73%>The matching pattern contains metacharacters. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+</DL>
+
+<UL>
+	<LI>Returns zero if the name did not match the pattern. Returns a nonzero value if the name matches the pattern. </LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IFSMgr_MetaMatch"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

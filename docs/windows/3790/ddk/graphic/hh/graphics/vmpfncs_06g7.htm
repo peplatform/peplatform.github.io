@@ -1,0 +1,116 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DriverEntry of Video Miniport Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DriverEntry of Video Miniport Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_driverentry_of_video_miniport_driver_gg"></A>DriverEntry of Video Miniport Driver</H1>
+
+<P><B>DriverEntry</B> is the initial entry point into the video miniport driver.</P>
+
+<PRE class=syntax><B>ULONG
+  DriverEntry(</B>
+<B>    IN PVOID</B>  <I>Context1</I>,
+<B>    IN PVOID</B>  <I>Context2</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Context1</I></DT>
+
+<DD>Pointer to a context value with which the miniport driver must call <A HREF="vpfncs_1nzb.htm"><B>VideoPortInitialize</B></A>. This context value identifies the driver object created by the system for this miniport driver.</DD>
+
+<DT><I>Context2</I></DT>
+
+<DD>Pointer to a second context value with which the miniport driver must call <B>VideoPortInitialize</B>. This context value identifies the registry path for this miniport driver.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>DriverEntry</B> returns the value returned by <A HREF="vpfncs_1nzb.htm"><B>VideoPortInitialize</B></A>.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>video.h</I>. Include <I>video.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Each miniport driver must have a function explicitly named <B>DriverEntry</B> in order to be loaded. <B>DriverEntry</B> is called directly by the I/O system.</P>
+
+<P><B>DriverEntry</B> must perform the following steps:
+
+<UL>
+	<LI>Allocate memory on the stack for a <A HREF="vstrcts_750n.htm">VIDEO_HW_INITIALIZATION_DATA</A> structure, and call <A HREF="vpfncs_810n.htm"><B>VideoPortZeroMemory</B></A> to zero-initialize it.</LI>
+
+	<LI>Fill in driver-specific and adapter-specific values in the VIDEO_HW_INITIALIZATION_DATA members, including the miniport driver's entry points. The following entry points must be set to a miniport driver-supplied routine:
+<P class=indent1><A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A> </P>
+
+<P class=indent1><A HREF="vmpfncs_6alj.htm"><I>HwVidInitialize</I></A> </P>
+
+<P class=indent1><A HREF="vmpfncs_3wo7.htm"><I>HwVidStartIO</I></A> </P>
+
+<P class=indent1><A HREF="vmpfncs_76hz.htm"><I>HwVidGetVideoChildDescriptor</I></A> </P>
+
+<P class=indent1><A HREF="vmpfncs_4zs7.htm"><I>HwVidGetPowerState</I></A> </P>
+
+<P class=indent1><A HREF="vmpfncs_6v1j.htm"><I>HwVidSetPowerState</I></A> </P>
+
+<P>For each of the remaining entry point members that the driver implements, the driver should set that entry point member to point to the appropriate driver-supplied routine.
+</LI>
+
+	<LI>If the driver's hardware supports legacy resources, the driver must report them. <B>DriverEntry</B> should do the following if the resource list is known at driver compile time:
+<UL>
+	<LI>Claim and report all such resources in the <B>HwLegacyResourceList</B> and <B>HwLegacyResourceCount</B> members of the <A HREF="vstrcts_750n.htm">VIDEO_HW_INITIALIZATION_DATA</A> structure. Legacy resources are those resources not listed in the device's PCI configuration space but that are decoded by the device.</LI>
+
+	<LI>Fill in the <B>RangePassive</B> field accordingly for each <A HREF="vstrcts_6h0n.htm">VIDEO_ACCESS_RANGE</A> structure defined in the miniport driver.</LI>
+</UL>
+
+<P>If the legacy resource list cannot be determined until runtime, the driver should instead implement a <A HREF="vmpfncs_9nl3.htm"><I>HwVidLegacyResources</I></A> function to report them.
+</LI>
+
+	<LI>Call <A HREF="vpfncs_1nzb.htm"><B>VideoPortInitialize</B></A>, passing <I>Context1</I> and <I>Context2</I> as the first two parameters, a pointer to the VIDEO_HW_INITIALIZATION_DATA structure as the third parameter, and NULL as the fourth parameter.</LI>
+</UL>
+
+<P><B>DriverEntry</B> should propagate the value returned by <B>VideoPortInitialize</B> back to the caller.</P>
+
+<P>If <B>DriverEntry</B> does claim resources, it should include only those resources that the hardware decodes but that are not claimed by PCI. The miniport driver can "reclaim" these legacy resources again in subsequent call(s) to <A HREF="vpfncs_0x7r.htm"><B>VideoPortVerifyAccessRanges</B></A>; however, the video port driver will just ignore requests for any such previously claimed resources. Power management and docking will be disabled in the system if the miniport driver attempts to claim a legacy access range in <B>VideoPortVerifyAccessRanges</B> that was not previously claimed in the <B>HwLegacyResourceList</B> member of the <A HREF="vstrcts_750n.htm">VIDEO_HW_INITIALIZATION_DATA</A> structure during <B>DriverEntry</B> (or in <A HREF="vmpfncs_9nl3.htm"><I>HwVidLegacyResources</I></A>, if implemented).</P>
+
+<P>For Windows®&nbsp;2000 and later drivers that also support machines running Windows&nbsp;NT® 4.0, there are two constants defined in <I>video.h</I>. These constants are described in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Constant</TH>
+<TH align=left width=52%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>SIZE_OF_NT4_VIDEO_PORT_CONFIG_INFO</TD>
+<TD width=52%>The size, in bytes, of the Windows NT 4.0 <A HREF="vstrcts_459j.htm">VIDEO_PORT_CONFIG_INFO</A> structure.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>SIZE_OF_NT4_VIDEO_HW_INITIALIZATION_DATA</TD>
+<TD width=52%>The size, in bytes, of the Windows NT 4.0 <A HREF="vstrcts_750n.htm">VIDEO_HW_INITIALIZATION_DATA</A> structure. If <A HREF="vpfncs_1nzb.htm"><B>VideoPortInitialize</B></A> fails, the video miniport driver should set the <B>HwInitDataSize</B> member of the VIDEO_HW_INITIALIZATION_DATA structure to the size of either the Windows 2000 (and later) version of this structure or the Windows NT 4.0 version. Choose the appropriate structure size to match the operating system version on which the miniport driver will run. The video miniport driver should then call <B>VideoPortInitialize</B> again. For an example of use, please see the video miniport driver samples that ship in this DDK.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>SIZE_OF_W2K_VIDEO_HW_INITIALIZATION_DATA</TD>
+<TD width=52%>The size, in bytes, of the Windows 2000 and later VIDEO_HW_INITIALIZATION_DATA structure.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>See Also</H4>
+
+<P><A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A>, <A HREF="vmpfncs_9nl3.htm"><I>HwVidLegacyResources</I></A>, <A HREF="vstrcts_750n.htm">VIDEO_HW_INITIALIZATION_DATA</A>, <A HREF="vpfncs_1nzb.htm"><B>VideoPortInitialize</B></A>, <A HREF="vpfncs_0x7r.htm"><B>VideoPortVerifyAccessRanges</B></A>, <A HREF="vpfncs_810n.htm"><B>VideoPortZeroMemory</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DriverEntry%20of%20Video%20Miniport%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

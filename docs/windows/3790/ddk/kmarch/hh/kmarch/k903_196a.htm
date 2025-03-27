@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DpWmiQueryReginfo</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DpWmiQueryReginfo">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_dpwmiqueryreginfo_kr"></A><I>DpWmiQueryReginfo</I></H1>
+
+<P>The <I>DpWmiQueryReginfo</I> routine provides information about the data blocks and event blocks to be registered by a driver. This routine is required.</P>
+
+<PRE class=syntax><B>NTSTATUS
+</B>  <I>DpWmiQueryReginfo</I><B>(</B>
+    <B>IN PDEVICE_OBJECT</B>  <I>DeviceObject</I><B>,</B>
+    <B>OUT PULONG </B> <I>RegFlags</I><B>,</B>
+    <B>OUT PUNICODE_STRING</B>  <I>InstanceName</I><B>,</B>
+    <B>OUT PUNICODE_STRING</B>  <B>*</B><I>RegistryPath</I><B>,</B>
+    <B>OUT PUNICODE_STRING</B>  <I>MofResourceName</I><B>,</B>
+    <B>OUT PDEVICE_OBJECT </B> <B>*</B><I>Pdo</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the driver's device object.</DD>
+
+<DT><I>RegFlags</I></DT>
+
+<DD>Indicates common characteristics of all blocks being registered. Any flag set in <I>RegFlags</I> is applied to all blocks. A driver can supplement <I>RegFlags</I> for a given block by setting <B>Flags</B> in the block's <A HREF="k112_52uq.htm">WMIGUIDREGINFO</A> structure. For example, a driver might clear WMIREG_FLAG_EXPENSIVE in <I>RegFlags</I>, but set it in <B>Flags</B> to register a given block as expensive to collect.
+
+<P>The driver sets one of the following flags in <I>RegFlags</I>:
+
+
+<DL>
+<DT>WMIREG_FLAG_INSTANCE_BASENAME  </DT>
+
+<DD>Requests WMI to generate static instance names from a base name provided by the driver at the <I>InstanceName</I>. WMI generates instance names by appending a counter to the base name. </DD>
+
+<DT>WMIREG_FLAG_INSTANCE_PDO</DT>
+
+<DD>Requests WMI to generate static instance names from the device instance ID for the PDO. If the driver sets this flag, it must also set <I>Pdo</I> to the PDO passed to the driver's <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine. WMI generates instance names from the device instance path of the PDO. Using the device instance path as a base for static instance names is efficient because such names are guaranteed to be unique. WMI automatically supplies a "friendly" name for the instance as an item in a data block that can be queried by data consumers. 
+</DD>
+</DL>
+
+
+<P>A driver might also set one or more of the following flags in <I>RegFlags</I>, but more typically would set them in <B>Flags</B> of a block's WMIGUIDREGINFO structure:
+
+
+<DL>
+<DT>WMIREG_FLAG_EVENT_ONLY_GUID</DT>
+
+<DD>The blocks can be enabled or disabled as events only, and cannot be queried or set. If this flag is clear, the blocks can also be queried or set. </DD>
+
+<DT>WMIREG_FLAG_EXPENSIVE</DT>
+
+<DD>Requests WMI to send an <A HREF="k901_97le.htm">IRP_MN_ENABLE_COLLECTION</A> request the first time a data consumer opens a data block and an <A HREF="k901_0xf6.htm">IRP_MN_DISABLE_COLLECTION</A> request when the last data consumer closes the data block. This is recommended if collecting such data affects performance, because a driver need not collect the data until a data consumer explicitly requests it by opening the block. </DD>
+
+<DT>WMIREG_FLAG_REMOVE_GUID</DT>
+
+<DD>Requests WMI to remove support for the blocks. This flag is valid only in response to a request to update registration information (<A HREF="k901_4omq.htm">IRP_MN_REGINFO</A> or <A HREF="k901_9d4i.htm">IRP_MN_REGINFO_EX</A> with <B>Parameters.WMI.DataPath </B>set to WMIUPDATE).
+</DD>
+</DL>
+</DD>
+
+<DT><I>InstanceName</I></DT>
+
+<DD>Pointer to a single counted Unicode string that serves as the base name for all instances of all blocks to be registered by the driver. WMI frees the string with <A HREF="k102_6uuq.htm"><B>ExFreePool</B></A>. If WMIREG_FLAG_INSTANCE_BASENAME is clear, <I>InstanceName </I>is ignored.</DD>
+
+<DT><I>RegistryPath</I></DT>
+
+<DD>Pointer to a counted Unicode string that specifies the registry path passed to the driver's <A HREF="drvrrtns_6r76.htm"><B>DriverEntry</B></A> routine. </DD>
+
+<DT><I>MofResourceName</I></DT>
+
+<DD>Pointer to a single counted Unicode string that indicates the name of the MOF resource attached to the driver's binary image file. Typically this string would be a static defined by the driver. WMI makes a copy of this string after the driver returns from this routine. This string can be dynamically allocated by the driver. In the case of an allocated string, the driver is responsible for freeing the string which should be done after <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A> returns. If the driver does not have a MOF resource attached, it can leave <I>MofResourceName</I> unchanged. </DD>
+
+<DT><I>Pdo</I></DT>
+
+<DD>Pointer to the physical device object (PDO) passed to the driver's <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine. If WMIREG_FLAG_INSTANCE_PDO is set, WMI uses the device instance path of this PDO as a base from which to generate static instance names. If WMIREG_FLAG_INSTANCE_PDO is clear, WMI ignores <I>Pdo</I>. </DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>DpWmiQueryReginfo</I> always returns STATUS_SUCCESS.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wmilib.h</I>. Include <I>wmilib.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>WMI calls a driver's <I>DpWmiQueryReginfo</I> routine after the driver calls <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A> in response to an <A HREF="k901_4omq.htm">IRP_MN_REGINFO</A> or <A HREF="k901_9d4i.htm">IRP_MN_REGINFO_EX</A> request. The driver must place the address of its <I>DpWmiQueryReginfo</I> routine in the <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure that it passes to <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A>.</P>
+
+<P>WMI sends the IRP after a driver calls <A HREF="k104_5dbm.htm"><B>IoWMIRegistrationControl</B></A> with WMIREG_ACTION_REGISTER, WMIREG_ACTION_REREGISTER, or WMIREG_ACTION_UPDATE. WMI transparently handles the differences between IRP_MN_REGINFO and IRP_MN_REGINFO_EX on behalf of the driver.</P>
+
+<P>WMI does not send an <A HREF="k901_4omq.htm">IRP_MN_REGINFO</A> or <A HREF="k901_9d4i.htm">IRP_MN_REGINFO_EX</A> request after a driver calls <B>IoWMIRegistrationControl</B> with WMIREG_ACTION_DEREGISTER, because WMI requires no further information from the driver. A driver typically deregisters its blocks in response to an <A HREF="pnp-irps_4noy.htm">IRP_MN_REMOVE_DEVICE</A> request. </P>
+
+<P>The driver provides new or updated registration information about individual blocks, or indicates blocks to remove, in the <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A> structure it passes to <B>WmiSystemControl</B>. After the initial call, which establishes the driver's registry path and MOF resource name, a driver's <I>DpWmiQueryReginfo</I> routine can change flags common to all of a driver's blocks, provide a different base name string used to generate instance names, or change the basis for instance names from a string to the device instance path of the PDO. </P>
+
+<P>The driver must not return STATUS_PENDING or block the request. The driver must not complete the request by calling <A HREF="k902_0wtu.htm"><B>WmiCompleteRequest</B></A> from its <I>DpWmiQueryReginfo</I> routine or by calling <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> after <B>WmiSystemControl</B> returns.</P>
+
+<P>This routine can be pageable.</P>
+
+<P>For more information about implementing this routine, see <A HREF="wmi_9l47.htm">Calling <B>WmiSystemControl</B> to Handle WMI IRPs</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k104_5dbm.htm"><B>IoWMIRegistrationControl</B></A>, <A HREF="k901_9d4i.htm">IRP_MN_REGINFO_EX</A>, <A HREF="k112_16sy.htm">WMILIB_CONTEXT</A>, <A HREF="k112_52uq.htm">WMIGUIDREGINFO</A>, <A HREF="k902_4r3m.htm"><B>WmiSystemControl</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DpWmiQueryReginfo"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

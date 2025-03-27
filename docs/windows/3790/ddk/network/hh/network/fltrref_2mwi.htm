@@ -1,0 +1,166 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>PacketFilterExtensionPtr</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="PacketFilterExtensionPtr">
+<META NAME="MS-HKWD" CONTENT="IPHeader">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_packetfilterextensionptr_nr"></A>PacketFilterExtensionPtr</H1>
+
+<P>The <B>PacketFilterExtensionPtr</B> data type points to a filter-hook callback function. This function processes packets that are passed to it and determines whether to forward or drop the packets or to allow the IP filter driver to further process the packets. </P>
+
+<PRE class=syntax><B>typedef  PF_FORWARD_ACTION 
+  (*PacketFilterExtensionPtr)(
+</B>    <B>IN unsigned char  *</B><I>PacketHeader</I><B>,</B>
+    <B>IN unsigned char  *</B><I>Packet</I><B>,</B> 
+    <B>IN unsigned int</B>  <I>PacketLength</I><B>,</B> 
+    <B>IN unsigned int</B>  <I>RecvInterfaceIndex</I><B>,</B> 
+    <B>IN unsigned int</B>  <I>SendInterfaceIndex</I><B>,</B> 
+    <B>IN IPAddr </B> <I>RecvLinkNextHop</I><B>,</B> 
+    <B>IN IPAddr </B> <I>SendLinkNextHop</I> 
+<B>    ); </B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>PacketHeader</I></DT>
+
+<DD>Pointer to the IP header of the packet. The filter hook can cast the information to which <I>PacketHeader</I> points to an <A HREF="#ddk_ipheader_nr">IPHeader</A> structure. </DD>
+
+<DT><I>Packet</I></DT>
+
+<DD>Pointer to a buffer that contains the information in the packet that the filter hook receives. This buffer does not include the IP header pointed to by <I>PacketHeader</I>. </DD>
+
+<DT><I>PacketLength</I></DT>
+
+<DD>Size, in bytes, of the information in the IP packet. This size does not include the size of the IP header. </DD>
+
+<DT><I>RecvInterfaceIndex</I></DT>
+
+<DD>For a received packet, index number for the network interface controller (NIC) over which the packet arrived. The filter hook uses this index number to identify the particular NIC that received the packet. <BR>
+For transmitted packets, this parameter is set to INVALID_PF_IF_INDEX and the information in <I>RecvLinkNextHop</I> is meaningless. </DD>
+
+<DT><I>SendInterfaceIndex</I></DT>
+
+<DD>For a transmitted packet, index number for the NIC over which the packet will be transmitted. To obtain information about the specified NIC, the filter hook can query the routing table through Simple Network Management Protocol (SNMP). <BR>
+For received packets, this parameter is set to INVALID_PF_IF_INDEX and the information in <I>SendLinkNextHop</I> is meaningless. </DD>
+
+<DT><I>RecvLinkNextHop</I></DT>
+
+<DD>IP address for the NIC that received the packet if the NIC is a point to multiple-point interface; otherwise this parameter is set to ZERO_PF_IP_ADDR. </DD>
+
+<DT><I>SendLinkNextHop</I></DT>
+
+<DD>IP address for the NIC that will transmit the packet if the NIC is a point-to-multiple-point interface; otherwise this parameter is set to ZERO_PF_IP_ADDR. 
+</DD>
+</DL>
+
+<H4>Return Values</H4>
+
+<P>Returns one of the following values from the PF_FORWARD_ACTION enumeration: 
+
+<DL>
+<DT>PF_FORWARD</DT>
+
+<DD>Specifies for the IP filter driver to immediately return the forward response to the IP stack. IP forwards the packet up the stack for a local packet or routes the packet if the packet's destination is another computer and routing is enabled. </DD>
+
+<DT>PF_DROP</DT>
+
+<DD>Specifies for the IP filter driver to immediately return the drop response to the IP stack. IP should drop the packet.</DD>
+
+<DT>PF_PASS</DT>
+
+<DD>Specifies for the IP filter driver to process the packet and return the resulting response to the IP stack. The filter hook returns the pass response if it determined that it should not process the packet. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>Pfhook.h</I>. Include <I>Pfhook.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>If the filter hook returns the pass response, the IP filter driver processes the packet. In this case, a user-mode application can control packet filtering through the Packet Filtering API (<I>iphlpapi.lib</I>). This API can be used to create and manage input and output filters for IP packets. Each NIC can have one or more filters associated with it. Filters can include source and destination addresses, address mask and port, and protocol identifier. For more information on this API, refer to the Platform SDK. </P>
+
+<P>The IP filter driver can pass IP header information for a packet in an IPHeader structure. The following section describes IPHeader.</P>
+
+
+
+<H4><A NAME="ddk_ipheader_nr"></A>IPHeader</H4>
+
+<P>The structure of information to which the <I>PacketHeader</I> parameter points is typically defined as an IPHeader structure. IPHeader provides details about the packet. IPHeader is defined as follows:</P>
+
+<PRE class=syntax>typedef struct IPHeader {
+  UCHAR  iph_verlen;  // Version and length 
+  UCHAR  iph_tos;  // Type of service 
+  USHORT  iph_length;  // Total datagram length 
+  USHORT  iph_id;  // Identification 
+  USHORT  iph_offset;  // Flags, fragment offset 
+  UCHAR  iph_ttl;  // Time to live 
+  UCHAR  iph_protocol;  // Protocol 
+  USHORT  iph_xsum;  // Header checksum 
+  ULONG  iph_src;  // Source address 
+  ULONG  iph_dest;  // Destination address 
+} IPHeader; </PRE>
+
+<P>The members of this structure contain the following information: 
+
+<DL>
+<DT><B>iph_verlen</B></DT>
+
+<DD>Specifies the version and length for the packet. </DD>
+
+<DT><B>iph_tos</B></DT>
+
+<DD>Specifies the type of service for the packet. </DD>
+
+<DT><B>iph_length</B></DT>
+
+<DD>Size, in bytes, of the packet. </DD>
+
+<DT><B>iph_id</B></DT>
+
+<DD>Specifies the identity of the packet. </DD>
+
+<DT><B>iph_offset</B></DT>
+
+<DD>Specifies flags and fragment offset for the packet. </DD>
+
+<DT><B>iph_ttl</B></DT>
+
+<DD>Specifies the time to live (TTL) for the packet. TTL is a value in the range 0 through 255 that defines the scope within which packets should be sent over a network using IP. The scope is defined in terms of how local or remote a packet's destination is. Each router decrements the TTL by one. When the TTL reaches a predefined lower limit, the router throws the packet away. </DD>
+
+<DT><B>iph_protocol</B></DT>
+
+<DD>Specifies the protocol for the packet. </DD>
+
+<DT><B>iph_xsum</B></DT>
+
+<DD>Specifies the header checksum for the packet. </DD>
+
+<DT><B>iph_src</B></DT>
+
+<DD>Specifies the IP address of a computer that is the source for the packet. </DD>
+
+<DT><B>iph_dest</B></DT>
+
+<DD>Specifies the IP address of a computer that is the destination for the packet. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>Pfhook.h</I>. Include <I>Pfhook.h</I>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="fltrref_17g2.htm">IOCTL_PF_SET_EXTENSION_POINTER</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: PacketFilterExtensionPtr"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

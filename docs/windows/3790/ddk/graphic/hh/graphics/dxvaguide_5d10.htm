@@ -1,0 +1,71 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Host Based IDCT</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_supp_host_based_idct"></A>Host-Based IDCT</H4>
+
+<P>IDCT may be performed on the host, with the result passed through the DirectX VA API in the spatial domain. There are two supported methods for sending the results<B> </B>from the host to the accelerator: 16-bit and 8-8 overflow. The <B>bConfigSpatialResid8</B> member of the <A HREF="dxvaref_3vdz.htm">DXVA_ConfigPictureDecode</A>structure indicates which method is used.</P>
+
+<H4>16-bit Host-Based IDCT Processing</H4>
+
+<P>The macroblock control structures used with 16-bit host-based residual difference decoding are <A HREF="dxvaref_5wo7.htm">DXVA_MBctrl_I_HostResidDiff_1</A> and <A HREF="dxvaref_9t0n.htm">DXVA_MBctrl_P_HostResidDiff_1</A>.</P>
+
+<P>When sending spatial-domain residual difference data using the 16-bit method, blocks of 16-bit data are sent sequentially. Each block of spatial-domain data consists of 64 16-bit integers.</P>
+
+<P>If <I>BPP</I>, as derived from the <A HREF="dxvaref_9oyv.htm">DXVA_PictureParameters</A> structure, is greater than 8, only the 16-bit method can be used. If the <B>bPicIntra</B> member of the DXVA_PictureParameters structure is 1 and <I>BPP</I> is 8, the 8-8 overflow method is used. If <I>IntraMacroblock</I> is zero, the 16-bit residual difference samples are sent as signed quantities to be added to the motion-compensated prediction values. If <I>IntraMacroblock</I> is 1, the 16-bit samples are sent as follows:
+
+<UL>
+	<LI>If the <B>bConfigIntraResidUnsigned</B> member of the <A HREF="dxvaref_3vdz.htm">DXVA_ConfigPictureDecode</A> structure is 1, the samples are sent as unsigned quantities relative to the constant reference value of zero. For example, mid-level gray would be represented as Y=2<SUP>(BPP-1)</SUP>, Cb=2<SUP>(BPP-1)</SUP>, Cr=2<SUP>(BPP-1)</SUP>.</LI>
+
+	<LI>If the <B>bConfigIntraResidUnsigned</B> member of the DXVA_ConfigPictureDecode structure is zero, the samples are sent as signed quantities relative to the constant reference value of 2<SUP>(BPP-1)</SUP>. For example, mid-level gray would be represented as Y=0, Cb=0, Cr=0.</LI>
+</UL>
+
+<P>Blocks of data are sent sequentially, in the order specified by scanning the <B>wPatternCode</B> member of the macroblock control structure for bits with values of 1 from the most significant bit  to least significant bit.</P>
+
+<P>No clipping of the residual difference values can be assumed to have been performed on the host, unless the <B>bConfigSpatialHost8or9Clipping</B> member of the <A HREF="dxvaref_3vdz.htm">DXVA_ConfigPictureDecode</A> structure is 1. Although only a <I>BPP</I>+1 bit range is needed to adequately represent the spatial-domain difference data, the output of some <A HREF="dxvaguide_9cx3.htm">IDCT</A> implementations will produce numbers beyond this range unless they are clipped.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The accelerator must work with at least a 15-bit range of values. Although video-coding standards typically specify clipping of a difference value prior to adding it to a prediction value (that is, 9-bit clipping in 8-bit-per-sample video), this clipping stage is actually unnecessary because it has no effect on the resulting decoded output picture. It is not assumed that this clipping occurs unless necessary for the accelerator hardware as indicated by the <B>bConfigSpatialHost8or9Clipping</B> member of the DXVA_ConfigPictureDecode structure being set to 1.</P>
+
+<H4>8-8 Overflow Host-Based IDCT Processing </H4>
+
+<P>The macroblock control structures used with 8-8 overflow host-based residual difference decoding are <A HREF="dxvaref_5wo7.htm">DXVA_MBctrl_I_HostResidDiff_1</A> and <A HREF="dxvaref_9t0n.htm">DXVA_MBctrl_P_HostResidDiff_1</A>.</P>
+
+<P>If the <I>BPP</I> variable derived from the <A HREF="dxvaref_9oyv.htm">DXVA_PictureParameters</A> structure is 8, the 8-8 overflow spatial-domain residual difference<B> </B>method may be used. Its use is required if the <B>bPicIntra</B> member of this structure is 1 and <I>BPP</I> is 8. In this case, each spatial-domain difference value is represented using only 8 bits. When sending data using the 8-8 overflow method, blocks of 8-bit data are sent sequentially. Each block of 8-bit spatial-domain residual difference data consists of 64 bytes containing the values of the data in conventional raster scan order (the elements of the first row in order, followed by the elements of the second row, and so on).</P>
+
+<P>If <I>IntraMacroblock</I> in the macroblock control command is zero, the 8-bit spatial-domain residual difference samples are signed differences to be added or subtracted (as determined from the <B>bConfigResid8Subtraction</B> member of the <A HREF="dxvaref_3vdz.htm">DXVA_ConfigPictureDecode</A> structure and whether the sample is in a first pass block or an overflow block) relative to the motion compensation prediction value.</P>
+
+<P>If <I>IntraMacroblock</I> (bit 0 in the <B>wMBtype</B> member of the macroblock structure) is zero, and the difference to be represented for some pixel in a block is too large to represent using only 8 bits, a second overflow block of 8-bit spatial-domain residual difference samples is sent.</P>
+
+<P>If <I>IntraMacroblock</I> (bit 0 in the <B>wMBtype</B> member of the macroblock structure) is 1, the 8-bit spatial-domain residual difference samples are set as follows:
+
+<UL>
+	<LI>If the <B>bConfigIntraResidUnsigned</B> member of the DXVA_ConfigPictureDecode structure is 1, the 8-bit samples are sent as unsigned quantities relative to the constant reference value of zero. For example, mid-level gray would be represented as Y=2<SUP>(BPP-1)</SUP>, Cb=2<SUP>(BPP-1)</SUP>, Cr=2<SUP>(BPP-1)</SUP>.</LI>
+
+	<LI>If the <B>bConfigIntraResidUnsigned</B> member of the <A HREF="dxvaref_3vdz.htm">DXVA_ConfigPictureDecode</A> structure is zero, the 8-bit samples are sent as signed quantities relative to the constant reference value of 2<SUP>(BPP-1)</SUP>. For example, mid-level gray would be represented as Y=0, Cb=0, Cr=0.</LI>
+</UL>
+
+<P>If IntraMacroblock is 1, 8-bit overflow blocks are not sent.</P>
+
+<P>Blocks of data are sent sequentially, in the order specified by scanning the <B>wPatternCode</B> member of the macroblock control command for bits with values of 1, from most significant to least significant. All necessary 8-bit overflow blocks are then sent as specified by the <B>wPC_Overflow</B> member of the macroblock control command. Such overflow blocks are subtracted rather than added if the <B>bConfigResid8Subtraction</B> member of the <A HREF="dxvaref_3vdz.htm">DXVA_ConfigPictureDecode</A> structure is 1. The first pass of 8-bit differences for each nonintra macroblock is added. If the <B>bPicOverflowBlocks</B> member of the <A HREF="dxvaref_9oyv.htm">DXVA_PictureParameters</A> structure is zero or the <I>IntraMacroblock</I> member of the macroblock control command is 1, there is no second pass. If <B>bPicOverflowBlocks</B> is 1, <I>IntraMacroblock</I> is zero, and <B>bConfigResid8Subtraction</B> is 1, the second pass of 8-bit differences for each nonintra macroblock is subtracted. If <B>bPicOverflowBlocks</B> is 1, <I>IntraMacroblock</I> is zero, and <B>bConfigResid8Subtraction</B> is zero, the second pass of 8-bit differences for each nonintra macroblock is added.</P>
+
+<P>If any sample is nonzero in both an original 8-bit block and in a corresponding 8-bit overflow block, the following rules apply: 
+
+<UL>
+	<LI>If <B>bConfigResid8Subtraction</B> is zero, the sign of the sample must be the same in both blocks.</LI>
+
+	<LI>If <B>bConfigResid8Subtraction</B> is 1, the sign of the sample in the original 8-bit block must be the same as the sign of negative 1 times the value of the sample in the corresponding overflow block.</LI>
+</UL>
+
+<P>These rules allow the sample to be added to the prediction picture with 8-bit clipping of the result after each of the two passes.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Using 8-bit differences with overflow blocks with <B>bConfigResid8Subtraction</B> equal to zero (which results in adding two 8-bit differences for each overflow block) cannot represent a residual difference value of +255 if <I>IntraMacroblock</I> is zero. (The largest difference value that can be represented this way is 127+127=254.) This makes the 8-8 overflow host-based IDCT method not strictly compliant with video-coding standards when <B>bConfigResid8Subtraction</B> is zero. However, this format is supported because it is used in some existing implementations, is more efficient than 16-bit sample use in terms of the amount of data needed to represent a picture, and does not generally result in any meaningful degradation of video quality.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Host%20Based%20IDCT"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

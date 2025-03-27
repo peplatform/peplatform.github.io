@@ -1,0 +1,61 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Implementation Notes</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_4159"></A>Implementation Notes</H3>
+
+<P>If the XBIOS driver responds to the XBIOS Identify command but fails the XBIOS VxD Query Command, the FASTDISK driver should refuse to load. This provides backward compatibility with older XBIOS drivers in the field. </P>
+
+<P>If the XBIOS driver returns a value other than 33h in the VxD_Data_Size field or something other than zero or 63 as the VxD_Delta value, the FASTDISK driver should refuse to load. This provides forward compatibility should there be changes or enhancements to XBIOS. </P>
+
+<P>When a drive contains a nonzero value in the VxD_Delta field, the following rules apply: 
+
+<OL>
+	<LI>The INT13 geometry for the drive is presented as a 2**n by 63 translation where total cylinders are always less than or equal to 1024 and the head value doubles as drive capacity increases up to a maximum of 1024 x 255 x 63 or 8.4Gb. The INT13 geometry is always obtainable by using INT13 Function 8. The INT41/46 vector for such a drive also contains these values but does not contain the "A0" translation signature because of the sector skewing described later. </LI>
+
+	<LI>The drive is configured to operate using the VxD_Heads and VxD_SPT values. These values are obtained during the XBIOS startup process from words 3 and 6 of the IDE Identify data. </LI>
+
+	<LI>For every I/O request, the driver must perform a CHS-to-CHS translation with a sector skew added as described in the following. 
+<PRE>INT13 CHS -&gt; Logical Block Address -&gt; +VxD_Delta -&gt; Drive CHS -&gt; TaskFile 
+</PRE>
+</LI>
+</OL>
+
+<P>When a drive contains a nonzero value in the VxD_MBS field, the following rules apply: 
+
+<OL>
+	<LI>The drive has been configured with the Set Multiple Mode command to perform Read Multiple and Write Multiple at the blocking factor contained in the VxD_MBS field. </LI>
+
+	<LI>The VxD_MBS_Flags bit descriptions are as follows: 
+<PRE>X_SUPPORT_MULTIPLE
+</PRE>
+
+<P>This bit is set if the drive supports Multiple Mode. This bit can be set even if the VxD_MBS field is zero. This bit is always set if VxD_MBS is nonzero. 
+
+<PRE>X_READ_MULT_OFF
+</PRE>
+
+<P>This bit is set if the drive has been set to Multiple Mode but should not issue Read Multiple commands. Some drives perform poorly under Read Multiple. 
+
+<PRE>X_WRITE_MULT_OFF
+</PRE>
+
+<P>This bit is set if the drive has been set to Multiple Mode but should not issue Write Multiple commands. Some drives perform poorly under Write Multiple. 
+</LI>
+
+	<LI>It has been our experience that single sector requests should never use the Read Multiple and Write Multiple commands. Most drives have a performance degradation in this case. </LI>
+
+	<LI>If the driver performs a soft reset, the drive should be sent a Set Multiple Mode command. XBIOS already does this on INT13 Function 00 and 0D. This is needed because some drives do not retain their blocking factor through a soft reset. </LI>
+</OL>
+
+<P>The VxD_Base_Port and VxD_IRQ_Channel deal with XBIOS's secondary controller support. If the FASTDISK driver does not support secondary controllers, simply make sure that it does not register any of these drives. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Implementation%20Notes"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

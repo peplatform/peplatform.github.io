@@ -1,0 +1,79 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IoCsqInsertIrpEx</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IoCsqInsertIrpEx">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_iocsqinsertirpex_kr"></A>IoCsqInsertIrpEx</H1>
+
+<P>The <B>IoCsqInsertIrpEx</B> routine inserts an IRP into the driver's cancel-safe IRP queue.</P>
+
+<PRE class=syntax><B>NTSTATUS
+  IoCsqInsertIrpEx(
+    IN PIO_CSQ  </B><I>Csq</I><B>,</B>
+<B>    IN PIRP  </B><I>Irp</I><B>,</B>
+<B>    IN PIO_CSQ_IRP_CONTEXT  </B><I>Context</I><B>,</B>
+<B>    IN PVOID  </B><I>InsertContext</I><B> </B>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Csq</I></DT>
+
+<DD>Pointer to the IO_CSQ structure for the driver's cancel-safe IRP queue. This structure must have been initialized by <A HREF="k104_1lbm.htm"><B>IoCsqInitialize</B></A> or <A HREF="k104_148i.htm"><B>IoCsqInitializeEx</B></A>.</DD>
+
+<DT><I>Irp</I></DT>
+
+<DD>Pointer to the IRP to be queued.</DD>
+
+<DT><I>Context</I></DT>
+
+<DD>Pointer to an <A HREF="k112_9nzm.htm">IO_CSQ_IRP_CONTEXT</A> structure. <B>IoCsqInsertIrpEx</B> initializes this structure with context information for the inserted IRP. The driver passes this value to <A HREF="k104_39de.htm"><B>IoCsqRemoveIrp</B></A>. to delete the IRP from the queue. <I>Context</I> can be NULL if the driver will not use <B>IoCsqRemoveIrp</B> to remove this IRP from the queue.</DD>
+
+<DT><I>InsertContext</I></DT>
+
+<DD>Pointer to a driver-defined context value. This parameter is passed to the driver's <A HREF="drvrrtns_8tyq.htm"><I>CsqInsertIrpEx</I></A> routine, if it has one. Otherwise this parameter is ignored.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>If the <I>Csq</I> parameter was initialized with <A HREF="k104_1lbm.htm"><B>IoCsqInitialize</B></A>, <B>IoCsqInsertIrpEx</B> always returns STATUS_SUCCESS. If <I>Csq</I> was initialized with <B>IoCsqInitializeEx</B>, <B>IoCsqInsertIrpEx</B> returns the value that was returned by the driver's <A HREF="drvrrtns_8tyq.htm"><I>CsqInsertIrpEx</I></A> routine.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>. (For operating systems prior to Windows Server&nbsp;2003, it is instead declared in <I>csq.h.</I> For these operating systems, include <I>csq.h</I>.)</P>
+
+<H4>Comments</H4>
+
+<P>This routine is only available as part of the operating system on Windows Server 2003 and later. The routine is also available in the <I>csq.lib</I> library that ships with the DDK in Windows Server&nbsp;2003 and later operating systems. Drivers that must also work for on Windows&nbsp;XP, Windows&nbsp;2000, and Windows 98/Me can instead link to <I>csq.lib</I> to use the routine.</P>
+
+<P><B>IoCsqInsertIrpEx</B> uses the queue's dispatch routines to insert the IRP. The <B>IoCsqInsertIrpEx</B> routine:
+
+<OL>
+	<LI>Calls the queue's <A HREF="drvrrtns_1v02.htm"><I>CsqAcquireLock</I></A> routine to lock the queue.</LI>
+
+	<LI>If the queue's <A HREF="k112_2fn6.htm">IO_CSQ</A> structure was initialized by <A HREF="k104_1lbm.htm"><B>IoCsqInitialize</B></A>, <B>IoCsqInsertIrpEx</B> calls the queue's <A HREF="drvrrtns_9x9u.htm"><I>CsqInsertIrp</I></A> routine to insert the IRP. If the queue's IO_CSQ structure was initialized by <A HREF="k104_148i.htm"><B>IoCsqInitializeEx</B></A>, <B>IoCsqInsertIrpEx</B> calls the queue's <A HREF="drvrrtns_8tyq.htm"><I>CsqInsertIrpEx</I></A> routine to insert the IRP, and passes the <I>InsertContext</I> parameter as the <I>InsertContext</I> parameter of <I>CsqInsertIrpEx</I>.</LI>
+
+	<LI>Calls the queue's <A HREF="drvrrtns_70s2.htm"><I>CsqReleaseLock</I></A> routine to unlock the queue.</LI>
+</OL>
+
+<P>If the IRP to be inserted has already been canceled, <B>IoCsqInsertIrpEx</B> does not attempt to insert the IRP into the queue.</P>
+
+<P>For more information, see <A HREF="irps_4sdj.htm">Cancel-Safe IRP Queues</A>.</P>
+
+<P>Note that <B>IoCsq<I>Xxx</I></B> routines use the <B>DriverContext[</B>3<B>]</B> member of the IRP to hold IRP context information. Drivers that use these routines to queue IRPs must leave that member unused.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k112_2fn6.htm">IO_CSQ</A>, <A HREF="k112_9nzm.htm">IO_CSQ_IRP_CONTEXT</A>, <A HREF="k104_1lbm.htm"><B>IoCsqInitialize</B></A>, <A HREF="k104_148i.htm"><B>IoCsqInitializeEx</B></A>, <A HREF="k104_1bxu.htm"><B>IoCsqInsertIrp</B></A>, <A HREF="k104_39de.htm"><B>IoCsqRemoveIrp</B></A>, <A HREF="k104_7fw2.htm"><B>IoCsqRemoveNextIrp</B></A>, <A HREF="drvrrtns_1v02.htm"><I>CsqAcquireLock</I></A>, <A HREF="drvrrtns_6qb6.htm"><I>CsqCompleteCanceledIrp</I></A>, <A HREF="drvrrtns_9x9u.htm"><I>CsqInsertIrp</I></A>, <A HREF="drvrrtns_8tyq.htm"><I>CsqInsertIrpEx</I></A>, <A HREF="drvrrtns_70du.htm"><I>CsqPeekNextIrp</I></A>, <A HREF="drvrrtns_70s2.htm"><I>CsqReleaseLock</I></A>, <A HREF="drvrrtns_1upe.htm"><I>CsqRemoveIrp</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IoCsqInsertIrpEx"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

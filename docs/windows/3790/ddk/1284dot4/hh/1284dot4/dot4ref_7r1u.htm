@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IOCTL_DOT4_READ</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IOCTL_DOT4_READ">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>IEEE&nbsp;1284.4&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ioctl_dot4_read_dot4_kr"></A>IOCTL_DOT4_READ</H1>
+
+<H4>Operation</H4>
+
+<P>The IOCTL_DOT4_READ request copies data from a specified <A HREF="dot4dvr_3wvb.htm">Dot4 channel</A> to a client-allocated read buffer.</P>
+
+<P>The <A HREF="dot4dvr_0kkn.htm">Dot4 driver</A> supports the following two types of read requests:
+
+<UL>
+	<LI>Read-bytes<I> </I>request
+<P>Copies data from a channel to a client-allocated read buffer. The Dot4 driver uses direct I/O to copy the data from the channel to the read buffer.
+</LI>
+
+	<LI>Query-read-bytes<I> </I>request
+<P>Determines the number of data bytes that are available on a channel.
+</LI>
+</UL>
+
+<P>If the request is a read-bytes request, the Dot4 driver continues to copy available data from the channel to the read buffer until one of the following events occurs:
+
+<UL>
+	<LI>The requested number of bytes is read.</LI>
+
+	<LI>The time limit specified for the request is exceeded, and there is no more data available on the channel.</LI>
+
+	<LI>The Dot4 channel is closed.</LI>
+
+	<LI>An internal error occurs that ends the <A HREF="dot4dvr_957r.htm">Dot4 session</A>.</LI>
+</UL>
+
+<P>If the request is a query-read-bytes request, the Dot4 driver immediately completes the request.</P>
+
+<H4>Input</H4>
+
+<P>The following input depends on the two types of read requests:
+
+<UL>
+	<LI>Read-bytes request
+<P><B>Irp</B>-&gt;<B>MdlAddress</B> is a pointer to a client-allocated MDL read buffer that is used to hold the data copied from the channel.
+
+<P>The <B>Parameters.DeviceIoControl.OutputBufferLength</B> member of the IRP's current I/O stack location specifies the size of the read buffer.
+</LI>
+
+	<LI>Query-read-bytes request
+<P>The client sets <B>Irp</B>-&gt;<B>MdlAddress</B> to NULL and <B>Parameters.DeviceIoControl.OutputBufferLength</B> to zero.
+</LI>
+</UL>
+
+<P>The following input applies to both types of read requests:</P>
+
+<P><B>Irp</B>-&gt;<B>AssociatedIrp.SystemBuffer</B> is a pointer to a client-allocated <A HREF="dot4ref_8xf6.htm">DOT4_DRIVER_CMD</A> structure that inputs the following information:
+
+<DL>
+<DT><B>hChannelHandle</B> </DT>
+
+<DD>Specifies a channel handle.</DD>
+
+<DT><B>ulSize</B></DT>
+
+<DD>Specifies the number of bytes to read.</DD>
+
+<DT><B>ulOffset</B></DT>
+
+<DD>Specifies a byte offset in the read buffer. The Dot4 driver copies data to the read buffer starting at the byte specified by <B>ulOffset</B>.</DD>
+
+<DT><B>ulTimeout</B></DT>
+
+<DD>Specifies the maximum time, in milliseconds, that the request can take to complete. The Dot4 driver starts timing the request immediately after it is queued. If the request times out and the device is not ready to read or write more data, the Dot4 driver completes the request.
+</DD>
+</DL>
+
+<P>The <B>Parameters.DeviceIoControl.InputBufferLength</B> member of the IRP's current I/O stack location is set to the size, in bytes, of a DOT4_DRIVER_CMD structure.</P>
+
+<H4>Output</H4>
+
+<P><B>Irp</B>-&gt;<B>MdlAddress</B> is a pointer to the client-allocated MDL read buffer that holds the data that is copied from the channel.</P>
+
+<H4>I/O Status Block</H4>
+
+<P>The <B>Information</B> member depends on the type of read request, and is set to one of the following values:
+
+<DL>
+<DT>Query-read-bytes request</DT>
+
+<DD>The number of bytes available to be read over the channel.</DD>
+
+<DT>Read-bytes request</DT>
+
+<DD>The current byte offset in the read buffer where the Dot4 driver will copy the next block of data that is read from the channel. The byte offset is initialized to  <B>ulOffset</B>. While the request remains pending, the Dot4 driver dynamically updates the <B>Information</B> member each time it copies a block of data from the channel to the read buffer.
+</DD>
+</DL>
+
+<P>The <B>Status</B> member is set to one of the following values:
+
+<DL>
+<DT>STATUS_BUFFER_TOO_SMALL</DT>
+
+<DD>The MDL read buffer is too small to hold the requested read data.</DD>
+
+<DT>STATUS_NO_MEMORY</DT>
+
+<DD>The system did not successfully map the client-allocated MDL read buffer.</DD>
+
+<DT>STATUS_TIMEOUT</DT>
+
+<DD>The device did not satisfy the write request within the specified time limit. </DD>
+
+<DT>STATUS_UNSUCCESSFUL</DT>
+
+<DD>The channel is closed.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in<I> d4drvif.h. </I>Include d<I>4drvif.h</I>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="dot4ref_0302.htm">IOCTL_DOT4_WRITE</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IOCTL_DOT4_READ"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

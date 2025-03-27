@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Security Issues for Section Objects and Views</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Security Issues for Section Objects and Views">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_security_issues_for_section_objects_and_views_kg"></A>Security Issues for Section Objects and Views</H2>
+
+<P>Drivers that create sections and views that are <I>not</I> to be shared with user mode must use the following protocol when working with sections and views:
+
+<UL>
+	<LI>The driver must use a kernel handle when opening a handle to the section object. Drivers can ensure that a handle is a kernel handle by either creating it in the system process, or specifying the OBJ_KERNEL_HANDLE attribute for the handle. For more information, see <A HREF="objects_5btz.htm">Object Handles</A>.</LI>
+
+	<LI>The view must be mapped only from a system thread. (Otherwise, the view is accessible from the process whose context it is created in.)  A driver can ensure that the view is mapped from the system process by using a system worker thread to perform the mapping operation.  For more information, see <A HREF="synchro_9y1z.htm">System Worker Threads</A> and <A HREF="irps_4a7b.htm">Driver Thread Context</A>.</LI>
+</UL>
+
+<P>Drivers that share a view with a user-mode process must use the following protocol when working with sections and views:
+
+<UL>
+	<LI>The driver, not the user-mode process, must create the section object and map the views.</LI>
+
+	<LI>As above, the driver must use a kernel handle when opening a handle to the section object. Drivers can ensure that a handle is a kernel handle by either creating it in the system process, or specifying the OBJ_KERNEL_HANDLE attribute for the handle. For more information, see <A HREF="objects_5btz.htm">Object Handles</A>.</LI>
+
+	<LI>The view is mapped in the thread context of the process that shares the view. A highest-level driver can guarantee the view is mapped in the current process context by performing the mapping operation in a dispatch routine, such <A HREF="drvrrtns_0zoy.htm"><I>DispatchDeviceControl</I></A>.  Dispatch routines of lower-level drivers run in an arbitrary thread context, and thus cannot safely map a view in a dispatch routine.  For more information, see <A HREF="irps_4a7b.htm">Driver Thread Context</A>.</LI>
+
+	<LI>All memory accesses to the view within the driver must be protected by <B>try</B>-<B>except</B> blocks. A malicious user-mode application could unmap the view or change the protection state of the view. Either would cause a system crash unless protected by a <B>try</B>-<B>except</B> block. For more information, see <A HREF="other_23zb.htm">Handling Exceptions</A>.</LI>
+</UL>
+
+<P>The driver must also validate the contents of the view as necessary. The driver writer cannot assume that only a trusted user-mode component will have access to the view.</P>
+
+<P>A driver that must share a section object with a user-mode application (that must be able to create its own views) must use the following protocol:
+
+<UL>
+	<LI>The driver, not the user-mode process, must create the section object. Drivers must <I>never</I> use a handle that was passed from user mode.</LI>
+
+	<LI>Before passing the handle to user mode, the driver must call <A HREF="k107_54qa.htm"><B>ObReferenceObjectByHandle</B></A> to obtain a reference to the section object. This prevents a malicious application from deleting the section object by closing the handle. The object reference should be stored in the driver's device extension.</LI>
+
+	<LI>Once the driver is no longer using the section object, it must call <A HREF="k107_6vg2.htm"><B>ObDereferenceObject</B></A> to release the object reference.</LI>
+</UL>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Security%20Issues%20for%20Section%20Objects%20and%20Views"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

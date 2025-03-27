@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ScsiPortGetBusData</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ScsiPortGetBusData">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_pci_common_config_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_pci_slot_number_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_scsiportgetbusdata_kr"></A>ScsiPortGetBusData</H1>
+
+<P>The <B>ScsiPortGetBusData</B> routine returns bus-type-specific configuration information that a miniport driver's <A HREF="k302_9vsi.htm"><I>HwScsiFindAdapter</I></A> routine might use to determine whether it supports a particular adapter on a particular I/O bus, and to configure the HBA if it does.</P>
+
+<PRE class=syntax><B>ULONG 
+  ScsiPortGetBusData(
+    IN PVOID</B>  <I>DeviceExtension</I><B>,</B>
+<B>    IN ULONG</B>  <I>BusDataType</I><B>,</B>
+<B>    IN ULONG</B>  <I>SystemIoBusNumber</I><B>,</B>
+<B>    IN ULONG</B>  <I>SlotNumber</I><B>,</B>
+<B>    IN PVOID </B> <I>Buffer</I><B>,</B>
+<B>    IN ULONG </B> <I>Length</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceExtension</I></DT>
+
+<DD>Pointer to the miniport driver's per-HBA storage area.</DD>
+
+<DT><I>BusDataType</I></DT>
+
+<DD>Specifies the type of bus-specific configuration data to be returned. Currently, this value can be one of the following: <B>Cmos</B>, <B>EisaConfiguration</B>, <B>Pos</B>, or <B>PCIConfiguration</B>. However, additional types of bus configuration will be supported in the future. The upper bound on the types supported is always <B>MaximumBusDataType</B>.</DD>
+
+<DT><I>SystemIoBusNumber</I></DT>
+
+<DD>Specifies the system-assigned number of the I/O bus. The miniport driver's <A HREF="k302_9vsi.htm"><I>HwScsiFindAdapter</I></A> routine obtains this value from the input PORT_CONFIGURATION_INFORMATION <B>SystemIoBusNumber</B> member.</DD>
+
+<DT><I>SlotNumber</I></DT>
+
+<DD>Specifies the logical slot number or location of the device.
+
+<P>If <B>PCIConfiguration</B> is specified as the <I>BusDataType</I>, this parameter must be specified as a PCI_SLOT_NUMBER-type value.
+</DD>
+
+<DT><I>Buffer</I></DT>
+
+<DD>Pointer to a buffer or area to which the configuration data is returned or, if the given <I>Length</I> is zero, points to a location to which the OS-specific port driver returns a pointer to a buffer that it allocates.</DD>
+
+<DT><I>Length</I></DT>
+
+<DD>Specifies the maximum number of bytes to return at <I>Buffer</I>, or zero if the caller requires the OS-specific port driver to allocate a buffer to contain the data.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>ScsiPortGetBusData</B> returns the number of bytes of configuration information it stored in the buffer.</P>
+
+<P>When the input <I>BusDataType</I> is <B>PCIConfiguration</B>, <B>ScsiPortGetBusData</B> can return either of the following values to indicate an error.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=18%>Value</TH>
+<TH align=left width=82%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>0 (zero)</TD>
+<TD width=82%>The PCI bus does not exist.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=18%>2</TD>
+<TD width=82%>The PCI bus exists, but there is no device at the given PCI <I>SlotNumber</I>. The <I>Buffer</I> contains the value PCI_INVALID_VENDOR_ID at the PCI_COMMON_CONFIG <B>VendorId</B> member.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>srb.h</I>. Include <I>miniport.h</I> and <I>scsi.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P><B>ScsiPortGetBusData</B> can be called only from a miniport driver's <A HREF="k302_9vsi.htm"><I>HwScsiFindAdapter</I></A> routine or from <I>HwScsiAdapterControl</I> when the control type is <B>ScsiSetRunningConfig</B>. Calls from other miniport driver routines will result in system failure or incorrect operation for the caller.</P>
+
+<P>Configuration data returned by <B>ScsiPortGetBusData</B> is valid only until the miniport driver calls <B>ScsiPortGetBusData</B> again. As soon as the caller's <I>HwScsiFindAdapter</I> routine returns control, any returned configuration data becomes invalid.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="JavaScript:hhobj_1.Click()">PCI_COMMON_CONFIG</A>, <A HREF="JavaScript:hhobj_2.Click()">PCI_SLOT_NUMBER</A>, <A HREF="k306_2h4i.htm">PORT_CONFIGURATION_INFORMATION</A>, <A HREF="k302_9vsi.htm"><I>HwScsiFindAdapter</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ScsiPortGetBusData"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

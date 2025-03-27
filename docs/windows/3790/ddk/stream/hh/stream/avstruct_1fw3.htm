@@ -1,0 +1,198 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>KSPIN_DESCRIPTOR_EX</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="KSPIN_DESCRIPTOR_EX">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_kspin_descriptor_ex_ks"></A>KSPIN_DESCRIPTOR_EX</H1>
+
+<P>The KSPIN_DESCRIPTOR_EX structure describes the characteristics of a pin type on a given filter type.</P>
+
+<PRE class=syntax>typedef struct {
+  const KSPIN_DISPATCH*  Dispatch;
+  const KSAUTOMATION_TABLE*  AutomationTable;
+  KSPIN_DESCRIPTOR  PinDescriptor;
+  ULONG  Flags;
+  ULONG  InstancesPossible;
+  ULONG  InstancesNecessary;
+  const KSALLOCATOR_FRAMING_EX*  AllocatorFraming;
+  PFNKSINTERSECTHANDLEREX  IntersectHandler;
+} KSPIN_DESCRIPTOR_EX, *PKSPIN_DESCRIPTOR_EX;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>Dispatch</B></DT>
+
+<DD>Pointer to the <A HREF="avstruct_4u9f.htm">KSPIN_DISPATCH</A> structure for this pin. This pointer is optional and should only be provided by clients that wish to receive notifications. Clients that need to perform pin-centric processing (filters concerned with the routing of data, in other words hardware drivers) must provide this dispatch table and a process dispatch. See <A HREF="avstruct_4u9f.htm">KSPIN_DISPATCH</A> for more information.</DD>
+
+<DT><B>AutomationTable</B></DT>
+
+<DD>Pointer to the <A HREF="avstruct_4ckz.htm">KSAUTOMATION_TABLE</A> structure for this pin. The automation table contains the properties, methods, and events supported by the pin. This automation table is merged with the automation table provided by AVStream for all pins. If the client supplies any property, event, or method handlers that are already provided by AVStream, the client's implementation supersedes that of AVStream.</DD>
+
+<DT><B>PinDescriptor</B></DT>
+
+<DD>Specifies a structure of type <A HREF="ks-struct_9kqb.htm">KSPIN_DESCRIPTOR</A>.</DD>
+
+<DT><B>Flags</B></DT>
+
+<DD>Specifies a value of type ULONG. This can be any combination of the flags listed in the following table. Specify flags using a bitwise OR, with the following exceptions: KSPIN_FLAG_CRITICAL_PROCESSING and KSPIN_FLAG_HYPERCRITICAL_PROCESSING are mutually exclusive. KSPIN_FLAG_DO_NOT_INITIATE_PROCESSING and KSPIN_FLAG_INITIATE_PROCESSING_ON_EVERY_ARRIVAL are mutually exclusive. KSPIN_FLAG_FRAMES_NOT_REQUIRED_FOR_PROCESSING and KSPIN_FLAG_SOME_FRAMES_REQUIRED_FOR_PROCESSING are mutually exclusive. KSPIN_FLAG_PROCESS_IN_RUN_STATE_ONLY and KSPIN_FLAG_PROCESS_IF_ANY_IN_RUN_STATE are mutually exclusive.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Flag</TH>
+<TH align=left width=52%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_DISPATCH_LEVEL_PROCESSING</TD>
+<TD width=52%>Indicates that the minidriver requests that the process dispatch to happen at IRQL DISPATCH_LEVEL instead of PASSIVE_LEVEL.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_CRITICAL_PROCESSING</TD>
+<TD width=52%>If asynchronous processing has been specified or if passive level processing is demanded and a process call comes in at dispatch level, processing is done in a queued work item. This flag indicates that the work item should be placed on the critical work queue as opposed to the delayed work queue.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_HYPERCRITICAL_PROCESSING</TD>
+<TD width=52%>If asynchronous processing has been specified or if passive level processing is demanded and a process call comes in at dispatch level, processing is done in a queued work item. This flag indicates that the work item should be placed on the hypercritical work queue as opposed to the delayed work queue or critical work queue.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_ASYNCHRONOUS_PROCESSING</TD>
+<TD width=52%>Indicates that the pin should process data asynchronously. If this flag is set, AVStream does not wait for one process dispatch to be called before proceeding with additional frames.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_DO_NOT_INITIATE_PROCESSING</TD>
+<TD width=52%>Indicates that the processing should never be initiated; the process dispatch provided in the dispatch table is never called. This is useful for clients that intend to directly poll the queue at, for example, DPC time to transport data to hardware.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_INITIATE_PROCESSING_ON_EVERY_ARRIVAL</TD>
+<TD width=52%>Indicates that processing should occur every time a data frame arrives into the queue. Without specifying this flag of KSPIN_FLAG_DO_NOT_INITIATE_PROCESSING, the process dispatch is only called when data arrives into a previously empty queue.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_FRAMES_NOT_REQUIRED_FOR_PROCESSING</TD>
+<TD width=52%>Indicates that frames are not required on this pin for processing to commence. This flag is useful only for filter-centric filters. Pins that do not specify this flag delay processing on the filter if they do not have available frames. Pins that do specify this flag do not delay processing in this manner. If a pin specifies this flag, it becomes the responsibility of the process dispatch to check for available frames.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_ENFORCE_FIFO</TD>
+<TD width=52%>Specifying this flag causes the queue to force IRPs to be handled in a first-in-first-out manner. If one IRP is completed by the minidriver prior to an IRP that was sent earlier, the later IRP is not completed by AVStream until the earlier IRP has been completed by the minidriver.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_GENERATE_MAPPINGS</TD>
+<TD width=52%>Indicates that scatter/gather mappings should be generated for devices that use scatter/gather DMA to transport data from the pin to hardware. Clients that intend to use this feature need to register their DMA adapter object with AVStream via the <A HREF="avfunc_8kdv.htm"><B>KsDeviceRegisterAdapterObject</B></A> function.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_DISTINCT_TRAILING_EDGE</TD>
+<TD width=52%>Indicates that the queue associated with the pin should have a trailing edge stream pointer. The trailing edge pointer is a special stream pointer that points to the oldest data in the queue unless clone pointers exist on older data. Any data frames in the window between the leading and trailing edge stream pointers are considered to have at least one reference count on them and are not completed until they move out of the window by advancing the trailing edge with <A HREF="avfunc_10hf.htm"><B>KsPinGetTrailingEdgeStreamPointer</B></A> and one of the <B>KsStreamPointerAdvance*</B> or <A HREF="avfunc_9pgz.htm"><B>KsStreamPointerUnlock</B></A> functions. Pins that do not specify this flag do not have a trailing edge stream pointer.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_PROCESS_IN_RUN_STATE_ONLY</TD>
+<TD width=52%>Indicates that this pin only processes data while in KSSTATE_RUN. Pins that specify this flag are never called upon to process while not in KSSTATE_RUN. Further, any pin that specifies this flag and is part of a filter-centric filter causes the filter not to process if the given pin is not in KSSTATE_RUN.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_SPLITTER</TD>
+<TD width=52%>Indicates that this pin (an output pin) is a splitter. Pins that specify this flag should indicate a number of possible instances greater than one. When a second instance of this pin is created, AVStream automatically sets up a splitter so that frames sent to the original pin are copied to the new pin. Note that this copying is done automatically by AVStream. Clients <B>typically</B> can ignore process pins that have nonNULL <B>DelegateBranch</B> and <B>CopySource</B> pointers. These members indicate that the pin is part of a splitter branch and is handled automatically by AVStream. In releases post-DirectX 8.0, this flag works for pins on both filter-centric and pin-centric filters. Older releases support this flag only for pins on filter-centric filters.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_USE_STANDARD_TRANSPORT</TD>
+<TD width=52%>This flag forces the pin to use the standard transport mechanism. It overrides all other checks (communication type, medium type, interface type, etc.) on the pin. Specifying both this flag and KSPIN_FLAG_DO_NOT_USE_STANDARD_TRANSPORT results in the standard transport being used. This flag overrides all other checks.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_DO_NOT_USE_STANDARD_TRANSPORT</TD>
+<TD width=52%>Indicates that the pin does not use the standard transport mechanism. Pins that do not use the standard transport mechanism will not belong to a pipe section and will not have associated queues.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_FIXED_FORMAT</TD>
+<TD width=52%>Indicates that this pin uses a fixed data format. Any attempt to set the data format returns STATUS_INVALID_DEVICE_REQUEST.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_GENERATE_EOS_EVENTS</TD>
+<TD width=52%>Indicates that this pin handles connection event support requests.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_RENDERER</TD>
+<TD width=52%>Specifies that this pin is capable of rendering frames.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_SOME_FRAMES_REQUIRED_FOR_PROCESSING</TD>
+<TD width=52%>When specified on a filter-centric filter pin, indicates that one or more instances of the pin type in question must have frames available in order to process data. Mutually exclusive with KSPIN_FLAG_FRAMES_NOT_REQUIRED_FOR_PROCESSING.
+<P>Note that this behavior can be obtained through <A HREF="avfunc_8mgj.htm"><B>KsPinAttachOrGate</B></A> by manually setting up an OR gate as the frame gate for every instance of the pin and attaching this OR gate to the filter's AND gate.</P>
+
+<P>When using this flag, minidrivers cannot call <A HREF="avfunc_796b.htm"><B>KsPinAttachAndGate</B></A> or <B>KsPinAttachOrGate</B> on the associated pin instances. (The flag effectively does this for you for the simple OR case.) Also see <A HREF="avsover_702v.htm">Filter-Centric Processing</A>.</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_PROCESS_IF_ANY_IN_RUN_STATE</TD>
+<TD width=52%>When specified on a filter-centric pin, indicates that processing may occur when one or more of the pin instances so flagged are in the run state. Note that all non-stopped pins still must be in at least pause to process data. The default behavior is to process in pause; KSPIN_FLAG_PROCESS_IN_RUN_STATE_ONLY allows this behavior to be changed to processing in run when all of the pin instances are in run. Also see <A HREF="avsover_702v.htm">Filter-Centric Processing</A>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPIN_FLAG_IMPLEMENT_CLOCK</TD>
+<TD width=52%>Indicates that this pin exposes a clock that can be selected by the graph manager as a master clock.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>InstancesPossible</B></DT>
+
+<DD>Specifies a value of type ULONG that contains a count of the maximum number of possible instances of this pin. Any attempt to instantiate more than this number of pins of the given type fails. Set to KSINSTANCE_INDETERMINATE to have no limit on number of pins instantiated.</DD>
+
+<DT><B>InstancesNecessary</B></DT>
+
+<DD>Specifies a value of type ULONG that contains a count of the number of instances of this pin type that are necessary for proper functioning of this filter. Any attempt to change the state of a filter that does not have this number of instances of this type of pin fails.</DD>
+
+<DT><B>AllocatorFraming</B></DT>
+
+<DD>Pointer to a <A HREF="ks-struct_7bub.htm">KSALLOCATOR_FRAMING_EX</A> structure containing the allocator framing requirements for this pin type. Allocator framing specifies items such as memory alignment requirements, maximum frame size, and minimum frame size. This member can be NULL, which indicates that this pin does not support the allocator framing property.</DD>
+
+<DT><B>IntersectHandler</B></DT>
+
+<DD>Pointer to the data-intersection handler function. If this member is NULL, the pin handles data intersection queries for data ranges with the specifier KSDATAFORMAT_SPECIFIER_NONE. The intersection handler function receives a single data range from the query and a single data range from the pins list of data ranges. The type, subtype, and specifier GUIDs of these ranges are guaranteed to match, though some may be wildcards. The function either indicates the data ranges do not match, or it produces the best data format in the intersection of the two data ranges. See <A HREF="avconcep_1wvb.htm">Data Range Intersections in AVStream</A> for more information.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ks.h</I>. Include <I>ks.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>This structure is available in Windows XP and later operating systems and in DirectX 8.0 and later versions.</P>
+
+<P>Note that the allocator framing requirements of your pin may be ignored despite the fact that your allocator framing specifies that alignment or size is absolutely required to be a certain value. If your kernel-mode driver is connected to an upstream user-mode filter that allocates for it and the particular upstream filter’s allocator does not understand framing requirements, this can happen (current particular examples include the MPEG-2 splitter).</P>
+
+<P>Further, if you specify KSPIN_FLAG_DO_NOT_INITIATE_PROCESSING and the pin uses the standard transport mechanism, you must have a processing object. This means there must be some process dispatch provided (either at the filter level or at the pin level); even if this function is never called, it must be provided in this circumstance. </P>
+
+<P><A HREF="avconcep_1wvb.htm">Data Range Intersections in AVStream</A> and <A HREF="avconcep_9msn.htm">Avstream Splitters</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="avstruct_4u9f.htm">KSPIN_DISPATCH</A>, <A HREF="ks-struct_9kqb.htm">KSPIN_DESCRIPTOR</A>, <A HREF="ks-struct_7bub.htm">KSALLOCATOR_FRAMING_EX</A>, <A HREF="avfunc_8kdv.htm"><B>KsDeviceRegisterAdapterObject</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: KSPIN_DESCRIPTOR_EX"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Computing the Size of Point Sprites</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Computing the Size of Point Sprites">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_computing_the_size_of_point_sprites_gg"></A>Computing the Size of Point Sprites</H3>
+
+<P>Point sprites are rendered by using the existing D3DPT_POINT primitive type. The size of point sprites can be controlled either through the new render state D3DRS_POINTSIZE or by the new FVF component D3DFVF_PSIZE.</P>
+
+<P>For vertices without the D3DFVF_PSIZE vertex component, the current value of the D3DRS_POINTSIZE render state should be used. Otherwise, the value specified in the vertex data should be used. In either case, the value is a floating-point number that is the size (width and height) of the rendered quad in rendering target pixels. The default value of the point size render state (1.0) is sent to the driver during initialization.</P>
+
+<P>Two render states control clamping of the computed point sprite size, D3DRS_POINTSIZE_MIN and D3DRS_POINTSIZE_MAX. The computed size of the point should be clamped to be no smaller than the size given by D3DRS_POINTSIZE_MIN and no larger than the size given by D3DRS_POINTSIZE_MAX. It is the driver’s responsibility to ensure that the point sprite size is clamped to the minimum and maximum sizes specified by the render states.</P>
+
+<P>For drivers that support hardware vertex processing, the size of point sprites may also be scaled based on the distance from the point to the eye (in eye space). Scaling of the point sprites is enabled by the new render state D3DRS_POINTSCALEENABLE. If the value of this render state is TRUE then the points are scaled according to the following parameters, the S<SUB>s</SUB> formula, and maximum/minimum determination. Note that in this case the application-specified point size is expressed in camera space units. This scaling is performed by drivers that support transform and lighting only.
+
+<DL>
+<DT>S<SUB>i</SUB></DT>
+
+<DD>Input point size (either per-vertex or D3DRS_POINTSIZE)</DD>
+
+<DT>A,B,C</DT>
+
+<DD>Point scale factors D3DRS_POINTSCALEA/B/C</DD>
+
+<DT>V<SUB>h</SUB></DT>
+
+<DD>Height of viewport (<B>dwHeight</B> field in D3D_VIEWPORT)</DD>
+
+<DT>P<SUB>e</SUB> = (X<SUB>e</SUB>, Y<SUB>e</SUB>, Z<SUB>e</SUB>)</DT>
+
+<DD>Eye space position of point</DD>
+
+<DT>D<SUB>e</SUB> = sqrt (X<SUB>e</SUB><SUP>2</SUP> + Y<SUB>e</SUB><SUP>2</SUP> + Z<SUB>e</SUB><SUP>2</SUP>)</DT>
+
+<DD>Distance from eye to position (eye at origin)</DD>
+
+<DT>S<SUB>s</SUB> = V<SUB>h</SUB> * S<SUB>i</SUB> * sqrt(1/(A + B*D<SUB>e</SUB> + C*(D<SUB>e</SUB><SUP>2</SUP>)))</DT>
+
+<DD>Screen space point size</DD>
+
+<DT>Smax</DT>
+
+<DD><B>MaxPointSize</B> (member of D3DCAPS8) device capability</DD>
+
+<DT>Smin</DT>
+
+<DD>D3DRS_POINTSIZE_MIN </DD>
+
+<DT>Final screen-space point size S =</DT>
+
+<DD>Smax if S<SUB>s</SUB> &gt; Smax
+
+<P>Smin if S<SUB>s</SUB> &lt; Smin
+
+
+<P>S<SUB>s</SUB> otherwise
+
+</DD>
+</DL>
+
+<P>Note that for the application to be drawing single pixel vertices, rather than point sprites, it must have the following render states set:</P>
+
+<PRE>SetRenderState (D3DRS_POINTSCALEENABLE, FALSE)
+// All textures must be turned off.
+SetTexture (0, NULL); 
+SetTextureStageState(1, D3DTSS_COLOROP,  D3DTOP_DISABLE);
+// The point size render state must be set to any value between 0.0-1.0
+SetRenderState(D3DRS_POINTSIZE, 1.0);
+// D3DRS_POINTSIZE_MIN and D3DRS_POINTSIZE_MAX
+// must be set appropriately to allow
+// D3DRS_POINTSIZE to be set to a value between 0.0-1.0</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Computing%20the%20Size%20of%20Point%20Sprites"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

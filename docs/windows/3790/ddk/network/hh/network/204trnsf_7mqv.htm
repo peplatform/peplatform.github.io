@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Indicating Receive Packets with NdisM(Co)IndicateReceivePacket</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Indicating Receive Packets with NdisM(Co)IndicateReceivePacket">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_indicating_receive_packets_with_ndism_co_indicatereceivepacket_ng"></A>Indicating Receive Packets with NdisM(Co)IndicateReceivePacket</H2>
+
+<P>To indicate receive data with <B>NdisM(Co)IndicateReceivePacket</B>, a miniport driver: 
+
+<UL>
+	<LI>Allocates and manages an array of packet descriptors (The miniport driver must allocate and set up a packet descriptor for a full network packet rather than a lookahead buffer. For more information, see <A HREF="203entry_8gyv.htm">Allocating Memory</A>.)</LI>
+
+	<LI>Fills the chained buffers with the received data</LI>
+
+	<LI>Calls <B>NdisM(Co)IndicateReceivePacket</B>, passing a pointer to the array of packet descriptors </LI>
+</UL>
+
+<P>Before calling <B>NdisMCoIndicateReceivePacket,</B> a connection-oriented miniport driver typically sets up and always activates a virtual connection (VC) on which to receive the data. When the remote party terminates the incoming call, the miniport driver deactivates and sometimes deletes the VC on which it received the data. For a description of VC creation activation, deactivation, and deletion, see <A HREF="202mini_0zjb.htm">Creating, Activating, Deactivating, and Deleting Virtual Connections</A>.</P>
+
+<P>The following figure illustrates indicating receive data with <B>NdisM(Co)IndicateReceivePacket</B>.</P>
+
+<P><IMG SRC="images/fig4_8.gif" ALT="" BORDER=0></P>
+
+<P><B>Indicating Receive Packets with NdisM(Co)IndicateReceivePacket</B></P>
+
+<P>The miniport driver passes status, such as the time a packet is received or sent, or other media-specific information, to upper layers by setting members in the out-of-band (OOB) data block associated with each packet descriptor. If the miniport driver is willing to let a protocol keep the packet and return it later to the miniport driver's <I>MiniportReturnPacket</I> function, the miniport driver must set the <B>Status</B> member of the OOB block to NDIS_STATUS_SUCCESS. If the miniport driver is running short of free packet descriptors or buffers and wants to force any interested upper layer driver to copy the packet data before <B>NdisM(Co)IndicateReceivePacket</B> returns, the miniport driver must set the <B>Status</B> member to NDIS_STATUS_RESOURCES. For more information, see <A HREF="204trnsf_46w7.htm">Packet Out-of-Band Data</A>. </P>
+
+<P>A serialized miniport driver must always check the <B>Status</B> member in the OOB block that is associated with each packet descriptor when <B>NdisM(Co)IndicateReceivePacket</B> returns:
+
+<UL>
+	<LI>If the <B>Status</B> member is anything except NDIS_STATUS_PENDING, the packet descriptor and all the resources it describes are returned to the miniport driver. </LI>
+
+	<LI>If the <B>Status</B> member is NDIS_STATUS_PENDING, ownership of the miniport-allocated packet resources transfers to the protocol driver or to the intermediate protocol driver until the packet descriptor is returned to the miniport’s <I>MiniportReturnPacket</I> function. </LI>
+
+	<LI>If the miniport driver sets the <B>Status</B> member for any packet in the array to NDIS_STATUS_RESOURCES before calling <B>NdisM(Co)IndicateReceivePacket</B>, that packet will be returned to the miniport driver after higher level drivers have copied the data in the indicated packets. The <B>Status</B> member for all such packets will be set to NDIS_STATUS_SUCCESS.</LI>
+</UL>
+
+<P>A deserialized miniport driver must not examine the <B>Status</B> of indicated packets on return of <B>NdisM(Co)IndicateReceivePacket</B>. Instead, a deserialized miniport driver must save a packet’s <B>Status</B> in a local variable before indicating up the packet descriptor. When <B>NdisM(Co)IndicateReceivePacket</B> returns, the miniport driver should check the saved packet <B>Status</B>. If the miniport driver set the packet's <B>Status</B> to NDIS_STATUS_RESOURCES before indicating up the packet descriptor, it should reclaim the packet descriptor immediately after <B>NdisM(Co)IndicateReceivePacket</B> returns, preferably by calling its own <I>MiniportReturnPacket</I> function. In this case, NDIS does not call the miniport driver’s <I>MiniportReturnPacket</I> function to return the packet descriptor. If the miniport driver set the packet's <B>Status</B> to NDIS_STATUS_SUCCESS before indicating up the packet descriptor, the miniport driver must not reclaim the packet descriptor until NDIS subsequently returns the packet descriptor to the miniport driver's <I>MiniportReturnPacket</I> function.</P>
+
+<P>A miniport driver that manages a bus-master DMA NIC typically indicates packets by calling <B>NdisM(Co)IndicateReceivePacket</B> because its NIC usually has sufficient ring buffer space to receive multiple packets. The miniport driver improves performance by processing several packets at a time.</P>
+
+<P>Usually, a miniport driver for any other type of network interface card (NIC), such as a programmed I/O (PIO) NIC or an adapter-shared-memory NIC, calls <B>NdisM(Co)IndicateReceivePacket</B> only if it needs to pass priority, media-specific information, or the receive time. A non-DMA NIC typically receives only one packet at a time and must be reset between single receives. The miniport driver for such a device can indicate up only one packet at a time with <B>NdisM(Co)IndicateReceivePacket</B>. </P>
+
+<P>Because the miniport driver passes ownership of the packets up when it calls <B>NdisM(Co)ndicateReceivePacket</B>, it must manage its receive buffers well to ensure that buffers are available when new data arrives on the network. Typically, the miniport driver preallocates, in its <I>MiniportInitialize</I> function, a few more buffers than required for the ring buffer and allocates sufficient buffer descriptors to map these buffers and a few packet descriptors for making receive indications.</P>
+
+<H4>Handling a Resource Problem</H4>
+
+<P>If a miniport driver determines that it is running low on receive buffer space, it can use either of the following strategies: 
+
+<UL>
+	<LI>When it calls <B>NdisM(Co)IndicateReceivePacket</B>, the miniport driver should set the <B>Status</B> member of the OOB block to NDIS_STATUS_RESOURCES for each packet descriptor that it does not want the protocol to keep. This tells NDIS that the miniport driver will not give up ownership of the packet's resources to the protocol driver to which the packet is indicated. NDIS ensures that the packet is copied by the protocol driver rather than passed to the protocol driver. If the miniport driver is serialized, NDIS calls the <I>ProtocolReceive</I> function rather than <I>ProtocolReceivePacket </I>function, forcing the protocol driver to copy the packet. If the miniport driver is a deserialized, NDIS calls the protocol driver’s <I>Protocol(Co)ReceivePacket</I> function. When the protocol determines that the <B>Status</B> member of the OOB block is set to NDIS_STATUS_RESOURCES, it copies the packet. Because the miniport driver does not have to provide a <I>MiniportTransferData</I> function if it supports the multipacket receive paradigm described here, NDIS intercepts the protocol driver’s transfer request and performs the transfer.</LI>
+
+	<LI>The miniport driver maintains a high-water mark and low-water mark for its set of free buffers. When the number of buffers approaches the low-water mark, the miniport driver calls <A HREF="103ndisx_3fg2.htm"><B>NdisMAllocateSharedMemoryAsync</B></A> to allocate more buffers, and then it calls <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A> to allocate buffer descriptors to map these buffers. Unlike <A HREF="103ndisx_1ywi.htm"><B>NdisMAllocateSharedMemory</B></A>, which can be called only at IRQL &lt; DISPATCH_LEVEL, <B>NdisMAllocateSharedMemoryAsync</B> can be called at IRQL = DISPATCH_LEVEL, even in the <I>MiniportHandleInterrupt</I> function. When the set of free buffers exceeds the high-water mark, the miniport driver calls <A HREF="103ndisx_9fjm.htm"><B>NdisMFreeSharedMemory</B></A> to free excess buffers, and then it calls <A HREF="103ndisx_044y.htm"><B>NdisFreeBuffer</B></A> to free the buffer descriptors that map these buffers.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Indicating%20Receive%20Packets%20with%20NdisM(Co)IndicateReceivePacket"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,43 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Deregistering a Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_dxddk_deregistering_a_driver_dsound"></A>Deregistering a Driver</H3>
+
+<P>The driver must deregister with DirectSound whenever the device is removed or when the system is shutting down. The configuration manager sends either CONFIG_STOP, CONFIG_SHUTDOWN, or CONFIG_REMOVE to the configuration handler. The driver must respond by undoing all the things done by the registration function: deregistering with DirectSound, unloading the Dsound.vxd module, and freeing any memory that was allocated for the <B>IDsDriver</B> interface. It is best to deregister the driver from DirectSound early in the handling of these CONFIG messages since DirectSound assumes the driver can be accessed through its <B>IDsDriver</B> interface until it deregisters. </P>
+
+<P>The following example shows how a driver would deregister itself with DirectSound. The <B>Impl_DsShutdown</B> function would be called from the CONFIG_STOP, CONFIG_SHUTDOWN, and CONFIG_REMOVE handlers in the audio driver. </P>
+
+<PRE>Impl_DsShutdown( DEVNODE dn )
+{
+    PDRIVERCONTEXT pDriverContext;
+
+    // Retrieve pDriverContext from dn.
+    pDriverContext = Impl_GetDriverContext( dn );
+    if( pDriverContext )
+    {
+        // Destroy record of pDriverContext (since we're killing it).
+        Impl_SetDriverContext( dn, NULL );
+
+        // Deregister with DirectSound. 
+        DSOUND_DeregisterDeviceDriver( (PIDSDRIVER)pDriverContext, 0 );
+
+        // Unload DSOUND.VXD module.
+        VXDLDR_UnloadDevice( pDriverContext-&gt;pdiDSoundVxd-&gt;DI_DeviceID,
+                             pDriverContext-&gt;pdiDSoundVxd-&gt;DI_ModuleName );
+
+        // Free DRIVERCONTEXT structure.
+        HeapFree( pDriverContext, 0 );
+        }
+}
+</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Deregistering%20a%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

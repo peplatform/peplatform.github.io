@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>VideoPortVerifyAccessRanges</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="VideoPortVerifyAccessRanges">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_videoportverifyaccessranges_gg"></A>VideoPortVerifyAccessRanges</H1>
+
+<P>The <B>VideoPortVerifyAccessRanges</B> function checks the registry for whether another driver has already claimed ownership of the specified bus-relative access ranges and any other hardware resources specified in the <A HREF="vstrcts_459j.htm">VIDEO_PORT_CONFIG_INFO</A> structure. If not, this function claims the given resources for the caller.</P>
+
+<PRE class=syntax><B>VP_STATUS
+  VideoPortVerifyAccessRanges(
+    IN</B> <B>PVOID</B>  <I>HwDeviceExtension</I><B>,
+    IN</B> <B>ULONG</B>  <I>NumAccessRanges</I><B>,
+    IN</B> <B>PVIDEO_ACCESS_RANGE</B>  <I>AccessRanges</I><B>
+    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>HwDeviceExtension</I></DT>
+
+<DD>Pointer to the miniport driver's device extension.</DD>
+
+<DT><I>NumAccessRanges</I></DT>
+
+<DD>Specifies the number of elements in the <I>AccessRanges</I> array, or zero.</DD>
+
+<DT><I>AccessRanges</I></DT>
+
+<DD>Pointer to the miniport driver's access ranges array, or NULL. Each <A HREF="vstrcts_6h0n.htm">VIDEO_ACCESS_RANGE</A>-type element in this array specifies a bus-relative range of device memory, I/O ports, or register addresses for the adapter.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>VideoPortVerifyAccessRanges</B> returns one of the following values:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=50%>Value</TH>
+<TH align=left width=50%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%>ERROR_INVALID_PARAMETER</TD>
+<TD width=50%>An error occurred or a conflict was found; that is, another driver has already claimed one or more of the given hardware resources for its device.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=50%>NO_ERROR</TD>
+<TD width=50%>The given <I>AccessRanges</I> are valid and have been claimed for use by the caller.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>video.h</I>. Include <I>video.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Every video miniport driver either must call <B>VideoPortVerifyAccessRanges</B>, or use access ranges returned by <A HREF="vpfncs_22lj.htm"><B>VideoPortGetAccessRanges</B></A> before attempting to access a video adapter during the driver (and system) initialization process.</P>
+
+<P><B>VideoPortVerifyAccessRanges</B> can be called only by a miniport driver's <A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A> function.</P>
+
+<P>Every video miniport driver must define the bus-relative access ranges for its device, either as statically allocated memory in the driver's header file or code or on the stack. Most miniport drivers set up their video access ranges on the stack, except for those that use PC standard address ranges for video memory, such as VGA-compatible SVGA miniport drivers.</P>
+
+<P>The <I>HwVidFindAdapter</I> function should try to obtain bus-relative access range information by calling <A HREF="vpfncs_22lj.htm"><B>VideoPortGetAccessRanges</B></A>, or by checking the registry through calls to <A HREF="vpfncs_9353.htm"><B>VideoPortGetDeviceData</B></A> or <A HREF="vpfncs_8a07.htm"><B>VideoPortGetRegistryParameters</B></A>. If <A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A> cannot get this information, the miniport driver should have a set of bus-relative default values for access ranges.</P>
+
+<P>If a miniport driver's access ranges are externally configurable, the installation program sets up access ranges for the adapter in the registry. Such a miniport driver's <I>HwVidFindAdapter</I> function can call <B>VideoPortGetRegistryParameters</B> with a miniport driver-supplied <A HREF="vmpfncs_4ucn.htm"><I>HwVidQueryNamedValueCallback</I></A> function that processes information retrieved from the registry.</P>
+
+<P><A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A> must not pass any access range addresses to <A HREF="vpfncs_87mv.htm"><B>VideoPortGetDeviceBase</B></A> unless it calls <B>VideoPortVerifyAccessRanges</B> or <A HREF="vpfncs_22lj.htm"><B>VideoPortGetAccessRanges</B></A> first and the respective function returns NO_ERROR.</P>
+
+<P><B>VideoPortVerifyAccessRanges</B> can be called again if the initial <I>AccessRanges</I> specification or value in the <A HREF="vstrcts_459j.htm">VIDEO_PORT_CONFIG_INFO</A>, such as an interrupt vector, causes it to return an ERROR_<I>XXX</I> indicating that another driver has already claimed the resource(s).</P>
+
+<P>If <B>VideoPortVerifyAccessRanges</B> returns NO_ERROR, a subsequent call for the same adapter overwrites the miniport driver's claim on resources for that adapter in the registry.</P>
+
+<P>Note that a miniport driver cannot communicate with its video adapter, except by using mapped addresses returned by <A HREF="vpfncs_87mv.htm"><B>VideoPortGetDeviceBase</B></A> with the <B>VideoPortRead/Write</B><I>Xxx</I> functions.</P>
+
+<P>If the <A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A> function claims bus-relative access ranges and possibly other hardware resources for an adapter but then determines that it does not support the adapter, the miniport driver must relinquish its claims on hardware resources in the registry by calling <B>VideoPortVerifyAccessRanges</B> or <A HREF="vpfncs_22lj.htm"><B>VideoPortGetAccessRanges</B></A> with <I>NumAccessRanges</I> set to zero and <I>AccessRanges</I> set to NULL.</P>
+
+<P>To relinquish claims on a subset of claimed access ranges that the miniport driver is no longer using, do the following:
+
+<OL>
+	<LI>Modify the <I>AccessRanges</I> specification for the adapter so that each element describing a range to be released still has <B>RangeStart</B> set to the bus-relative base of a claimed range, but <B>RangeLength</B> reset to zero.</LI>
+
+	<LI>Call <B>VideoPortVerifyAccessRanges</B> with this modified <I>AccessRanges</I> array.</LI>
+</OL>
+
+<P>Callers of <B>VideoPortVerifyAccessRanges</B> must be running at IRQL = PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A>, <A HREF="vmpfncs_2m93.htm"><I>HwVidQueryDeviceCallback</I></A>, <A HREF="vmpfncs_4ucn.htm"><I>HwVidQueryNamedValueCallback</I></A>, <A HREF="vstrcts_6h0n.htm">VIDEO_ACCESS_RANGE</A>, <A HREF="vstrcts_459j.htm">VIDEO_PORT_CONFIG_INFO</A>, <A HREF="vpfncs_22lj.htm"><B>VideoPortGetAccessRanges</B></A>, <A HREF="vpfncs_87mv.htm"><B>VideoPortGetDeviceBase</B></A>, <A HREF="vpfncs_9353.htm"><B>VideoPortGetDeviceData</B></A>, <A HREF="vpfncs_8a07.htm"><B>VideoPortGetRegistryParameters</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: VideoPortVerifyAccessRanges"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,149 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IoRegisterPlugPlayNotification</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IoRegisterPlugPlayNotification">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_interface_classes_dg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ioregisterplugplaynotification_kr"></A>IoRegisterPlugPlayNotification</H1>
+
+<P>The <B>IoRegisterPlugPlayNotification</B> routine registers a driver callback routine to be called when a PnP event of the specified category occurs.</P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>IoRegisterPlugPlayNotification(</B>
+    <B>IN IO_NOTIFICATION_EVENT_CATEGORY</B>  <I>EventCategory</I><B>,</B>
+    <B>IN ULONG</B>  <I>EventCategoryFlags</I><B>,</B>
+    <B>IN PVOID</B>  <I>EventCategoryData</I>  <B>OPTIONAL,</B>
+    <B>IN PDRIVER_OBJECT</B>  <I>DriverObject</I><B>,</B>
+    <B>IN PDRIVER_NOTIFICATION_CALLBACK_ROUTINE</B>  <I>CallbackRoutine</I><B>,</B>
+    <B>IN PVOID</B>  <I>Context</I><B>,</B>
+    <B>OUT PVOID </B> <B>*</B><I>NotificationEntry</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>EventCategory</I></DT>
+
+<DD>Specifies the category of PnP event for which the callback routine is being registered. <I>EventCategory</I> must be one of the following: 
+
+<DL>
+<DT><B>EventCategoryDeviceInterfaceChange</B></DT>
+
+<DD>PnP events in this category include the arrival (enabling) of a new instance of a <A HREF="JavaScript:hhobj_1.Click()">device interface class</A> (GUID_DEVICE_INTERFACE_ARRIVAL), or the removal (disabling) of an existing device interface instance (GUID_DEVICE_INTERFACE_REMOVAL).</DD>
+
+<DT><B>EventCategoryHardwareProfileChange</B></DT>
+
+<DD>PnP events in this category include query-change (GUID_HWPROFILE_QUERY_CHANGE), change-complete (GUID_HWPROFILE_CHANGE_COMPLETE), and change-cancel (GUID_HWPROFILE_CHANGE_CANCELLED) of a hardware profile. </DD>
+
+<DT><B>EventCategoryTargetDeviceChange</B></DT>
+
+<DD>PnP events in this category include events related to removing a device: the device's drivers received a query-remove IRP (GUID_TARGET_DEVICE_QUERY_REMOVE), the drivers completed a remove IRP (GUID_TARGET_DEVICE_REMOVE_COMPLETE), or the drivers received a cancel-remove IRP (GUID_TARGET_DEVICE_REMOVE_CANCELLED). This category is also used for custom notification events. </DD>
+</DL>
+</DD>
+
+<DT><I>EventCategoryFlags</I></DT>
+
+<DD>Specifies flags that modify the registration operation. Possible values include:
+
+<DL>
+<DT>PNPNOTIFY_DEVICE_INTERFACE_INCLUDE_EXISTING_INTERFACES</DT>
+
+<DD>Only valid with an <I>EventCategory</I> of <B>EventCategoryDeviceInterfaceChange</B>. If set, the PnP Manager calls the driver callback routine for each device interface instance that is currently registered and active and registers the callback routine for future arrivals or removals of device interface instances.</DD>
+</DL>
+</DD>
+
+<DT><I>EventCategoryData</I></DT>
+
+<DD>Pointer to further information about the events for which <I>CallbackRoutine</I> is being registered. The information varies for different <I>EventCategory</I> values:
+
+<UL>
+	<LI>When <I>EventCategory</I> is <B>EventCategoryDeviceInterfaceChange</B>, <I>EventCategoryData</I> must point to a GUID specifying a device interface class. <I>CallbackRoutine</I> will be called when an interface of that class is enabled or removed. </LI>
+
+	<LI>When <I>EventCategory</I> is <B>EventCategoryHardwareProfileChange</B>, <I>EventCategoryData</I> must be NULL.</LI>
+
+	<LI>When <I>EventCategory</I> is <B>EventCategoryTargetDeviceChange</B>, <I>EventCategoryData</I> must point to the file object for which PnP notification is requested.</LI>
+</UL>
+</DD>
+
+<DT><I>DriverObject</I></DT>
+
+<DD>Pointer to the caller's driver object. 
+
+<P>To ensure that the driver remains loaded while it is registered for PnP notification, this call increments the reference count on <I>DriverObject</I>. The PnP Manager decrements the reference count when this registration is removed.
+</DD>
+
+<DT><I>CallbackRoutine</I></DT>
+
+<DD>Pointer to the routine to be called when the specified PnP event occurs.
+
+<P>A callback routine has the following type:
+
+
+<PRE>typedef NTSTATUS (*PDRIVER_NOTIFICATION_CALLBACK_ROUTINE) (
+    IN PVOID NotificationStructure,
+    IN PVOID Context
+    );</PRE>
+
+
+<P>The <I>NotificationStructure</I> is specific to the <I>EventCategory</I>. For example, a callback routine for an <B>EventCategoryDeviceInterfaceChange</B> receives a DEVICE_INTERFACE_CHANGE_NOTIFICATION structure.
+
+
+<P>The <I>Context</I> parameter contains the context data the driver supplied during registration.
+
+
+<P>The PnP Manager calls driver callback routines at IRQL&nbsp;= PASSIVE_LEVEL. 
+</DD>
+
+<DT><I>Context</I></DT>
+
+<DD>Pointer to a caller-allocated buffer containing context that the PnP Manager passes to the callback routine.</DD>
+
+<DT><I>NotificationEntry</I></DT>
+
+<DD>Pointer to an opaque value returned by this call that identifies the registration. Pass this value to <A HREF="k104_00qa.htm"><B>IoUnregisterPlugPlayNotification</B></A> to remove the registration. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>IoRegisterPlugPlayNotification</B> returns STATUS_SUCCESS or an appropriate error status.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A driver registers for an event category. Each category includes one or more PnP events. </P>
+
+<P>A driver can register different callback routines for different event categories or can register a single callback routine. A single callback routine can cast the <I>NotificationStructure</I> to a PLUGPLAY_NOTIFICATION_HEADER and use the <B>Event</B> field to determine the exact type of the notification structure.</P>
+
+<P>Notification callback routines should complete their tasks as quickly as possible and return control to the PnP Manager, to prevent delays in notifying other drivers and applications that have registered for the event.</P>
+
+<P>The PnP Manager does not take out a reference on the file object when a driver registers for notification of an <B>EventCategoryTargetDeviceChange</B>. If the driver's notification callback routine requires access to the file object, the driver should take out an extra reference on the file object before calling <B>IoRegisterPlugPlayNotification</B>.</P>
+
+<P>For more information, see <A HREF="plugplay_32xz.htm">Using PnP Notification</A>.</P>
+
+<P>Callers of <B>IoRegisterPlugPlayNotification</B> must be running at IRQL&nbsp;= PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k112_1j02.htm">DEVICE_INTERFACE_CHANGE_NOTIFICATION</A>, <A HREF="k112_438y.htm">HWPROFILE_CHANGE_NOTIFICATION</A>, <A HREF="k104_00qa.htm"><B>IoUnregisterPlugPlayNotification</B></A>, <A HREF="k112_3q42.htm">PLUGPLAY_NOTIFICATION_HEADER</A>, <A HREF="k112_3p4i.htm">TARGET_DEVICE_CUSTOM_NOTIFICATION</A>, <A HREF="k112_53ea.htm">TARGET_DEVICE_REMOVAL_NOTIFICATION</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IoRegisterPlugPlayNotification"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

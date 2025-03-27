@@ -1,0 +1,73 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisClMakeCall</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisClMakeCall">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndisclmakecall_nr"></A>NdisClMakeCall</H1>
+
+<P><B>NdisClMakeCall</B> sets up an outgoing call on a client-created VC. </P>
+
+<PRE class=syntax><B>NDIS_STATUS
+  NdisClMakeCall(
+    IN NDIS_HANDLE</B>  <I>NdisVcHandle</I><B>,</B>
+    <B>IN OUT</B> <B>PCO_CALL_PARAMETERS</B>  <I>CallParameters</I><B>,</B>
+    <B>IN NDIS_HANDLE</B>  <I>ProtocolPartyContext</I>  <B>OPTIONAL,</B>
+    <B>OUT PNDIS_HANDLE</B>  <I>NdisPartyHandle</I>  <B>OPTIONAL
+    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>NdisVcHandle</I></DT>
+
+<DD>Specifies the handle returned by a preceding call to <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A>.</DD>
+
+<DT><I>CallParameters</I></DT>
+
+<DD>Pointer to a structure of type <A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A> in which the caller has specified the attributes for this connection, such as the address of the target for the call, latency, bandwidth, and quality of service if the network medium and address family supported by the call manager permits QoS specifications. </DD>
+
+<DT><I>ProtocolPartyContext</I></DT>
+
+<DD>Optionally specifies a caller-supplied handle to a resident context area in which the client will maintain per-party state for the initial party on its multipoint VC. This parameter is NULL if the given VC does not represent a multipoint connection. For a multipoint VC, NDIS passes this handle back to the client's ProtocolCl<I>Xxx</I> functions in all subsequent calls that affect this particular party. </DD>
+
+<DT><I>NdisPartyHandle</I></DT>
+
+<DD>Pointer to a caller-supplied variable, usually in the caller-allocated party context area, in which NDIS returns a handle representing the initial party to the multipoint connection if the request to set up an outgoing call is successful. If <I>ProtocolPartyContext</I> is NULL, this variable, usually in the client's VC context area, also is set to NULL on completion of outgoing-call setup. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>When <B>NdisClMakeCall</B> returns anything other than NDIS_STATUS_PENDING, the client should make an internal call to its <A HREF="104tdlow_3qia.htm"><I>ProtocolClMakeCallComplete</I></A> function. Otherwise, NDIS calls the client's <I>ProtocolClMakeCallComplete</I> function when this operation is completed.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>NdisClMakeCall</B> sets up the attributes of a client-created VC for a client-initiated outgoing call. The client must set up the VC with <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A> before it attempts to make an outgoing call. </P>
+
+<P>A call to <B>NdisClMakeCall</B> causes NDIS to forward this request to the <A HREF="104tdlow_20oi.htm"><I>ProtocolCmMakeCall</I></A> function of the call manager with which the client shares the given <I><U>NdisVcHandle</U></I>. The CM is responsible for validating the given data at <I>CallParameters</I>. It can modify this client-supplied data while negotiating with relevant network components and can return different traffic parameters than the client originally gave to <B>NdisClMakeCall</B>. The client's <A HREF="104tdlow_3qia.htm"><I>ProtocolClMakeCallComplete</I></A> function is responsible for accepting the modified call parameters if this occurs or for tearing down the call if the CM's proposed call parameters are unacceptable. </P>
+
+<P>Consequently, the data at <I>CallParameters</I> must remain available to the call manager at least for the duration of call setup. The client cannot free this buffer when <B>NdisClMakeCall</B> returns NDIS_STATUS_PENDING. It must defer releasing this client-allocated resource until its <I>ProtocolClMakeCallComplete</I> function is called. </P>
+
+<P>If <B>NdisClMakeCall</B> sets up a multipoint connection, the client is establishing the traffic parameters globally for the given VC, unless the underlying network medium supports per-party traffic parameters. For example, no matter how many parties a client subsequently adds on an ATM multipoint VC with <A HREF="103ndisx_5fua.htm"><B>NdisClAddParty</B></A>, these parties will all share the same traffic parameters on their multipoint connection. A client on an ATM network cannot specify bandwidth, QoS, and so forth, as <I>CallParameters</I> on a per-party basis. In addition, if a client on an ATM network changes the QoS on an established multipoint VC with <A HREF="103ndisx_7jhu.htm"><B>NdisClModifyCallQoS</B></A>, its change affects all parties on the multipoint VC. </P>
+
+<P>The client's <I>ProtocolClMakeCallComplete</I> function should check the input <I>Status</I> for NDIS_STATUS_SUCCESS before it uses any returned handle at <I>NdisPartyHandle</I>. If the call manager fails the request to set up a call on a multipoint connection, the value of this client-supplied variable is invalid. </P>
+
+<P>Callers of <B>NdisClMakeCall</B> can be running at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A>, <A HREF="103ndisx_72wi.htm"><B>NdisAllocateFromNPagedLookasideList</B></A>, <A HREF="103ndisx_5fua.htm"><B>NdisClAddParty</B></A>, <A HREF="103ndisx_7rsi.htm"><B>NdisClCloseCall</B></A>, <A HREF="103ndisx_7jhu.htm"><B>NdisClModifyCallQoS</B></A>, <A HREF="103ndisx_3zzm.htm"><B>NdisCmActivateVc</B></A>, <A HREF="103ndisx_460i.htm"><B>NdisCmMakeCallComplete</B></A>, <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A>, <A HREF="104tdlow_3qia.htm"><I>ProtocolClMakeCallComplete</I></A>, <A HREF="104tdlow_20oi.htm"><I>ProtocolCmMakeCall</I></A>  </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisClMakeCall"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

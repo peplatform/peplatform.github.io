@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Splitting Transfer Requests</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Splitting Transfer Requests">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_splitting_transfer_requests_kg"></A>Splitting Transfer Requests</H1>
+
+<P>Any driver might need to split up a transfer request and carry out more than one DMA transfer operation to satisfy a given IRP, depending on the following:
+
+<UL>
+	<LI>The number of <A HREF="memmgmt_5ag7.htm">map registers</A> returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A></LI>
+
+	<LI>The bytes of data to be transferred, contained in the <B>Length</B> member of the driver's I/O stack location for the IRP</LI>
+
+	<LI>The number of page boundaries, in system physical memory, for the buffer into which or from which the driver is to transfer data</LI>
+
+	<LI>Device-specific constraints on the driver's DMA operations. For example, the system “AT” disk driver must split up transfer requests for more than 256 sectors due to the disk controller’s limitations. </LI>
+</UL>
+
+<P>A driver can determine the number of map registers needed to transfer all the data specified by an IRP as follows:
+
+<OL>
+	<LI>Call <A HREF="k106_5nhu.htm"><B>MmGetMdlVirtualAddress</B></A>, passing a pointer to the MDL at <B>Irp-&gt;MdlAddress</B>, to get the starting virtual address for the buffer. Note that a driver <I>must</I> <I>not</I> attempt to access memory using this virtual address. The value returned by <B>MmGetMdlVirtualAddress</B> is an index into the MDL, not necessarily a valid address.</LI>
+
+	<LI>Pass the returned index and the value of <B>Length</B> in the driver's I/O stack location of the IRP to the <A HREF="k106_8ofm.htm">ADDRESS_AND_SIZE_TO_SPAN_PAGES</A> macro.</LI>
+</OL>
+
+<P>If the value returned by ADDRESS_AND_SIZE_TO_SPAN_PAGES is greater than the <I>NumberOfMapRegisters</I> value returned by <B>IoGetDmaAdapter</B>, the driver cannot transfer all requested data for this IRP in a single DMA operation. Instead, it must do the following:
+
+<OL>
+	<LI>Split the buffer into pieces that are sized to suit the number of available map registers (and any device-specific DMA constraints).</LI>
+
+	<LI>Carry out as many DMA operations as it takes to satisfy the transfer request.</LI>
+</OL>
+
+<P>For example, suppose ADDRESS_AND_SIZE_TO_SPAN_PAGES indicates that twelve map registers are needed to satisfy a transfer request, but the <I>NumberOfMapRegisters</I> value returned by <B>IoGetDmaAdapter</B> is only five. (Assume no device-specific DMA constraints.) In this case, the driver must carry out three DMA transfer operations, calling <A HREF="kdma_1hv6.htm"><B>MapTransfer</B></A> three times to transfer all the data requested by the IRP.</P>
+
+<P>The system's DMA device drivers use various techniques to split up a DMA transfer when there are not enough map registers to satisfy an IRP with a single I/O operation. One technique to use is the following:
+
+<OL>
+	<LI>Call <A HREF="k104_3c8i.htm"><B>IoAllocateMdl</B></A> to allocate an MDL describing a portion of the user buffer. </LI>
+
+	<LI>Call <A HREF="k106_8ble.htm"><B>MmProbeAndLockPages</B></A> to lock down that portion of the user buffer. </LI>
+
+	<LI>Transfer the data for that portion of the buffer. </LI>
+
+	<LI>Call <A HREF="k106_0l6a.htm"><B>MmUnlockPages</B></A> and do either of the following: 
+<UL>
+	<LI>If the MDL that the driver allocated in Step 1 is large enough for the next piece of the transfer, call <A HREF="k106_1auq.htm"><B>MmPrepareMdlForReuse</B></A> and repeat Steps 2 through 4.</LI>
+
+	<LI>Otherwise, call <A HREF="k104_7cfm.htm"><B>IoFreeMdl</B></A> and repeat Steps 1 through 4. </LI>
+</UL>
+</LI>
+
+	<LI>Call <A HREF="k106_0l6a.htm"><B>MmUnlockPages</B></A> and <A HREF="k104_7cfm.htm"><B>IoFreeMdl</B></A> when all the data has been transferred. </LI>
+</OL>
+
+<P>If a highest-level driver cannot lock down the entire user buffer with <A HREF="k106_8ble.htm"><B>MmProbeAndLockPages</B></A> in a machine with limited memory, it can do the following: 
+
+<OL>
+	<LI>Call <A HREF="k104_61pu.htm"><B>IoBuildSynchronousFsdRequest</B></A> to allocate a partial-transfer IRP and lock down a portion of the user buffer. The locked-down area is usually either a multiple of PAGE_SIZE or is sized to suit the underlying device’s transfer capacity. </LI>
+
+	<LI>Call <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A> for the partial-transfer IRP, and call <A HREF="k105_40c2.htm"><B>KeWaitForSingleObject</B></A> to wait on an event object that the driver set up to be associated with its partial-transfer IRP, if lower drivers return STATUS_PENDING. </LI>
+
+	<LI>When it regains control, repeat Steps 1 and 2 until all the data has been transferred, and, then, complete the original IRP. </LI>
+</OL>
+
+<P>When a storage class driver splits up large transfer requests for underlying SCSI port/miniport drivers, it allocates an additional IRP for each piece of the transfer request. It registers an <A HREF="drvrrtns_4rsi.htm"><I>IoCompletion</I></A> routine for each driver-allocated IRP, to track the status of the full transfer request and to free the driver-allocated IRPs. Then it sends these IRPs on to the port driver using <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A>.</P>
+
+<P>Other class/port drivers can use this technique only if the class driver can determine how many map registers are available to the port driver. The port driver must store this configuration information in the registry for the paired class driver, or the paired drivers must define a private interface, using internal device I/O control requests, to pass configuration information about the number of available map registers from the port driver to the class driver.</P>
+
+<P>A monolithic driver (that is, a driver not part of a class/port pair) for a DMA device must split up large transfer requests for itself. Such drivers usually split a large request into pieces and carry out a sequence of DMA operations in order to satisfy the IRP.</P>
+
+<P>If a transfer request is too large for the underlying device driver to handle, a higher-level driver can call <A HREF="k106_5nhu.htm"><B>MmGetMdlVirtualAddress</B></A> and <A HREF="k104_96eq.htm"><B>IoBuildPartialMdl</B></A>, then set up a sequence of partial-transfer IRPs for underlying device drivers. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Splitting%20Transfer%20Requests"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AVStream Child Devices</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="AVStream Child Devices">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_avstream_child_devices_ksg"></A>AVStream Child Devices</H3>
+
+<P><I>This section applies to Windows Server 2003 and earlier operating systems only if DirectX 9.0 or later is installed on that platform.</I></P>
+
+<P>If your AVStream class device places an <B>Enum</B> branch in the registry under its device key, AVStream behaves as a bus enumerator for the device, creating a child device for each key in the <B>Enum</B> branch.</P>
+
+<P>In the <B>AddReg</B> section of the driver's INF file, the vendor supplies a value <I>pnpid</I> of type REG_SZ for each entry under <B>Enum</B>. AVStream uses this string value to construct a Plug and Play (PnP) hardware ID for each individual child device.</P>
+
+<P>In releases earlier than DirectX 9.0, AVStream creates a child device hardware ID of the form "AVStream\<I>&lt;pnpid&gt;</I>" (where &lt;pnpid&gt; is the value of <I>pnpid</I> for the specific device).</P>
+
+<P>For example, the vendor specifies the following in the <B>AddReg</B> section of the INF file:</P>
+
+<PRE>[MyTVDevice.AddReg]
+HKR,"ENUM\CrossbarDevice",pnpid,,"MyCrossbar"
+HKR,"ENUM\TunerDevice",pnpid,,"MyTuner"</PRE>
+
+<P>Accordingly, AVStream creates two child devices with the following device IDs:</P>
+
+<P class=indent1>AVStream\MyCrossbar</P>
+
+<P class=indent1>AVStream\MyTuner</P>
+
+<P>To resolve possible ambiguity from two different child devices specifying the same <I>pnpid</I> value, DirectX 9.0 and later change the IDs reported for each of the child devices. For each hardware ID reported by the parent device, AVStream creates an ID for the child device of the following form:</P>
+
+<P class=indent1>AVStream\<I>&lt;pnpid&gt;</I>#<I>&lt;modified parent hardware ID&gt;</I></P>
+
+<P>The modified parent hardware ID is the parent hardware ID with each backslash (<B>\</B>) character replaced by the number sign (<B>#</B>).</P>
+
+<P>If the resulting string is too long, AVStream terminates the ID string at MAX_DEVICE_ID_LEN characters, including the NULL terminator. In Windows Server 2003, this limit is set to 200 characters in <I>cfgmgr32.h</I>.</P>
+
+<P>For example, a parent device reports the following hardware IDs:</P>
+
+<P class=indent1>PCI\VEN_XXXX&amp;DEV_YYYY&amp;SUBSYS_ZZZZZZZZ&amp;REV_VV</P>
+
+<P class=indent1>PCI\VEN_XXXX&amp;DEV_YYYY&amp;SUBSYS_ZZZZZZZZ</P>
+
+<P>For a device with a <I>pnpid</I> key of <B>MyCrossbar</B>, AVStream creates the following child device hardware IDs:</P>
+
+<P class=indent1>AVStream\MyCrossbar#PCI#VEN_XXXX&amp;DEV_YYYY&amp;SUBSYS_ZZZZZZZZ&amp;REV_VV</P>
+
+<P class=indent1>AVStream\MyCrossbar#PCI#VEN_XXXX&amp;DEV_YYYY&amp;SUBSYS_ZZZZZZZZ</P>
+
+<P>AVStream uses the same process for compatible IDs reported by the parent device. AVStream creates a compatible ID for the child device of the form:</P>
+
+<P class=indent1>AVStream\<I>&lt;pnpid&gt;</I>#<I>&lt;modified parent compatible ID&gt;</I></P>
+
+<P>The name modification and length rules for compatible IDs are identical to those for hardware IDs.</P>
+
+<P>For example, if the parent device described previously reports the following compatible IDs:</P>
+
+<P class=indent1>PCI\VEN_XXXX&amp;DEV_YYYY&amp;REV_VV</P>
+
+<P class=indent1>PCI\VEN_XXXX&amp;DEV_YYYY</P>
+
+<P class=indent1>PCI\VEN_XXXX&amp;CC_ZZZZZZ</P>
+
+<P class=indent1>PCI\VEN_XXXX&amp;CC_ZZZZ</P>
+
+<P class=indent1>PCI\VEN_XXXX</P>
+
+<P class=indent1>PCI\CC_ZZZZZZ</P>
+
+<P class=indent1>PCI\CC_ZZZZ</P>
+
+<P>The <B>MyCrossbar</B> child device would report through AVStream the following compatible IDs:</P>
+
+<P class=indent1>AVStream\MyCrossbar#PCI#VEN_XXXX&amp;DEV_YYYY&amp;REV_VV</P>
+
+<P class=indent1>AVStream\MyCrossbar#PCI#VEN_XXXX&amp;DEV_YYYY</P>
+
+<P class=indent1>AVStream\MyCrossbar#PCI#VEN_XXXX&amp;CC_ZZZZZZ</P>
+
+<P class=indent1>AVStream\MyCrossbar#PCI#VEN_XXXX&amp;CC_ZZZZ</P>
+
+<P class=indent1>AVStream\MyCrossbar#PCI#VEN_XXXX</P>
+
+<P class=indent1>AVStream\MyCrossbar#PCI#CC_ZZZZZZ</P>
+
+<P class=indent1>AVStream\MyCrossbar#PCI#CC_ZZZZ</P>
+
+<P class=indent1>AVStream\MyCrossbar</P>
+
+<P class=note><B>Note:</B>&nbsp;&nbsp;In DirectX 9.0 and later, the legacy hardware ID, AVStream\<I>&lt;pnpid&gt;</I>, is still reported as the lowest rank compatible ID. As a result, legacy drivers continue to work unmodified on these platforms.</P>
+
+<P class=note>However, as of the DirectX 9.0 release, Microsoft recommends that vendors writing<I> new or revised drivers that leverage the AVStream class bus enumerator use the new hardware ID formats</I>. Drivers can support platforms running earlier versions of AVStream by including the old ID in the compatible IDs list in the INF file.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: AVStream%20Child%20Devices"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

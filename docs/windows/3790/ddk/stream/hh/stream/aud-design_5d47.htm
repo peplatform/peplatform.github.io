@@ -1,0 +1,30 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Content IDs and Content Rights</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Content IDs and Content Rights">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_content_ids_and_content_rights_ksg"></A>Content IDs and Content Rights</H3>
+
+<P>A content ID (identifier) is a ULONG value that the <A HREF="aud-design_1kiv.htm#ddk_drmk_system_driver_ksg">DRMK system driver</A> generates at runtime to identify DRM-protected content in the audio-data stream that feeds into a particular pin.</P>
+
+<P>Content rights are a digital representation of the rights granted by the content provider to the user for playing and copying DRM-protected content. Content rights are specified in the form of a <A HREF="aud-prop_8kz7.htm">DRMRIGHTS</A> structure that DRMK passes to the audio driver.</P>
+
+<P>DRMRIGHTS contains two flags: <I>DigitalOutputDisable</I> and <I>CopyProtect</I>. If the <I>DigitalOutputDisable</I> flag is set, the driver must disable any digital outputs that connect to external devices (through an S/PDIF connector, for example). If the <I>CopyProtect</I> flag is set, the driver must disable features that might allow a persistent copy of the secure content to be saved to disk or to any other form of nonvolatile storage. For example, typical audio hardware allows a playback signal to be routed through the capture channel. If this signal is in digital form, the captured signal may be a perfect digital copy of the input signal. If the playback mix contains data from any stream that has a <I>CopyProtect</I> flag set, the driver must mute the playback-capture path.</P>
+
+<P>A DRM-compliant audio driver must support the <A HREF="audmp-routines_1sj7.htm"><B>IDrmAudioStream</B></A> interface on its WaveCyclic and WavePci miniport objects, which expose sink pins for rendering audio data. In order to obtain a reference to an <B>IDrmAudioStream</B> object from the driver, DRMK calls the <B>QueryInterface</B> method on the pin. The pin has an interface of type <A HREF="audmp-routines_5jxv.htm"><B>IMiniPortWaveCyclicStream</B></A> or <A HREF="audmp-routines_6otv.htm"><B>IMiniportWavePciStream</B></A>. The <B>IDrmAudioStream</B> interface supports only one method, <B>SetContentId</B> (in addition to the three <B>IUnknown</B> methods). When DRMK calls <B>SetContentId</B>, it passes in a content ID and content rights, which the driver associates with the pin's data stream.</P>
+
+<P>Instead of calling the DRM functions in <I>drmk.sys</I> directly, a WaveCyclic or WavePci miniport driver can access the DRM functions through the <A HREF="audmp-routines_38s3.htm"><B>IDrmPort2</B></A> interface (<B>IDrmPort2</B> is derived from base class <A HREF="audmp-routines_7rn7.htm"><B>IDrmPort</B></A>). In Windows&nbsp;XP and later, the WaveCyclic and WavePci port drivers support <B>IDrmPort2</B>. The miniport driver obtains a reference to the port driver's <B>IDrmPort2</B> interface by calling the port object's <B>QueryInterface</B> method with REFIID <B>IID_IDrmPort2</B>.</P>
+
+<P>Some audio drivers support hardware mixing and can handle several input data streams at the same time. This type of driver must keep track of both the content IDs for the individual streams and the composite content rights of all the streams. The driver calls <A HREF="audmp-routines_5cc3.htm"><B>IDrmPort2::CreateContentMixed</B></A> to determine the composite rights for a mixed stream and to create a content ID to identify that stream. When the driver finishes using the content ID, it must call <A HREF="audmp-routines_4hbn.htm"><B>IDrmPort2::DestroyContent</B></A> to delete the content ID.</P>
+
+<P>Each time an input stream is added to or removed from a mixer, the driver must delete the content ID for the old mix and create a new content ID for the new mix. Before deleting an old content ID, the driver must first successfully forward a new content ID to all the streams to which it previously forwarded the old content ID. For more information, see <A HREF="aud-design_5vaf.htm">Forwarding DRM Content IDs</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Content%20IDs%20and%20Content%20Rights"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

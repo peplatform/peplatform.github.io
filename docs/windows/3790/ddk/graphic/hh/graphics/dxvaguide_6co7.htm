@@ -1,0 +1,168 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DeinterlaceOpenStream</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DeinterlaceOpenStream">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_deinterlaceopenstream_gg"></A><I>DeinterlaceOpenStream</I></H1>
+
+<P>The sample <I>DeinterlaceOpenStream</I> function creates and opens a deinterlace stream object.</P>
+
+<PRE class=syntax><B>HRESULT
+</B>  <I>DeinterlaceOpenStream</I><B>(</B>
+    <B>IN  LPGUID</B>  <I>pGuidDeinterlaceMode</I>,
+    <B>IN  LPDXVA_VideoDesc</B>  <I>lpVideoDescription</I>,
+    <B>OUT  HDXVA_DeinterlaceStream</B>*  <I>lphDiStrm</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>pGuidDeinterlaceMode</I></DT>
+
+<DD>Pointer to the GUID that specifies the deinterlace mode. The GUID is the deinterlace type requested.</DD>
+
+<DT><I>lpVideoDescription</I></DT>
+
+<DD>Pointer to a <A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A> structure that indicates the type of video to be deinterlaced or rate-converted. This pointer is passed to the driver so that the driver can support the resolution and format of the source video. For example, the driver might be able to perform a three-field adaptive deinterlace of 480i content, but it might only be able to bob 1080i content. All drivers should be able to support bob using the existing blt hardware.</DD>
+
+<DT><I>lphDiStrm</I></DT>
+
+<DD>Pointer to a handle to the deinterlace stream object. This handle should be used to identify this stream in all future calls.</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>After a deinterlace mode GUID has been found, the deinterlace stream object can be created. This object allows a device driver to reserve any hardware resources that are required to perform the requested deinterlace operations.</P>
+
+<P>This function uses a driver-supplied DXVA_DeinterlaceStream structure to define the stream object. The handle to the DXVA_DeinterlaceStream structure should be used to identify the stream object in all future calls. The DXVA_DeinterlaceStream structure is a data structure that must be defined by your driver to store data required by the driver to deinterlace the video data in the deinterlace stream object.</P>
+
+<H4>Mapping CreateMoComp to <I>DeinterlaceOpenStream</I></H4>
+
+<P>The sample <I>DeinterlaceOpenStream</I> function maps directly to the <B>CreateMoComp</B> member of the <A HREF="ddstrcts_0qav.htm">DD_MOTIONCOMPCALLBACKS</A> structure, where the GUID is the deinterlace type requested. The <B>lpData</B> member of the <A HREF="ddstrcts_6jon.htm">DD_CREATEMOCOMPDATA</A> structure points to a <A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A> structure. </P>
+
+<P>The following sample code shows how your driver should map the driver-supplied callback pointed to by <B>CreateMoComp</B> into calls to <I>DeinterlaceOpenStream</I>. The code shows only how the function pointed to by <B>CreateMoComp</B> is used for deinterlacing. If your driver supports other DirectX VA functions, such as decoding MPEG-2 video streams, extend the following sample code to include processing of additional DirectX VA GUIDs.</P>
+
+<PRE>DWORD APIENTRY CreateMoComp( PDD_CREATEMOCOMPDATA lpData )
+{
+// DXVA_DeinterlaceStream is a data structure defined
+// by your driver to store any data required for your 
+// driver to deinterlace this particular video data 
+//
+ LPDXVA_DeinterlaceStream pDXVA_State = NULL;
+
+ // Make sure it’s a GUID we like.
+ if (FAILED(ValidDXVAGuid(lpData-&gt;lpGuid))) {
+  lpData-&gt;ddRVal = E_INVALIDARG;
+  return DDHAL_DRIVER_HANDLED;
+ }
+
+ // Look for the deinterlace container device GUID
+ if (*lpData-&gt;lpGuid == DXVA_DeinterlaceContainerDevice) {
+  DXVA_DeinterlaceContainerDeviceClass* lpDev =
+   new DXVA_DeinterlaceContainerDeviceClass(*lpData-&gt;lpGuid,
+          DXVA_DeviceContainer);
+  if (lpDev) {
+   lpData-&gt;ddRVal = DD_OK;
+  }
+  else {
+   lpData-&gt;ddRVal = E_OUTOFMEMORY;
+  }
+  lpData-&gt;lpMoComp-&gt;lpDriverReserved1 = 
+       (LPVOID)(DXVA_DeviceBaseClass*)lpDev;
+  return DDHAL_DRIVER_HANDLED;
+ }
+
+ // Look for the deinterlace bob device GUID
+ if (*lpData-&gt;lpGuid == DXVA_DeinterlaceBobDevice) {
+  DXVA_DeinterlaceBobDeviceClass* lpDev =
+   new DXVA_DeinterlaceBobDeviceClass(*lpData-&gt;lpGuid, 
+         DXVA_DeviceDeinterlacer);
+  if (lpDev) {
+   LPDXVA_VideoDesc lpVideoDescription = 
+        (LPDXVA_VideoDesc)lpData-&gt;lpData;
+   lpData-&gt;ddRVal = lpDev-&gt;DeinterlaceOpenStream( 
+          lpVideoDescription);
+   if (lpData-&gt;ddRVal != DD_OK) {
+    delete lpDev;
+    lpDev = NULL;
+   }
+  }
+  else lpData-&gt;ddRVal = E_OUTOFMEMORY;
+  
+  lpData-&gt;lpMoComp-&gt;lpDriverReserved1 = 
+       (LPVOID)(DXVA_DeviceBaseClass*)lpDev;
+  return DDHAL_DRIVER_HANDLED;
+ }
+
+ lpData-&gt;ddRVal = DDERR_CURRENTLYNOTAVAIL;
+ return DDHAL_DRIVER_HANDLED;
+}</PRE>
+
+<H4>Implementing GetMoCompGuids</H4>
+
+<P>In addition to mapping the driver-supplied callback pointed to by <B>CreateMoComp</B> to the sample <I>DeinterlaceOpenStream</I> function, your driver should also implement the <B>GetMoCompGuids</B> member of the <A HREF="ddstrcts_0qav.htm">DD_MOTIONCOMPCALLBACKS</A> structure. The following sample code shows one way to implement <B>GetMoCompGuids</B> in your driver.</P>
+
+<PRE>// This is the list of all DirectX VA device GUIDs
+// supported by the driver - this list will include decoder,
+// deinterlacing and the deinterlacing container device.
+// There is no significance to the order of the GUIDs on 
+// the list.
+//
+DWORD g_dwDXVANumSupportedGUIDs = 4;
+const GUID* g_DXVASupportedGUIDs[4] = {
+ &amp;DXVA_DeinterlaceContainerDevice,
+ &amp;DXVA_Deinterlace3Samples,
+ &amp;DXVA_Deinterlace2Samples,
+ &amp;DXVA_DeinterlaceBobDevice
+};
+
+// This is the list of deinterlacing devices, in order
+// of visual quality.
+//
+DWORD g_dwDXVADeinterlaceNumSupportedGUIDs = 3;
+const GUID* g_DXVADeinterlacedSupportedGUIDs[3] = {
+// replace this GUID with your own implementation
+ &amp;DXVA_Deinterlace3Samples,
+// replace this GUID with your own implementation
+ &amp;DXVA_Deinterlace2Samples, 
+// everyone has to support bob
+ &amp;DXVA_DeinterlaceBobDevice
+};
+
+DWORD APIENTRY
+GetMoCompGuids(
+ PDD_GETMOCOMPGUIDSDATA lpData
+ )
+{
+ DWORD dwNumToCopy;
+
+// Check to see if this is a GUID request or a count request
+ if (lpData-&gt;lpGuids) {
+  dwNumToCopy = min(g_dwDXVANumSupportedGUIDs, 
+        lpData-&gt;dwNumGuids);
+  for (DWORD i = 0; i &lt; dwNumToCopy; i++) {
+   lpData-&gt;lpGuids[i] = *g_DXVASupportedGUIDs[i];
+  }
+ }
+ else {
+  dwNumToCopy = g_dwDXVANumSupportedGUIDs;
+ }
+
+ lpData-&gt;dwNumGuids = dwNumToCopy;
+ lpData-&gt;ddRVal = DD_OK;
+ return DDHAL_DRIVER_HANDLED;
+}</PRE>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddstrcts_0qav.htm">DD_MOTIONCOMPCALLBACKS</A>, <A HREF="ddstrcts_6jon.htm">DD_CREATEMOCOMPDATA</A>, <A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DeinterlaceOpenStream"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

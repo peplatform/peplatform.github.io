@@ -1,0 +1,71 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>USB Configuration Descriptors</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="USB Configuration Descriptors">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_usb_configuration_descriptors_kg"></A>USB Configuration Descriptors</H2>
+
+<P>A configuration of USB device consists of a series of <I>interfaces</I>. Each interface consists of one or more <I>alternate settings</I>, and each alternate setting is made up of a set of <I>endpoints</I>. </P>
+
+<P>An interface, or any of its alternate settings, specifies a class code, subclass, and protocol. Each endpoint of an interface describes a single stream of input or output for the device.</P>
+
+<P>A device that supports the input or output of several different kinds of data has multiple interfaces. A device that supports several streams of the same kind of data, supports multiple endpoints on a single interface.</P>
+
+<P>To obtain all this information from the device, drivers request the device's configuration descriptor. When the device returns the configuration descriptor, it also returns an <I>interface descriptor</I> for each interface or alternate setting, and an <I>endpoint descriptor</I> for each endpoint.</P>
+
+<P>The driver can collect this information in two steps. The driver can issue the request to get the configuration descriptor, and pass a buffer big enough to hold the configuration descriptor alone. From the configuration descriptor, the driver can determine what size buffer is needed to hold all of the configuration information. The driver then issues the same request with the bigger buffer.</P>
+
+<P>The <A HREF="usbfunc_3t0y.htm"><B>UsbBuildGetDescriptorRequest</B></A> routine builds the necessary request. The bus driver returns the configuration descriptor in a USB_CONFIGURATION_DESCRIPTOR structure. This structure specifies the total length of configuration information in its <B>wTotalLength</B> member.</P>
+
+<P>A device may support multiple configurations, numbered starting at zero. It reports the number of configurations it supports in its device descriptor. See <A HREF="usb-config_767b.htm">USB Device Descriptors</A> for details.</P>
+
+<P>The following code demonstrates how to request the configuration information for the <I>i</I>-th configuration:</P>
+
+<PRE>USB_CONFIGURATION_DESCRIPTOR UCD, *pFullUCD;
+UsbBuildGetDescriptorRequest(
+    pURB, // points to the URB to be filled in
+    sizeof(_URB_CONTROL_DESCRIPTOR_REQUEST),
+    USB_CONFIGURATION_DESCRIPTOR_TYPE,
+    i, // number of configuration descriptor
+    0, // this parameter not used for configuration descriptors
+    &amp;UCD, // points to a USB_CONFIGURATION_DESCRIPTOR
+    NULL,
+    sizeof(USB_DEVICE_DESCRIPTOR),
+    NULL
+);
+pFullUCD = ExAllocatePool(NonPagedPool, UCD.wTotalLength);
+UsbBuildGetDescriptorRequest(
+    pURB, // points to the URB to be filled in
+    sizeof(_URB_CONTROL_DESCRIPTOR_REQUEST),
+    USB_CONFIGURATION_DESCRIPTOR_TYPE,
+    i, // number of configuration descriptor
+    0, // this parameter not used for configuration descriptors
+    pFullUCD, // points to a USB_CONFIGURATION_DESCRIPTOR
+    NULL,
+    UCD.wTotalLength,
+    NULL
+);</PRE>
+
+<P>Each interface descriptor is stored in a <A HREF="usbstrct_7j1u.htm">USB_INTERFACE_DESCRIPTOR</A> structure. The driver returns one interface descriptor for each interface or alternate setting. The zero-based <B>bInterfaceNumber</B> member of <A HREF="usbstrct_7j1u.htm">USB_INTERFACE_DESCRIPTOR</A> distinguishes interfaces within a configuration. For a given interface the zero-based <B>bAlternateSetting</B> member distinguishes between alternate settings of the interface. Each endpoint descriptor is stored in a <A HREF="usbstrct_3wvm.htm">USB_ENDPOINT_DESCRIPTOR</A> structure. </P>
+
+<P>When a device reports a configuration, each interface descriptor is followed in memory by all of the endpoint descriptors for the interface and alternate setting. The device returns interface descriptors in order of <B>bInterfaceNumber</B> values and then in order of <B>bAlternateSetting</B> values.</P>
+
+<P>For example, consider a device that supports a configuration with two interfaces, and the first interface supports two alternate settings. The configuration information is laid out in memory as follows:</P>
+
+<P><IMG SRC="images/usbconfig.gif" ALT="" BORDER=0></P>
+
+<P><B>Example of Configuration Descriptor Layout</B></P>
+
+<P>The operating system provides a helper function, <A HREF="usbfunc_4dyq.htm"><B>USBD_ParseConfigurationDescriptorEx</B></A>, to search for a given interface descriptor within the configuration. The driver provides a starting position within the configuration, and optionally an interface number, an alternate setting, a class, a subclass, or a protocol. The routine returns a pointer to the next matching interface descriptor.</P>
+
+<P>To examine a configuration descriptor for an endpoint or string descriptor, use the <A HREF="usbfunc_7mpe.htm"><B>USBD_ParseDescriptors</B></A> routine. The caller provides a starting position within the configuration and a descriptor type, such as USB_STRING_DESCRIPTOR_TYPE or USB_ENDPOINT_DESCRIPTOR_TYPE. The routine returns a pointer to the next matching descriptor.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: USB%20Configuration%20Descriptors"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

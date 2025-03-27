@@ -1,0 +1,47 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Prolog Code for AMD 64 Bit</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_prolog_code_for_amd_64_bit_kg"></A>Prolog Code for AMD 64 Bit</H4>
+
+<P>Every function that allocates stack space, calls other functions, saves nonvolatile registers, or uses exception handling, must have prolog code whose address limits are described in the unwind data associated with the respective function table entry. (For more information, see <A HREF="64bitamd_9hrb.htm">Exception Handling for AMD 64 Bit</A>.) The prolog saves argument registers in their home addresses if required, pushes nonvolatile registers on the stack, allocates the fixed part of the stack for locals and temporaries, and optionally establishes a frame pointer. The associated unwind data must describe the action of the prolog and must provide the information necessary to undo the effect of the prolog code.</P>
+
+<P>If the fixed allocation in the stack is more than one page (that is, greater than 4096 bytes), then the stack allocation can span more than one virtual memory page. Thus, the allocation must be checked before it is actually allocated. A special routine that is callable from the prolog and that does not destroy any of the argument registers is provided for this purpose.</P>
+
+<P>The preferred method for saving nonvolatile registers is to move them onto the stack before the fixed stack allocation. If the fixed stack allocation were performed before the nonvolatile registers were saved, then most probably a 32-bit displacement would be required to address the saved register area. (According to AMD, register pushes are just as fast as moves and will remain so for the foreseeable future, in spite of the implied dependency between pushes). Nonvolatile registers can be saved in any order; however, the first use of a nonvolatile register in the prolog must be to save the nonvolatile register.</P>
+
+<P>The following is example code for a typical prolog:</P>
+
+<PRE>mov   [RSP + 8], RCX
+push    R15
+push    R14
+push    R13
+sub   RSP, fixed-allocation-size
+lea   R13, 128[RSP]
+...</PRE>
+
+<P>The preceding prolog code stores the argument register RCX in its home location, saves nonvolatile registers R13-R15, allocates the fixed part of the stack frame, and establishes a frame pointer that points 128 bytes into the fixed allocation area. (Using an offset allows more of the fixed allocation area to be addressed with one byte offsets.)</P>
+
+<P>If the fixed allocation size is greater than or equal to one page of memory, then the prolog code must call a helper function before modifying RSP. This helper, __chkstk, is responsible for probing the to-be-allocated stack range to ensure that the stack is extended properly. In that case, the prolog example code would be the following:</P>
+
+<PRE>mov   [RSP + 8], RCX
+push    R15
+push    R14
+push    R13
+mov   RAX,  fixed-allocation-size
+call    __chkstk
+sub   RSP, RAX
+lea   R13, 128[RSP]
+...</PRE>
+
+<P>The __chkstk helper does not modify any registers other than R10, R11, and the condition codes. In particular, it will return RAX unchanged and leave all nonvolatile registers and argument-passing registers unmodified.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Prolog%20Code%20for%20AMD%2064%20Bit"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,74 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>MmLockPagableDataSection</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="MmLockPagableDataSection">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_mmlockpagabledatasection_kr"></A>MmLockPagableDataSection</H1>
+
+<P>The <B>MmLockPagableDataSection</B> routine locks an entire section of driver data into system space.</P>
+
+<PRE class=syntax><B>PVOID 
+</B>  <B>MmLockPagableDataSection(</B>
+<B>    IN PVOID</B>  <I>AddressWithinSection</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>AddressWithinSection</I></DT>
+
+<DD>Specifies the symbolic address of one item of data within the pageable section.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>MmLockPagableDataSection</B> returns a handle to the section. This handle must be passed subsequently to <B>MmLockPagableSectionByHandle</B> or to <B>MmUnlockPagableImageSection</B>.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P>This routine, <B>MmLockPagableSectionByHandle</B> and <B>MmUnlockPagableImageSection</B> are used by drivers to make data pageable but locked in memory on demand.</P>
+
+<P>Data can be pageable if:
+
+<UL>
+	<LI>The data is accessed at &lt;DISPATCH_LEVEL.</LI>
+
+	<LI>The driver uses the data infrequently and predictably.</LI>
+</UL>
+
+<P>Drivers for mixer devices use pageable-data sections. Because the driver uses sufficient data to make creating a pageable-data section worthwhile and the driver knows when the data is needed, such a driver uses <B>MmLockPagableDataSection</B>,  <B>MmLockPagableSectionByHandle</B> and <B>MmUnlockPagableImageSection</B> to bring a data section into system space when needed and make it available to be paged out when not needed.</P>
+
+<P>A single call to <B>MmLockPagableDataSection</B> causes the entire section, containing the referenced data, to be locked into system space.</P>
+
+<P>It is an expensive operation to lock down a section. If a pageable-data section is locked down in more than one place by a driver, use <B>MmLockPagableDataSection</B> for the first request. Make subsequent lock requests by calling <B>MmLockPagableSectionByHandle</B>, passing the handle returned by <B>MmLockPagableDataSection</B>. Locking by handle significantly improves driver performance. A locked down section is unlocked by calling <B>MmUnlockPagableImageSection</B>.</P>
+
+<P>The memory manager maintains a reference count on the handle to a section. A pageable-data section is only available to be paged out when the reference count is zero. Every lock request increments the count; every unlock request decrements the count. A driver must unlock a section as many times as it locks a section to insure that such a section will be available to be paged out when the section is not needed. A handle is always valid, no matter what the count. If the count on a handle is zero and a call is made to <B>MmLockPagableSectionByHandle</B>, the count is set to one, and if the section has been paged out, it will be paged in.</P>
+
+<P>Callers of <B>MmLockPagableDataSection </B>and <B>MmLockPagableCodeSection</B> must use the former for data sections and the latter for code sections. If the incorrect form of <B>MmLockPagable<I>Xxxx</I>Section</B> is used, a fatal error will occur on some platforms.</P>
+
+<P>Data in a pageable-data section is marked by a compiler directive. To create a pageable data section, use <B>#pragma data_seg (“PAGE”</B>), at the beginning of the data module, and <B>#pragma data_seg () </B>at the end of the module. The keyword <B>PAGE</B> is case-sensitive, that is, <B>PAGE</B> must be capitalized.</P>
+
+<P>Note that there is also a <B>#pragma data_seg(“INIT”) </B>that is used to make data discardable after system initialization. Except for the use of <B>INIT</B> rather than <B>PAGE</B>, the syntax is the same. However the result is not; use of the <B>PAGE</B> directive makes the data section pageable. When the <B>INIT</B> directive is used, the data in the section is discarded as soon as the driver returns from its driver entry routine or its reinitialization routine if the driver has one.</P>
+
+<P>For more information about paging data, see <A HREF="memmgmt_6i07.htm">Making Drivers Pageable</A>.</P>
+
+<P>Callers of <B>MmLockPagableDataSection</B> run at IRQL&nbsp;= PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k106_2dde.htm"><B>MmLockPagableCodeSection</B></A>, <A HREF="k106_5vea.htm"><B>MmLockPagableSectionByHandle</B></A>, <A HREF="k106_7os2.htm"><B>MmPageEntireDriver</B></A>, <A HREF="k106_70s2.htm"><B>MmResetDriverPaging</B></A>, <A HREF="k106_5jxu.htm"><B>MmUnlockPagableImageSection</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: MmLockPagableDataSection"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Accessing Shared State Information</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Accessing Shared State Information">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_accessing_shared_state_information_kg"></A>Accessing Shared State Information</H3>
+
+<P>Use the following general guidelines for designing and writing <A HREF="drvrrtns_4m2a.htm"><I>SynchCritSection</I></A> routines that maintain state: 
+
+<UL>
+	<LI>To access data that an ISR also accesses, a driver routine <I>must</I> call a <I>SynchCritSection</I> routine. Non-critical section code can be interrupted. Remember that it is not sufficient to simply acquire a spin lock to protect data that ISRs also access, because ISRs execute at DIRQL and acquiring a spin lock (<A HREF="k105_40qa.htm"><B>KeAcquireSpinLock</B></A>) only raises IRQL to DISPATCH_LEVEL, which allows an interrupt to invoke the ISR on the current processor. </LI>
+
+	<LI>Give each <I>SynchCritSection</I> routine that maintains state information responsibility for a discrete set of state variables. That is, avoid writing <I>SynchCritSection</I> routines that maintain overlapping state information.
+<P>This prevents contention, and possibly race conditions, between <I>SynchCritSection</I> routines (and the ISR) trying to access the same state concurrently.
+
+<P>This also ensures that each <I>SynchCritSection</I> routine returns control as quickly as possible because one <I>SynchCritSection</I> routine never has to wait for another that updates some of the same state information to return control.
+</LI>
+
+	<LI>Avoid writing a single, large, general-purpose <I>SynchCritSection</I> routine that does more testing of conditions to determine what to do than actually doing useful work. On the other hand, avoid having many <I>SynchCritSection</I> routines that never execute a conditional statement because each updates only a single byte of state information.</LI>
+
+	<LI>Every <I>SynchCritSection</I> routine must return control as quickly as possible, because running any <I>SynchCritSection</I> routine prevents the driver’s ISR from executing.</LI>
+</UL>
+
+<P>Following is a technique for maintaining a timer counter in a device extension. Assume the driver uses the counter to determine if an I/O operation has timed out. Also assume the driver does not overlap I/O operations.
+
+<UL>
+	<LI>The driver's <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A> routine initializes the timer counter to some initial value for each I/O request. The driver then adds a second to its device-time-out value, in case its <A HREF="drvrrtns_7h9u.htm"><I>IoTimer</I></A> routine has just returned control.</LI>
+
+	<LI>The driver's ISR must set this timer counter to minus one.</LI>
+
+	<LI>The driver's <I>IoTimer</I> routine is called once per second to read the time counter and determine whether the ISR has already set it to minus one. If not, the <I>IoTimer</I> routine decrements the counter by using <A HREF="k105_99rm.htm"><B>KeSynchronizeExecution</B></A> to call a SynchCritSection_1 routine.
+<P>If the counter goes to zero, indicating that the request timed out, the SynchCritSection_1 routine calls a SynchCritSection_2 routine to program a device reset operation. If the counter is minus one, the <I>IoTimer</I> routine simply returns.
+</LI>
+
+	<LI>If the driver’s <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> routine must reprogram the device to begin a partial-transfer operation, it must reinitialize the timer counter as the <I>StartIo</I> routine did.
+<P>The <I>DpcForIsr</I> routine also must use <B>KeSynchronizeExecution</B> to call the SynchCritSection_2 routine, or possibly a SynchCritSection_3 routine, to program the device for another transfer operation.
+</LI>
+</UL>
+
+<P>In this scenario, the driver has more than one <I>SynchCritSection</I> routine, each with discrete, specific responsibilities; one to maintain its timer counter, and one or more others to program the device. Each <I>SynchCritSection</I> routine can return control quickly because it performs a single, discrete task.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp; that the driver has a single SynchCritSection_1 routine which, along with the driver’s ISR, maintains the state to the timer counter. Thus, there is no contention for access to the timer counter among several <I>SynchCritSection</I> routines and the ISR.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Accessing%20Shared%20State%20Information"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,42 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Controlling Device Namespace Access</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Controlling Device Namespace Access">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_controlling_device_namespace_access_kg"></A>Controlling Device Namespace Access</H2>
+
+<P>In the Windows Driver Model (WDM), every device object  has an associated <I>namespace</I>.  Names in the device's namespace are paths that begin with the device's name.  For a device named "<I>\Device\DeviceName</I>", its namespace consists of any name of the form "<I>\Device\DeviceName\FileName</I>".  (For a file system, <I>FileName</I> is an actual name of a file on the file system.)  </P>
+
+<P>A WDM driver receives open requests for all names in the device's namespace. The driver treats an open request for <I>"\Device\DeviceName"</I> as an open of the device object itself.  If the driver implements support for open requests into the device's namespace,  then it treats an open request for <I>"\Device\DeviceName\FileName"</I> as an open of a "file" within the device object's namespace (where the notion of "file" for the device is driver-determined).  </P>
+
+<P>Most drivers do not implement support for open operations into the device's namespace, but all drivers must provide security checks to prevent unauthorized access to the device's namespace. By default, security checks for file open requests within the device's namespace, (for example, "<I>\Device\DeviceName\FileName</I>") are left entirely up to the driver – the device object ACL is <I>not</I> checked by the operating system. </P>
+
+<P>If a device object's FILE_DEVICE_SECURE_OPEN characteristic is set, the system applies the device object's security descriptor to all file open requests in the device's namespace.  Drivers can set FILE_DEVICE_SECURE_OPEN when they create the device object with <A HREF="k104_8piq.htm"><B>IoCreateDevice</B></A> or <A HREF="k104_1ycy.htm"><B>IoCreateDeviceSecure</B></A>.  For WDM drivers, FILE_DEVICE_SECURE_OPEN  can also be set in the registry.  It can also be set in the registry for device objects of non-WDM drivers that are created by <B>IoCreateDeviceSecure</B>.  For more information about setting device object properties, such as the device characteristics, in the registry, see <A HREF="devobjts_3bxj.htm">Setting Device Object Properties in the Registry</A>.  For more information about device characteristics, see <A HREF="devobjts_7usn.htm">Specifying Device Characteristics</A>.</P>
+
+<P>Drivers for devices that do not support namespaces must use one of two methods to ensure that file open requests within the device's namespace are handled correctly:
+
+<UL>
+	<LI>The driver's device objects have the FILE_DEVICE_SECURE_OPEN device characteristic set.  The driver can then treat any open request into the device's namespace as an open request for the device object.</LI>
+
+	<LI>The driver  can fail any <A HREF="k113_02lu.htm">IRP_MJ_CREATE</A> requests that specify an <B>IrpSp-&gt;FileObject-&gt;FileName</B> parameter whose length is nonzero. In this case, open requests for the device are subject to the system's ACL check, while all file open requests within the device's namespace are failed by the driver.  (Drivers that support exclusive opens must use this option.)</LI>
+</UL>
+
+<P>Drivers for devices that <I>do</I> support namespaces can also use two methods to secure file open requests into the device's namespace:
+
+<UL>
+	<LI>The driver's device objects have the FILE_DEVICE_SECURE_OPEN device characteristic set.  This ensures that the security settings for the device apply uniformly to the device's namespace.  (The driver is responsible for implementing support for the namespace in its <A HREF="drvrrtns_8g4y.htm"><I>DispatchCreate</I></A> routine.)</LI>
+
+	<LI>The driver checks any ACLs for the file name in its <I>DispatchCreate</I> routine.  (Even in this case the driver should set the FILE_DEVICE_SECURE_OPEN characteristic unless opens into the device's namespace can have weaker security settings than the device object.)</LI>
+</UL>
+
+<P>The FILE_DEVICE_SECURE_OPEN characteristic is checked at the top of the stack, so filter device objects must copy the <B>Characteristics</B> member of the next-lower device object after attaching.  </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Controlling%20Device%20Namespace%20Access"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

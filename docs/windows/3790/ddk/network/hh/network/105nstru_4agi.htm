@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NDIS_MAC_LINE_UP</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NDIS_MAC_LINE_UP">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndis_mac_line_up_nr"></A>NDIS_MAC_LINE_UP</H1>
+
+<P>The NDIS_MAC_LINE_UP structure contains information associated with a line-up indication made by a WAN miniport driver. </P>
+
+<PRE class=syntax>typedef struct _NDIS_MAC_LINE_UP {
+  IN ULONG  LinkSpeed;
+  IN NDIS_WAN_QUALITY  Quality;
+  IN USHORT  SendWindow;
+  IN NDIS_HANDLE  ConnectionWrapperID;
+  IN NDIS_HANDLE  NdisLinkHandle;
+  IN OUT NDIS_HANDLE  NdisLinkContext;
+} NDIS_MAC_LINE_UP, *PNDIS_MAC_LINE_UP;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>LinkSpeed</B></DT>
+
+<DD>Specifies the speed of the link, in units of 100 bps. 
+
+<P>Zero indicates no change from the speed the miniport driver originally returned for the <A HREF="22genoid_25pu.htm">OID_GEN_LINK_SPEED</A> query.
+</DD>
+
+<DT><B>Quality</B></DT>
+
+<DD>Specifies the quality of service (QOS) of the new line as returned when the protocol called <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A> with <A HREF="28wanoid_2ktu.htm">OID_WAN_QUALITY_OF_SERVICE</A>.</DD>
+
+<DT><B>SendWindow</B></DT>
+
+<DD>Specifies the number of send packets the miniport driver (or its NIC) can accept at a time, effectively how many <A HREF="105nstru_8n3m.htm">NDIS_WAN_PACKET</A>-type send packets the WAN NIC driver queues internally. Zero indicates that NDISWAN should use the value returned for <B>MaxTransmit</B> in response to the <A HREF="28wanoid_3302.htm">OID_WAN_GET_INFO</A> query.</DD>
+
+<DT><B>ConnectionWrapperID</B></DT>
+
+<DD>Specifies the handle by which this link (or data channel on a link) will be known to TAPI client(s). This handle must be unique, so the miniport driver uses the <B>htCall</B> handle supplied by NDISTAPI. Before the miniport driver makes the initial line-up indication that establishes such a link (or data channel), it already acquired the NDISTAPI-assigned <B>htCall</B> handle in one of the following ways:
+
+<UL>
+	<LI>For an outbound call, the driver’s <I>MiniportQueryInformation</I> function saved the <B>htCall</B> handle that NDISTAPI supplied in a preceding <A HREF="29tpioid_83jm.htm">OID_TAPI_MAKE_CALL</A> request. </LI>
+
+	<LI>For an incoming call, the miniport driver saved the <B>htCall</B> handle that NDISTAPI returned in <B>ulParam2</B> of the <A HREF="105nstru_43jm.htm">NDIS_TAPI_EVENT</A> structure that the miniport driver passed to <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A> with <B>ulMsg</B> set to LINE_NEWCALL. </LI>
+</UL>
+</DD>
+
+<DT><B>NdisLinkHandle</B></DT>
+
+<DD>Specifies the handle, originally supplied by the NIC driver, that is passed down in subsequent calls, such as to <A HREF="101mini_7oj6.htm"><I>MiniportWanSend</I></A>, to identify a particular link, or to identify a particular channel on a link capable of handling more than one data stream. </DD>
+
+<DT><B>NdisLinkContext</B></DT>
+
+<DD>Specifies zero when a WAN NIC driver calls <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A> with this structure to establish a link. On return from <B>NdisMIndicateStatus</B>, this member contains a handle, supplied by NDISWAN, to be used in future calls, such as to indicate receives, for the established link.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ndis.h</I>. Include <I>ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A WAN NIC driver calls <B>NdisMIndicateStatus</B> with this type of indication in either of the following conditions:
+
+<UL>
+	<LI>When a link between a local node and a remote node in a wide area network becomes active in the process of establishing the new link, the <I>MiniportQueryInformation</I> function makes this indication in the context of an <A HREF="29tpioid_5rsi.htm">OID_TAPI_GET_ID</A> request for which <B>ulSelect</B> is set to LINECALLSELECT_CALL. 
+<P>When <B>NdisMIndicateStatus</B> returns, the miniport driver must save the <B>NdisLinkContext</B> handle, supplied by NDISWAN, for subsequent calls to <B>NdisMIndicateStatus</B> and <B>NdisWan</B><I>Xxx</I> functions affecting the just established link. 
+
+<P><A HREF="101mini_2vw2.htm"><I>MiniportQueryInformation</I></A> also must use the returned <B>NdisLinkContext</B> handle as the value returned to NDISTAPI at <B>DeviceID</B> in the NDIS_TAPI_GET_ID structure. 
+
+<P>If it can handle more than one data channel on a link, a WAN NIC driver’s <I>MiniportQueryInformation</I> function is called once with <A HREF="29tpioid_5rsi.htm">OID_TAPI_GET_ID</A> as each such channel on the link is opened. On such a link, <B>NdisLinkContext</B> handles are channel-specific rather than link-specific. 
+</LI>
+
+	<LI>After such a link is established, the NIC driver makes this indication with the given <B>NdisLinkContext</B> handle if line characteristics change, or to dynamically change the value of <B>SendWindow</B> specifying the number of outstanding sends the NIC driver accepts for its internal queue. For example, a miniport driver can make a subsequent line-up indication if the originally specified <B>Quality</B> of the line changes. </LI>
+</UL>
+
+<P>Typically, a WAN NIC driver provides a pointer to a driver-allocated control block for each link as <B>NdisLinkHandle</B>. This handle is link-specific or, if the driver manages more than one data stream per link, data-channel-specific. In either case, a WAN miniport driver must set up its <B>NdisLinkHandle</B> at the first NDIS_MAC_LINE_UP indication that the miniport driver makes for each link or data channel. </P>
+
+<P>After NDISWAN has submitted the number of packets specified in <B>SendWindow</B> to <A HREF="101mini_7oj6.htm"><I>MiniportWanSend</I></A>, NDISWAN holds incoming send packets queued until the miniport driver returns a completed send packet or calls <A HREF="103ndisx_7x0y.htm"><B>NdisMWanSendComplete</B></A> with a packet for which it previously returned NDIS_STATUS_PENDING, whichever occurs first. Subsequent NDIS_MAC_LINE_UPs can be indicated if the NIC driver needs to change the <B>SendWindow</B> value dynamically. </P>
+
+<P>Whenever subsequent NDIS_MAC_LINE_UP indications are made, whether to change the <B>SendWindow</B> value or for changes in line characteristics, the <B>NdisLinkHandle</B> member must be filled with the value set in the driver’s initial line-up call to <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A> for the same link.</P>
+
+<P>NDISWAN supplies a unique handle at <B>NdisLinkContext</B> for every initial NDIS_MAC_LINE_UP indication that establishes a new link or channel. The miniport driver must supply the given <B>NdisLinkContext</B> handle when it makes any subsequent <A HREF="#ddk_ndis_mac_line_up_nr">NDIS_MAC_LINE_UP</A>, <A HREF="105nstru_1q7m.htm">NDIS_MAC_LINE_DOWN</A>, and <A HREF="105nstru_7v5e.htm">NDIS_MAC_FRAGMENT</A> indications for the same link or channel.</P>
+
+<P>For more information about WAN and TAPI OIDs, see <A HREF="28wanoid_33oy.htm">WAN Objects</A> and <A HREF="29tpioid_5jhu.htm">TAPI Objects</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_2vw2.htm"><I>MiniportQueryInformation</I></A>, <A HREF="101mini_7ng2.htm"><I>MiniportSetInformation</I></A>, <A HREF="105nstru_7v5e.htm">NDIS_MAC_FRAGMENT</A>, <A HREF="105nstru_1q7m.htm">NDIS_MAC_LINE_DOWN</A>, <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A>, <A HREF="103ndisx_9jaq.htm"><B>NdisMWanIndicateReceive</B></A>, <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A>, <A HREF="105nstru_43jm.htm">NDIS_TAPI_EVENT</A>, <A HREF="104tdlow_6e42.htm"><I>ProtocolStatus</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NDIS_MAC_LINE_UP"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

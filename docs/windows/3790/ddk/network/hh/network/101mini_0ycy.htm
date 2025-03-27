@@ -1,0 +1,68 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>MiniportCoSendPackets</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="MiniportCoSendPackets">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_miniportcosendpackets_nr"></A>MiniportCoSendPackets</H1>
+
+<P>The <I>MiniportCoSendPackets</I> is required for connection-oriented miniports. <I>MiniportCoSendPackets</I> is called to transfer some number of packets, specified as an array of pointers, over the network.</P>
+
+<PRE class=syntax><B>VOID</B> <B>
+</B>  <B>MiniportCoSendPackets(
+    IN</B> <B>NDIS_HANDLE</B>  <I>MiniportVcContext</I><B>,</B>
+    <B>IN</B> <B>PPNDIS_PACKET</B>  <I>PacketArray</I><B>,</B>
+    <B>IN</B> <B>UINT</B>  <I>NumberOfPackets</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>MiniportVcContext</I></DT>
+
+<DD>Specifies the handle to a miniport driver-allocated context area in which the miniport driver maintains its per-VC state. The miniport driver supplied this handle to NDIS from its <A HREF="101mini_7otu.htm"><I>MiniportCoCreateVc</I></A> function.</DD>
+
+<DT><I>PacketArray</I></DT>
+
+<DD>Pointer to the initial element in a packet array, with each element specifying the address of a packet descriptor for a packet to be transmitted, along with an associated out-of-band data block containing information such as the packet priority, an optional timestamp, and the per-packet status to be set by <I>MiniportCoSendPackets</I>.</DD>
+
+<DT><I>NumberOfPackets</I></DT>
+
+<DD>Specifies the number of pointers to packet descriptors at <I>PacketArray</I>.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h.</I></P>
+
+<H4>Comments</H4>
+
+<P><I>MiniportCoSendPackets</I> is called by NDIS in response to a request by a bound protocol driver to send a ordered list of data packets across the network.</P>
+
+<P><I>MiniportCoSendPackets</I> should transmit each packet in any given array sequentially. <I>MiniportCoSendPackets</I> can call <A HREF="103ndisx_4ooi.htm"><B>NdisQueryPacket</B></A> to extract information, such as the number of buffer descriptors chained to the packet and the total size in bytes of the requested transfer. It can call <A HREF="103ndisx_146q.htm"><B>NdisGetFirstBufferFromPacket</B></A>, <A HREF="103ndisx_92wi.htm"><B>NdisGetFirstBufferFromPacketSafe</B></A>, <A HREF="103ndisx_0l82.htm"><B>NdisQueryBuffer</B></A>, <A HREF="103ndisx_7t9u.htm"><B>NdisQueryBufferSafe</B></A>, or <A HREF="103ndisx_1rea.htm"><B>NdisQueryBufferOffset</B></A> to extract information about individual buffers containing the data to be transmitted.</P>
+
+<P><I>MiniportCoSendPackets</I> can retrieve protocol-supplied out-of-band information associated with each packet by using the appropriate NDIS_GET_PACKET_<I>XXX</I> macros.</P>
+
+<P><I>MiniportCoSendPackets</I> can use only the eight-byte area at <B>MiniportReserved</B> within the <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A> structure for its own purposes.</P>
+
+<P>The NDIS library ignores the OOB block in all packet descriptors it submits to <I>MiniportCoSendPackets</I> and assumes that every connection-oriented miniport driver is a deserialized driver that will complete each input packet descriptor asynchronously with <A HREF="103ndisx_5t2q.htm"><B>NdisMCoSendComplete</B></A>. Consequently, such a deserialized driver's <I>MiniportCoSendPackets</I> function usually ignores the <B>Status</B> member of the <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A> block, but it can set this member to the same status as it subsequently passes to <B>NdisMCoSendComplete</B>.  </P>
+
+<P>Rather than relying on NDIS to queue and resubmit send packets whenever <I>MiniportCoSendPackets</I> has insufficient resources to transmit the given packets, a deserialized miniport driver manages its own internal packet queuing. Such a driver is responsible for holding incoming send packets in its internal queue until they can be transmitted over the network and for preserving the protocol-determined ordering of packet descriptors incoming to its <I>MiniportCoSendPackets</I> function. A deserialized miniport driver must complete each incoming send packet with <B>NdisMCoSendComplete</B>, and it <I>cannot</I> call <A HREF="103ndisx_58c2.htm"><B>NdisMSendResourcesAvailable</B></A>. </P>
+
+<P>A deserialized miniport driver should <I>never</I> pass STATUS_INSUFFICIENT_RESOURCES to <B>NdisMCoSendComplete</B> with a protocol-allocated packet descriptor that was originally submitted to its <I>MiniportCoSendPackets</I> function. Such a returned status effectively fails the send operation requested by the protocol, and NDIS would return the packet descriptor and all associated resources to the protocol that originally allocated it. </P>
+
+<P><I>MiniportCoSendPackets</I> can be called at any IRQL &lt;= DISPATCH_LEVEL. Consequently, <I>MiniportCoSendPackets</I> function is responsible for synchronizing access to its internal queue(s) of packet descriptors with the driver's other <I>MiniportXxx</I> functions that also access the same queue(s). </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_7otu.htm"><I>MiniportCoCreateVc</I></A>, <A HREF="101mini_0pgy.htm"><B><I>MiniportCoRequest</I></B></A>, <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>, <A HREF="103ndisx_57ua.htm"><B>NdisGetBufferPhysicalArraySize</B></A>, <A HREF="103ndisx_146q.htm"><B>NdisGetFirstBufferFromPacket</B></A>, <A HREF="103ndisx_92wi.htm"><B>NdisGetFirstBufferFromPacketSafe</B></A>, <A HREF="103ndisx_2j5e.htm"><B>NdisGetNextBuffer</B></A>, <A HREF="103ndisx_4m0i.htm">NDIS_GET_PACKET_MEDIA_SPECIFIC_INFO</A>, <A HREF="103ndisx_0iuq.htm">NDIS_GET_PACKET_TIME_TO_SEND</A>, <A HREF="103ndisx_5t2q.htm"><B>NdisMCoSendComplete</B></A>, <A HREF="103ndisx_87le.htm"><B>NdisMoveMemory</B></A>, <A HREF="103ndisx_97qq.htm"><B>NdisMoveToMappedMemory</B></A>, <A HREF="103ndisx_58c2.htm"><B>NdisMSendResourcesAvailable</B></A>, <A HREF="103ndisx_38mq.htm"><B>NdisMSetupDmaTransfer</B></A>, <A HREF="103ndisx_3a42.htm"><B>NdisMStartBufferPhysicalMapping</B></A>, <A HREF="103ndisx_43qq.htm">NDIS_OOB_DATA_FROM_PACKET</A>, <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="103ndisx_0l82.htm"><B>NdisQueryBuffer</B></A>, <A HREF="103ndisx_1rea.htm"><B>NdisQueryBufferOffset</B></A>, <A HREF="103ndisx_7t9u.htm"><B>NdisQueryBufferSafe</B></A>, <A HREF="103ndisx_4ooi.htm"><B>NdisQueryPacket</B></A>, <A HREF="103ndisx_1ype.htm"><B>NdisZeroMemory</B></A>  </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: MiniportCoSendPackets"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

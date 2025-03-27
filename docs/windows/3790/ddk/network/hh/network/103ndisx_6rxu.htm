@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndis_set_packet_media_specific_info_nr"></A>NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO</H1>
+
+<P>NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO sets the <B>MediaSpecificInformation</B> pointer and the <B>SizeMediaSpecificInfo</B> value in the out-of-band data block associated with a given packet descriptor.</P>
+
+<PRE class=syntax><B>NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO(</B>
+    <B>IN PNDIS_PACKET</B>  <I>Packet</I><B>,</B>
+    <B>IN PVOID</B>  <I>MediaSpecificInfo</I><B>,</B>
+    <B>IN UINT</B>  <I>SizeMediaSpecificInfo</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Packet</I></DT>
+
+<DD>Pointer to a driver-allocated packet descriptor. </DD>
+
+<DT><I>MediaSpecificInfo</I></DT>
+
+<DD>Specifies a pointer to a caller-supplied buffer containing medium-specific information, such as packet priority, to be set in the <B>MediaSpecificInformation</B> member of the <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A> block associated with the given packet descriptor. This parameter cannot be NULL. </DD>
+
+<DT><I>SizeMediaSpecificInfo</I></DT>
+
+<DD>Specifies the number of bytes of information supplied at <B>MediaSpecificInformation</B>. This parameter cannot be zero. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Depending on the medium, an underlying driver might set these members with NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO in the out-of-band data blocks associated with the packet descriptors it allocates for receive indications. When a bound protocol is called with the indication, it would use NDIS_GET_PACKET_MEDIA_SPECIFIC_INFO to access the supplied information. </P>
+
+<P>Depending on the medium of the underlying driver to which it is bound, a protocol might set <B>MediaSpecificInformation</B> and <B>SizeMediaSpecificInfo</B> in the out-of-band blocks associated with the packet descriptors it allocates for sends. The underlying driver would use <A HREF="103ndisx_4m0i.htm">NDIS_GET_PACKET_MEDIA_SPECIFIC_INFO</A> to access the supplied information. </P>
+
+<P>In either case, while a higher-level protocol is consuming a receive indication or a lower-level miniport driver is processing a send, that driver must have exclusive access to the buffer at <B>MediaSpecificInformation</B>. This restriction implies the following:
+
+<UL>
+	<LI>A miniport driver cannot access the buffer it set up with out-of-band information when <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A> returns control if NDIS_STATUS_PENDING is set in the <B>Status</B> member of the associated out-of-band block. The driver can use NDIS_GET_PACKET_STATUS to determine whether each packet in the packet array it just indicated has this status set or has been returned with NDIS_STATUS_SUCCESS. </LI>
+
+	<LI>A protocol driver cannot access the buffer it set up with out-of-band information for a send, nor anything else in the out-of-band data block associated with a packet descriptor it passes to <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A> or <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A>, until the packet descriptor is returned to its <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A> function. 
+<P>Because NDIS queues send packets and resubmits them if the <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A> function returns NDIS_STATUS_RESOURCES or if the <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A> function sets NDIS_STATUS_RESOURCES for the <B>Status</B> of a packet in a submitted array, the final status of each packet in a send (array) is volatile until that packet has been returned to <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A>. 
+</LI>
+</UL>
+
+<P>A protocol driver can call <A HREF="103ndisx_4faq.htm"><B>NdisGetReceivedPacket</B></A> and <A HREF="103ndisx_7xma.htm">NDIS_GET_ORIGINAL_PACKET</A> to obtain a copy of the <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A> block associated with a packet descriptor when its <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> function is given an indication. However, these calls are superfluous if the protocol is bound to an underlying driver that does not supply out-of-band information with its indications.  </P>
+
+<P>Callers of NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO run at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_7s36.htm"><I>MiniportHandleInterrupt</I></A>, <A HREF="101mini_81v6.htm"><I>MiniportTimer</I></A>, <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_7xma.htm">NDIS_GET_ORIGINAL_PACKET</A>, <A HREF="103ndisx_4m0i.htm">NDIS_GET_PACKET_MEDIA_SPECIFIC_INFO</A>, <A HREF="103ndisx_05bm.htm">NDIS_GET_PACKET_STATUS</A>, <A HREF="103ndisx_4faq.htm"><B>NdisGetReceivedPacket</B></A>, <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, <A HREF="103ndisx_43qq.htm">NDIS_OOB_DATA_FROM_PACKET</A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A>, <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A>, <A HREF="103ndisx_6twy.htm">NDIS_SET_PACKET_STATUS</A>, <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A>, <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A>, <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

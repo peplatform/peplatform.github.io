@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Canonicalized Paths</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_4088"></A>Canonicalized Paths</H3>
+
+<P>All path names that the IFS manager passes to the FSDs are in Unicode. A canonicalized path name has a specific format that is described by the <B>ParsedPath</B> structure. It consists of a word giving the total length of the path name (including itself, but not including the NULL character), a word giving the offset of the last path element in the path name relative to the start of the path name and a sequence of <B>PathElement</B> structures. Each <B>PathElement</B> structure comprises a word giving the length of the path element (including itself) and a string of Unicode characters that make up the name of the path element. The path name is always absolute and describes a path from the root of the volume. A normal path structure would have each path element separated by a path separator, such as "\" or "/". By passing in canonicalized paths to the FSDs, the need for each FSD to have its own parsing code has been eliminated. FSDs will get syntactically validated paths at all times and because of the canonicalized structure, it is very easy to traverse the path to perform operations. In addition to the canonicalized path, the IFS also passes in certain flags that give more information about the kind of path name such as whether the path name has wildcards or has long name components, etc. These are described in the following. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=31%>FILE_FLAG_LONG_PATH </TD>
+<TD width=69%>This path name has long path components. If only this flag is set, the last path component is not a long name. On short name APIs, it is permissible for the path components to have long names. This is because an app could issue a short name call in a long current directory and we want this operation to work. If the app tries to change to a long name directory or create a long name using a short API, the IFS manager will truncate that name as per DOS rules. FSDs can have different searching semantics based on whether the path name has long components or not and this flag can be used to trigger this behavior. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>FILE_FLAG_IS_LFN </TD>
+<TD width=69%>The final element of this path name is a long name. FSDs can use this knowledge to do things differently. It may be necessary to store long names in a different format than short names. This flag can be used to trigger off such behavior without the FSD needing to scan the entire path name to figure out if it is trying to use a long name final element. Also, the fact that the final path element is a long name implies that the FSD should use long name semantics for matching. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>FILE_FLAG_WILDCARDS </TD>
+<TD width=69%>The path name passed in contains wildcards. Wildcards are valid only in the final path component and a path with wildcards elsewhere on the path will result in an error by the IFS manager and not passed down to FSDs. The wildcards could be either "?" characters or "*" characters. On the short name APIs, only the "?" character is valid as a wildcard. For long name APIs, both wildcard characters are valid. FSDs can use this flag to figure out whether they need to do wildcard matching during their file name search. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>FILE_FLAG_HAS_STAR </TD>
+<TD width=69%>The path name passed in contains the "*" character as a wildcard. FILE_FLAG_WILDCARDS is always set whenever this flag is set. This flag is given to provide additional information to FSDs about how to perform metamatching. Metamatching semantics are much simpler for the "?" character than for the "*" character and FSDs can use this fact to optimize metamatching. However, it is recommended that all FSDs use the IFSMgr_MetaMatch service for doing metamatching. This ensures a consistent interface to the user so that all file systems behave identically with respect to wildcard operations. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>FILE_FLAG_HAS_DOT </TD>
+<TD width=69%>The path name passed in contains a "." character. The IFS manager strips off trailing dots. Leading dots are preserved if there are other characters in the path element that are not dots. There is only one exception when the IFS manager allows a trailing dot. This is when there are wildcard characters present in the path component. This is to allow users to use matching semantics such as "*", which DOS allows, though, it does not strictly conform to the true regular expression matching semantics that the long name matching semantics use. Even in this case, multiple-trailing dots are stripped by the IFS manager, leaving only a single trailing dot. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>FILE_FLAG_KEEP_CASE </TD>
+<TD width=69%>The FSD should preserve the case of the name passed in when it stores it on disk. If this flag is not set, the FSD can ignore the case of the name. This flag is set for all LFN APIs and cleared for short-name APIs. This flag is also overloaded with another meaning. If this flag is set, then the FSDs should use LFN semantics. Otherwise, they should use short name semantics. </TD>
+</TR>
+</TABLE><BR>
+
+<P>To determine whether LFN or short-name semantics need to be used on a given API, FSDs should look at FILE_FLAG_KEEP_CASE and FILE_FLAG_IS_LFN. If either or both of these flags are set, then the FSD should use LFN semantics. The FSD should not hardcode the usage of LFN semantics just because it is a new LFN-based API for example, the LFN-style FindFirst. There are certain cases, especially across the server when an LFN-style API may desire short name semantics. This is true for the LFN-style FindFirst when it is issued by the server. The server does it because it may have a long-name directory shared, which an application at the client end need not be aware of and can get to files by using short-name APIs. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Canonicalized%20Paths"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

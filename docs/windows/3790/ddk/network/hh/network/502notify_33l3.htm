@@ -1,0 +1,67 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Changing Bindings for a Component</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Changing Bindings for a Component">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_changing_bindings_for_a_component_ng"></A>Changing Bindings for a Component</H3>
+
+<P>The network configuration subsystem always informs a notify object about changes in binding that affect the notify object's network component. The subsystem calls the notify object's <A HREF="ntfrf_03ua.htm"><B>INetCfgComponentNotifyBinding::NotifyBindingPath</B></A> method and passes a value that specifies the change along with a pointer to the <B>INetCfgBindingPath</B> interface of the binding path involved in the change. If the subsystem passes NCN_DISABLE to disable the binding path that the notify object's network component shares with a specific network card, the notify object can activate the binding with another network card as shown in the following code. </P>
+
+<PRE>HRESULT CSample::NotifyBindingPath(DWORD dwChangeFlag,
+        INetCfgBindingPath* pncbp1)
+{
+    INetCfgComponent *pnccLow;
+    INetCfgComponentBindings *pncbind;
+    IEnumNetCfgBindingPath *penumncbp;
+    INetCfgBindingPath *pncbp2;
+    IEnumNetCfgBindingInterface *penumncbi;
+    INetCfgBindingInterface *pncbi;
+    DWORD dwFlags = EBP_BELOW;
+    ULONG celt = 1; // Request one enumeration element. 
+    HRESULT hr = S_OK;
+    // Retrieve bindings for the notify object's component (m_pncc)
+    hr = m_pncc-&gt;QueryInterface(IID_INetCfgComponentBindings, 
+                                (LPVOID*)&amp;pncbind);
+    // Determine if notification is about disabling a binding path.
+    if (SUCCEEDED(hr) &amp;&amp; (NCN_DISABLE &amp; dwChangeFlag)) {
+        // Retrieve enumerator for binding paths for the component.
+        hr = pncbind-&gt;EnumBindingPaths(dwFlags, &amp;penumncbp);
+        // Reset the sequence and retrieve a binding path.
+        hr = penumncbp-&gt;Reset();
+        hr = penumncbp-&gt;Next(celt, &amp;pncbp2, NULL);
+        // Ensure the binding path is different.
+        do {
+            if (pncbp1 != pncbp2) break;
+            hr = penumncbp-&gt;Skip(celt); // skip one element
+            hr = penumncbp-&gt;Next(celt, &amp;pncbp2, NULL);
+        } while (SUCCEEDED(hr));
+        if (SUCCEEDED(hr) {
+            // Retrieve enumerator for interfaces of the binding path.
+            hr = pncbp2-&gt;EnumBindingInterfaces(&amp;penumncbi);
+            // Retrieve a binding interface for the binding path.
+            hr = penumncbi-&gt;Next(celt, &amp;pncbi, NULL);
+            // Retrieve the lower network component.
+            hr = pncbi-&gt;GetLowerComponent(&amp;pnccLow);
+            // If the component is a physical network card and binding 
+            // is currently disabled, enable binding.
+            DWORD dwcc;
+            hr = pnccLow-&gt;GetCharacteristics(&amp;dwcc);
+            if (SUCCEEDED(hr) &amp;&amp; (dwcc &amp; NCF_PHYSICAL)) {
+                hr = pncbp2-&gt;IsEnabled(); // S_FALSE for disabled
+                if (hr == S_FALSE)  hr = pncbp2-&gt;Enable(TRUE);
+            }
+        }
+        else return hr;
+    }
+    return hr;
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Changing%20Bindings%20for%20a%20Component"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

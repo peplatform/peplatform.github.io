@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>When to Implement a HwVidSynchronizeExecutionCallback Routine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="When to Implement a HwVidSynchronizeExecutionCallback Routine">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_when_to_implement_a_hwvidsynchronizeexecutioncallback_routine_gg"></A>When to Implement a <I>HwVidSynchronizeExecutionCallback</I> Routine</H2>
+
+<P>Miniport drivers for adapters that do not generate interrupts seldom call <A HREF="vpfncs_3huv.htm"><B>VideoPortSynchronizeExecution</B></A> with a <A HREF="vmpfncs_386f.htm"><I>HwVidSynchronizeExecutionCallback</I></A> function.</P>
+
+<P>In fact, even miniport drivers that have a <A HREF="vmpfncs_2luv.htm"><I>HwVidInterrupt</I></A> function do not necessarily have a <I>HwVidSynchronizeExecutionCallback</I> function. Because the video port driver does not send a request to a miniport driver's <A HREF="vmpfncs_3wo7.htm"><I>HwVidStartIO</I></A> function until it completes processing of the preceding request (see <A HREF="vmport_42p3.htm">Processing Video Requests</A> for more information), miniport drivers rarely call <B>VideoPortSynchronizeExecution</B>.</P>
+
+<P>There are two possible uses for a miniport driver's <I>HwVidSynchronizeExecutionCallback</I> function:
+
+<UL>
+	<LI>To access the adapter registers using the miniport driver's device extension for a driver function other than the <I>HwVidInterrupt</I> function.
+<P>When the <I>HwVidSynchronizeExecutionCallback</I> function is given control, interrupts from the adapter are masked off so the miniport driver's <I>HwVidInterrupt</I> function cannot change state in the device extension while the <I>HwVidSynchronizeExecutionCallback</I> function is running in an SMP machine.
+</LI>
+
+	<LI>To write commands to the adapter registers or ports very quickly if the adapter requires it.
+<P>When the <I>HwVidSynchronizeExecutionCallback</I><B> </B>function is given control, almost all system interrupts are masked off, so the <I>HwVidSynchronizeExecutionCallback</I> function cannot be preempted by a device (or even, a clock) interrupt.
+
+<P>An <I>HwVidSynchronizeExecutionCallback</I> function <I>must </I>return control as quickly as possible.
+</LI>
+</UL>
+
+<P>With the first type of <A HREF="vmpfncs_386f.htm"><I>HwVidSynchronizeExecutionCallback</I></A> function, the miniport driver calls <A HREF="vpfncs_3huv.htm"><B>VideoPortSynchronizeExecution</B></A> with the <I>Priority</I> set to <B>VpMediumPriority</B>. With the second type of <I>HwVidSynchronizeExecutionCallback</I> function, the miniport driver also makes this call with the <I>Priority</I> set to <B>VpMediumPriority</B> if the driver has no <A HREF="vmpfncs_2luv.htm"><I>HwVidInterrupt</I></A> function. Otherwise, such a miniport driver makes this call with the <I>Priority</I> set to <B>VpHighPriority</B>.</P>
+
+<P>In general, a miniport driver should <I>not</I> call <B>VideoPortSynchronizeExecution</B> with the second type of <I>HwVidSynchronizeExecutionCallback</I> function unless the driver designer has no other alternative: that is, unless the adapter is such that it must be programmed with system interrupts masked off. Otherwise, the miniport driver should call <B>VideoPortSynchronizeExecution</B> with the <I>Priority</I> set to <B>VpLowPriority</B>.</P>
+
+<P>A <I>HwVidSynchronizeExecutionCallback</I> function, like a <I>HwVidInterrupt</I> function, cannot be pageable and cannot call certain <B>VideoPort</B><I>Xxx</I> functions without bringing down the system. For a summary of <B>VideoPort</B><I>Xxx</I> functions that the <I>HwVidSynchronizeExecutionCallback</I> function can call safely, see <A HREF="vmpfncs_2luv.htm"><I>HwVidInterrupt</I></A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: When%20to%20Implement%20a%20HwVidSynchronizeExecutionCallback%20Routine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,63 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>VDD Initialization</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="VDD Initialization">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Other&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_vdd_initialization"></A>VDD Initialization</H2>
+
+<P>A VDD is implemented as a 32-bit DLL. Accordingly, it follows all the rules described for Win32 DLLs in the Win32 SDK. The system calls the DLL’s main entry point function when initializing the DLL and also when terminating it.</P>
+
+<P>At initialization, a VDD allocates and initializes any memory it needs. The VDD should also get a handle to the 32-bit kernel-mode driver for its device. The kernel-mode driver for the device registers a Win32 name for itself when the driver is initialized. The VDD can use this virtual name to get a handle for the driver by calling <B>CreateFile</B>. For example, the kernel-mode driver for a fax board might register itself under the name “fax1.” The VDD can obtain a handle to the fax board driver by supplying the name “\\ .\fax1” to the <B>CreateFile </B>function. When the VDD has a handle to the driver, it can make <B>ReadFile</B>, <B>WriteFile</B>, or <B>DeviceIoControl</B> calls to communicate with the driver. If the VDD can’t open the kernel-mode driver for its device, it should return FALSE to indicate an error.</P>
+
+<P>If the VDD is relying on the VDM to intercept device access by the MS-DOS application, the VDD initialization must install its callback functions for handling I/O port and board-memory accesses, as explained in <A HREF="vdd_53oz.htm">I/O Ports</A> After these callback functions (also called <I>hooks</I>) are installed, they do the real work of the VDD. The VDM calls your callback functions to handle I/O port operations as well as accesses to board memory from the application.</P>
+
+<P>If the VDD is relying on a modified MS-DOS application to directly call the VDD, there is no need to install I/O or memory access hooks.</P>
+
+<P>A skeleton for the VDD initialization function is shown as follows:</P>
+
+<PRE>BOOL VDDInitialize(IN PVOID DllHandle, IN ULONG Reason, 
+IN PCONTEXT Context OPTIONAL)
+ 
+/*++
+ 
+Routine Description:
+ 
+Arguments:
+    DllHandle - Not Used
+    Reason - Attach or Detach
+    Context - Not Used
+ 
+Return Value:
+    SUCCESS - TRUE
+    FAILURE - FALSE
+ 
+--*/
+ 
+{
+ 
+    switch (Reason) {
+ 
+    case DLL_PROCESS_ATTACH:
+    // Allocate VDD's local heap if needed. Check that NT FAX driver
+    // is available by opening that device.
+        break;
+    case DLL_PROCESS_DETACH:
+    // Deallocate VDD's local heap if needed.
+    // Communicate to appropriate Device driver about your departure.
+        break;
+    default:
+        break;
+    }
+ 
+    return TRUE;
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: VDD%20Initialization"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

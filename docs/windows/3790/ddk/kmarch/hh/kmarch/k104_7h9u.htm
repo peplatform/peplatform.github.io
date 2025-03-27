@@ -1,0 +1,110 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IoConnectInterrupt</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IoConnectInterrupt">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ioconnectinterrupt_kr"></A>IoConnectInterrupt</H1>
+
+<P>The <B>IoConnectInterrupt</B> routine registers a device driver’s <A HREF="drvrrtns_29ma.htm"><I>InterruptService</I></A> routine (ISR), so that it will be called when a device interrupts on any of a specified set of processors.</P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>IoConnectInterrupt(</B>
+<B>    OUT PKINTERRUPT</B>  <B>*</B><I>InterruptObject</I><B>,</B>
+<B>    IN PKSERVICE_ROUTINE</B>  <I>ServiceRoutine</I><B>,</B>
+<B>    IN PVOID</B>  <I>ServiceContext</I><B>,</B>
+<B>    IN PKSPIN_LOCK</B>  <I>SpinLock</I>  <B>OPTIONAL,</B>
+<B>    IN ULONG</B>  <I>Vector</I><B>,</B>
+<B>    IN KIRQL</B>  <I>Irql</I><B>,</B>
+<B>    IN KIRQL</B>  <I>SynchronizeIrql</I><B>,</B>
+<B>    IN KINTERRUPT_MODE    </B><I>InterruptMode</I><B>,</B>
+<B>    IN BOOLEAN</B>  <I>ShareVector</I><B>,</B>
+<B>    IN KAFFINITY</B>  <I>ProcessorEnableMask</I><B>,</B>
+<B>    IN BOOLEAN</B>  <I>FloatingSave</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>InterruptObject</I></DT>
+
+<DD>Pointer to the address of driver-supplied storage for a pointer to a set of interrupt objects. This pointer must be passed in subsequent calls to <A HREF="k105_99rm.htm"><B>KeSynchronizeExecution</B></A>.</DD>
+
+<DT><I>ServiceRoutine</I></DT>
+
+<DD>Pointer to the entry point for the driver-supplied <A HREF="drvrrtns_29ma.htm"><I>InterruptService</I></A> routine.</DD>
+
+<DT><I>ServiceContext</I></DT>
+
+<DD>Pointer to the driver-determined context that will be supplied to the <I>InterruptService</I> routine when it is called. The <I>ServiceContext</I> area must be in resident memory: in the device extension of a driver-created device object, in the controller extension of a driver-created controller object, or in nonpaged pool allocated by the device driver. See <A HREF="intrupts_8ilj.htm">Providing ISR Context Information</A> or details.</DD>
+
+<DT><I>SpinLock</I></DT>
+
+<DD>Pointer to an initialized spin lock, for which the driver supplies the storage, that will be used to synchronize access to driver-determined data shared by other driver routines. This parameter is required if the ISR handles more than one vector or if the driver has more than one ISR. Otherwise, the driver need not allocate storage for an interrupt spin lock and the input pointer is NULL.</DD>
+
+<DT><I>Vector</I></DT>
+
+<DD>Specifies the interrupt vector passed in the interrupt resource at the <B>u.Interrupt.Vector</B> member of <A HREF="k112_8xbm.htm">CM_PARTIAL_RESOURCE_DESCRIPTOR</A>.</DD>
+
+<DT><I>Irql</I></DT>
+
+<DD>Specifies the DIRQL passed in the interrupt resource at the <B>u.Interrupt.Level</B> member of CM_PARTIAL_RESOURCE_DESCRIPTOR.</DD>
+
+<DT><I>SynchronizeIrql</I></DT>
+
+<DD>Specifies the DIRQL at which the ISR will execute. If the ISR handles more than one interrupt vector or the driver has more than one ISR, this value must be the highest of the <I>Irql</I> values passed at <B>u.Interrupt.Level</B> in each interrupt resource. Otherwise, the <I>Irql</I> and <I>SynchronizeIrql</I> values are identical.</DD>
+
+<DT><I>InterruptMode</I></DT>
+
+<DD>Specifies whether the device interrupt is <B>LevelSensitive</B> or <B>Latched</B>.</DD>
+
+<DT><I>ShareVector</I></DT>
+
+<DD>Specifies whether the interrupt vector is sharable. </DD>
+
+<DT><I>ProcessorEnableMask</I></DT>
+
+<DD>Specifies a <A HREF="k112_214i.htm">KAFFINITY</A> value representing the set of processors on which device interrupts can occur in this platform. This value is passed in the interrupt resource at <B>u.Interrupt.Affinity</B>.</DD>
+
+<DT><I>FloatingSave</I></DT>
+
+<DD>Specifies whether to save the floating-point stack when the driver’s device interrupts. For X86-based platforms, this value must be set to FALSE.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>IoConnectInterrupt</B> can return one of the following NTSTATUS values:</P>
+
+<P class=indent1>STATUS_SUCCESS<BR>
+STATUS_INVALID_PARAMETER<BR>
+STATUS_INSUFFICIENT_RESOURCES</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A PnP driver should call <B>IoConnectInterrupt</B> as part of device start-up, before it completes the PnP <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> request. </P>
+
+<P>A driver receives raw and translated hardware resources with the IRP_MN_START_DEVICE request at <B>Irp</B><B>–</B><B>&gt;Parameters.StartDevice.AllocatedResources</B> and  <B>Irp</B><B>–</B><B>&gt;Parameters.StartDevice.AllocatedResourcesTranslated</B>, respectively. To connect its interrupt, a driver uses the resources at <B>AllocatedResourcesTranslated.List.PartialResourceList.PartialDescriptors[]</B>. The driver must scan the array of partial descriptors for resources of type <B>CmResourceTypeInterrupt</B>.</P>
+
+<P>If the driver supplies the storage for the <I>SpinLock</I>, it must call <A HREF="k105_60xe.htm"><B>KeInitializeSpinLock</B></A> before passing its interrupt spin lock to <B>IoConnectInterrupt</B>.</P>
+
+<P>On return from a successful call to <B>IoConnectInterrupt</B>, the caller’s ISR can be called if interrupts are enabled on the driver’s device or if <I>ShareVector</I> was set to TRUE. (If a driver enables interrupts before <B>IoConnectInterrupt</B> is called, the caller's ISR can be called before <B>IoConnectInterrupt</B> returns.)</P>
+
+<P>Callers of <B>IoConnectInterrupt</B> must be running at IRQL&nbsp;= PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k104_51yq.htm"><B>IoDisconnectInterrupt</B></A>, <A HREF="k105_60xe.htm"><B>KeInitializeSpinLock</B></A>, <A HREF="k105_99rm.htm"><B>KeSynchronizeExecution</B></A>, <A HREF="k112_8xbm.htm">CM_PARTIAL_RESOURCE_DESCRIPTOR</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IoConnectInterrupt"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

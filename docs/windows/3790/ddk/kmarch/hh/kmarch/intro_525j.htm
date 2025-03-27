@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Always Preemptible and Always Interruptible</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Always Preemptible and Always Interruptible">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_always_preemptible_and_always_interruptible_kg"></A>Always Preemptible and Always Interruptible</H2>
+
+<P>The Kernel component determines when a particular sequence of code is run according to one of the following prioritizing criteria:
+
+<UL>
+	<LI>The Kernel-defined run-time priority scheme for threads
+<P>Every thread in the system has an associated priority attribute. In general, most threads in the system have <I>variable</I> priority attributes: they are always preemptible and are scheduled to run round-robin with all other threads currently at the same priority level. Some threads in the system have <I>real-time</I> priority attributes: these time-critical threads are preemptible by any thread with a higher real-time priority attribute, but otherwise run until they relinquish control.
+
+<P>Whatever its priority attribute, any thread in the system can be preempted when hardware and certain kinds of software interrupts occur.
+</LI>
+
+	<LI>The Kernel-defined <I>interrupt request level</I> (IRQL) to which a particular interrupt vector is assigned on a given platform
+<P>The Kernel also prioritizes hardware and software interrupts so that some kernel-mode code runs at higher IRQLs, thereby making it, including most drivers, have a higher scheduling priority than all threads in the system.
+
+<P>The particular IRQL at which a piece of kernel-mode code executes determines its <I>hardware priority</I>. Kernel-mode code is always <I>interruptible</I>: an interrupt with a higher IRQL value can occur at any time, thereby causing another piece of kernel-mode code with the system-assigned higher IRQL to be run immediately on that processor. In other words, when a piece of code runs at a given IRQL, the Kernel masks off all interrupt vectors with a lesser or equal IRQL value on the microprocessor.
+</LI>
+</UL>
+
+<P>In general, threads run at IRQL=PASSIVE_LEVEL no interrupt vectors are masked. Software interrupts are assigned relatively low IRQL values (APC_LEVEL, DISPATCH_LEVEL, or, for kernel debugging, WAKE_LEVEL). Device interrupts have higher IRQL values, and the Kernel reserves the highest IRQL values for system-critical interrupts such as the system clock or bus-error interrupts.</P>
+
+<P>Some system support routines run at IRQL=PASSIVE_LEVEL both because some kernel-mode components set up their own threads and because some support routines are implemented as pageable code and/or access pageable data.</P>
+
+<P>Similarly, certain standard driver routines usually run at IRQL = PASSIVE_LEVEL. However, several standard driver routines run either at IRQL=DISPATCH_LEVEL or, for a lowest-level driver, at device IRQL (also called <I>DIRQL</I>). See <A HREF="intrupts_0kh3.htm">Managing Hardware Priorities</A> for a detailed discussion of IRQLs.</P>
+
+<P>In general, only a highest-level driver is called in the context of the thread that is requesting the driver's current I/O operation. An intermediate or lowest level driver can <I>never</I> assume that it is executing in the context of the thread that requested its current I/O operation.</P>
+
+<P>For performance reasons (avoiding context switches), very few drivers set up their own threads. Consequently, driver routines usually execute in the context of whatever thread happens to be current when a standard driver routine is called to get some work done. That is, they execute in an <I>arbitrary thread context</I>.</P>
+
+<P>While any kernel-mode routine that is run at higher than PASSIVE_LEVEL IRQL has a higher priority than all threads in the system, <I>every routine in a driver is interruptible</I>: any kernel-mode routine running at a particular IRQL retains control of the processor only if no interrupt with a higher Kernel-assigned IRQL occurs while that routine is running.</P>
+
+<P>Even a lowest-level driver's <I>interrupt service routine</I> (ISR) can be interrupted by another routine (for example, by another driver's ISR) that runs at higher IRQL. Unlike the drivers in some older PC operating systems, a Windows driver's ISR is <I>never</I> the workhorse routine that does almost all of the driver's I/O processing because the driver's ISR does not necessarily retain control of the CPU it is currently running on until it returns.</P>
+
+<P>Instead, a lowest-level driver must carry out most of its I/O operations at a lower IRQL than the DIRQL of its ISR. For good overall system performance, all kernel-mode routines that run at high IRQLs must relinquish control of the CPU quickly. Such routines do only what must be done at high IRQL and generally queue a <I>deferred procedure call</I> (DPC) to complete any operations that can be done at a lower IRQL (DISPATCH_LEVEL).</P>
+
+<P>The goal of the interruptible, preemptible design of the operating system is to maximize average performance. Any driver's ISR can be interrupted in favor of a routine that runs at a higher IRQL, and any thread can be preempted by a thread with a higher priority. Although some threads have real-time priority attributes, even these threads can be preempted by a thread with a still-higher priority. Thus the Windows architecture does not provide an inherently real-time system.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Always%20Preemptible%20and%20Always%20Interruptible"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

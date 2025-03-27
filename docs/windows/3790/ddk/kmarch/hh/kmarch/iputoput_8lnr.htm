@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Flushing Cached Data during DMA Operations</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Flushing Cached Data during DMA Operations">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_flushing_cached_data_during_dma_operations_kg"></A>Flushing Cached Data during DMA Operations</H2>
+
+<P>In some platforms, the processor and system DMA controller (or bus-master DMA adapters) exhibit cache coherency anomalies. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To maintain data integrity during DMA operations, lowest-level drivers must follow these guidelines </B>
+
+<OL>
+	<LI>Call <A HREF="k105_6asy.htm"><B>KeFlushIoBuffers</B></A> before beginning a transfer operation to maintain consistency between data that might be cached in the processor and the data in memory.
+<P>If a driver calls <A HREF="kdma_6otu.htm"><B>AllocateCommonBuffer</B></A> with the <I>CacheEnabled</I> parameter set to TRUE, the driver must call <B>KeFlushIoBuffers</B> before beginning a transfer operation to/from its buffer. 
+</LI>
+
+	<LI>Call <A HREF="kdma_9cxe.htm"><B>FlushAdapterBuffers</B></A> at the end of each device transfer operation to be sure any remainder bytes in the system DMA controller’s buffers have been written into memory or to the slave device. 
+<P>Or, call <B>FlushAdapterBuffers</B> at the end of each transfer operation for a given IRP to be sure all data has been read into system memory or written out to a bus-master DMA device. 
+</LI>
+</OL>
+
+<P>The following figure shows why it is important to flush the processor cache before a read or write operation using DMA if the host processor and DMA controller do not automatically maintain cache coherency. </P>
+
+<P><B><IMG SRC="images/16cchdma.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Read and Write Operations Using DMA</B></P>
+
+<P>An asynchronous DMA read or write operation accesses data in memory, not in the processor cache. Unless this cache has been flushed by calling <B>KeFlushIoBuffers</B> just before a read, the data transferred into system memory by the DMA operation could be overwritten with stale data if the processor cache is flushed later. Unless the processor cache has been flushed by calling <B>KeFlushIoBuffers</B> just before a write, the data in this cache might be more up-to-date than the copy in memory. </P>
+
+<P><B>KeFlushIoBuffers</B> does nothing if the processor and DMA controller can be relied on to maintain cache coherency, so calls to this support routine have almost no overhead in such a platform. </P>
+
+<P>As also shown in the previous figure, DMA controllers, which are represented by adapter objects, can have internal buffers. Such a DMA controller can transfer cached data in fixed-size chunks, usually eight or more bytes at a time. Moreover, these DMA controllers can wait until their internal buffers are full before each transfer operation. </P>
+
+<P>Consider the case of a lowest-level driver that uses slave DMA to read data in variable-sized chunks or in fixed-size chunks that are not an integral multiple of a system DMA controller’s cache size. Unless this driver calls <B>FlushAdapterBuffers</B> at the end of each device transfer, it cannot be sure when every byte the driver requested actually will be transferred. </P>
+
+<P>The driver of a bus-master DMA device also should call <B>FlushAdapterBuffer</B>s at the end of each transfer operation for an IRP to be sure that all data has been transferred into system memory or out to the device. </P>
+
+<P><B>FlushAdapterBuffers</B> returns a Boolean, value that indicates whether the requested flush operation was successful. A driver can use this value to determine how to set the I/O status block when completing an IRP for a DMA read or write operation. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Flushing%20Cached%20Data%20during%20DMA%20Operations"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

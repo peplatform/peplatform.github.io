@@ -1,0 +1,61 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Synchronization Examples</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Synchronization Examples">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_kesynchronizeexecution_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_synchronization_examples_ksg"></A>Synchronization Examples</H1>
+
+<P>The following examples illustrate what a minidriver needs to do regarding synchronization and includes examples of when synchronization should not be used:
+
+<UL>
+	<LI><B>Example One: Minidriver With A Functioning ISR</B>
+<P>If stream class synchronization is turned on, all minidriver entry points are called at raised IRQL, using <A HREF="JavaScript:hhobj_1.Click()"><B>KeSynchronizeExecution</B></A>, which means that the IRQ level of the adapter and all lower IRQ levels are masked when the minidriver is executing its code. Therefore, it is imperative that the minidriver does only a small amount of work in this mode.
+
+<P>The minidriver should not run code that typically takes more than 10 to 20 microseconds at raised IRQL. If you use the debug build of <I>stream.sys</I>, the stream class logs the amount of time spent at raised IRQL and asserts if the driver is spending too much time there. If the minidriver simply needs to program hardware DMA registers for a request, or just needs to read ports in its ISR, it is usually acceptable to do all of its processing at raised IRQL. 
+
+<P>If the minidriver needs to do processing that takes more than a few microseconds, such as a minidriver that transfers data through PIO, the minidriver should use <A HREF="strclass-routines_7jjn.htm"><B>StreamClassCallAtNewPriority</B></A> to schedule a DISPATCH_LEVEL callback. In the callback, the minidriver can take up to around 1/2 to 1 millisecond to do its processing. One thing to remember when in this mode is that the DISPATCH_LEVEL callback is <I>not</I> synchronized with the ISR.
+
+<P>This lack of synchronization is not a problem if the hardware remains stable when the minidriver accesses resources (for example, ports or a queue) during the callback as well as in the ISR. But if instability could be a problem, the minidriver must use <B>StreamClassCallAtNewPriority</B> to schedule a HIGH priority callback where the DISPATCH_LEVEL callback touches resources that are shared with the resources used by the ISR. 
+
+<P>Note that a HIGH priority callback is equivalent to calling <B>KeSynchronizeExecution</B>. <B>KeSynchronizeExecution</B> requires the minidriver to reference several parameters that <A HREF="strclass-routines_7jjn.htm"><B>StreamClassCallAtNewPriority</B></A> does not, but in general the two result in the same behavior. 
+
+<P>If the minidriver only occasionally needs to run code that takes more than 1/2 to 1 millisecond, or occasionally needs to call services at PASSIVE_LEVEL (such as at initialization time), then setting <B>StreamClassCallAtNewPriority</B> to LOW priority can be used to acquire a PASSIVE_LEVEL worker thread. Note that a low-priority callback is not synchronized with anything and that the minidriver could receive new requests (assuming <B>ReadyForNextRequest </B>NotificationType parameter is pending) or an ISR call when running a low priority callback.
+</LI>
+
+	<LI><B>Example Two: Minidriver Without An ISR</B>
+<P>If stream class synchronization is turned on, the minidriver's entry points are all called at DISPATCH_LEVEL. The minidriver can do processing of up to around 1/2 to 1 millisecond duration without needing to adjust priority. If the minidriver only occasionally needs to run code that takes more than 1/2 millisecond, or occasionally needs to call services at PASSIVE_LEVEL (such as at initialization time), then <A HREF="strclass-routines_7jjn.htm"><B>StreamClassCallAtNewPriority</B></A> with LOW priority can be used to acquire a PASSIVE_LEVEL worker thread. Note that a low-priority callback is not synchronized with anything and the minidriver could receive new requests (assuming <B>ReadyForNextRequest</B> NotificationType parameter  is pending) when running a low-priority callback.
+</LI>
+
+	<LI><B>When Stream Class Synchronization Should <I>Not</I> Be Used</B>
+<P>The following are examples of situations where stream class synchronization should not be used. These include:
+
+<UL>
+	<LI>When drivers frequently (more than about 20 percent of the requests the minidriver receives) need to do processing that takes more than 1 millisecond, or need to frequently call PASSIVE_LEVEL services, such as Microsoft DirectDraw® services. When using the debug version of <I>stream.sys</I>, stream class will assert both of these cases and halt if they are detected with synchronization turned on.</LI>
+
+	<LI>When the minidriver is a filter with no associated hardware. Such a minidriver should be running at PASSIVE_LEVEL since there is no underlying hardware to synchronize with and the minidriver typically does a lot of processing. It is easier to do your own synchronization in this case than to waste overhead using stream class synchronization. If necessary, use mutexes to protect your queues.
+<P>Bugs in synchronization code can often be difficult to find, and in certain environments (such as NT-based operating systems running on multiprocessor systems) bugs may show up only after many hours of stress. Based on experience with vendors, these are not the kinds of things that most vendors have the capability or desire to debug. Only driver writers familiar with writing fully asynchronous WDM device drivers should attempt to do their own synchronization. 
+</LI>
+
+	<LI>When the minidriver is a bus-on-bus type driver (for example, a USB or 1394 peripheral driver) that does not really worry about synchronization of the actual hardware, but just calls requests down to the next layer at PASSIVE_LEVEL and receives callbacks typically at DISPATCH_LEVEL.</LI>
+</UL>
+</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Synchronization%20Examples"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

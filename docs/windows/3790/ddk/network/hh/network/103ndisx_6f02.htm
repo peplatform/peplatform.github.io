@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisMCoIndicateReceivePacket</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisMCoIndicateReceivePacket">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndismcoindicatereceivepacket_nr"></A>NdisMCoIndicateReceivePacket</H1>
+
+<P><B>NdisMCoIndicateReceivePacket</B> notifies NDIS that an array of packets on a VC is available to be forwarded to the appropriate client or call manager. </P>
+
+<PRE class=syntax><B>VOID 
+  NdisMCoIndicateReceivePacket(</B>
+    <B>IN NDIS_HANDLE</B>  <I>NdisVcHandle</I><B>,</B>
+    <B>IN PPNDIS_PACKET</B>  <I>PacketArray</I><B>,</B>
+    <B>IN UINT</B>  <I>NumberOfPackets</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>NdisVcHandle</I></DT>
+
+<DD>Specifies the handle identifying the VC. The NIC driver originally obtained this handle as an input parameter to its <A HREF="101mini_7otu.htm"><I>MiniportCoCreateVc</I></A> function, either when a client set up an outgoing call or when the call manager created a VC for a client-registered SAP on which to indicate an incoming-call notification.</DD>
+
+<DT><I>PacketArray</I></DT>
+
+<DD>Pointer to an array of packet descriptor pointers, with each descriptor set up by the caller to specify the received data. </DD>
+
+<DT><I>NumberOfPackets</I></DT>
+
+<DD>Specifies how many pointers are in the array at <I>PacketArray</I>. The value must be at least one. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A call to <B>NdisMCoIndicateReceivePacket</B> causes NDIS to call the <A HREF="104tdlow_3pwy.htm"><I>ProtocolCoReceivePacket</I></A> function of the client or call manager that shares the given <I>NdisVcHandle</I> with the connection-oriented NIC driver. Whether a connection-oriented NIC driver makes multipacket or single-packet receive indications is implementation-dependent. However, multipacket indications yield better performance. </P>
+
+<P>Before it calls <B>NdisMCoIndicateReceivePacket</B>, the miniport driver must set up the packet array as follows:  
+
+<UL>
+	<LI>Each element at <I>PacketArray</I> is the pointer to a packet descriptor, which the caller allocated from packet pool with <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>.  </LI>
+
+	<LI>All buffer descriptors chained to such a packet descriptor were allocated from buffer pool with <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A>. The miniport driver must call <A HREF="103ndisx_2pki.htm"><B>NdisAdjustBufferLength</B></A> with any buffer descriptor mapping a receive buffer on the NIC that contains less received data than the full range of the receive buffer so that the buffer descriptor will map only the received data for the indication. (The NIC driver must readjust the mapping with <B>NdisAdjustBufferLength</B> when it regains ownership of such a buffer descriptor, as well.) </LI>
+
+	<LI>If the miniport driver indicates timestamps for receives, it must set the <B>TimeReceived</B> or <B>TimeSent</B> members in the <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A> associated with the packet descriptor using the <A HREF="103ndisx_3nxu.htm">NDIS_SET_PACKET_TIME_RECEIVED</A> and/or <A HREF="103ndisx_2u42.htm">NDIS_SET_PACKET_TIME_SENT</A> macros. It can call <A HREF="103ndisx_6m42.htm"><B>NdisGetCurrentSystemTime</B></A> once to get the value to be set as the receive timestamp for all packets of a particular array. </LI>
+
+	<LI>The <B>HeaderSize</B> in the out-of-band data block must match the header size of each received packet for the connection-oriented medium.</LI>
+
+	<LI>If the driver indicates any additional out-of-band information with receives, it must set the <B>SizeMediaSpecificInfo</B> to the number of bytes of information supplied in the caller-allocated buffer at <B>MediaSpecificInformation</B> in the OOB block. The miniport driver can use the <A HREF="103ndisx_6rxu.htm">NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO</A> macro to set these values. Otherwise, <B>SizeMediaSpecificInfo</B> should be zero, and <B>MediaSpecificInformation</B> should be NULL.</LI>
+
+	<LI>The miniport driver can set the <B>Status</B> member of the out-of-band data block to NDIS_STATUS_RESOURCES if it needs to retain ownership of the packet descriptor(s) and associated buffer descriptor(s) for some packet(s) in a particular indication.
+<P>Setting NDIS_STATUS_RESOURCES forces NDIS to indicate each such packet descriptor, one at a time, to the protocol that shares the <I>NdisVcHandle</I>, thereby forcing that client or call manager to copy the packet data and release each packet descriptor (and the associated buffers) back to the miniport driver. Otherwise, the call to <B>NdisMCoIndicateReceivePacket</B> gives the protocol exclusive, read-only access to the buffers chained to each packet descriptor until the packet descriptor is returned to the miniport driver's <A HREF="101mini_81ki.htm"><I>MiniportReturnPacket</I></A> function.
+</LI>
+</UL>
+
+<P>The miniport driver does not have to examine the status of indicated packets on return of <B>NdisMCoIndicateReceivePacket</B>:
+
+<UL>
+	<LI>If the miniport driver set the packet's <B>Status</B> to NDIS_STATUS_SUCCESS before indicating up the packet descriptor, the packet's <B>Status</B> is always NDIS_STATUS_PENDING on return of <B>NdisMCoIndicateReceivePacket</B>. NDIS subsequently returns the packet descriptor to the miniport driver's <I>MiniportReturnPacket</I> function with the packet's <B>Status</B> set to NDIS_STATUS_SUCCESS.</LI>
+
+	<LI>If the miniport driver set the packet's <B>Status</B> to NDIS_STATUS_RESOURCES before indicating up the packet descriptor, the packet's <B>Status</B> is always NDIS_STATUS_SUCCESS on return of <B>NdisMCoIndicateReceivePacket</B>.</LI>
+</UL>
+
+<P>When the miniport driver regains ownership of an indicated packet descriptor, it can prepare the associated out-of-band data blocks for reuse by passing the pointer returned by <A HREF="103ndisx_43qq.htm">NDIS_OOB_DATA_FROM_PACKET</A> to <A HREF="103ndisx_1ype.htm"><B>NdisZeroMemory</B></A>. As an alternative, the miniport driver can simply reset the relevant member(s) at the subsequent receive with the NDIS_SET_PACKET_<I>XXX</I> macro(s) or with the pointer returned by NDIS_OOB_DATA_FROM_PACKET. However, a miniport driver should <I>never</I> pass a packet descriptor pointer to <B>NdisZeroMemory</B>, because doing this destroys the packet descriptor, rendering it unusable for subsequent receive indications. </P>
+
+<P>After some miniport driver-determined number of calls to <B>NdisMCoIndicateReceivePacket</B> from its <I>MiniportHandleInterrupt</I> function, the miniport driver must call <A HREF="103ndisx_2f76.htm"><B>NdisMCoReceiveComplete</B></A>. </P>
+
+<P>If a protocol does not return the miniport driver-allocated resources for a receive indication promptly enough, the NIC driver can call <A HREF="103ndisx_0qgi.htm"><B>NdisMCoIndicateStatus</B></A> with NDIS_STATUS_RESOURCES to alert the offending protocol that the NIC driver is running low on available packet or buffer descriptors (or even on NIC receive buffer space) for subsequent receive indications. </P>
+
+<P>Callers of <B>NdisMCoIndicateReceivePacket</B> can be running at IRQL = DISPATCH_LEVEL. However, a NIC driver generally makes this call from its <I>MiniportHandleInterrupt</I> function, which always runs at IRQL = DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_7s36.htm"><I>MiniportHandleInterrupt</I></A>, <A HREF="101mini_81ki.htm"><I>MiniportReturnPacket</I></A>, <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A>, <A HREF="103ndisx_2pki.htm"><B>NdisAdjustBufferLength</B></A>, <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_990y.htm"><B>NdisChainBufferAtBack</B></A>, <A HREF="103ndisx_3c36.htm"><B>NdisChainBufferAtFront</B></A>, <A HREF="103ndisx_6m42.htm"><B>NdisGetCurrentSystemTime</B></A>, <A HREF="103ndisx_05bm.htm">NDIS_GET_PACKET_STATUS</A>, <A HREF="103ndisx_3fg2.htm"><B>NdisMAllocateSharedMemoryAsync</B></A>, <A HREF="103ndisx_0qgi.htm"><B>NdisMCoIndicateStatus</B></A>, <A HREF="103ndisx_43qq.htm">NDIS_OOB_DATA_FROM_PACKET</A>, <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="103ndisx_61de.htm"><B>NdisReturnPackets</B></A>, <A HREF="103ndisx_3nxu.htm">NDIS_SET_PACKET_TIME_RECEIVED</A>, <A HREF="103ndisx_2u42.htm">NDIS_SET_PACKET_TIME_SENT</A>, <A HREF="104tdlow_3pwy.htm"><I>ProtocolCoReceivePacket</I></A>, <A HREF="104tdlow_5i7m.htm"><I>ProtocolReceiveComplete</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisMCoIndicateReceivePacket"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

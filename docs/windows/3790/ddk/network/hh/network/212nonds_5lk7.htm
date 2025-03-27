@@ -1,0 +1,49 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Windows 98/Me Compatibility Notes</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Windows 98/Me Compatibility Notes">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_windows_98_me_compatibility_notes_ng"></A>Windows 98/Me Compatibility Notes</H1>
+
+<P>NDIS-WDM miniport drivers built for Windows 98/Me platforms must indicate received packets, complete packet transmissions, indicate status, and complete requests in the context of NDIS-timer threads or NDIS-called functions. Typically, the NDIS-WDM miniport driver is notified about these operations through the driver's WDM lower interface. The NDIS-WDM miniport driver must queue such an operation, start another thread using an NDIS timer object with a time-out set to zero, and complete the operation in the new thread. </P>
+
+<P>The following code snippet shows how to queue a packet that is received and then indicate this packet up the stack using an NDIS timer object:</P>
+
+<PRE>// Code for queuing packet 
+// Acquire spinlock to Adapter structure.
+// Queue <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A> for the packet to the tail of the list of 
+// pending receives.
+if (Adapter-&gt;IndicatingReceives == FALSE) {
+    Adapter-&gt;IndicatingReceives = TRUE;
+    <A HREF="103ndisx_8wdu.htm">NdisSetTimer</A>(&amp;Adapter-&gt;IndicateTimer, 0); // Start timer thread.
+}
+// Release spinlock;
+
+
+// Code for timer thread (&amp;Adapter-&gt;IndicateTimer function) 
+// Acquire spinlock to Adapter structure.
+while (/* pending receive queue is not empty */) {
+    // Dequeue NDIS_PACKET from pending receive queue.
+    // Release spinlock.
+    Status = <A HREF="103ndisx_05bm.htm">NDIS_GET_PACKET_STATUS</A>(pNdisPacket);
+    <A HREF="103ndisx_5uuq.htm">NdisMIndicateReceivePacket</A>(
+        MiniportAdapterHandle,
+        pNdisPacket,
+        NumberOfPackets);
+    if (Status == NDIS_STATUS_RESOURCES) {
+        // Call own <A HREF="101mini_81ki.htm">MiniportReturnPacket</A> handler with the packet.
+    }
+    // Reacquire spinlock to Adapter structure.
+}
+Adapter-&gt;IndicatingReceives = FALSE;
+// Release spinlock.</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Windows%2098%2FMe%20Compatibility%20Notes"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

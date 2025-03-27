@@ -1,0 +1,190 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>buildDDHALInfo32</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="buildDDHALInfo32">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_buildddhalinfo32_gg"></A><I>buildDDHALInfo32</I></H1>
+
+<P>The <I>buildDDHALInfo32</I> function collects the information about the 32-bit portion of the HAL for DirectDraw in the shared memory window that the 32-bit portion shares with the 16-bit portion of the HAL. </P>
+
+<PRE class=syntax><B>static BOOL 
+  buildDDHALInfo32(
+</B>    <B>void</B>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<P>None</P>
+
+<H4>Return Value</H4>
+
+<P>Returns TRUE if the function is successful; otherwise, returns FALSE.</P>
+
+<H4>Comments</H4>
+
+<P>The 16-bit analog to <I>buildDDHALInfo32</I> is the <A HREF="ddfncs_8f53.htm"><I>buildDDHALInfo16</I></A> function. The <I>buildDDHALInfo16</I> function fills in information in the shared memory window that is specific to the HAL table but can only be obtained from the 16-bit side, such as from the mode table. </P>
+
+<P>The <I>buildDDHALInfo32</I> function fills in the function names, capabilities, and pointers needed by DirectDraw to drive the display card. These are filled in both at initialization time and during mode changes. The <I>buildDDHALInfo32</I> function is called to modify the structures in the shared 16- and 32-bit memory window (<A HREF="ddstrcts_9m7b.htm">DDHALINFO</A>) that resides above the 2 gigabyte boundary and is accessible from 16- and 32-bit pointers. All of the HAL information is stored in the DDHALINFO structure so it can be accessed easily by DirectDraw. Delete any HAL entries you don't need, and instead put NULL in the entry table. </P>
+
+<P>In the <I>buildDDHALInfo32</I> function, the main driver, surface, and palette callback function names are filled in with aliases of their respective structures (cbDDCallbacks, cbDDSurfaceCallbacks, and cbDDPaletteCallbacks). The DirectDraw callbacks used in this sample are <A HREF="ddfncs_9gh3.htm"><I>WaitForVerticalBlank32</I></A> and <A HREF="ddfncs_8ug7.htm"><I>GetScanLine32</I></A>. Flags are set in the <B>dwFlags</B> member of the cbDDCallbacks structure alias to indicate that they are implemented in 32-bit code. For example, the DDHAL_CB32_WAITFORVERTICALBLANK flag indicates that a <I>WaitForVerticalBlank</I> callback is implemented in 32-bit code. If it were implemented in 16-bit code, the name of the 16-bit function would be filled in by <I>buildDDHALInfo16</I> and the flag that specified it as 32-bit implementation would be left out. </P>
+
+<P>This <I>buildDDHALInfo32</I> function also fills in the DirectDrawSurface callbacks with the following functions: <A HREF="ddfncs_6t9j.htm"><I>Blt32</I></A>, <A HREF="ddfncs_90o7.htm"><I>Flip32</I></A>, <A HREF="ddfncs_9von.htm"><I>Lock32</I></A>, <A HREF="ddfncs_0eg7.htm"><I>GetBltStatus32</I></A>, and <A HREF="ddfncs_7dev.htm">GetFlipStatus32</A>. As with <I>WaitForVerticalBlank</I> and <I>GetScanLine32</I> in the previous paragraph, each of these functions is flagged as a 32-bit implementation in the <B>dwFlags</B> member. If, for some reason, one or more of these was implemented in 16-bit code, the 32-bit flag would be left out for that function and the <I>buildDDHALInfo16</I> function would fill in the name of the 16-bit function. </P>
+
+<P>In this sample, there are no DirectDrawPalette callbacks to fill in, but the size of the structure is still filled in and the <B>dwFlags</B> member is explicitly set to 0. Then the DDHALINFO structure is filled in with all information of the above callback structures. </P>
+
+<P>The FourCC codes (four character codes for color space conversions) are filled out in the order of preference. The one with the highest quality for your device should go first, and so on (see <A HREF="ddraw_2jdz.htm">DirectDraw and Color Space Conversion</A> for a description of common FourCC code formats). The driver instance (<I>hInstance</I>) is filled in with the instance of the 32-bit DLL. The <I>pdevice</I> parameter is the pointer to the device structure for the display 16-bit GDI driver. </P>
+
+<P>All of the capabilities supported by this HAL are filled in the <B>dwCaps</B><I> </I>member of the DDCORECAPS structure included in the DDHALINFO structure. In this sample, DDCAPS_BLT indicates there is a blitter so the HAL can blt, DDCAPS_BLTQUEUE indicates the HAL is capable of queuing up blts, DDCAPS_BLTCOLORFILL indicates the HAL can do color fills, and DDCAPS_COLORKEY means the HAL can do transparent blts. (For a list of the capabilities flags, see the <A HREF="ddstrcts_5xgn.htm">DDCORECAPS</A> structure.) </P>
+
+<P>As far as surface capabilities go, the sample indicates the driver can support flipping, off screen plain, and primary surfaces (DDSCAPS_FLIP, DDSCAPS_OFFSCREENPLAIN, DDSCAPS_PRIMARYSURFACE). The color key capabilities include source blt and destination blt. </P>
+
+<P>The supported raster operations (ROPs) are filled in (see the Platform SDK for a list of standard raster operations) and the display mode (indicated by the <B>dwModeIndex</B> member of the DDHALINFO structure) is temporarily set to DDUNSUPPORTEDMODE (<I>buildDDHALInfo16</I> fills this in for real). The required alignments of the scan lines (specified in terms of bits) for each kind of memory are filled in. </P>
+
+<P>The following is a sample implementation of <I>buildDDHALInfo32</I>:</P>
+
+<PRE>/*
+ * buildDDHALInfo32
+ *
+ * Build a DDHALInfo structure
+ */
+static BOOL buildDDHALInfo32()
+{
+    /*
+     * Modify the structures in our shared window with the 16-bit driver
+     */
+    #define cbDDCallbacks        pDriverData-&gt;DDCallbacks
+    #define cbDDSurfaceCallbacks pDriverData-&gt;DDSurfaceCallbacks
+    #define cbDDPaletteCallbacks pDriverData-&gt;DDPaletteCallbacks
+    #define ddHALInfo            pDriverData-&gt;HALInfo
+
+    /*
+     * Fill in the main driver callbacks
+     */
+    memset(&amp;cbDDCallbacks, 0, sizeof(DDHAL_DDCALLBACKS));
+    cbDDCallbacks.dwSize                = sizeof(DDHAL_DDCALLBACKS);
+    cbDDCallbacks.WaitForVerticalBlank  = WaitForVerticalBlank32;
+    cbDDCallbacks.GetScanLine           = GetScanLine32;
+    cbDDCallbacks.dwFlags               = 
+                        DDHAL_CB32_WAITFORVERTICALBLANK | 
+                        DDHAL_CB32_GETSCANLINE;
+
+    /*
+     * Fill in the surface callbacks
+     */
+    memset(&amp;cbDDSurfaceCallbacks, 0, sizeof(DDHAL_DDSURFACECALLBACKS));
+    cbDDSurfaceCallbacks.dwSize         = 
+                  sizeof(DDHAL_DDSURFACECALLBACKS);
+    cbDDSurfaceCallbacks.Blt            = Blt32;
+    cbDDSurfaceCallbacks.Flip           = Flip32;
+    cbDDSurfaceCallbacks.Lock           = Lock32;
+    cbDDSurfaceCallbacks.GetBltStatus   = GetBltStatus32;
+    cbDDSurfaceCallbacks.GetFlipStatus  = GetFlipStatus32;
+    cbDDSurfaceCallbacks.dwFlags        = DDHAL_SURFCB32_BLT |
+                                          DDHAL_SURFCB32_FLIP |
+                                          DDHAL_SURFCB32_LOCK |
+                                          DDHAL_SURFCB32_GETBLTSTATUS |
+                                          DDHAL_SURFCB32_GETFLIPSTATUS;
+
+    /*
+     * Fill in the palette callbacks
+     */
+    memset(&amp;cbDDPaletteCallbacks, 0, sizeof(DDHAL_DDPALETTECALLBACKS));
+    cbDDPaletteCallbacks.dwSize  = sizeof(DDHAL_DDPALETTECALLBACKS);
+    cbDDPaletteCallbacks.dwFlags = 0;
+
+    /*
+     * Fill in the HALINFO
+     */
+    memset(&amp;ddHALInfo, 0, sizeof(DDHALINFO));
+    ddHALInfo.dwSize = sizeof(DDHALINFO);
+
+    /*
+     * Callback functions
+     */
+    ddHALInfo.lpDDCallbacks        = &amp;cbDDCallbacks;
+    ddHALInfo.lpDDSurfaceCallbacks = &amp;cbDDSurfaceCallbacks;
+    ddHALInfo.lpDDPaletteCallbacks = &amp;cbDDPaletteCallbacks;
+
+    /*
+     *  FOURCCs supported
+     */
+    ddHALInfo.ddCaps.dwNumFourCCCodes = 0;
+    ddHALInfo.lpdwFourCC = NULL;
+
+    /*
+     * Return our HINSTANCE
+     */
+    ddHALInfo.hInstance = (DWORD)hInstance;
+
+    /*
+     * PDevice
+     */
+    ddHALInfo.lpPDevice = (LPVOID)pDriverData-&gt;lpPDevice;
+
+  
+    /*
+     * Capabilities supported
+     */
+    ddHALInfo.ddCaps.dwCaps = DDCAPS_BLT |
+                              DDCAPS_BLTQUEUE |
+                              DDCAPS_BLTCOLORFILL |
+                              DDCAPS_COLORKEY;
+
+    ddHALInfo.ddCaps.ddsCaps.dwCaps = DDSCAPS_FLIP |
+                                      DDSCAPS_OFFSCREENPLAIN |
+                                      DDSCAPS_PRIMARYSURFACE;
+
+    ddHALInfo.ddCaps.dwCKeyCaps = DDCKEYCAPS_SRCBLT |
+                                  DDCKEYCAPS_DESTBLT;
+
+    ddHALInfo.ddCaps.dwFXCaps = 0x00000000;
+
+    /*
+     * Fill in ROPs supported
+     */
+    ddHALInfo.ddCaps.dwRops[0] =0x00000001; 
+            // BLACKNESS - 0x00 / 32 = 0 + 0 remainder - DWORD 0, bit 0
+    ddHALInfo.ddCaps.dwRops[1] =0x00000000;
+    ddHALInfo.ddCaps.dwRops[2] =0x00000000;
+    ddHALInfo.ddCaps.dwRops[3] =0x00000000;
+    ddHALInfo.ddCaps.dwRops[4] =0x00000000;
+    ddHALInfo.ddCaps.dwRops[5] =0x00000000;
+    ddHALInfo.ddCaps.dwRops[6] =0x00001000; 
+            // WHITENESS - 0xff / 32 = 7 + 31 remainder - DWORD 7,bit 31
+    ddHALInfo.ddCaps.dwRops[7] =0x80000000;
+            // SRCCOPY   - 0xcc / 32 = 6 + 12 remainder - DWORD 6,bit 12
+
+    /*
+     * Current video mode, the 16-bit driver will fill this out for real.
+     */
+    ddHALInfo.dwModeIndex = DDUNSUPPORTEDMODE;
+
+    /*
+     *  Required alignments of the scan lines for each kind of memory 
+     *  (specified in terms of bits - DWORD alignment is used in this 
+     *  driver)
+     */
+    ddHALInfo.vmiData.dwOffscreenAlign = 32;
+    ddHALInfo.vmiData.dwOverlayAlign   = 32;
+    ddHALInfo.vmiData.dwTextureAlign   = 32;
+    ddHALInfo.vmiData.dwAlphaAlign     = 32;
+    ddHALInfo.vmiData.dwZBufferAlign   = 32;
+
+    
+    return TRUE;
+
+} /* buildDDHALInfo32 */</PRE>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddfncs_8f53.htm"><I>buildDDHALInfo16</I></A>, <A HREF="ddstrcts_9m7b.htm">DDHALINFO</A>, <A HREF="ddfncs_9gh3.htm"><I>WaitForVerticalBlank32</I></A>, <A HREF="ddfncs_8ug7.htm"><I>GetScanLine32</I></A>, <A HREF="ddfncs_6t9j.htm"><I>Blt32</I></A>, <A HREF="ddfncs_90o7.htm"><I>Flip32</I></A>, <A HREF="ddfncs_9von.htm"><I>Lock32</I></A>, <A HREF="ddfncs_0eg7.htm"><I>GetBltStatus32</I></A>, <A HREF="ddfncs_7dev.htm">GetFlipStatus32</A>, <A HREF="ddstrcts_5xgn.htm">DDCORECAPS</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: buildDDHALInfo32"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

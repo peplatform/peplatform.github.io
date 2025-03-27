@@ -1,0 +1,71 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisCmActivateVc</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisCmActivateVc">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndiscmactivatevc_nr"></A>NdisCmActivateVc</H1>
+
+<P><B>NdisCmActivateVc</B> passes CM-supplied call parameters, including media parameters, for a particular VC down to the underlying NIC driver.</P>
+
+<PRE class=syntax><B>NDIS_STATUS 
+  NdisCmActivateVc(
+    IN NDIS_HANDLE</B>  <I>NdisVcHandle</I><B>,</B>
+    <B>IN OUT PCO_CALL_PARAMETERS</B>  <I>CallParameters
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>NdisVcHandle</I></DT>
+
+<DD>Specifies the handle identifying the VC on which to set call parameters. The call manager either obtained this handle from <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A> for an incoming call or as an input parameter to its <A HREF="104tdlow_299u.htm"><I>ProtocolCoCreateVc</I></A> function for a client-initiated outgoing call. </DD>
+
+<DT><I>CallParameters</I></DT>
+
+<DD>Pointer to a CM-allocated resident buffer, formatted as a structure of type <A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A>, containing all the media-specific parameters that the underlying miniport driver uses for VC activation. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>When <B>NdisCmActivateVc</B> returns anything other than NDIS_STATUS_PENDING, the call manager should make an internal call to its <A HREF="104tdlow_5aeq.htm"><I>ProtocolCmActivateVcComplete</I></A> function. Otherwise, NDIS calls the CM's <I>ProtocolCmActivateVcComplete</I> function when this operation is completed.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>NdisCmActivateVc</B> notifies the underlying NIC driver to set up call and media parameters on a newly created VC or to change those of an established VC. NDIS forwards the given call parameters and VC handle to the underlying NIC driver's <A HREF="101mini_7piq.htm"><I>MiniportCoActivateVc</I></A> function, which sets up all necessary resources to track the state of the VC and makes itself and its NIC ready for data transfers on the VC.</P>
+
+<P>A stand-alone CM always calls <B>NdisCmActivateVc</B> after establishing a connection on a VC but before any data is sent or received on that VC. For the duration of the connection, a CM can call <B>NdisCmActivateVc</B> many times with the same <I>NdisVcHandle</I> as conditions on the network change and/or whenever the client calls <A HREF="103ndisx_7jhu.htm"><B>NdisClModifyCallQoS</B></A>. At each such call to <B>NdisCmActivateVc</B>, the underlying NIC driver's <I>MiniportCoActivateVc</I> function must do either of the following:
+
+<UL>
+	<LI>Update the state that the NIC driver maintains about call parameters to the new values supplied by the call manager if the miniport driver can continue to make transfers on the VC according to the newly modified call parameters. </LI>
+
+	<LI>Fail the call if the NIC driver cannot continue to make transfers under the constraints of the given call parameters. </LI>
+</UL>
+
+<P>When the underlying miniport driver fails a request to set or reset call parameters, the call manager might modify its original specification at <I>CallParameters</I> and call <B>NdisCmActivateVc</B> again. The limit on the number of times any call manager makes repeated attempts to activate a VC is implementation-dependent.</P>
+
+<P>For a client-initiated outgoing call, a stand-alone CM usually calls <B>NdisCmActivateVc</B> immediately following the packet exchange confirming a negotiated agreement with the remote target of the call or successful call-setup at the switch, before it notifies NDIS (and the client) of outgoing call completion with <A HREF="103ndisx_460i.htm"><B>NdisCmMakeCallComplete</B></A>. For an incoming call, a call manager usually calls <B>NdisCmActivateVc</B> after it has called <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A> successfully and before it calls <A HREF="103ndisx_2v76.htm"><B>NdisCmDispatchIncomingCall</B></A>. </P>
+
+<P>In the process of setting up an outgoing call and while any VC remains activated, the client can request changes to the call parameters for that VC, for example, by calling <A HREF="103ndisx_7jhu.htm"><B>NdisClModifyCallQos</B></A>. After verifying the validity of the given call parameters for any such a request, the stand-alone call manager must call <B>NdisCmActivateVc</B> to pass the modified call parameters down to the underlying miniport driver. </P>
+
+<P>Only stand-alone call managers, which register themselves with NDIS as protocols, can call <B>NdisCmActivateVc</B>. Connection-oriented miniport drivers that provide integrated call-management support call <B>NdisMCmActivateVc</B> instead. </P>
+
+<P>Callers of <B>NdisCmActivateVc</B> can be running at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A>, <A HREF="101mini_7piq.htm"><I>MiniportCoActivateVc</I></A>, <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>, <A HREF="103ndisx_7jhu.htm"><B>NdisClModifyCallQos</B></A>, <A HREF="103ndisx_5g4y.htm"><B>NdisCmDeactivateVc</B></A>, <A HREF="103ndisx_2v76.htm"><B>NdisCmDispatchIncomingCall</B></A>, <A HREF="103ndisx_2xde.htm"><B>NdisMCmActivateVc</B></A>, <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A>, <A HREF="104tdlow_5aeq.htm"><I>ProtocolCmActivateVcComplete</I></A>, <A HREF="104tdlow_299u.htm"><I>ProtocolCoCreateVc</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisCmActivateVc"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

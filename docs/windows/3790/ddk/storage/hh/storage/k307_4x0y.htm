@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IOCTL_SCSI_PASS_THROUGH</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IOCTL_SCSI_PASS_THROUGH">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ioctl_scsi_pass_through_kr"></A>IOCTL_SCSI_PASS_THROUGH</H1>
+
+<H4>Operation</H4>
+
+<P>Allows an application to send almost any SCSI command to a target device, with the following restrictions:
+
+<UL>
+	<LI>Multitarget commands, such as COPY, are not allowed.</LI>
+
+	<LI>Bidirectional data transfer operations are not supported.</LI>
+
+	<LI>If a class driver for the target type of device exists, the request must be sent to that class driver. Thus, an application can send this request directly to the system port driver for a target logical unit only if there is no class driver for the type of device connected to that LU. The system port driver does not check to determine if a device has been claimed by a class driver before processing a pass-through request. Therefore, if an application bypasses a class driver that has claimed a device and sends a pass-through request for that device directly to the port driver, then a conflict for control of the device can occur between the class driver and the application. </LI>
+
+	<LI>This request cannot be used if the CDB might require the underlying miniport driver to access memory directly. If the caller's CDB might require direct access to memory, use <A HREF="k307_59yq.htm">IOCTL_SCSI_PASS_THROUGH_DIRECT</A> instead. </LI>
+
+	<LI>Applications must not attempt to send a pass-through request asynchronously. All pass-through requests must be synchronous. </LI>
+
+	<LI>Applications do not require administrative privileges to send a pass-through request to a device, but they must have read-write access to the device. </LI>
+</UL>
+
+<P>The calling application creates the SCSI command descriptor block, which can include a request for request-sense data if a CHECK CONDITION occurs. </P>
+
+<P>IOCTL_SCSI_PASS_THROUGH is a buffered device control request. To bypass buffering in system memory, callers should use <A HREF="k307_59yq.htm">IOCTL_SCSI_PASS_THROUGH_DIRECT</A>. When handling an IOCTL_SCSI_PASS_THROUGH_DIRECT request, the system locks down the buffer in user memory and the device accesses this memory directly. </P>
+
+<P>This request is typically used for transferring small amounts of data (&lt;16K).</P>
+
+<H4>Input</H4>
+
+<P><B>Parameters.DeviceIoControl.InputBufferLength</B> indicates the size in bytes of the buffer at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B>, which must be at least (<I>RequestSenseStorageSize</I> + <B>sizeof</B> (SCSI_PASS_THROUGH)). The size of the <A HREF="k306_34tu.htm">SCSI_PASS_THROUGH</A> structure varies, depending on its <B>DataTransferLength</B> specification.</P>
+
+<P>This structure includes a SCSI CDB, which must be initialized by the caller except for the path, target ID, and LUN, which are filled in by the port driver. For a data-out command, the data to be transferred is included in the buffer at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B> at <B>DataBufferOffset</B> in the SCSI_PASS_THROUGH structure. However, the caller must allocate additional storage, immediately following SCSI_PASS_THROUGH, if the caller asks for request-sense data.</P>
+
+<H4>Output</H4>
+
+<P>The port driver returns any request-sense data and any data transferred from the device to the buffer at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B>. The <B>SenseInfoLength</B> and <B>DataTransferLength</B> in the SCSI_PASS_THROUGH structure are updated to indicate the amount of data transferred.</P>
+
+<H4>I/O Status Block</H4>
+
+<P>The <B>Information</B> field is set to the number of bytes returned in the output buffer at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B>. The <B>Status</B> field is set to STATUS_SUCCESS, or possibly to STATUS_BUFFER_TOO_SMALL or STATUS_INVALID_PARAMETER if the input <B>Length </B>value in SCSI_PASS_THROUGH is improperly set. </P>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>ntddscsi.h</I>. Include <I>ntddscsi.h</I>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k306_34tu.htm">SCSI_PASS_THROUGH</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IOCTL_SCSI_PASS_THROUGH"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TDI_DISCONNECT</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TDI_DISCONNECT">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdi_disconnect_nr"></A>TDI_DISCONNECT</H1>
+
+<P>When a kernel-mode client makes a TDI_DISCONNECT request, it asks the underlying TDI transport driver to make a disconnect indication to the remote node, to acknowledge a disconnect indication from the remote node for an established endpoint-to-endpoint connection, or to reject an offered connection by a remote-node peer. </P>
+
+<H4>IRP</H4>
+
+<P>The transport calls <B>IoGetCurrentIrpStackLocation</B> with the given <I>Irp</I> to get a pointer to its own I/O stack location in the IRP, shown in the following list as <B>IrpSp</B>. The pointer to the IRP is shown in the following list as <B>Irp</B>. IRP members relevant to this request include the following:
+
+<DL>
+<DT><B>Irp-&gt;IoStatus.Status</B></DT>
+
+<DD>Specifies the final status of the disconnect request. The transport sets this member before it completes the IRP, possibly to one of the following:
+
+<P>STATUS_SUCCESS<BR>
+STATUS_PENDING<BR>
+STATUS_INVALID_CONNECTION<BR>
+STATUS_REQUEST_TIMED_OUT
+</DD>
+
+<DT><B>IrpSp-&gt;MajorFunction</B></DT>
+
+<DD>Specifies IRP_MJ_INTERNAL_DEVICE_CONTROL. The transport can ignore this member if it exports a <B>TdiDispatchInternalDeviceControl</B> routine that handles only TDI_<I>XXX</I> requests. </DD>
+
+<DT><B>IrpSp-&gt;MinorFunction</B></DT>
+
+<DD>Specifies TDI_DISCONNECT.</DD>
+
+<DT><B>IrpSp-&gt;FileObject</B></DT>
+
+<DD>Pointer to an open file object representing the connection endpoint. The transport uses the <B>FsContext</B> and, possibly, <B>FsContext2</B> fields to access the state it maintains about this connection. </DD>
+
+<DT><B>IrpSp-&gt;Parameters</B></DT>
+
+<DD>Pointer to a TDI_REQUEST_KERNEL_DISCONNECT structure, equivalent to the TDI_REQUEST_KERNEL structure. 
+
+<P>Some transport drivers simply terminate all activity on the given connection immediately. Others use the client-supplied value of the <B>RequestFlags</B> member to support controlled disconnects. For such a transport, <B>RequestFlags</B> can be set to either of the following:
+
+
+<DL>
+<DT>TDI_DISCONNECT_ABORT </DT>
+
+<DD>Specifies that the transport should close the connection immediately without completing its pending operations on the connection. This is the default behavior expected of all transports, including transports that do not support controlled disconnects. In effect, this value for <B>RequestFlags</B> directs the transport to do the same things as if <B>RequestFlags</B> were zero: the transport should refuse any incoming requests for the connection, stop all activity at the specified connection endpoint, and cancel any outstanding requests it is holding queued internally for the connection. 
+
+<P>When a preceding disconnect request made with TDI_DISCONNECT_RELEASE remains pending on the connection, the client can issue another disconnect request with TDI_DISCONNECT_ABORT, thereby forcing the underlying transport to close the connection immediately.
+</DD>
+
+<DT>TDI_DISCONNECT_RELEASE</DT>
+
+<DD>Specifies that the transport should initiate a controlled disconnect or confirms a controlled disconnect that was initiated from the remote node, as described later (see Comments). 
+
+<P>The tranport can use client-supplied information in the buffer at <B>RequestConnectionInformation</B> to supply disconnection data, possibly supplemented with transport-provided status information, to the transport on the remote node. This buffer is formatted as a TDI_CONNECTION_INFORMATION structure.
+
+
+<P>The transport can return disconnect data and any status information supplied by the transport on the remote node in the client-supplied buffer at <B>ReturnConnectionInformation</B>. This buffer is formatted as a TDI_CONNECTION_INFORMATION structure. The contents of this buffer remain valid only until the client reuses the connection in a subsequent TDI_LISTEN or TDI_CONNECT request. 
+
+
+<P>The TDI_DISCONNECT_WAIT flag is unused. 
+</DD>
+</DL>
+</DD>
+
+<DT><B>IrpSp-&gt;Parameters.RequestSpecific</B></DT>
+
+<DD>Pointer to a LARGE_INTEGER variable specifying the time-out interval for the disconnect operation or is NULL. An explicit time out is specified as the negative of the number of 100-nanosecond units, relative to the current system time, for the time-out interval. If this member is NULL, the transport must choose an appropriate time-out value, usually something less than one second.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>TdiKrnl.h</I>. Include <I>TdiKrnl.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>During a disconnect operation, the underlying transport driver usually refuses any incoming requests for an established connection and stops all activity at the specified connection endpoint, unless the transport supports controlled disconnects. That is, the completion of a client's disconnect request usually implies cessation of all activity, including receive indications, on the given connection.</P>
+
+<P>By default, TDI_DISCONNECT requests the disconnection of an endpoint-to-endpoint connection that is not a controlled-disconnect operation: the transport need not complete outstanding I/O requests on the connection before it completes the disconnect request and returns control. For such a disconnect operation, the transport typically cancels all outstanding requests on the given connection, and the corresponding remote-node transport need not have its client confirm the disconnection before the local-node transport can complete its client's disconnect request and return control.</P>
+
+<P>Clients on an endpoint-to-endpoint connection can request a controlled disconnect if their underlying TDI transports support this. If so, the client that initiates the disconnect operation with a TDI_DISCONNECT request causes both transports to coordinate their operations so the remote-node peer is informed that its endpoint-to-endpoint connection is closing. In these circumstances, the remote-node client must confirm the disconnect before the underlying transport can return from the initiating (local-node) client's disconnect request. </P>
+
+<P>The following summarizes the sequence of operations for a controlled disconnect:
+
+<OL>
+	<LI>The local-node client initiates a disconnection by making a disconnect request with TDI_DISCONNECT_RELEASE set in <B>RequestFlags</B>. Subsequently, this client can no longer send data on the connection, but it can continue to receive data from its remote-node peer. When such a local-node client makes its disconnect request, the underlying transport transmits the data for any pending send requests it is currently holding and completes these requests back to its client, but it notifies the remote-node transport that a disconnect is occurring.  </LI>
+
+	<LI>The transport on the remote node performs the usual operations for any pending receive requests made by its client. Then, the remote-node transport notifies its client of the pending disconnect, either by calling ClientEventDisconnect if the remote-node client has registered this handler or by returning an error code on an outstanding request made by its client. After such a notification, the remote-node client can no longer receive data on the connection, but it can continue to send data until it makes a TDI_DISCONNECT request with TDI_DISCONNECT_RELEASE set in the <B>RequestFlags</B>.</LI>
+
+	<LI>When the remote-node client has finished sending data, it makes a disconnect request to its underlying transport with TDI_DISCONNECT_RELEASE set in <B>RequestFlags</B>. The transport completes all outstanding sends on the connection normally before completing its client's disconnect request. When the transport completes this disconnect request, the connection is closed from the point of view of its remote-node client. However, the connection endpoint is still valid and that client can reuse it later.</LI>
+
+	<LI>The remote-node transport notifies the local-node transport to confirm disconnect completion on the remote node. At this point, the original disconnect request is completed by the local-node transport and the connection is closed from the point of view of the local-node client that initiated the staged disconnection. However, the connection endpoint is still valid and the client can reuse it.</LI>
+</OL>
+
+<P>If the underlying transport supports delayed-connection acceptances, its clients also can submit TDI_DISCONNECT requests to reject incoming connection offers from remote nodes. Such a client is responding to a completed TDI_LISTEN request in which the client set the TDI_QUERY_ACCEPT flag or to a offer relayed by the transport to that client's registered ClientEventConnect handler.</P>
+
+<P><B>TdiBuildDisconnect</B> is the macro a client uses to fill in this IRP.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_56r6.htm"><B>ClientEventConnect</B></A>, <A HREF="34bldmac_4eeq.htm"><B>TdiBuildDisconnect</B></A>, <A HREF="36tdstrc_9vg2.htm"><B>TDI_CONNECTION_INFORMATION</B></A>, <A HREF="31tddisp_2sfm.htm"><B>TdiDispatchInternalDeviceControl</B></A>, <A HREF="32ioctl_6jua.htm"><B>TDI_LISTEN</B></A>, <A HREF="36tdstrc_1q7m.htm"><B>TDI_REQUEST_KERNEL</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TDI_DISCONNECT"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,193 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Multimedia Subsystem Driver Notification</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_2302"></A>Multimedia Subsystem Driver Notification</H3>
+
+<P>After the VxD has successfully processed the CONFIG_START message, the multimedia device loader notifies the multimedia subsystem (MMSYSTEM.DLL) that a device node has successfully started. MMSYSTEM loads each of the associated ring-3 drivers and sends a device arrival notification. The ring-3 drivers query the supporting VxD for configuration information and complete the initialization necessary to support the device. The multimedia subsystem is designed to accommodate device nodes that have multiple function traits, such as music synthesis, digital sound support, hardware compression and/or decompression, and mixer support. When a device node is started, MMSYSTEM locates the registry entries for device node and loads the drivers for each supported class. </P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The changes and additions to the Window 3.1 multimedia device driver model as described below are specific to Windows 95 Plug and Play device drivers. Multimedia drivers loaded using the Windows 3.1 SYSTEM.INI entries will not experience these changes. </P>
+
+<P>A device node might support four driver classes: <B>wave</B>, <B>midi</B>, <B>aux</B> and <B>mixer</B>. Each class may have multiple drivers. MMSYSTEM loads all drivers for all active classes when the device successfully starts. MMSYSTEM loads each module only once and increments reference counts as necessary (standard <B>LoadLibrary</B>() behavior); therefore, a multimedia ring-3 device driver's <B>DriverProc</B>() receives only one DRV_LOAD message when it is first loaded and only one DRV_FREE message when the last reference to the device is released. </P>
+
+<P>A ring-3 device driver should maintain separate data structures for each device node and if the device driver supports multiple classes it should maintain reference counts for each active class. To assist in this task, Windows 95 introduces new parameters for the <I>xxxx</I><B>_</B>INIT, <I>xxxx</I><B>_</B>GETNUMDEVS, <I>xxxx</I><B>_</B>GETDEVCAPS and <I>xxxx</I><B>_</B>OPEN messages, and introduces new messages: DRVM_ENABLE, DRVM_DISABLE and DRVM_EXIT. </P>
+
+<P>MMSYSTEM sends the <I>xxxx</I><B>_</B>INIT, DRVM_ENABLE, DRVM_DISABLE and DRVM_EXIT message to each message procedure of each class of device when the corresponding activity has taken place for the device node. </P>
+
+<P>Below is a description of these messages and the appropriate driver response: 
+
+<UL>
+	<LI>MMSYSTEM issues the <I>xxxx</I><B>_</B>INIT message when the device is first started. Generally, a device driver allocates the instance structure or increments a usage reference count for this message. </LI>
+
+	<LI>MMSYSTEM issues the DRVM_ENABLE message when the device node becomes active. The device driver should increment an enable count. The first time the device driver receives this notification it should perform hardware initialization as well as allocate other device support structures such as mixer structures, interrupt service thunks and so. </LI>
+
+	<LI>MMSYSTEM issues the DRVM_DISABLE message when the device node becomes disabled. The device driver should decrement the enable count and when the enable count is zero, it should release hardware resources and free the structures allocated during the DRVM_ENABLE message processing. MMSYSTEM halts all application to driver message traffic is except <I>xxxx</I>_UNPREPARE, <I>xxxx</I>_RESET, <I>xxxx</I>_STOP and <I>xxxx</I>_CLOSE messages, allowing a driver to clean up remaining data associated with the device handle The Configuration Manager unloads the device node's VxD when the device enable count is zero and after the driver responds to this message. </LI>
+
+	<LI>MMSYSTEM issues the DRVM_EXIT message after the device has been disabled and when there are no open handles to the device driver. The device driver should free the instance structure when the usage reference count is zero. Additionally, MMSYSTEM may dispatch another DRVM_ENABLE and DRVM_DISABLE pair before dispatching the DRVM_EXIT. This is particularly true for the case of device reconfiguration or PCMCIA removal and immediate re-insertion. </LI>
+</UL>
+
+<P>When the driver vendor follows the appropriate handling of these messages it is possible to accomplish any or all of the following: 
+
+<UL>
+	<LI>Change the configuration of software configurable hardware when a device handle remains open by a passive application (such as a mixer application). </LI>
+
+	<LI>Seamlessly respond to portable docking and undocking situations. </LI>
+
+	<LI>Handle PCMCIA hot-plugging events without additional code. </LI>
+</UL>
+
+<P>The code example below is the output wave device message handler from the Windows Sound System ring-3 driver. It demonstrates the appropriate handling of these new and modified messages. </P>
+
+<PRE>DWORD FAR PASCAL _loadds wodMessage
+(
+    UINT            uDevId,
+    WORD            msg,
+    DWORD           dwUser,
+    DWORD           dwParam1,
+    DWORD           dwParam2
+)
+{
+   NPWAVEALLOC         pClient ;
+   PHARDWAREINSTANCE   phwi ;
+
+   // take care of init time messages...
+
+   switch (msg)
+   {
+      case WODM_INIT:
+      {
+         DPF( 3, "WODM_INIT" ) ;
+
+         if (gwGlobalStatus)
+         {
+            DisplayConfigErrors() ;
+            return 0L ;
+         }
+         else
+         {
+            // dwParam2 == PnP DevNode
+
+            return (AddDevNode( dwParam2 )) ;
+         }
+      }
+      break ;
+
+      case DRVM_ENABLE:
+      {
+         DPF( 3, "WODM_ENABLE" ) ;
+
+         // dwParam2 == PnP DevNode
+
+         return (EnableDevNode( dwParam2 )) ;
+
+      }
+      break ;
+
+      case DRVM_DISABLE:
+      {
+         DPF( 3, "WODM_DISABLE" ) ;
+
+         // dwParam2 == PnP DevNode
+
+         return (DisableDevNode( dwParam2 )) ;
+
+      }
+      break ;
+
+      case DRVM_EXIT:
+      {
+         DPF( 3, "WODM_EXIT" ) ;
+
+         // dwParam2 == PnP DevNode
+
+         return (RemoveDevNode( dwParam2 )) ;
+
+      }
+      break ;
+
+      case WODM_GETNUMDEVS:
+      {
+         DPF( 3, "WODM_GETNUMDEVS" ) ;
+
+         if (NULL == (phwi = DevNodeToHardwareInstance( dwParam1 )))
+            return MAKELONG( 0, MMSYSERR_INVALPARAM ) ;
+
+         if (dwParam1)
+         {
+            if (phwi -&gt; fEnabled)
+               return 1L ;
+            else
+               return 0L ;
+         }
+         else
+            return 0L ;
+      }
+      break ;
+
+      case WODM_OPEN:
+      {
+         DWORD  dn ;
+
+         DPF( 3, "WODM_OPEN" ) ;
+
+         if (uDevId &gt; 1)
+            return MMSYSERR_BADDEVICEID ;
+
+         dn = ((LPWAVEOPENDESC) dwParam1) -&gt; dnDevNode ;
+
+         if (NULL ==
+               (phwi = DevNodeToHardwareInstance(dn)))
+         {
+            DPF( 1, "devnode not associated with hardware instance???" ) ;
+            return MMSYSERR_BADDEVICEID ;
+         }
+
+         if (!phwi -&gt; fEnabled)
+            return MMSYSERR_NOTENABLED ;
+
+         return (wodOpen(phwi,
+                         dwUser,
+                         (LPWAVEOPENDESC) dwParam1,
+                         dwParam2 )) ;
+      }
+      break ;
+
+      case WODM_GETDEVCAPS:
+      {
+         DPF( 3, "WODM_GETDEVCAPS" ) ;
+
+         if (uDevId &gt; 1)
+            return MMSYSERR_BADDEVICEID ;
+
+         if (NULL ==
+               (phwi = DevNodeToHardwareInstance( dwParam2 )))
+         {
+            DPF( 1, "devnode not associated with hardware instance???" ) ;
+            return MMSYSERR_BADDEVICEID ;
+         }
+
+         if (!phwi -&gt; fEnabled)
+            return MMSYSERR_NOTENABLED ;
+
+         wodGetDevCaps( phwi, (MDEVICECAPSEX FAR *) dwParam1 ) ;
+         return MMSYSERR_NOERROR ;
+      }
+      break ;
+   }
+}
+   // Note that the remaining cases for this procedure have
+   // been removed from this code example. Please see the 
+   // MSSNDSYS.DRV example in the DDK for a complete sample.
+ </PRE>
+
+<P>The procedure of unloading the drivers for a device node is the inverse of the load procedure. That is, the ring-3 drivers are notified and unloaded and then MMDEVLDR issues the CONFIG_STOP message to the virtual device driver. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Multimedia%20Subsystem%20Driver%20Notification"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

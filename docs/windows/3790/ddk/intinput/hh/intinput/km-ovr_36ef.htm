@@ -1,0 +1,63 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Special Requirements for Absolute Pointing Devices</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Special Requirements for Absolute Pointing Devices">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Interactive&nbsp;Input&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_special_requirements_for_absolute_pointing_devices_kg"></A>Special Requirements for Absolute Pointing Devices</H2>
+
+<P>For devices of type GUID_CLASS_MOUSE, a device's function driver:
+
+<UL>
+	<LI>Handles device-specific input.</LI>
+
+	<LI>Creates the <A HREF="mref_4d6a.htm">MOUSE_INPUT_DATA</A> structures required by <A HREF="mref_8e9e.htm"><B>MouseClassServiceCallback</B></A>.</LI>
+
+	<LI>Transfers MOUSE_INPUT_DATA structures to the Mouclass data queue by calling <B>MouseClassServiceCallback </B>in its ISR dispatch completion routine.</LI>
+</UL>
+
+<P>For an absolute pointing device, the device's function driver must set the <B>LastX</B>, <B>LastY</B>, and <B>Flags</B> members of the MOUSE_INPUT_DATA structures in the following way:
+
+<UL>
+	<LI>In addition to dividing the device input value by the maximum capability of the device, the driver scales the device input value by 0xFFFF:
+<PRE><B>LastX</B> = ((device input x value) * 0xFFFF ) / (Maximum x capability of the device)
+<B>LastY</B> = ((device input y value) * 0xFFFF ) / (Maximum y capability of the device)</PRE>
+</LI>
+
+	<LI>The driver sets the MOUSE_MOVE_ABSOLUTE flag in <B>Flags</B>. </LI>
+
+	<LI>If the input should be mapped by the window manager to an entire virtual desktop, the driver sets the MOUSE_VIRTUAL_DESKTOP flag in <B>Flags</B>. If the MOUSE_VIRTUAL_DESKTOP flag is not set, the window manager maps the input to only the primary monitor.</LI>
+</UL>
+
+<P>The following specifies, by type of device, how these special requirements for an absolute pointing device are implemented:
+
+<UL>
+	<LI>HID devices
+<P>Mouhid, the Windows function driver for HID mouse devices, implements these special requirements automatically.
+</LI>
+
+	<LI>PS/2-style devices
+<P>An upper-level filter driver is required. The filter driver supplies an IsrHook callback and a class service callback. I8042prt calls the IsrHook to handle raw device input, and calls the filter class service callback to filter the input. The filter class service callback, in turn, calls <B>MouseClassServiceCallback</B>. The combination of the IsrHook callback and the class service callback handles device-specific input, creates the required MOUSE_INPUT_DATA structures, scales the device input data, and sets the MOUSE_MOVE_ABSOLUTE flag.
+</LI>
+
+	<LI>Plug and Play COM port devices that are enumerated by Serenum
+<P>A Plug and Play function driver is required. The function driver creates the required MOUSE_INPUT_DATA structures, scales the device input data, and sets the MOUSE_MOVE_ABSOLUTE flag before it calls <B>MouseClassServiceCallback</B>.
+</LI>
+
+	<LI>Non-Plug and Play COM port devices
+<P>A device-specific function driver is required. The function driver creates the required MOUSE_INPUT_DATA structures, scales the device input data, and sets the MOUSE_MOVE_ABSOLUTE flag before it calls <B>MouseClassServiceCallback</B>.
+</LI>
+
+	<LI>Device on an unsupported bus
+<P>A device-specific function driver is required. The function driver creates the required MOUSE_INPUT_DATA structures, scales the device input data, and sets the MOUSE_MOVE_ABSOLUTE flag before it calls <B>MouseClassServiceCallback</B>.
+</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Special%20Requirements%20for%20Absolute%20Pointing%20Devices"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

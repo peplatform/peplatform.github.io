@@ -1,0 +1,56 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using a CustomTimerDpc Routine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using a CustomTimerDpc Routine">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_using_a_customtimerdpc_routine_kg"></A>Using a <I>CustomTimerDpc</I> Routine</H3>
+
+<P>To disable a previously set timer object, a driver calls <A HREF="k105_6xf6.htm"><B>KeCancelTimer</B></A>. This routine removes the timer object for the system's timer queue. Generally, the timer object is not set to the signaled state and the <I>CustomTimerDpc</I> routine is not queued for execution. However, if the timer is about to expire when <B>KeCancelTimer</B> is called, expiration might occur before <B>KeCancelTimer</B> has a chance to access the time queue, in which case signaling and DPC queuing will occur.</P>
+
+<P>Recalling <A HREF="k105_9mlu.htm"><B>KeSetTimer</B></A> or <A HREF="k105_57aq.htm"><B>KeSetTimerEx</B></A>, with previously specified <I>Timer</I> and <I>Dpc</I> pointers, before the previously specified interval expires, has the following effects:
+
+<UL>
+	<LI>The kernel removes the timer object from the timer queue, without setting the object to the signaled state or queuing the <I>CustomTimerDpc</I> routine.</LI>
+
+	<LI>The kernel reinserts the timer object in the timer queue, using the new <I>DueTime</I> value.</LI>
+</UL>
+
+<P>Using the same timer object for different purposes can cause race conditions or serious driver errors. For example, assume that a driver specifies a single timer object both to set up a call to a <I>CustomTimerDpc</I> routine and to set up waits in a driver-dedicated thread. Whenever the driver-dedicated thread calls <B>KeSetTimer</B>, <B>KeSetTimerEx</B>, or <B>KeCancelTimer</B> for the common timer object, the thread would cancel calls to the <I>CustomTimerDpc</I> routine, if the timer object was already queued for a <I>CustomTimerDpc</I> call.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>If a driver has <I>CustomTimerDpc</I> routines, and also waits on timer objects in a nonarbitrary thread context, it should:</B>
+
+<UL>
+	<LI><I>Never</I> use a thread-context-sensitive timer object in a nonarbitrary thread context, or vice versa. </LI>
+
+	<LI>Allocate a separate timer object for each <I>CustomTimerDpc</I> routine. Each set of driver threads or driver routines that are called in a nonarbitrary thread context should have its own set of “waitable” timer objects.</LI>
+</UL>
+
+<P>If you use a <I>CustomTimerDpc</I> routine, choose carefully the interval the driver passes in calls to <B>KeSetTimer</B> or <B>KeSetTimerEx</B>. In addition, consider all possible effects of a call to <B>KeCancelTimer</B> with the same timer object from any driver routine that makes this call, particularly on SMP platforms. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Keep in mind the following fact about <I>CustomTimerDpc</I> routines </B></P>
+
+<P class=indent1>Only <I>one</I> instantiation of a DPC object representing a particular DPC routine can be queued for execution at any given moment.</P>
+
+<P>If a second driver routine calls <B>KeSetTimer</B> or <B>KeSetTimerEx</B> to run the same <I>CustomTimerDpc</I> routine before the interval specified by the first caller expires, the <I>CustomTimerDpc</I> routine is run <I>only after the interval specified by the second caller expires</I>. In these circumstances, the <I>CustomTimerDpc</I> does none of the work for which the first routine called <B>KeSetTimer</B> or <B>KeSetTimerEx</B>.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>For drivers that have <I>CustomTimerDpc</I> routines and use periodic timers:</B></P>
+
+<P class=indent1>A driver cannot deallocate a periodic timer from a DPC routine. Drivers can deallocate only nonperiodic timers from a DPC routine.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Consider the following a design guideline for drivers that have both <I>CustomDpc</I> and <I>CustomTimerDpc</I> routines </B></P>
+
+<P class=indent1>To prevent race conditions, <I>never</I> pass the same <I>Dpc</I> pointer to <B>KeSetTimer</B> or <B>KeSetTimerEx</B> and <A HREF="k105_75iq.htm"><B>KeInsertQueueDpc</B></A>.</P>
+
+<P>In other words, suppose a driver's <I>StartIo</I> routine calls <B>KeSetTimer</B> or <B>KeSetTimerEx</B> to queue a <I>CustomTimerDpc </I>routine, and the driver's ISR calls <B>KeInsertQueueDpc</B> simultaneously from another processor with the same <I>Dpc</I> pointer. That DPC routine will be run when IRQL on a processor falls below DISPATCH_LEVEL or the timer interval expires, whichever comes first. Whichever does come first, some essential work for the <I>StartIo</I> or ISR would simply be dropped by the DPC routine.</P>
+
+<P>In addition, a DPC used by two standard driver routines with very different functionality would have poorer performance characteristics than separate <I>CustomTimerDpc</I> and <I>CustomDpc</I> routines. The DPC would have to determine which operations to carry out, depending on the conditions that caused the <I>StartIo</I> routine or ISR to queue it. Testing for these conditions in the DPC would use additional CPU cycles.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20a%20CustomTimerDpc%20Routine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

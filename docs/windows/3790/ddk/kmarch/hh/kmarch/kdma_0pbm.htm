@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>GetScatterGatherList</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="GetScatterGatherList">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_getscattergatherlist_kr"></A>GetScatterGatherList</H1>
+
+<P>The <B>GetScatterGatherList</B> routine prepares the system for a DMA scatter/gather operation on behalf of the target device object, through either the system DMA controller or a bus-master adapter. </P>
+
+<PRE class=syntax><B>NTSTATUS
+  GetScatterGatherList (
+</B>    <B>IN PDMA_ADAPTER  </B><I>DmaAdapter</I><B>,</B>
+    <B>IN PDEVICE_OBJECT  </B><I>DeviceObject</I><B>,</B>
+    <B>IN PMDL  </B><I>Mdl</I><B>,</B>
+    <B>IN PVOID  </B><I>CurrentVa</I><B>,</B>
+    <B>IN ULONG  </B><I>Length</I><B>,</B>
+    <B>IN PDRIVER_LIST_CONTROL  </B><I>ExecutionRoutine</I><B>,</B>
+    <B>IN PVOID  </B><I>Context</I><B>,</B>
+    <B>IN BOOLEAN  </B><I>WriteToDevice</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DmaAdapter</I></DT>
+
+<DD>Pointer to the <A HREF="k112_86k2.htm">DMA_ADAPTER</A> structure returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A> that represents the bus-master adapter or DMA controller.</DD>
+
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the device object that represents the target device for the DMA operation.</DD>
+
+<DT><I>Mdl</I></DT>
+
+<DD>Pointer to the MDL that describes the buffer at <B>MdlAddress</B> in the current IRP.</DD>
+
+<DT><I>CurrentVa</I></DT>
+
+<DD>Pointer to the current virtual address in the MDL for the buffer to be mapped for a DMA transfer operation.</DD>
+
+<DT><I>Length</I></DT>
+
+<DD>Specifies the length, in bytes, to be mapped. </DD>
+
+<DT><I>ExecutionRoutine</I></DT>
+
+<DD>Pointer to a driver-supplied <A HREF="drvrrtns_32nm.htm"><I>AdapterListControl</I></A> routine, which is called at DISPATCH_LEVEL when the system DMA controller or bus-master adapter is available.</DD>
+
+<DT><I>Context</I></DT>
+
+<DD>Pointer to the driver-determined context passed to the driver’s Execution routine when it is called.</DD>
+
+<DT><I>WriteToDevice</I></DT>
+
+<DD>Indicates the direction of the DMA transfer: TRUE for a transfer from the buffer to the device, and FALSE otherwise.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>This routine can return one of the following NTSTATUS values. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=52%>Value</TH>
+<TH align=left width=48%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>STATUS_SUCCESS</TD>
+<TD width=48%>The operation succeeded.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>STATUS_INSUFFICIENT_RESOURCES</TD>
+<TD width=48%>The routine could not allocate sufficient memory or the number of map registers required for the transfer<I> </I>is larger than the value returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>STATUS_BUFFER_TOO_SMALL</TD>
+<TD width=48%>The buffer is too small for the requested transfer.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>GetScatterGatherList</B><I> is not a system routine that can be called directly by name. This routine is callable only by pointer from the address returned in a </I><A HREF="k112_3tf6.htm">DMA_OPERATIONS</A> <I>structure.</I> Drivers obtain the address of this routine by calling <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A>.</P>
+
+<P>As soon as the appropriate DMA channel and any necessary map registers are available, <B>GetScatterGatherList</B> creates a scatter/gather list, initializes the map registers, and then calls the driver-supplied <A HREF="drvrrtns_32nm.htm"><I>AdapterListControl</I></A> routine to carry out the I/O operation.</P>
+
+<P><B>GetScatterGatherList</B> combines the actions of the <A HREF="kdma_92r6.htm"><B>AllocateAdapterChannel</B></A> and <A HREF="kdma_1hv6.htm"><B>MapTransfer</B></A> routines for drivers that perform scatter/gather DMA. <B>GetScatterGatherList</B> determines how many map registers are required for the transfer, allocates the map registers, maps the buffers for DMA, and fills in the scatter/gather list. It then calls the supplied <A HREF="drvrrtns_32nm.htm"><I>AdapterListControl</I></A> routine, passing a pointer to the scatter/gather list in <I>ScatterGather</I>. The driver should retain this pointer for use when calling <A HREF="kdma_5u42.htm"><B>PutScatterGatherList</B></A>. Note that <B>GetScatterGatherList</B> does not have the queuing restrictions that apply to <B>AllocateAdapterChannel</B>.</P>
+
+<P>In its <I>AdapterListControl</I> routine, the driver should perform the I/O. On return from the driver-supplied routine, <B>GetScatterGatherList</B> keeps the map registers but frees the DMA adapter structure. The driver must call <B>PutScatterGatherList</B> (which flushes the buffers) before it can access the data in the buffer.</P>
+
+<P>This routine can handle chained MDLs, provided that the total number of map registers required by all chained MDLs does not exceed the number available.</P>
+
+<P><B>GetScatterGatherList</B> is not supported on Windows&nbsp;98 or Windows Me. </P>
+
+<P>Callers of <B>GetScatterGatherList</B> must be running at IRQL&nbsp;= DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A>, <A HREF="kdma_5u42.htm"><B>PutScatterGatherList</B></A>, <A HREF="kdma_92r6.htm"><B>AllocateAdapterChannel</B></A>, <A HREF="k112_3tf6.htm">DMA_OPERATIONS</A>, <A HREF="k112_5t4i.htm">SCATTER_GATHER_LIST</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: GetScatterGatherList"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

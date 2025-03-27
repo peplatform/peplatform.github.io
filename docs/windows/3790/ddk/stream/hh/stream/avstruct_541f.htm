@@ -1,0 +1,193 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>KSFILTER_DESCRIPTOR</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="KSFILTER_DESCRIPTOR">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ksfilter_descriptor_ks"></A>KSFILTER_DESCRIPTOR</H1>
+
+<P>The KSFILTER_DESCRIPTOR structure describes the characteristics of a filter created by a given filter factory.</P>
+
+<PRE class=syntax>typedef struct {
+  const KSFILTER_DISPATCH*  Dispatch;
+  const KSAUTOMATION_TABLE*  AutomationTable;
+  ULONG  Version;
+  ULONG  Flags;
+  const GUID*  ReferenceGuid<I>;</I>
+  ULONG  PinDescriptorsCount;
+  ULONG  PinDescriptorSize;
+  const KSPIN_DESCRIPTOR_EX*  PinDescriptors<I>;</I>
+  ULONG  CategoriesCount;
+  const GUID*  Categories;
+  ULONG  NodeDescriptorsCount;
+  ULONG  NodeDescriptorSize;
+  const KSNODE_DESCRIPTOR*  NodeDescriptors;
+  ULONG  ConnectionsCount;
+  const KSTOPOLOGY_CONNECTION*  Connections;
+  const KSCOMPONENTID*  ComponentId;
+} KSFILTER_DESCRIPTOR, *PKSFILTER_DESCRIPTOR;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>Dispatch</B></DT>
+
+<DD>Pointer to a <A HREF="avstruct_04oj.htm">KSFILTER_DISPATCH</A> structure for this type of filter. This member is optional and need only be provided by clients that wish to receive notifications about filter creations, deletions, and so on. Drivers that are interested in the processing of data (transforms) typically provide this dispatch table and a processing function. Providing a filter-processing function instead of individual pin-processing functions is what makes a driver filter-centric instead of pin-centric.</DD>
+
+<DT><B>AutomationTable</B></DT>
+
+<DD>Pointer to a <A HREF="avstruct_4ckz.htm">KSAUTOMATION_TABLE</A> structure for this type of filter. The automation table is what describes the properties, methods, and events supported by this filter. This automation table is merged with the automation table supplied by AVStream for all filters. Should the client supply a property, method, or event handler already implemented by AVStream, the client’s implementation supercedes AVStream’s.</DD>
+
+<DT><B>Version</B></DT>
+
+<DD>Specifies the version of the filter descriptor. This member should be set to KSFILTER_DESCRIPTOR_VERSION.</DD>
+
+<DT><B>Flags</B></DT>
+
+<DD>Flags describing the behavior of the filter. Specify flags using a bitwise OR, with the exception of KSFILTER_FLAG_CRITICAL_PROCESSING and KSFILTER_FLAG_HYPERCRITICAL_PROCESSING, which are mutually exclusive:
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Flag</TH>
+<TH align=left width=52%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSFILTER_FLAG_DISPATCH_LEVEL_PROCESSING</TD>
+<TD width=52%>Indicates that the filter processes at IRQL DISPATCH_LEVEL as opposed to PASSIVE_LEVEL. This applies to the filter process callback as described in <A HREF="avstruct_04oj.htm">KSFILTER_DISPATCH</A>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSFILTER_FLAG_CRITICAL_PROCESSING</TD>
+<TD width=52%>If asynchronous processing has been specified or if passive level processing is demanded and a process call comes in at dispatch level, processing is done in a queued work item. This flag indicates that the work item should be placed on the critical work queue as opposed to the delayed work queue.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSFILTER_FLAG_RECEIVE_ZERO_LENGTH_SAMPLES</TD>
+<TD width=52%>Set this flag if a filter-centric filter needs to receive zero-length samples (stream headers with flags but no data). If this flag is not set, zero length samples are passed on to downstream pins, with automatic propagation of necessary flags. Note that this is identical to default behavior in DX8 and prior. If this happens, <I>these samples bypass the minidriver</I>. Set the <B>Terminate</B> flag in <A HREF="avstruct_020j.htm">KSPROCESSPIN</A> to "turn off" this flag. Also see <A HREF="avsover_702v.htm">Filter-Centric Processing</A>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSFILTER_FLAG_HYPERCRITICAL_PROCESSING</TD>
+<TD width=52%>If asynchronous processing has been specified or if passive level processing is demanded and a process call comes in at dispatch level, AVStream processes a queued work item. This flag indicates that the work item should be placed on the hypercritical work queue as opposed to the delayed work queue or critical work queue.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>ReferenceGuid</B></DT>
+
+<DD>Pointer to a GUID that is the binary representation of the Unicode reference string identifying this filter type. If multiple filter factories exist, each must have a unique GUID. Also note that other methods of supplying a reference string require that the filter descriptor be registered using <B>KsCreateFilterFactory</B>.</DD>
+
+<DT><B>PinDescriptorsCount</B></DT>
+
+<DD>Specifies the number of pin descriptors that are provided for this filter type in the <B>PinDescriptors</B> member. Because all filters must expose at least one pin, zero is an illegal value for this member.</DD>
+
+<DT><B>PinDescriptorSize</B></DT>
+
+<DD>Specifies the size of each individual descriptor in the descriptor table. This value must be a multiple of eight and must be at least <B>sizeof</B>&nbsp;(KSPIN_DESCRIPTOR_EX). Larger values allow client-specific descriptor information to be appended to pin descriptors.</DD>
+
+<DT><B>PinDescriptors</B></DT>
+
+<DD>Pointer to an array of <A HREF="avstruct_1fw3.htm">KSPIN_DESCRIPTOR_EX</A> structures that describe the pins supported by this filter type. Because all filters must expose at least one pin, zero is an illegal value for this member.</DD>
+
+<DT><B>CategoriesCount</B></DT>
+
+<DD>Specifies the number of category GUIDs that are provided in the <B>Categories</B> member for this filter type. Zero is a legal value for this member.</DD>
+
+<DT><B>Categories</B></DT>
+
+<DD>Pointer to an array of category GUIDs for this filter type. If required, a device interface is registered for each category. This member may be null if and only if <B>CategoriesCount</B> is zero.</DD>
+
+<DT><B>NodeDescriptorsCount</B></DT>
+
+<DD>Specifies the number of topology node descriptors provided in <B>NodeDescriptors</B>. Zero is a legal value for this member.</DD>
+
+<DT><B>NodeDescriptorSize</B></DT>
+
+<DD>Specifies the size in bytes of each individual descriptor in the descriptor table. This value must be a multiple of eight and at least <B>sizeof&nbsp;</B>(KSNODE_DESCRIPTOR). Larger values allow client-specific descriptor information to be appended to node descriptors.</DD>
+
+<DT><B>NodeDescriptors</B></DT>
+
+<DD>Pointer to an array of <A HREF="avstruct_91v7.htm">KSNODE_DESCRIPTOR</A> structures describing the topology nodes for this filter type. This member may be null if and only if <B>NodeDescriptorsCount</B> is zero.</DD>
+
+<DT><B>ConnectionsCount</B></DT>
+
+<DD>Specifies the number of topology connections present in <B>Connections</B>. This member may be zero indicating that the default connection set is used. Using default connections means that the topology of the filter is described with a single topology node where each pin on the filter is connected to the corresponding ID on the topology node. The direction of each connection is determined by pin data flow.</DD>
+
+<DT><B>Connections</B></DT>
+
+<DD>Pointer to an array of <A HREF="ks-struct_3fhv.htm">KSTOPOLOGY_CONNECTION</A> structures present in this filter type. This member is optional; it may be NULL if and only if <B>ConnectionsCount</B> is zero (in which case, the default topology is used).</DD>
+
+<DT><B>ComponentId</B></DT>
+
+<DD>Pointer to the <A HREF="ks-struct_6h4j.htm">KSCOMPONENTID</A> structure for this filter type. This is used for the component ID property that provides identification information. This member is optional.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ks.h</I>. Include <I>ks.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>This structure is available in Windows XP and later operating systems and in DirectX 8.0 and later versions.</P>
+
+<P>In laying out the filter descriptor, there are a number of macros that the caller may find useful. Instead of specifying count, size, and a table for pin descriptors, categories, node descriptors, and connections, there are a number of useful macros:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=42%>Macro</TH>
+<TH align=left width=58%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%><B>DEFINE_KSFILTER_PIN_DESCRIPTORS</B>(<I>table</I>)</TD>
+<TD width=58%>Automatically inserts the number of items in table, the size of each item in the table, and the table of pin descriptors itself into the filter descriptor.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%><B>DEFINE_KSFILTER_CATEGORIES</B>(<I>table</I>)</TD>
+<TD width=58%>Automatically inserts the number of categories in the table and the table itself into the filter descriptor.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%><B>DEFINE_KSFILTER_CATEGORIES_NULL</B></TD>
+<TD width=58%>Automatically fills in the category members for a filter that defines no categories.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%><B>DEFINE_KSFILTER_NODE_DESCRIPTORS</B>(<I>table</I>)</TD>
+<TD width=58%>Automatically inserts the number of items in the table, the size of each item in the table, and the table of node descriptors itself into the filter descriptor.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%><B>DEFINE_KSFILTER_NODE_DESCRIPTORS_NULL</B></TD>
+<TD width=58%>Automatically fills in the node descriptor members for a filter that defines no topology nodes.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%><B>DEFINE_KSFILTER_CONNECTIONS</B>(<I>table</I>)</TD>
+<TD width=58%>Automatically inserts the number of connections in the table and the table itself into the filter descriptor.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%><B>DEFINE_KSFILTER_DEFAULT_CONNECTIONS</B></TD>
+<TD width=58%>Automatically fills in the connections table for a filter that defines no explicit connections.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>See Also</H4>
+
+<P><A HREF="avstruct_04oj.htm">KSFILTER_DISPATCH</A>, <A HREF="avstruct_1fw3.htm">KSPIN_DESCRIPTOR_EX</A>, <A HREF="avstruct_91v7.htm">KSNODE_DESCRIPTOR</A>, <A HREF="ks-struct_3fhv.htm">KSTOPOLOGY_CONNECTION</A>, <A HREF="ks-struct_6h4j.htm">KSCOMPONENTID</A>, <A HREF="avfunc_433n.htm"><B>KsCreateFilterFactory</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: KSFILTER_DESCRIPTOR"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

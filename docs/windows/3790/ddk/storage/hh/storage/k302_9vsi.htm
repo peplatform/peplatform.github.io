@@ -1,0 +1,140 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>HwScsiFindAdapter</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="HwScsiFindAdapter">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_hwscsifindadapter_kr"></A><I>HwScsiFindAdapter</I></H1>
+
+<P><I>HwScsiFindAdapter</I> uses supplied configuration information to determine whether it supports a particular HBA and, if so, returns information about its HBA in the given <I>ConfigInfo</I> buffer.</P>
+
+<PRE class=syntax><B>ULONG 
+  HwScsiFindAdapter(
+    IN PVOID </B> <I>DeviceExtension</I><B>,</B>
+<B>    IN PVOID </B> <I>HwContext</I><B>,</B>
+<B>    IN PVOID </B> <I>BusInformation</I><B>,</B>
+<B>    IN PCHAR </B> <I>ArgumentString</I><B>,</B>
+<B>    IN OUT PPORT_CONFIGURATION_INFORMATION </B> <I>ConfigInfo</I><B>,</B>
+<B>    OUT PBOOLEAN </B> <I>Again</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceExtension</I></DT>
+
+<DD>Points to the miniport driver’s per-HBA storage area. The OS-specific port driver allocates memory for and initializes this extension with zeros before it calls the miniport’s <I>HwScsiFindAdapter</I> routine.</DD>
+
+<DT><I>HwContext</I></DT>
+
+<DD>Points to a context value.
+
+<P>Legacy (non-PnP) miniports that scan for supported adapters can define the context in their <B>DriverEntry</B> routine and pass its address to <B>ScsiPortInitialize</B>. <B>ScsiPortInitialize</B> passes the context pointer to <I>HwScsiFindAdapter</I>. Such a miniport driver can use <I>HwContext</I> to store state between calls to <I>HwScsiFindAdapter</I>.
+
+
+<P>Miniports that use configuration information provided by the port driver, rather than by scanning the I/O bus, must not use this pointer. Even if the miniport does scan the I/O bus for other configuration information, if <I>HwScsiFindAdapter</I> receives nonzero access range values from the port driver it must not use the <I>HwContext</I> pointer.
+</DD>
+
+<DT><I>BusInformation</I></DT>
+
+<DD>Points to bus-type-specific information that the OS-specific port driver has gathered. The format of this information depends on the particular bus type, which the miniport driver determines by setting the <B>AdapterInterfaceType</B> value in the HW_INITIALIZATION_DATA structure.</DD>
+
+<DT><I>ArgumentString</I></DT>
+
+<DD>Points to a zero-terminated ASCII string. This string originates from the user and, if supplied, contains device information such as a base parameter or an interrupt level from the registry.</DD>
+
+<DT><I>ConfigInfo</I></DT>
+
+<DD>Points to the PORT_CONFIGURATION_INFORMATION structure. The OS-specific port driver initializes this structure with any known configuration information, such as values the miniport set in the HW_INITIALIZATION_DATA and the <B>SystemIoBusNumber</B>. <I>HwScsiFindAdapter</I> must use any supplied information to determine if the HBA it describes is one that the miniport driver supports, and, if so, to initialize and configure that HBA and to fill in any missing relevant configuration information for that HBA. If possible, each miniport driver should have a set of default configuration values for each type of HBA it supports, in case the OS-dependent port driver cannot supply additional configuration information to that provided by the miniport’s <B>DriverEntry</B> routine.</DD>
+
+<DT><I>Again</I></DT>
+
+<DD>Points to a BOOLEAN variable to be set by <I>HwScsiFindAdapter</I> before it returns control. TRUE indicates that the miniport driver wants the OS-specific port driver to call its <I>HwScsiFindAdapter</I> routine again with a new <I>DeviceExtension</I> and the same <I>ConfigInfo</I>. This member is set to TRUE by miniport drivers that can support more than one HBA on an I/O bus.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>HwScsiFindAdapter</I> must return one of the following status values:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=41%>Value</TH>
+<TH align=left width=59%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>SP_RETURN_FOUND</TD>
+<TD width=59%>Indicates a supported HBA was found and that the HBA-relevant configuration information was successfully determined and set in the PORT_CONFIGURATION_INFORMATION structure.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>SP_RETURN_ERROR</TD>
+<TD width=59%>Indicates an HBA was found but there was error obtaining the configuration information. If possible, such an error should be logged with <B>ScsiPortLogError</B>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>SP_RETURN_BAD_CONFIG</TD>
+<TD width=59%>Indicates the supplied configuration information was invalid for the adapter.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>SP_RETURN_NOT_FOUND</TD>
+<TD width=59%>Indicates no supported HBA was found for the supplied configuration information.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Include <I>miniport.h</I> and <I>scsi.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P>For a legacy miniport driver, <B>ScsiPortInitialize</B> calls the <I>HwScsiFindAdapter</I> routine after allocating storage according to the <B>DeviceExtensionSize</B> that the miniport specified in the HW_INITIALIZATION_DATA structure. For a Plug and Play miniport driver, the port driver calls <I>HwScsiFindAdapter</I> when the Plug and Play Manager has detected an adapter for that miniport.</P>
+
+<P>First, every <I>HwScsiFindAdapter</I> routine should check the value of <B>Length</B> in the input PORT_CONFIGURATION_INFORMATION to determine whether the port driver has allocated a structure with all the configuration information the miniport would need to find and configure its HBA(s).</P>
+
+<P>Next, every <I>HwScsiFindAdapter</I> routine should check the <B>AccessRanges</B> in the PORT_CONFIGURATION_INFORMATION to determine whether the OS-specific port driver collected and set bus-relative range-configuration information for an HBA. If <I>HwScsiFindAdapter</I> finds nonzero access-range values, it must map the supplied values with <B>ScsiPortGetDeviceBase</B> and use the returned logical range addresses to access the HBA.</P>
+
+<P>If the input PORT_CONFIGURATION_INFORMATION contains <B>AccessRanges</B> elements filled with default zeros, the <I>HwScsiFindAdapter</I> routine can use any appropriate search logic, such as calling <B>ScsiPortGetBusData</B>, or use a set of driver-supplied bus-relative default values, to fill in each such access range element and determine its validity. </P>
+
+<P><I>HwScsiFindAdapter</I> should call <B>ScsiPortValidateRange</B> before it maps any miniport-supplied access range values with <B>ScsiPortGetDeviceBase</B> and uses the mapped logical addresses to access an adapter. <B>ScsiPortValidateRange</B> verifies that the device range has not already been claimed by another driver. If <B>ScsiPortValidateRange</B> returns FALSE, <I>HwScsiFindAdapter</I> cannot map and use that range and must not attempt to do so.</P>
+
+<P><I>HwScsiFindAdapter</I> must check the value of <B>NumberOfPhysicalBreaks</B> in the input PORT_CONFIGURATION_INFORMATION. The port driver usually sets this member to a particular value. The miniport driver can set <B>NumberOfPhysicalBreaks</B> to a lower value if its HBA supports fewer breaks between scatter/gather lists, but the miniport must not set it to a higher value than that supplied by the port driver. If <B>NumberOfPhysicalBreaks</B> is set to SP_UNINITIALIZED_VALUE, the miniport must fill in the actual number of breaks between scatter/gather lists that its underlying adapter can support.</P>
+
+<P><I>HwScsiFindAdapter</I> should also check the input port configuration information for additional port-driver-supplied values, such as interrupt vector or level, and DMA channel or port. Usually, the OS-specific port driver supplies additional configuration information if it supplies nonzero, bus-relative values for <B>AccessRanges</B> elements.</P>
+
+<P>A miniport driver must use any valid configuration information it finds in the input PORT_CONFIGURATION_INFORMATION to configure the HBA.</P>
+
+<P>The port driver is responsible for doing bus-level configuration programming, particularly of dynamically configurable I/O buses with published standard interfaces, such as PCI and PCMCIA. For an HBA on such an I/O bus, the miniport driver can simply accept the interrupt configuration information provided as values reserved for system use. For an HBA on other types of I/O buses, a miniport should program its HBA to use any supplied interrupt value if its HBA supports programmable interrupt configuration. If no interrupt configuration is supplied, as indicated either by the value zero or the value SP_UNINITIALIZED_VALUE, the miniport should either query its HBA if the HBA supports interrupt selection using jumpers or should supply a nonzero default interrupt configuration unless the HBA does not use interrupts. The miniport should set the interrupt configuration value to zero if it controls its HBA in a polled mode.</P>
+
+<P>A miniport’s <I>HwScsiFindAdapter</I> routine should return with the <I>Again</I> parameter set to TRUE so the OS-specific SCSI port driver will search for additional HBAs on the I/O bus. Although <I>Again</I> is irrelevant when a miniport is loaded as a Plug and Play driver, <I>Again</I> must be set appropriately so the system can run a Plug and Play miniport as a legacy driver if necessary. </P>
+
+<P>The name <I>HwScsiFindAdapter</I> is just a placeholder. The actual prototype of this routine is defined in <I>srb.h</I> as follows:</P>
+
+<PRE>typedef
+ULONG
+(*PHW_FIND_ADAPTER) (
+  IN PVOID  DeviceExtension,
+  IN PVOID  HwContext,
+  IN PVOID  BusInformation,
+  IN PCHAR  ArgumentString,
+  IN OUT PPORT_CONFIGURATION_INFORMATION  ConfigInfo,
+  OUT PBOOLEAN Again
+  );</PRE>
+
+<P>For more information on the <I>HwScsiFindAdapter</I> routine, see <A HREF="02mnport_9huv.htm">SCSI Miniport Driver’s HwScsiFindAdapter Routine</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k306_1os2.htm">ACCESS_RANGE</A>, <A HREF="k302_9yk2.htm"><B>DriverEntry</B></A>, <A HREF="k306_5s1e.htm">HW_INITIALIZATION_DATA</A>, <A HREF="k306_2h4i.htm">PORT_CONFIGURATION_INFORMATION</A>, <A HREF="k301_3mia.htm"><B>ScsiPortGetBusData</B></A>, <A HREF="k301_8c6q.htm"><B>ScsiPortGetDeviceBase</B></A>, <A HREF="k301_9n76.htm"><B>ScsiPortInitialize</B></A>, <A HREF="k301_47n6.htm"><B>ScsiPortLogError</B></A>, <A HREF="k301_2rw2.htm"><B>ScsiPortValidateRange</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: HwScsiFindAdapter"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

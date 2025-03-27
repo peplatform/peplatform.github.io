@@ -1,0 +1,111 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Time-Based Interrupts</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_pss_3517"></A>Time-Based Interrupts</H2>
+
+<P>If the pen stops moving or is lifted beyond the tablet's range of sensitivity, many devices will stop generating hardware interrupts. This ends the normal flow of communication between the pen device and Windows. </P>
+
+<P>However, the recognition model of the Pen API version 2.0 requires the pen driver to continuously call into the system even when there is no pen data available. If the pen hardware maintains its own clock mechanism, it can continue to pulse time-based interrupts even when the pen is out of range. When pen motion ceases, the time-based interrupts ensure the system continues to receive pen information. </P>
+
+<P>If the pen device does not contain its own clock, the pen device driver must compensate by using the system timer. In this case, the driver provides a timer hook that activates at regular intervals. This enables the driver to continue its stream of system calls even if the normal hardware interrupts from the device have ceased. </P>
+
+<P>The pen Unidriver sample code uses the system timer. If the OEM device generates its own time-based interrupts, the developer should remove the code that uses the system timer from the Unidriver source code. Such code is in the sample virtual pen driver source code modules HWINT.C, TIMERCB.C, and APIPROCS.C. </P>
+
+<P>When enabled through the DRV_ENABLE message, the virtual pen driver sets up a callback timer function to use the system timer. The callback is named <B>cTimer_Callback_Entry_Point</B> in the TIMERCB.C source file. <B>cTimer_Callback_Entry_Point</B> receives control at each timer tick, which occurs every 55 milliseconds. If it determines that no pen data has arrived from the tablet since the last timer tick, <B>cTimer_Callback_Entry_Point</B> fabricates an <I>out-of-range</I> packet and schedules a callback to the function registered by PENWIN.DLL so the fabricated packet will be sent to the system. An out-of-range packet is a <B>DRV_PENPACKET</B> structure with the <B>wPDK</B> member set to the defined value PDK_OUTOFRANGE. After completing all this, <B>cTimer_Callback_Entry_Point</B> sets up another timer tick callback and waits. </P>
+
+<P>Handling out-of-range pen packets is a virtual pen driver design issue. </P>
+
+<P>All tablets run in what is called in this documentation <I>shutup mode</I>. In shutup mode, the tablet sends only one out-of-range packet when the pen goes out of range and then sends no more packets until the pen goes back into range. However, serial communications and tablets may be unreliable and the one out-of-range packet is never received by the driver. Sometimes such a lost out-of-range packet can cause Windows 95 to stop processing messages and force the user to restart Windows. For example, suppose the user employs the pen to move a window by dragging the window's title bar. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>A possible sequence of important pen events during this window dragging operation are</B>
+
+<OL>
+	<LI>Pen is down at (x1, y1), which is on the title bar. </LI>
+
+	<LI>Pen is up at (x2, y2), which establishes the new location of the window. </LI>
+
+	<LI>Pen goes out of range because the user is finished moving the window. </LI>
+</OL>
+
+<P>If both the second and third events are lost because of unreliable communication between the tablet and the virtual pen driver, the user will eventually have to restart Windows. </P>
+
+<P>To guard against this with tablets that run only in shutup mode, the sample virtual pen driver uses a timer function to constantly monitor the time interval between packet receipt events in the virtual pen driver. If the virtual pen driver does not receive a packet within this time interval, the time function generates an out-of-range packet, which gets sent to the pen driver which notifies Windows of the pen event. </P>
+
+<P>Some OEM tablets (such as the Wacom tablets) enable the virtual pen driver to toggle the tablet between two modes: 
+
+<UL>
+	<LI>Shutup mode, as described earlier, sends only one out-of-range packet when the pen goes out of range and then sends no more packets until the pen goes back into range. </LI>
+
+	<LI><I>Speakup mode</I> sends pen information constantly, even when the pen is out of range. When the pen is out of range, the tablet sends one out-of-range packet after another. </LI>
+</UL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>For such tablets, the following strategy can be used to insure that unreliable pen packet communication between the tablet and the virtual pen driver do not force the user to restart Windows</B>
+
+<OL>
+	<LI>The tablet is kept in speakup mode until an out-of-range packet is received (that way, the virtual pen driver will always receive an out-of-range packet to mark the transition form in-range to out-of-range even if out-of-range packets are lost). </LI>
+
+	<LI>When the virtual pen driver receives an out-of-range packet, it puts the tablet in shutup mode so it does not receive useless out-of-range packets). </LI>
+
+	<LI>The next time the virtual pen driver receives a packet (it must be an in-range packet), it puts the tablet in speakup mode again. </LI>
+</OL>
+
+<P>If you are writing a virtual pen driver that supports both shutup and speakup modes, using the above strategy will put more responsive pens in the hands of the users than if you use the timer method. </P>
+
+<P>The Windows95 DDK sample pen driver supports only the timer method of guarding against lost out-of-range pen packets. For sample code that implements the method that uses both speakup and shutup modes, see the sample pen driver in the Windows 3.1 DDK. </P>
+
+<P>The timer strategy is implemented in the following blocks of code: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=21%>Source Module </TH>
+<TH align=left width=44%>Function </TH>
+<TH align=left width=35%>Comment </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>TIMERCB.C </TD>
+<TD width=44%><B>cTimer_Callback_Entry_Point</B> </TD>
+<TD width=35%>This code determines whether it has been too long since receipt of the last packet and, if so, synthesizes an out-of-range packet. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>APIPROCS.C </TD>
+<TD width=44%><B>cVpenD_API_Enable</B> </TD>
+<TD width=35%>Registers the timer callback entry point and, if the HW_TIMERMODEL flag is set, causes monitoring of the interval between interrupts to begin. </TD>
+</TR>
+</TABLE><BR>
+
+<P>Note that with tablets that support speakup mode, it can also be used to implement playback of stored pen packets. The virtual pen driver puts the tablet in speakup mode and every time it receives an out-of-range packet, the driver substitutes information from the next stored pen packet and sends it on to the pen driver as a pen packet. The blocks of code that implement this strategy in the sample virtual pen driver are: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=33%>Source Module </TH>
+<TH align=left width=33%>Function </TH>
+<TH align=left width=34%>Comment </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%>APIPROC.C </TD>
+<TD width=33%><B>cVpenD_API_Proc</B> </TD>
+<TD width=34%>See the VPEND_PENPLAYSTART case block in the dwMsg switch structure. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=33%>OEMAPI.C </TD>
+<TD width=33%><B>cOEM_API_Proc</B> </TD>
+<TD width=34%>Sends the speak up and shut up command strings to the tablet. </TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Time-Based%20Interrupts"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

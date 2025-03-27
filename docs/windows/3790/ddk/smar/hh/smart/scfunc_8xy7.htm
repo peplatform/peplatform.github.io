@@ -1,0 +1,102 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SmartcardT0Request (VxD)</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="SmartcardT0Request (VxD)">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Smart&nbsp;Card&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_ntfunc_smartcardt0request_vxd_"></A>SmartcardT0Request (VxD)</H1>
+
+<P>The <B>SmartcardT0Reply</B> function copies data from the user buffer to the send buffer that the driver uses to transmit data to the reader.</P>
+
+<PRE class=syntax><B>NTSTATUS 
+  SmartcardT0Request(
+    PSMARTCARD_EXTENSION  </B><I>SmartcardExtension</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>SmartcardExtension</I></DT>
+
+<DD>Pointer to the device extension of the smart card device. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>SmartcardT0Request</B> returns an NTSTATUS value. Possible values are the following.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=46%>Value</TH>
+<TH align=left width=54%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=46%>STATUS_SUCCESS</TD>
+<TD width=54%>Buffer successfully set up.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=46%>STATUS_BUFFER_OVERFLOW</TD>
+<TD width=54%>The internal buffer is too small to hold the data to send to the smart card. To fix this error, allocate a larger send buffer. See <A HREF="scfunc_92an.htm"><B>SmartcardInitialize</B></A> for details.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>smclib.h</I>. Include <I>smclib.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>This function copies data from the user buffer to <I>SmartcardExtension-&gt;SmartcardRequest.Buffer</I> and adjusts <I>SmartcardExtension-&gt;SmartcardRequest.BufferLength</I> to the number of bytes to be transmitted to the smart card. Then, the driver writes this buffer to the card and reads the bytes coming from the card into <I>SmartcardExtension-&gt;SmartcardReply.Buffer</I>, as described in <A HREF="scfunc_1fxb.htm"><B>SmartcardT0Reply</B> (VxD)</A>. </P>
+
+<P>If your driver needs to send header data to the reader before the actual T=0 data, set <I>SmartcardExtension-&gt;SmartcardRequest.BufferLength </I>to the number of bytes you need for your header before you call this function. The packet will look like this:</P>
+
+<P><IMG SRC="images/scfunc1.gif" ALT="" BORDER=0></P>
+
+<P>You can copy your header data to the buffer either before or after a call to <B>SmartcardT0Request</B>, depending on which is easier to do in your driver.</P>
+
+<P>Here is an example of a T=0 transmission.</P>
+
+<PRE>// Copy data from user buffer to SmartcardExtension-&gt;SmartcardRequest.Buffer
+status = SmartcardT0Request(
+        SmartcardExtension
+        );
+if (status != STATUS_SUCCESS)
+    return status;
+
+// Transmit SmartcardExtension-&gt;SmartcardRequest.Buffer to smart card
+status = DriverSendDataToSmartcard(…);
+if (status != STATUS_SUCCESS)
+return status;
+
+// Receive data from smart card into SmartcardExtension-&gt;SmartcardReply.Buffer
+status = DriverReceiveDataFromSmartcard(…);
+if (status != STATUS_SUCCESS)
+    return status;
+
+// Copy data from SmartcardExtension-&gt;SmartcardReply.Buffer back to user buffer
+// and return to caller
+return SmartcardT0Reply(
+SmartcardExtension
+);
+</PRE>
+
+<P class=note><B>SmartcardT0Reply</B> does not handle the T=0 protocol data exchange for VxD drivers. Refer to the driver sample <I>scrcp8t.c</I>, available in&nbsp; this DDK, or refer to ISO 7816 smart card standard part 3, section 8.</P>
+
+<P>For information on the <B>SmartcardT0Request</B> function for WDM drivers, see <A HREF="scfuncw_2tgf.htm"><B>SmartcardT0Request</B> (WDM)</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="scfuncw_2tgf.htm"><B>SmartcardT0Request</B> (WDM)</A>, <A HREF="scstruct_50a6.htm">SMARTCARD_EXTENSION</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: SmartcardT0Request%20(VxD)"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

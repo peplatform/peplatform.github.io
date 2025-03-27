@@ -1,0 +1,47 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Multipacket Sends from Connection-Oriented Miniport Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Multipacket Sends from Connection-Oriented Miniport Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_multipacket_sends_from_connection_oriented_miniport_drivers_ng"></A>Multipacket Sends from Connection-Oriented Miniport Drivers</H2>
+
+<P>Before transmitting data, a connection-oriented miniport driver typically creates and always activates a virtual connection (VC) on which to send the data. The miniport driver then uses its <I>MiniportCoSendPackets</I> function to send the data. After the data is sent, the miniport driver deactivates and sometimes deletes the VC on which it sent the data. For more information on creating, activating, deactivating, and deleting VCs, see <A HREF="202mini_0zjb.htm">Creating, Activating, Deactivating, and Deleting Virtual Connections</A>.</P>
+
+<P>The following figure illustrates a multipacket send from a connection-oriented miniport driver.</P>
+
+<P><IMG SRC="images/fig4_7.gif" ALT="" BORDER=0></P>
+
+<P><B>Multipacket Send From a Connection-Oriented Miniport Driver</B></P>
+
+<P>The definition of <I>MiniportCoSendPackets</I> is:</P>
+
+<PRE class=syntax><B>VOID
+</B>  <B>MiniportCoSendPackets(
+</B>    <B>IN NDIS_HANDLE</B>  <I>MiniportVcContext</I><B>,</B>
+    <B>IN PPNDIS_PACKET</B>  <I>PacketArray</I><B>,</B>
+    <B>IN UINT</B>  <I>NumberofPackets</I>
+    <B>);</B></PRE>
+
+<P>The <I>MiniportVcContext </I>identifies the virtual circuit (VC) on which the packet or packets are to be transmitted. The VC was created with a connection-oriented client's or call manager/MCM's call to <A HREF="103ndisx_3qia.htm"><B>NdisCoCreateVc</B></A>, which caused NDIS to call the miniport driver's <A HREF="101mini_7otu.htm"><I>MiniportCoCreateVc</I></A> function.</P>
+
+<P>Each <I>PacketArray</I> is a pointer to an array of pointers to one or more packet descriptors. The miniport driver is responsible for sending packets in the priority order specified by the protocol driver. NDIS does not order packets it receives from a protocol driver but passes them to the miniport driver in the order that NDIS received them from the miniport driver.</P>
+
+<P>A miniport driver is not required to check the packet size; rather, the miniport driver should assume that a protocol driver will never send a packet that is too large. The protocol driver queries the miniport driver during initialization to determine the maximum packet size it supports. The protocol is responsible for passing only packets of a size supported by the miniport driver. </P>
+
+<P>Each packet descriptor has associated out-of-band (OOB) data, as described in <A HREF="204trnsf_46w7.htm">Packet Out-of-Band Data</A>. The OOB block lets a protocol driver specify a time-to-send (<B>TimeToSend</B>) to a cooperating miniport driver that supports priority sends. Although a connection-oriented miniport driver can set the <B>Status</B> member of the OOB block before returning from <I>MiniportCoSendPackets</I>, this member is ignored by NDIS. The other members of the NDIS_PACKET_OOB_DATA block are read-only to the miniport driver.</P>
+
+<P>The NDIS library ignores the OOB block in all packet descriptors it submits to the <I>MiniportCoSendPackets</I> functions of connection-oriented miniport drivers. NDIS assumes that connection-oriented miniport drivers will complete each packet descriptor input to their <I>MiniportCoSendPackets</I> functions asynchronously with <B>NdisMCoSendComplete</B>. Consequently, <I>MiniportCoSendPackets</I> usually ignores the <B>Status</B> member of the NDIS_PACKET_OOB_DATA block, but it can set this member to the same status that it subsequently passes to <B>NdisMCoSendComplete</B>. </P>
+
+<P>Rather than relying on NDIS to queue and resubmit send packets whenever <I>MiniportCoSendPackets</I> lacks the resources to transmit the packets, a connection-oriented miniport driver manages its own internal packet queuing. Such a miniport driver is responsible for holding incoming send packets in its internal queue until they can be transmitted over the network. The miniport driver must also preserve the protocol-determined ordering of packet descriptors passed to its <I>MiniportCoSendPackets</I> function. A connection-oriented miniport driver must complete each incoming send packet with <B>NdisMCoSendComplete</B>.</P>
+
+<P>A connection-oriented miniport driver should never pass STATUS_INSUFFICIENT_RESOURCES to <B>NdisMCoSendComplete</B> with a protocol-allocated packet descriptor that was originally submitted to its <I>MiniportCoSendPackets</I> function. The return of such a status would effectively fail the send operation requested by the protocol, resulting in NDIS returning the packet descriptor and all associated resources to the protocol that originally allocated it.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Multipacket%20Sends%20from%20Connection-Oriented%20Miniport%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

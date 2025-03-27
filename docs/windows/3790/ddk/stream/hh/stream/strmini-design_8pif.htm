@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling Stream Request Blocks</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling Stream Request Blocks">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_handling_stream_request_blocks_ksg"></A>Handling Stream Request Blocks</H1>
+
+<P>The operating system dispatches all I/O requests on the device to the class driver. The class driver in turn requests hardware-specific information from the minidriver by passing SRBs to the minidriver. The class driver specifies the operation it requests in the <B>Command</B> member of the stream request block.</P>
+
+<P>Both the minidriver as a whole, and each stream within the minidriver, may receive I/O requests. The minidriver must provide a <A HREF="strmini-routines_5dbn.htm"><B>StrMiniReceiveDevicePacket</B></A> routine to handle device-wide requests. Each stream must support two routines to handle I/O requests: one for data requests, and one for control requests. The class driver calls the data request callback, <A HREF="strmini-routines_4qib.htm"><B>StrMiniReceiveStreamDataPacket</B></A>, to handle all read and write requests on a stream. All other requests for a stream are passed to <A HREF="strmini-routines_894j.htm"><B>StrMiniReceiveStreamControlPacket</B></A>.</P>
+
+<P>If the class driver is handling synchronization for the minidriver, it queues stream requests, and dispatches them to the minidriver one at a time. The class driver maintains three separate queues — one for device requests, and one each for stream data and control requests. The minidriver may signal that it is ready for a new request from one of these queues as follows:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=20%>Request Type</TH>
+<TH align=left width=37%>Routine</TH>
+<TH align=left width=43%>NotificationType Parameter of Routine</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=20%>device request</TD>
+<TD width=37%><A HREF="strclass-routines_85yr.htm"><B>StreamClassDeviceNotification</B></A></TD>
+<TD width=43%>ReadyForNextDeviceRequest</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=20%>stream control request</TD>
+<TD width=37%><A HREF="strclass-routines_5ygj.htm"><B>StreamClassStreamNotification</B></A></TD>
+<TD width=43%>ReadyForNextStreamControlRequest</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=20%>stream data request</TD>
+<TD width=37%><A HREF="strclass-routines_5ygj.htm"><B>StreamClassStreamNotification</B></A></TD>
+<TD width=43%>ReadyForNextStreamDataRequest</TD>
+</TR>
+</TABLE><BR>
+
+<P></P>
+
+<P>When the class driver calls <B>StrMiniReceive<I>XXX</I>Packet</B>, it hands off the stream request block to the minidriver. The minidriver's routine has sole access to the stream request block until it signals to the class driver it has completed the request.</P>
+
+<P>When the minidriver finishes processing a request, it should signal the class driver it has completed the request as follows:
+
+<OL>
+	<LI>The minidriver should set the status of the request in the <B>Status</B> field of the stream request block.</LI>
+
+	<LI>The minidriver should signal it has completed the request, by calling <A HREF="strclass-routines_85yr.htm"><B>StreamClassDeviceNotification</B></A> or <A HREF="strclass-routines_5ygj.htm"><B>StreamClassStreamNotification</B></A>. To complete a device request, the minidriver calls <A HREF="strclass-routines_85yr.htm"><B>StreamClassDeviceNotification</B></A> with a <I>NotificationType</I> parameter of DeviceRequestComplete. To complete a stream request, the minidriver calls <A HREF="strclass-routines_5ygj.htm"><B>StreamClassStreamNotification</B></A> with a <I>NotificationType</I> parameter of StreamRequestComplete.</LI>
+
+	<LI>If the class driver is handling synchronization, and if the minidriver has not yet signaled the class driver that it is ready for another request on this queue, it should do so now.</LI>
+</OL>
+
+<P>The minidriver can combine 2 and 3 by calling <A HREF="strclass-routines_7uer.htm"><B>StreamClassCompleteRequestAndMarkQueueReady</B></A>.</P>
+
+<P>The minidriver processes requests asynchronously, so the class driver may need to cancel or time out a request. For these purposes, the minidriver must provide a <A HREF="strmini-routines_0zw3.htm"><B>StrMiniCancelPacket</B></A> and a <A HREF="strmini-routines_2j03.htm"><B>StrMiniRequestTimeout</B></A> routine. The class driver calls the respective minidriver routine when it cancels or times out a request.</P>
+
+<P>The class driver cancels a request when the underlying I/O request is canceled by the operating system. The class driver times out requests that take too long to process — it decrements a counter of how many seconds until it times out a request in the <B>TimeoutCounter</B> member of the stream request block. If the minidriver must defer processing on a request for a long period of time, it should set the <B>TimeoutCounter</B> member to zero — the class driver then will not time out the request. Once the minidriver resumes processing of the request, it should reset <B>TimeoutCounter</B> to be equal to the <B>TimeoutOriginal</B> member of the stream request block. The minidriver can reset <B>TimeoutOriginal</B> to change the length of time before the request times out. See <A HREF="strclass-struct_2jeb.htm">HW_STREAM_REQUEST_BLOCK</A> for details.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20Stream%20Request%20Blocks"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,66 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>D3DHAL_DP2DRAWTRIPATCH</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="D3DHAL_DP2DRAWTRIPATCH">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_d3dhal_dp2drawtripatch_gg"></A>D3DHAL_DP2DRAWTRIPATCH</H1>
+
+<P><B>DirectX 8.0 and later versions only.</B></P>
+
+<P>D3DHAL_DRAWTRIPATCH is parsed from the command buffer by the <A HREF="d3dfncs_5usn.htm"><I>D3dDrawPrimitives2</I></A> callback when the <A HREF="d3dstrct_9w6f.htm">D3DHAL_DP2COMMAND</A> structure's <B>bCommand</B> member is set to <A HREF="d3denum_0jon.htm#ddk_d3ddp2op_drawtripatch_gg">D3DDP2OP_DRAWTRIPATCH</A>, and is used to render a triangular patch.</P>
+
+<PRE class=syntax>typedef struct _D3DHAL_DP2DRAWTRIPATCH {
+    DWORD Handle;
+    DWORD Flags;
+} D3DHAL_DP2DRAWTRIPATCH, *LPD3DHAL_DP2DRAWTRIPATCH;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>Handle</B></DT>
+
+<DD>Specifies the handle associated with the surface.</DD>
+
+<DT><B>Flags</B></DT>
+
+<DD>Specifies what, if any, additional information follows the D3DHAL_DP2DRAWTRIPATCH data structure in the DP2 stream.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>d3dhal.h</I>. Include <I>d3dhal.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The <B>Handle</B> member is used to associate the surface with a handle, so that the next time this surface is drawn there is no need to re-specify the D3DTRIPATCH_INFO for this patch. This makes it possible for the driver to pre-compute and cache forward difference coefficients and/or any other information, which in turn allows subsequent D3DDP2OP_DRAWTRIPATCH tokens using the same handle to execute more efficiently.</P>
+
+<P>The actual value of <B>Handle</B> is determined by the application and is not under runtime control. Therefore, the driver should be prepared to cope with any value specifiable by a DWORD. The special handle value of zero means that the patch is dynamic and there is no point pre-computing or caching information for this patch. A non-zero value for <B>Handle</B> means the patch is static (or updated with low frequency) and pre-computation and caching are possible.</P>
+
+<P>The <B>Flags</B> member is used to communicate what, if any, additional information follows the D3DHAL_DP2DRAWTRIPATCH data structure in the DP2 stream. If RTPATCHFLAG_HASSEGS is specified then three floating point values follow D3DHAL_DP2DRAWTRIPATCH in the DP2 stream. These floats give the segment counts for each of the three edges of the triangular patch and override the value of the render state D3DRS_PATCHSEGMENTS. If RTPATCHFLAG_HASINFO is specified then a D3DTRIPATCH_INFO data structure follows in the DP2 stream. Information on this structure can be found in the DirectX 8.0 SDK documentation. If both flags are specified the three floats specifying segment counts follow D3DHAL_DP2DRAWTRIPATCH and the D3DTRIPATCH_INFO structure follows the floating point values.</P>
+
+<P>There are four scenarios a driver must handle when processing D3DDP2OP_DRAWTRIPATCH.</P>
+
+<P>If <B>Handle</B> is zero, then the patch is dynamic and no pre-computation or caching should be performed. In this case, a D3DTRIPATCH_INFO follows D3DHAL_DP2DRAWTRIPATCH in the DP2 stream (and the flag RTPATCHFLAG_HASINFO is set to indicate the presence of the D3DTRIPATCH_INFO data structure). Optionally, RTPATCHFLAG_HASSEGS may also be set to indicate the presence of the segment information. However, if this is omitted, the value of the render state D3DRS_PATCHSEGMENTS should be used instead.</P>
+
+<P>If <B>Handle</B> is non-zero and the handle value has not been specified by an earlier D3DDP2OP_DRAWTRIPATCH, this indicates that a new cacheable patch is being drawn. The driver should allocate memory to store cached data and add this data to its patch handle table. Because this patch has not been seen before, the RTPATCHFLAG_HASINFO flag should be set and a D3DTRIPATCH_INFO structure should follow in the DP2 stream. The runtime does not guarantee this, however, and the driver should verify the presence of the patch information by testing the flag. If no information is specified, this token should be ignored and no handle should be allocated in the driver’s patch handle table. Optionally, RTPATCHFLAG_HASSEGS may also be set to indicate the presence of the segment information. However, if this is omitted, the value of the render state D3DRS_PATCHSEGMENTS should be used instead. </P>
+
+<P>If <B>Handle</B> is non-zero, the handle value has been specified by an earlier D3DDP2OP_DRAWTRIPATCH token, and the <B>Flags</B> field contains RTPATCHFLAG_HASINFO, then the definition for the patch is being updated. A D3DTRIPATCH_INFO data structure follows in the DP2 stream and the driver should use that to re-compute and re-cache patch information. Optionally, RTPATCHFLAG_HASSEGS may also be set to indicate the presence of the segment information. However, if this is omitted, the value of the render state D3DRS_PATCHSEGMENTS should be used instead.</P>
+
+<P>If <B>Handle</B> is non-zero, the handle value has been specified by an earlier D3DDP2OP_DRAWTRIPATCH token, and the <B>Flags</B> field does not contain RTPATCHFLAG_HASINFO, then the cached information should be used for drawing the patch. In this case, the current vertex streams are ignored; the cached information should be used instead. However, it is still possible in this case for a new segment information to be specified. Therefore, the driver should check for the flag RTPATCHFLAG_HASSEGS and handle specified segment information even if using a cached patch.</P>
+
+<P>The driver receives notification that cached patch information is be released via the render state <A HREF="d3denum_0baf.htm#ddk_d3drs_deletertpatch_gg">D3DRS_DELETERTPATCH</A>. The value of this render state is the patch to be deleted.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="d3denum_0jon.htm#ddk_d3ddp2op_drawtripatch_gg">D3DDP2OP_DRAWTRIPATCH</A>, <A HREF="d3dfncs_5usn.htm"><I>D3dDrawPrimitives2</I></A>, <A HREF="d3dstrct_9w6f.htm">D3DHAL_DP2COMMAND</A>, <A HREF="d3dstrct_95bb.htm">D3DHAL_DP2DRAWRECTPATCH</A>, <A HREF="d3denum_0baf.htm#ddk_d3drs_deletertpatch_gg">D3DRS_DELETERTPATCH</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: D3DHAL_DP2DRAWTRIPATCH"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

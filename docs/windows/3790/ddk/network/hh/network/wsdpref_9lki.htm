@@ -1,0 +1,153 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WSPEnumNetworkEvents</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WSPEnumNetworkEvents">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wspenumnetworkevents_nr"></A>WSPEnumNetworkEvents</H1>
+
+<P><B>WSPEnumNetworkEvents</B> reports occurrences of network events for a socket. </P>
+
+<PRE class=syntax><B>int 
+  WSPEnumNetworkEvents(
+    IN SOCKET </B><I> s</I><B>,</B>
+<B>    IN WSAEVENT </B><I> hEventObject</I><B>,</B>
+<B>    OUT LPWSANETWORKEVENTS </B><I> lpNetworkEvents</I><B>,</B>
+<B>    OUT LPINT </B><I> lpErrno</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>s</I></DT>
+
+<DD>Descriptor that identifies the socket.</DD>
+
+<DT><I>hEventObject</I></DT>
+
+<DD>Handle to the event object that the SAN service provider subsequently resets.</DD>
+
+<DT><I>lpNetworkEvents</I></DT>
+
+<DD>Pointer to a WSANETWORKEVENTS structure that receives a record of network events that occurred and any associated error codes. The WSANETWORKEVENTS structure is defined as:
+
+<PRE>typedef struct _WSANETWORKEVENTS {
+    long lNetworkEvents;
+    int iErrorCode[FD_MAX_EVENTS];
+} WSANETWORKEVENTS, FAR * LPWSANETWORKEVENTS;</PRE>
+
+
+<P>The members of this structure contain the following information:
+
+
+<DL>
+<DT><B>lNetworkEvent</B></DT>
+
+<DD>Bitmask that specifies the combination of FD_XXX network events that occurred.</DD>
+
+<DT><B>iErrorCode</B></DT>
+
+<DD>Array of error codes that are associated with network events in <B>lNetworkEvent</B>. The index of each array element corresponds to the bit position of its associated network event in <B>lNetworkEvent</B>. </DD>
+</DL>
+</DD>
+
+<DT><I>lpErrno</I></DT>
+
+<DD>Pointer to a variable that receives the error code.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>Returns zero if successful; otherwise, returns SOCKET_ERROR and, in <I>lpErrno</I>, one of the following error codes: 
+
+<DL>
+<DT>WSAENETDOWN</DT>
+
+<DD>Network subsystem failed.</DD>
+
+<DT>WSAEINVAL</DT>
+
+<DD>Indicates that one of the specified parameters was invalid.</DD>
+
+<DT>WSAENOTSOCK</DT>
+
+<DD>Descriptor is not a socket.
+</DD>
+</DL>
+
+<P>Note that a SAN service provider does not support the WSAEINPROGRESS error code for <B>WSPEnumNetworkEvents</B>, because the switch never issues cancel blocking calls to a SAN service provider.</P>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>Ws2spi.h</I>. Include <I>Ws2spi.h</I>. Requires Windows Sockets version&nbsp;2.0.</P>
+
+<H4>Comments</H4>
+
+<P>The Windows Sockets switch calls a SAN service provider's <B>WSPEnumNetworkEvents</B> function to obtain a report of network events that have occurred since the switch's last <B>WSPEnumNetworkEvents</B> call. Because the switch previously called the SAN service provider's <B>WSPEventSelect</B> function to register the occurrence of incoming-connection (FD_ACCEPT) and connection-completed (FD_CONNECT) events with a specific event object, only those events are reported to the switch. </P>
+
+<P>After one or more of the registered events occurs, the SAN service provider can call the Win32 <B>SetEvent</B> function to signal the event object. The switch then calls the SAN service provider's <B>WSPEnumNetworkEvents</B> function to determine the type of events that occurred. The SAN service provider supplies the event information in a WSANETWORKEVENTS structure. The SAN service provider indicates event types in the <B>lNetworkEvents</B> member and any associated error codes in the <B>iErrorCode</B> array member. The index of an element in the error code array corresponds to the position of event bits in the <B>lNetworkEvents</B> member. That is, network events such as FD_CONNECT and FD_ACCEPT can be used to index the error code array. Note that only elements of the error code array that correspond to the bits set in <B>lNetworkEvents</B> are set; other elements are not modified. </P>
+
+<P>The SAN service provider must internally record network events for a socket in a WSANETWORKEVENTS structure. Immediately after completing a <B>WSPEnumNetworkEvents</B> call, the SAN service provider must clear the previously recorded network events from WSANETWORKEVENTS. The SAN service provider can also call the Win32 <B>ResetEvent</B> function to reset the previously signaled event object. In other words, the SAN service provider performs the following operations in the following order to guarantee that subsequent occurrences of network events cause the event object to become signaled: 
+
+<OL>
+	<LI>Records network events. </LI>
+
+	<LI>Clears network events after <B>WSPEnumNetworkEvents</B> call. </LI>
+
+	<LI>Resets the associated event object. </LI>
+</OL>
+
+<P>If <B>WSPEnumNetworkEvents</B> fails for some reason (returns SOCKET_ERROR), the SAN service provider neither clears the previously recorded network events from WSANETWORKEVENTS nor resets the previously signaled event object. </P>
+
+<P>The following error codes can be returned along with the corresponding network event: 
+
+<DL>
+<DT><B>FD_CONNECT</B></DT>
+
+<DD>
+
+<DL>
+<DT>WSAECONNREFUSED</DT>
+
+<DD>Attempt to connect was forcefully rejected by the peer.</DD>
+
+<DT>WSAENETUNREACH</DT>
+
+<DD>Network cannot be currently reached from this host.</DD>
+
+<DT>WSAENOBUFS</DT>
+
+<DD>No buffer space available; the socket cannot be connected.</DD>
+
+<DT>WSAETIMEDOUT</DT>
+
+<DD>Attempt to connect timed out without establishing a connection.</DD>
+</DL>
+</DD>
+
+<DT><B>FD_ACCEPT</B></DT>
+
+<DD>
+
+<DL>
+<DT>WSAENETDOWN</DT>
+
+<DD>Network subsystem failed.
+</DD>
+</DL>
+</DD>
+</DL>
+
+<H4>See Also</H4>
+
+<P><A HREF="wsdpref_5f1u.htm"><B>WSPEventSelect</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WSPEnumNetworkEvents"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

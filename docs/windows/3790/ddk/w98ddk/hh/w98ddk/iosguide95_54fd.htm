@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IOS Port Driver general theory of operation</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IOS Port Driver general theory of operation">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_ios_port_driver_general_theory_of_operation_si"></A>IOS Port Driver general theory of operation</H2>
+
+<P>A skeleton port driver code sample is located in the Windows 95 DDK at \DDK\Block\SAMPLES\PORT. Also, refer to the following book, which includes a CD-ROM containing a sample RAMDISK IOS Port Driver:</P>
+
+<TABLE border=1 frame=box rules=all>
+
+<TR VALIGN="top">
+<TD width=31%><B>Title</B></TD>
+<TD width=19%><B>Author / (<I>Publisher</I>) </B></TD>
+<TD width=16%><B>ISBN</B></TD>
+<TD width=34%><B>Comments</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%><I>Systems Programming for Windows 95</I></TD>
+<TD width=19%>Walter Oney (<I>Microsoft Press</I>).</TD>
+<TD width=16%>1-55615-949-8</TD>
+<TD width=34%>See the <a href="http://go.microsoft.com/fwlink/?linkid=8776&clcid=0x409" target="_blank">Walter Oney Software</A> Web site for book errata and DDK annotations.</TD>
+</TR>
+</TABLE><BR>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Here is the general process that should occur when an IOS port driver receives a new IOP. Note that it is assumed that the port driver is connected to a piece of hardware.</B>
+
+<OL>
+	<LI>The port driver checks to see if the hardware is already busy performing I/O. If it is not, go to step 2 below. If it is (busy), it enqueues the new IOP using ILB_enqueue_iop. This function is used to serialize I/O requests for your port driver. After the enqueue, the driver does a simple return (no IOS IOP_callback_ptr callback).
+<P>Microsoft's ESDI_506.PDR source code uses the CLI instruction before the ILB_enqueue_iop:
+
+<P>cli                                ; avoid race <BR>
+        push    esi                        ; *DCB<BR>
+        push    ebx                        ; *IOP<BR>
+        call    [esdi_ilb].ILB_enqueue_iop ; queue the request.<BR>
+        add     esp, 4+4<BR>
+STI is used afterwards. This is a precautionary measure to prevent reentrant thread problems.
+</LI>
+
+	<LI>At this step, the hardware is not already busy, so the driver starts I/O for the device. Normally at this step, the port driver is going to have to wait for hardware to respond. If the hardware polling method is used (instead of waking up when an interrupt arrives), the driver then calls Set_Global_Time_Out or Set_Async_Time_Out so that the driver's timeout (polling handler) routine gets called back later, for example in 10 milliseconds. Immediately after this Set_Global_Time_Out call, simply return (WITHOUT doing a JMP to the IOP_callback_ptr routine). This releases the system from your driver, so the system can run normally for a while.</LI>
+
+	<LI>After a time (for example 10 milliseconds), your polling handler gets called when the global timer times out. Your handler checks your hardware's status. If the hardware has not completed, reissue a global timeout so the hardware can be checked again (10ms) later. If the hardware has completed, finish the I/O, and CALL (not JMP to) the IOP_callback_ptr routine. This procedure has the effect of handing the IOP back to IOS in order to truly complete the request. Next, call ILB_dequeue_iop to see if there are any queued IOP's. If there are, take the new IOP, and jump to step 2 above, to start a new I/O. If there are no enqueued requests, do a simple return.</LI>
+</OL>
+
+<P>If hardware has an associated hardware interrupt, the procedure is more efficient because the driver does not have to poll the hardware.</P>
+
+<P>The sample port driver in the Windows 95 DDK (\DDK\Block\SAMPLES\PORT) demonstrates enqueueing and dequeueing of IOPs.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IOS%20Port%20Driver%20general%20theory%20of%20operation"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Examining the AnswerFile</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Examining the AnswerFile">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_examining_the_answerfile_ng"></A>Examining the AnswerFile</H3>
+
+<P><B>Note:</B> vendor-supplied network upgrades are not supported in Windows XP (SP1 and later), Windows Server 2003, and later operating systems.</P>
+
+<P>Immediately before the "Setup is Copying Files" progress bar is displayed on a system being upgraded, the AnswerFile is created. NetSetup and vendor-supplied network migration DLLs create sections in the AnswerFile and then write entries to these sections during the Winnt32 upgrade phase. </P>
+
+<P>You can examine the AnswerFile by copying <I>c:\$win_nt$.~bt\winnt.sif</I> to <I>%TEMP%</I>. After the AnswerFile has been copied, you can click <B>Cancel</B> to cancel file copying. You do not have to wait until file copying is finished.</P>
+
+<P>The following table lists the top-level sections in the AnswerFile and the corresponding entries that each section contains that pertain to network components:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=25%>Section</TH>
+<TH align=left width=75%>Entries Contained</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%><B>NetAdapters</B></TD>
+<TD width=75%>Network adapters, including ISDN adapters</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%><B>AsyncAdapters</B></TD>
+<TD width=75%>Async adapters</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%><B>NetProtocols</B></TD>
+<TD width=75%>Network protocols</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%><B>NetServices</B></TD>
+<TD width=75%>Network services</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=25%><B>NetClients</B></TD>
+<TD width=75%>Network clients</TD>
+</TR>
+</TABLE><BR>
+
+<P>For each network component that it finds during the Winnt32 phase, NetSetup writes an entry to the appropriate top-level section of the AnswerFile. Each entry has the following format:</P>
+
+<P class=indent1>params.<I>postupgrade-ID</I></P>
+
+<P>The <I>postupgrade-ID</I> entry is the Windows&nbsp;2000 or later device ID that NetSetup obtained from the <I>netmap.inf</I> file for the component.</P>
+
+<P>Each entry specifies the name of the parameters section for that component in the AnswerFile. For example, if a component's Windows&nbsp;2000 or later device ID is netadapter2, its entry in the <B>NetAdapters</B> section is <B>params.netadapter2</B>.<B> </B>The top-level sections and the parameter sections in an AnswerFile are not visible to a network migration DLL.</P>
+
+<P>To the parameters section name for a component, NetSetup adds the extension <B>OemSection</B> to create the <I>OEM-section</I> name for the component. For example, if the parameters section for a component is params.netadapter2, the <I>OEM-section</I> name for the component is params.netadapter2.OemSection. NetSetup passes the <I>OEM-section</I> name as the <I>szSectionName</I> parameter to the <A HREF="upgrade_5kaa.htm"><B>DoPreUpgradeProcessing</B></A> function supplied by the network migration DLL for the component. The <B>DoPreUpgradeProcessing</B> function calls the <A HREF="upgrade_5gc2.htm"><B>NetUpgradeAddSection</B></A> function to create the <I>OEM-section</I> for a component in the AnswerFile. The <B>DoPreUpgradeProcessing</B> function then calls the <A HREF="upgrade_1n5e.htm"><B>NetUpgradeAddLineToSection</B></A> to add component-specific information to the <I>OEM-section</I>.</P>
+
+<P>The following portion of an AnswerFile shows the sections and entries for a network adapter whose Windows&nbsp;2000 or later device ID is <B>adapter2</B>:</P>
+
+<PRE>[NetAdapter]              ;top-level adapters section
+adapter2=params.adapter2      ;entry for adapter2
+[params.adapter2]          ;parameters section for adapter2
+InfID=adapter2            ;Windows 2000 or later device ID
+OemSection=params.adapter2.OemSection  ;Identifies the OemSection
+
+[params.adapter2.OemSection]  ;OemSection created by migration DLL
+InfToRunAfterInstall="", adapter2.SectionToRun ;Written by DLL
+
+[adapter2.SectionToRun]      ;Section created by migration DLL
+AddReg=adapter2.SectionToRun.AddReg ;AddReg directive
+
+[adapter2.SectionToRun.AddReg] ;AddReg section created by DLL
+HKR,0\0,IsdnPhoneNumber,0,"111-1111" ;AddReg entries written by DLL
+HKR,0\1,IsdnPhoneNumber,0,"222-2222"
+HKR,0\0,IsdnSpid,0,"111"
+HKR,0\1,IsdnSpid,0,"222"
+HKR,0,IsdnSwitchType,0x00010001,1</PRE>
+
+<P>During the GUI mode phase, NetSetup detects the <A HREF="upgrade_1n5e.htm"><B>InfToRunAfterInstall</B></A> key written by the migration DLL to the <B>params.adapter2.OemSection</B> of the example AnswerFile. As directed by this key, NetSetup processes the <B>adapter2.SectionToRun.AddReg</B> section. The <B>adapter2.SectionToRun.AddReg</B> section directs NetSetup to add parameter values to adapater2's instance key in the Windows&nbsp;2000 or later registry. These parameter values should match the preupgrade parameter values that the migration DLL read from adapter2's the registry during the Winnt32 phase of the upgrade.</P>
+
+<P>If a network migration DLL is to be loaded during the GUI mode phase, its <A HREF="upgrade_5kaa.htm"><B>DoPreUpgradeProcessing</B></A> function sets the NUA_LOAD_POST_UPGRADE flag. This flag causes NetSetup to write the <B>OemDllToLoad</B> entry to the component's parameters section in the AnswerFile. The <B>OemDllToLoad</B> entry causes NetSetup to load the migration DLL for the component during the GUI mode phase.</P>
+
+<P>The following example shows the AnswerFile sections and entries for a component whose network migration DLL is loaded during the GUI mode phase:</P>
+
+<PRE>[NetAdapter]              ;top-level adapters section
+adapter2=params.adapter2      ;entry for adapter2
+[params.adapter2]          ;parameters section for adapter2
+InfID=adapter2            ;postupgrade device ID
+OemSection=params.adapter2.OemSection    ;Identifies the OemSection
+OemDllToLoad=c:\temp\oem0001\migration.dll
+</PRE>
+
+<P>Note the <B>OemDllToLoad</B> entry in the <B>params.adapter2</B> section. Also note that the migration DLL did not create a <B>params.adapter2.OemSection</B>. When the migration DLL is to be loaded during the GUI mode phase, it typically does not write an <B>InfToRunAfterInstall</B> key to the AnswerFile. The DLL performs the post-installation upgrade; therefore, it does not need to create an <I>Oem-Section</I> name that contains directives for NetSetup to perform during the GUI mode phase.</P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Examining%20the%20AnswerFile"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

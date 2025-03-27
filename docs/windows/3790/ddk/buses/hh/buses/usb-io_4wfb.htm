@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>USB Device I/O</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="USB Device I/O">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_usb_device_i_o_kg"></A>USB Device I/O</H1>
+
+<P>When the bus driver configures the device, it sets up a pipe to device endpoints. The bus driver returns a <A HREF="usbstrct_01f6.htm">USBD_PIPE_INFORMATION</A> structure for the pipe, which contains information about the pipe created. The <B>PipeHandle</B> member contains a pipe handle to use for I/O transactions on that pipe. See <A HREF="usb-config_6tuv.htm">USB Configuration Descriptors</A> for a description of Universal Serial Bus (USB) device configuration and obtaining the pipe handles.</P>
+
+<P>USB devices can support different types of pipes. Drivers can determine the pipe type by examining the <B>PipeType</B> member of USBD_PIPE_INFORMATION. The different pipe types require different types of USB request blocks (URBs) to perform I/O transactions, but each structure within the <A HREF="usbstrct_3h9u.htm">URB</A> union shares certain members: <B>TransferFlags</B>, <B>TransferBuffer</B>, <B>TransferBufferLength</B>, and <B>TransferBufferMDL</B>.</P>
+
+<P>There are type-specific flags in the <B>TransferFlags</B> member that correspond to each URB type.</P>
+
+<P>For all data transfer URBs, the USBD_TRANSFER_DIRECTION_IN flag in <B>TransferFlags</B> specifies the direction of the transfer. Client drivers set the USBD_TRANSFER_DIRECTION_IN flag to read data from the device. Drivers clear this flag to send data to the device.</P>
+
+<P>When reading from the device, the host controller driver signals an error to the device if the device sends it a packet <I>smaller</I> than the maximum size (<I>wMaxPacketSize</I>) indicated in the device’s endpoint. To override this default behavior, the client driver sets the USBD_SHORT_TRANSFER_OK flag in <B>TransferFlags</B>, permitting the device to send packets smaller than the maximum. If the device sends a packet <I>larger</I> than the maximum allowed by the endpoint, the system halts the endpoint, but pending or queued IRPs for that endpoint are not automatically retired.</P>
+
+<P>When writing to the device, the host controller driver does not impose the same restrictions on packet size that it imposes when reading from the device. Some devices make frequent transmissions of small quantities of data, and it is impractical to require such devices to restrict their data transmissions to packets of uniform size. Therefore, the USB bus and host controller drivers do not assign any special significance to packets of size less than the endpoint's maximum size during data writes. This allows a client driver to break a large transfer to the device into multiple URBs of any size less than or equal to the maximum, without the USB driver stack inserting zero-length packets between the URBs. </P>
+
+<P>However, for a USB device and its driver to be compliant with the <I>Universal Serial Bus Specification 1.1</I>, they must only transmit packets of maximum size (<I>wMaxPacketSize</I>)<I> </I>and then delimit the end of a data transmission by means of a packet of less than maximum size, or by means of a zero-length packet. For a client driver to be compliant with the USB specification, it must send a zero-length delimiting packet to a device to explicitly terminate a write transfer whenever the transfer's size is an exact multiple of the maximum. <I>The system USB stack will not generate these packets automatically</I>. </P>
+
+<P>Data may be read from or written to either a buffer resident in memory or an MDL. In either case, the driver specifies the size of the buffer in the <B>TransferBufferLength</B> member. The driver provides a resident buffer in the <B>TransferBuffer</B> member and an MDL in the <B>TransferBufferMDL</B> member. Whichever one the driver provides, the other must be NULL.</P>
+
+<P>If an I/O request on a control, interrupt, or bulk pipe fails, the pipe halts. Whenever the pipe halts, the driver must reset the pipe before any further I/O requests on the pipe can be handled. The driver does this by submitting a <A HREF="usbstrct_1e0i.htm#ddk_urb_function_sync_reset_pipe_kr">URB_FUNCTION_SYNC_RESET_PIPE</A> request, with the <B>UrbPipeRequest.PipeHandle</B> member of the URB set to the pipe handle of the halted pipe. Alternatively, the driver can submit a <A HREF="usbstrct_1e0i.htm#ddk_urb_function_reset_pipe_kr">URB_FUNCTION_RESET_PIPE</A> request. This request clears the halt condition on the host side of the pipe, and if the device is stalled, it also clears the stall condition on the device. In order to clear a stall condition <I>without</I> reseting the pipe, the driver must submit a <A HREF="usbstrct_1e0i.htm#ddk_urb_function_sync_clear_stall_kr">URB_FUNCTION_SYNC_CLEAR_STALL</A> request.</P>
+
+<P>Drivers must not resubmit uncompleted URBs that have failed. The USB stack deliberately bugchecks if it detects that an active URB has been resubmitted before being completed. </P>
+
+<P>The driver can abort all I/O requests on the pipe with a <A HREF="usbstrct_4zea.htm">_URB_PIPE_REQUEST</A> request whose <A HREF="usbstrct_1e0i.htm">_URB_HEADER</A> parameter has its <B>Function</B> member set to <A HREF="usbstrct_1e0i.htm#ddk_urb_function_abort_pipe_kr">URB_FUNCTION_ABORT_PIPE</A>.</P>
+
+<P>After a driver issues an abort pipe request, it must wait for all of its outstanding I/O requests on the pipe to complete, even if the abort request fails. The driver may attempt to cancel outstanding I/O requests, but it must never, under any circumstances, free IRP memory for IRPs that it has not completed or IRPs that it does not own. </P>
+
+<P>The following sections provide more information about the types of pipes:</P>
+
+<P class=indent1><A HREF="usb-io_5c4n.htm">USB Bulk and Interrupt Transfer</A></P>
+
+<P class=indent1><A HREF="usb-io_1dwn.htm">USB Isochronous Transfer</A></P>
+
+<P class=indent1><A HREF="usb-io_6m93.htm">USB Control Transfer</A></P>
+
+<P class=indent1><A HREF="usb-select_03s7.htm">Selective Suspension of USB Devices</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: USB%20Device%20I%2FO"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

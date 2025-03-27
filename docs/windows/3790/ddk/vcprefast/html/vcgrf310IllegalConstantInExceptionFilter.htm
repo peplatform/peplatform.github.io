@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>310 - Illegal constant in exception filter.</TITLE>
+<META Name="InChm" Content="True">
+<META name="rtfFileName" content="prefast.rtf">
+<!--CSS_START-->
+<SCRIPT SRC="../scripts/dtuelink.js"></SCRIPT>
+<!--CSS_END--></HEAD>
+<body topmargin=0 id="bodyID" class = "dtBODY">
+
+<!--NONSCROLLING BANNER START-->
+<div id="nsbanner">
+<div id="bannerrow1">
+<TABLE CLASS="bannerparthead" CELLSPACING=0>
+<TR ID="hdr">
+<TD CLASS="runninghead" nowrap>PREfast&nbsp;User&nbsp;Guide</TD>
+<TD CLASS="product" nowrap>&nbsp;</TD>
+</TR>
+</TABLE>
+</div>
+<div id="TitleRow">
+<H1 class="dtH1"><A NAME="vcgrf310illegalconstantinexceptionfilter"></A>310 - Illegal constant in exception filter.</H1>
+
+<H1 class="dtH1">Question: Did you intend to test this constant against GetExceptionCode()?</H1>
+</div></div>
+<!--NONSCROLLING BANNER END-->
+<DIV id="nstext" valign="bottom">
+<div id="allHistory" class="saveHistory" onsave="saveAll()" onload="loadAll()"></div><!-- Topic Status -->
+<P>This message indicates that an illegal constant was detected in the filter expression of a structured exception handler. The constants defined for use in the filter expression of a structured exception handler are: 
+
+<UL type="disc">
+	<LI>EXCEPTION_CONTINUE_EXECUTION </li>
+
+	<LI>EXCEPTION_CONTINUE_SEARCH </li>
+
+	<LI>EXCEPTION_EXECUTE_HANDLER </li>
+</UL>
+
+<P>These values are defined in the C run-time header except.h. </P>
+
+<P>Using a constant not in the previous list can lead to unexpected behavior. In the following example, use of EXCEPTION_ACCESS_VIOLATION in the filter expression is treated as EXCEPTION_CONTINUE_EXECUTION. This leads to the following behavior: 
+
+<UL type="disc">
+	<LI>If the exception is triggered by the call to <B>RaiseException</B>, execution will continue after the exception and actually write at the out-of-range address. </li>
+
+	<LI>If an exception is occurs because <B>Handle</B> is an invalid pointer, an infinite loop will result, because execution is continued at the instruction that resulted in the exception (resulting in another exception that is handled the same way, creating an infinite loop). </li>
+</UL>
+
+<P>In either case, the actual handler statement will never be executed. The return statement is dead code. </P>
+
+<H4 class="dtH4">Example</H4>
+
+<P><B>Defective Source</B></P>
+
+<PRE class="code">#define LIMIT   0x7fff0000
+
+__try {
+
+    if (Handle &gt;= Limit) {
+        RaiseException(EXCEPTION_ACCESS_VIOLATION);
+    }
+
+    *Handle = NewValue;
+
+} __except (EXCEPTION_ACCESS_VIOLATION) {
+    return EXCEPTION_ACCESS_VIOLATION;
+}</PRE>
+
+<P><B>Corrected Source</B></P>
+
+<PRE class="code">#define LIMIT   0x7fff0000
+
+__try {
+
+    if (Handle &gt;= Limit) {
+        RaiseException(EXCEPTION_ACCESS_VIOLATION);
+    } 
+
+    *Handle = NewValue;
+
+} __except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION) {
+    return EXCEPTION_ACCESS_VIOLATION;
+}</PRE>
+<!--Footer Start-->
+<DIV CLASS="footer">
+<br>
+<HR><!--Copyright-->
+<p><MSHelp:link keywords="vxmscCopyright" TABINDEX="0">&copy; Microsoft Corporation. All rights reserved.</MSHelp:link></p></div> <!--Closes the footer div-->
+</div> <!--closes the topic content div-->
+<!--FOOTER_END-->
+</BODY>
+</HTML>

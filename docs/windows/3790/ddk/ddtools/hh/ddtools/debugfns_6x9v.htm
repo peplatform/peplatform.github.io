@@ -1,0 +1,148 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DbgPrintEx</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DbgPrintEx">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Driver&nbsp;Development&nbsp;Tools:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_dbgprintex_tools"></A>DbgPrintEx</H1>
+
+<P><B>DbgPrintEx</B> sends a string to the kernel debugger if certain conditions are met.</P>
+
+<PRE class=syntax><B>ULONG
+</B>  <B>DbgPrintEx(</B>
+    <B>IN ULONG</B>  <I>ComponentId</I><B>,
+</B>    <B>IN ULONG</B>  <I>Level</I><B>,
+</B>    <B>IN PCHAR</B>  <I>Format</I><B>,
+</B>    <B>. . . .</B>  [<I>arguments</I>]<B> 
+</B>    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>ComponentId</I></DT>
+
+<DD>Specifies the component calling this routine. This must be one of the component name filter IDs defined in the DDK header <I>ntddk.h</I> and the SDK header <I>ntrtl.h</I>. To avoid mixing your driver's output with the output of Windows components, you should use only the following values for <I>ComponentId</I>:
+
+<P class=indent1>DPFLTR_IHVDRIVER_ID </P>
+
+
+<P class=indent1>DPFLTR_IHVVIDEO_ID </P>
+
+
+<P class=indent1>DPFLTR_IHVAUDIO_ID </P>
+
+
+<P class=indent1>DPFLTR_IHVNETWORK_ID </P>
+
+
+<P class=indent1>DPFLTR_IHVSTREAMING_ID </P>
+
+
+<P class=indent1>DPFLTR_IHVBUS_ID </P>
+
+</DD>
+
+<DT><I>Level</I></DT>
+
+<DD>Specifies the severity of the message being sent. This can be any 32-bit integer. Values between 0 and 31 (inclusive) are treated differently than values between 32 and 0xFFFFFFFF. For details, see the <B>Comments</B> section following.</DD>
+
+<DT><I>Format</I></DT>
+
+<DD>Specifies a pointer to the format string to print, as in <B>printf</B>. The <I>Format</I> string supports the <B>printf</B>-style formatting codes. However, the Unicode format codes (<B>%C</B>, <B>%S</B>, <B>%lc</B>, <B>%ls</B>, <B>%wc</B>, <B>%ws</B>, <B>%wZ</B>) can only be used at IRQL PASSIVE_LEVEL.</DD>
+
+<DT><I>arguments</I></DT>
+
+<DD>Specifies arguments for the format string, as in <B>printf</B>.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>If successful, <B>DbgPrintEx</B> returns the NTSTATUS code STATUS_SUCCESS; otherwise, it returns the appropriate error code.</P>
+
+<H4>Headers</H4>
+
+<P>This routine is defined in <I>ntddk.h</I> and <I>ndis.h</I>; component filter IDs are defined in <I>ntddk.h</I>. Include <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>This routine can only be used in Windows&nbsp;XP and later.</P>
+
+<P>Only kernel-mode drivers can call the <B>DbgPrintEx</B> routine.</P>
+
+<P>Unless it is absolutely necessary, you should not obtain a string from user input or another process and pass it to <B>DbgPrintEx</B>. If you <I>do</I> use a string that you did not create, you must verify that this is a valid format string, and that the format codes match the argument list in type and quantity. The best coding practice is for all <I>Format</I> strings to be static and defined at compile time.</P>
+
+<P><B>DbgPrintEx</B> will either pass the specified string to the kernel debugger or do nothing at all, depending on the values of <I>ComponentId</I>, <I>Level</I>, and the corresponding component filter masks.</P>
+
+<P>Each component has a separate filter mask. The components that are of interest to driver writers are <B>IHVDRIVER</B>, <B>IHVVIDEO</B>, <B>IHVAUDIO</B>, <B>IHVNETWORK</B>, <B>IHVSTREAMING</B>, and <B>IHVBUS</B>.</P>
+
+<P>There are two ways to set a component filter mask:
+
+<UL>
+	<LI>Create or open the registry key <B>HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session&nbsp;Manager\Debug&nbsp;Print&nbsp;Filter</B>. Under this key, create a value with the name of one of these components, in uppercase. Set it equal to the DWORD value that you wish to use as the component filter mask.</LI>
+
+	<LI>From the kernel debugger, enter the desired component filter mask as the value of the symbol <B>Kd_<I>XXXX</I>_Mask</B>, where <I>XXXX</I> is the component name. This can be done using the <B>ed</B> command in WinDbg or KD.</LI>
+</UL>
+
+<P>Filter masks stored in the registry take effect during boot. Filter masks created by the debugger take effect immediately, and last until Windows is rebooted. A value set in the registry can be overridden by the debugger, but the component filter mask will return to the value specified in the registry if the system is rebooted.</P>
+
+<P>Here is an example of how component filter masks can be set. Suppose that before the last boot, you created two values in the <B>Debug&nbsp;Print&nbsp;Filter</B> key: <B>IHVVIDEO</B>, with a value equal to DWORD 0x2, and <B>IHVBUS</B>, equal to DWORD 0x7FF. Now you issue the following commands in the kernel debugger:</P>
+
+<PRE>kd&gt; <B>ed Kd_IHVVIDEO_Mask 0x8</B> 
+kd&gt; <B>ed Kd_IHVAUDIO_Mask 0x7</B> 
+</PRE>
+
+<P>At this point, the IHVVIDEO component has a filter mask of 0x8, the IHVAUDIO component has a filter mask of 0x7, and the IHVBUS component has a filter mask of 0x7FF.</P>
+
+<P>There is also a system-wide mask called <B>WIN2000</B>. This is equal to one by default, though it can be changed through the registry or the debugger like all other components. When filtering is performed, each component filter mask is first ORed with the <B>WIN2000</B> mask. So in this example, the <B>IHVVIDEO</B> mask is effectively equal to 0x9, and components whose filter masks have not been set at all (for instance, <B>IHVSTREAMING</B>) will have a filter mask of one.</P>
+
+<P>When <B>DbgPrintEx</B> is called in kernel-mode code, Windows compares the message importance specified by <I>Level</I> with the filter mask of the component specified by <I>ComponentId</I>. This comparison is performed as follows:
+
+<UL>
+	<LI>If <I>Level</I> is equal to a number between 0 and 31, inclusive, it is interpreted as a bit shift. If this bit is set in the component filter mask, the message is sent to the debugger.</LI>
+
+	<LI>If <I>Level</I> is a number between 32 and 0xFFFFFFFF inclusive, it is treated as an actual DWORD value. <I>Level</I> is ANDed with the component filter mask; if this result is nonzero, the message is sent to the debugger.</LI>
+</UL>
+
+<P>The following constants can be useful for setting the value of <I>Level</I>. They are defined in the DDK header <I>ntddk.h</I> and the SDK header <I>ntrtl.h</I>:</P>
+
+<PRE>#define   DPFLTR_ERROR_LEVEL     0
+#define   DPFLTR_WARNING_LEVEL   1
+#define   DPFLTR_TRACE_LEVEL     2
+#define   DPFLTR_INFO_LEVEL      3
+#define   DPFLTR_MASK    0x8000000
+</PRE>
+
+<P>To make your driver compatible with the way Windows uses message levels, you should only set <I>Level</I> equal to DPFLTR_ERROR_LEVEL when a serious error occurs. (Since the <B>WIN2000</B> system-wide filter is usually equal to one, these messages will be seen by anyone performing kernel debugging.) The warning, trace, and information levels should be used in the appropriate situations. Other bits can be freely used for any purposes that you find useful This allows you to have a wide variety of message types that can be selectively seen or hidden.</P>
+
+<P>Continuing the example from the beginning of this section, suppose that the following function calls occur in your driver:</P>
+
+<PRE>DbgPrintEx( DPFLTR_IHVVIDEO_ID,  DPFLTR_INFO_LEVEL,   "First message.\n");
+DbgPrintEx( DPFLTR_IHVAUDIO_ID,  7,                   "Second message.\n");
+DbgPrintEx( DPFLTR_IHVBUS_ID,    DPFLTR_MASK &amp; 0x10,  "Third message.\n");
+</PRE>
+
+<P>The first message will be transmitted, because DPFLTR_INFO_LEVEL is equal to 3; it is therefore treated as a bit shift, resulting in 0x8. This value is then ANDed with the effective <B>IHVVIDEO</B> component filter mask of 0x9, giving a nonzero result.</P>
+
+<P>The second message will <I>not</I> be transmitted, because the <I>Level</I> value of 7 is treated as a bit shift, resulting in 0x80. This is then ANDed with the <B>IHVAUDIO</B> component filter mask of 0x7, giving a result of zero.</P>
+
+<P>The third message will be transmitted, because DPFLTR_MASK &amp; 0x10 is greater than 31, and is therefore treated as the literal DWORD 0x80000010. This is then ANDed with the <B>IHVBUS</B> component filter mask of 0x7FF, giving a nonzero result.</P>
+
+<P>When the filter allows a message to be transmitted, the formatted string is sent to the <I>DbgPrint Buffer</I>. The contents of this buffer are displayed immediately in the Debugger Command window, unless this display has been disabled by using the Global Flags Editor (<I>gflags.exe</I>).</P>
+
+<P>If this display has been disabled, the contents of the DbgPrint Buffer can only be viewed by using the <B>!dbgprint</B> extension command. For information on debugger extensions, see <A HREF="dbgblurb_25bn.htm">Debugging Tools for NT-Based Operating Systems</A>.</P>
+
+<P>There is no upper limit to the size of the <I>Format</I> string or the number of arguments. However, the DbgPrint buffer can only hold 512 bytes of information. Any output longer than this will be lost.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="debugfns_9ecz.htm"><B>DbgPrint</B></A>, <A HREF="debugfns_8odv.htm"><B>KdPrint</B></A>, <A HREF="debugfns_1ier.htm"><B>KdPrintEx</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DbgPrintEx"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

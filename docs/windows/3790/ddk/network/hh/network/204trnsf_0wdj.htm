@@ -1,0 +1,38 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Indicating a Receive Packet with an NdisMXxxIndicateReceive function</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Indicating a Receive Packet with an NdisMXxxIndicateReceive function">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_indicating_a_receive_packet_with_an_ndismxxxindicatereceive_function_ng"></A>Indicating a Receive Packet with an NdisM<I>Xxx</I>IndicateReceive function</H2>
+
+<P>Legacy connectionless miniport drivers that do not support <B>NdisMIndicateReceivePacket</B> call a medium-specific <B>NdisM</B><I>Xxx</I><B>IndicateReceive</B> function to indicate a single packet to higher drivers.</P>
+
+<P>During initialization, a connectionless miniport driver's <I>MiniportQueryInformation</I> function is called to determine the miniport driver’s or network interface card's (NIC) operational characteristics. These characteristics include the minimum size of the lookahead buffer that the miniport driver indicates up. The miniport driver must indicate up at least this minimum amount of data, but it can indicate up more if more data is available on the NIC. For example, because a DMA adapter transfers all the data directly into memory, it usually indicates the complete received buffer up. This makes it possible for a protocol driver to copy the buffer on the indication without having to call <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A> to get the rest of the data. </P>
+
+<P>On the other hand, connectionless miniport drivers that manage programmed I/O (PIO) NICs pass a minimum lookahead buffer up to protocol drivers; the rest of the data is not read until the miniport driver is called at its <I>MiniportTransferData</I> function. Because transferring data in this manner is slow, the miniport driver optimizes for the case that no protocol accepts the packet and that the minimum number of protocols request calls to <I>MiniportTransferData</I>.</P>
+
+<P>A connectionless miniport driver that calls <B>NdisM</B><I>Xxx</I><B>IndicateReceive</B> must have a <I>MiniportTransferData</I> function and must be prepared to be called to copy incoming data into a packet with chained buffers passed down by a protocol driver. <I>MiniportTransferData</I> is called in the context of the miniport driver’s <B>NdisM</B><I>Xxx</I><B>IndicateReceive</B> call. After <B>NdisM</B><I>Xxx</I><B>IndicateReceive</B> returns control, the miniport driver can receive new data; that is, it can reenable receive interrupts.</P>
+
+<P><I>MiniportTransferData</I> is passed a packet descriptor that can specify a single buffer or a chain of buffers. The miniport driver must divide up the incoming data into these buffers. If the buffers supplied by the protocol driver are insufficient, the miniport driver should fail the transfer call with an appropriate status. However, the protocol driver should not make this mistake because the miniport driver indicates the total size of the incoming network packet in its <B>NdisM</B><I>Xxx</I><B>IndicateReceive</B> call. Data transfer can complete synchronously if all the data is transferred inside <I>MiniportTransferData</I> (see the following figure).</P>
+
+<P><IMG SRC="images/207-05.gif" ALT="" BORDER=0></P>
+
+<P><B>Indicating a Receive Packet with an NdisM</B><I>Xxx</I><B>IndicateReceive Function </B><B>—</B><B>Synchronous Completion</B></P>
+
+<P>Otherwise, <I>MiniportTransferData</I> can return NDIS_STATUS_PENDING. If the miniport driver returns a pending status, it must call <A HREF="103ndisx_6nhu.htm"><B>NdisMTransferDataComplete</B></A> after all the data has been transferred (see the following figure). Again, the miniport driver must not reenable interrupts until the transfer of data has been completed so that the data already received is not overwritten by an incoming receive.</P>
+
+<P><IMG SRC="images/207-06.gif" ALT="" BORDER=0></P>
+
+<P><B>Indicating a Receive Packet with an NdisM</B><I>Xxx</I><B>IndicateReceive Function </B><B>——</B><B>Asynchronous Completion</B></P>
+
+<P>A miniport driver must periodically call <B>NdisM</B><I>Xxx</I><B>ReceiveComplete</B>, thereby causing NDIS to call each bound protocol drivers’ <I>ProtocolReceiveComplete</I> function. The call to <I>ProtocolReceiveComplete</I> notifies a protocol driver that it can process the data that it has already received but not yet fully processed. For example, the miniport driver could indicate the received data to its clients. A miniport driver should call <B>NdisM</B><I>Xxx</I><B>ReceiveComplete</B> in its <I>MiniportHandleInterrupt </I>function after every ten receives or before exiting <I>MiniportHandleInterrupt</I> if fewer than ten receives are processed. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Indicating%20a%20Receive%20Packet%20with%20an%20NdisMXxxIndicateReceive%20function"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

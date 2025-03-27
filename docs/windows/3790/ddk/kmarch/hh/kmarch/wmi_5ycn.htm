@@ -1,0 +1,67 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Processing WMI IRPs in a DispatchSystemControl Routine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Processing WMI IRPs in a DispatchSystemControl Routine">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_processing_wmi_irps_in_a_dispatchsystemcontrol_routine_kg"></A>Processing WMI IRPs in a <I>DispatchSystemControl</I> Routine</H2>
+
+<P>A driver that handles WMI IRPs in its <A HREF="drvrrtns_9v76.htm"><I>DispatchSystemControl</I></A> routine must handle such an IRP only if the device object pointer at <B>Parameters.WMI.ProviderId</B> matches the pointer passed by the driver in its call to <A HREF="k104_5dbm.htm"><B>IoWMIRegistrationControl</B></A>. Otherwise, the driver must forward the IRP to the next lower driver.</P>
+
+<P>If the driver handles the request, it must:
+
+<OL>
+	<LI>Check the GUID at <B>Parameters.WMI.DataPath</B> to determine whether it represents a data block supported by the driver and, if not, fail the IRP with STATUS_WMI_GUID_NOT_FOUND.</LI>
+
+	<LI>A driver should check the input WNODE_XXX structure at <B>Parameters.WMI.Buffer</B> for the instance name when handling any of the following requests: 
+<P class=indent1><A HREF="k901_1bua.htm">IRP_MN_QUERY_SINGLE_INSTANCE</A><BR>
+<A HREF="k901_8a7m.htm">IRP_MN_CHANGE_SINGLE_INSTANCE</A><BR>
+<A HREF="k901_9b5e.htm">IRP_MN_CHANGE_SINGLE_ITEM</A><BR>
+<A HREF="k901_6hf6.htm">IRP_MN_EXECUTE_METHOD</A></P>
+
+<P>The driver should check for the instance name as follows:
+
+<UL>
+	<LI>If WNODE_FLAG_STATIC_INSTANCE_NAMES is set in <B>WnodeHeader.Flags</B>, use <B>InstanceIndex</B> as an index into the driver's list of static instance names for that block.</LI>
+
+	<LI>If WNODE_FLAG_STATIC_INSTANCE_NAMES is clear in <B>WnodeHeader.Flags</B>, use <B>OffsetInstanceName</B> as an offset to the instance name string in the input WNODE_XXX structure. <B>OffsetInstanceName</B> is the offset in bytes from the beginning of the structure to a USHORT that indicates the length of the instance name string in bytes (not characters), including the NUL terminator if present, followed by the string itself in Unicode.</LI>
+</UL>
+
+<P>If the driver cannot locate the instance specified by <B>InstanceIndex</B> or <B>OffsetInstanceName</B>, it must fail the IRP with STATUS_WMI_INSTANCE_NOT_FOUND.
+</LI>
+
+	<LI>For an IRP_MN_EXECUTE_METHOD request, check <B>MethodID</B> in the input <A HREF="k112_8mya.htm">WNODE_METHOD_ITEM</A> and, if the method is not valid for that data block, fail the IRP with STATUS_WMI_ITEMID_NOT_FOUND.</LI>
+
+	<LI>If the request generates output, a driver should check the size of the buffer at <B>Parameters.WMI.BufferSize </B>when handling any of the following requests: 
+<P class=indent1><A HREF="k901_1nhu.htm">IRP_MN_QUERY_ALL_DATA</A><BR>
+<A HREF="k901_1bua.htm">IRP_MN_QUERY_SINGLE_INSTANCE</A><BR>
+<A HREF="k901_6hf6.htm">IRP_MN_EXECUTE_METHOD</A></P>
+
+<P>If the buffer is too small to receive the output, the driver should succeed the IRP and write a <A HREF="k112_3642.htm">WNODE_TOO_SMALL</A> structure to the buffer at <B>Parameters.WMI.Buffer</B>.
+</LI>
+
+	<LI>If the request generates output and the buffer size is adequate, write the following output to the buffer at <B>Parameters.WMI.Buffer</B>:
+<UL>
+	<LI>For an IRP_MN_QUERY_ALL_DATA request, the driver writes a <A HREF="k112_1dpu.htm">WNODE_ALL_DATA</A> structure that contains data for all instances of the specified data block</LI>
+
+	<LI>For an IRP_MN_QUERY_SINGLE_INSTANCE request, the driver writes a <A HREF="k112_7a2a.htm">WNODE_SINGLE_INSTANCE</A> structure that contains data for the specified instance of a data block.</LI>
+
+	<LI>For an IRP_MN_EXECUTE_METHOD if the method generates output, the driver writes the method output in driver-determined format following the input <A HREF="k112_8mya.htm">WNODE_METHOD_ITEM</A> in the buffer (overwriting input data, if any).</LI>
+</UL>
+</LI>
+
+	<LI>Set <B>Irp</B><B>–</B><B>&gt;IoStatus.Information</B> to the number of bytes written to the buffer at <B>Parameters.WMI.Buffer</B> and <B>Irp</B><B>–</B><B>&gt;IoStatus.Status</B> to STATUS_SUCCESS.</LI>
+
+	<LI>Call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> to complete the IRP.</LI>
+</OL>
+
+<P>For more information, see <A HREF="wmi_83zb.htm">WMI WNODE_XXX structures</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Processing%20WMI%20IRPs%20in%20a%20DispatchSystemControl%20Routine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

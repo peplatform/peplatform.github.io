@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Locking and Unlocking Best Practices</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Locking and Unlocking Best Practices">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_locking_and_unlocking_best_practices_si"></A>Locking and Unlocking Best Practices</H1>
+
+<P>Locking for the STI portion of a WIA driver needs special attention. Even though an application can access the published STI interfaces directly, such direct access to the device can be misused. Locking techniques that are implemented improperly can leave a device open to a denial of service (DoS) attack.</P>
+
+<H4>For STI Applications</H4>
+
+<P>The following list contains precautions and guidelines you should follow when using STI applications:
+
+<UL>
+	<LI>Do not hold locks for extended periods of time.</LI>
+
+	<LI>If you do not need direct access to the device, it might be possible to obtain the same information by using WIA interface methods. This is preferable because the WIA service then controls locking for you.</LI>
+
+	<LI>TWAIN drivers that use STI use the <A HREF="stifnc_5wyx.htm"><B>IStiUSD::LockDevice</B></A> method to control access to the device. When a TWAIN driver uses STI, the TWAIN driver is responsible for controlling lock times.</LI>
+
+	<LI>If you are creating a driver for Windows® 98 or Windows 2000, you can create it so that it implements only the <B>IStiUSD</B> interface methods. The disadvantage of this approach is that an application can call <B>IStiUSD::LockDevice</B> directly, thereby locking the device for exclusive use by the application. The Windows Hardware Quality Lab does not certify drivers that use this technique for Windows XP and later; such drivers can be installed only as unsigned drivers.</LI>
+</UL>
+
+<H4>For WIA Drivers</H4>
+
+<P>The following list contains precautions and guidelines you should follow when working with WIA drivers:
+
+<UL>
+	<LI>Monitor the activity of the device during long lock periods. If there is no activity, then the driver should unlock the device, and allow other clients to connect. The driver should not unlock the device, for example, if it is scanning a very large image, or if it is taking an unusually long time to acquire an image. This interrupts the current session. Depending on the device and the bus it operates on, a very large image could be anywhere from 10 megabytes to more than a gigabyte, and a long period of time could be anywhere from 500 milliseconds to more than a minute. You should benchmark your device and the bus it operates on so you know what these specific values are for your device.</LI>
+
+	<LI>Applications that use WIA do not access the driver's locking methods, <A HREF="minidrv_2gbt.htm"><B>IWiaMiniDrv::drvLockWiaDevice</B></A> and <A HREF="minidrv_84vd.htm"><B>IWiaMiniDrv::drvUnlockWiaDevice</B></A>. These are called only by the WIA service, which propagates locking calls to <B>IStiUSD</B> using the <B>IStiUSD::LockDevice</B> method.</LI>
+
+	<LI>If an application exclusively locks a WIA device using the <B>IStiUSD::LockDevice</B> method, the WIA service cannot access the device until that application calls the <A HREF="stifnc_252h.htm"><B>IStiUSD::UnLockDevice</B></A> method. If the WIA service cannot lock the device, the device will not be available to any applications or drivers that rely on the WIA service.</LI>
+
+	<LI>The <A HREF="minidrv_2gbt.htm"><B>IWiaMiniDrv::drvLockWiaDevice</B></A> method should always call the <A HREF="stifnc_5mi1.htm"><B>IStiDevice::LockDevice</B></A> method,  and the <A HREF="minidrv_84vd.htm"><B>IWiaMiniDrv::drvUnLockWiaDevice</B></A> method should always call the <A HREF="stifnc_0zhl.htm"><B>IStiDevice::UnLockDevice</B></A> method. This ensures that the WIA service performs proper lock management for the device. The <B>IStiDevice</B> interface is passed to the driver in calls to the <A HREF="minidrv_4mg9.htm"><B>IWiaMiniDrv::drvInitializeWia</B></A> method. This interface should be cached and used to call the <B>IStiDevice::LockDevice</B> method. This method calls your driver's <B>IStiUSD::LockDevice</B> method.</LI>
+
+	<LI>If a BOOL value is used to control locking, protect this value from multiple threads. When two drivers attempt to lock a single device at the same time, only one driver can succeed.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Locking%20and%20Unlocking%20Best%20Practices"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

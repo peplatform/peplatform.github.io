@@ -1,0 +1,59 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Sending an Event with IoWMIWriteEvent</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Sending an Event with IoWMIWriteEvent">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_sending_an_event_with_iowmiwriteevent_kg"></A>Sending an Event with IoWMIWriteEvent</H2>
+
+<P>A driver can call <A HREF="k104_2uya.htm"><B>IoWMIWriteEvent</B></A> to send any event. The event can consist of a single item, a single instance, or all instances of a data block, and it can use dynamic instance names. </P>
+
+<P>Unlike WNODE_<I>XXX</I> structures passed with query or change requests, which are allocated and partially initialized by WMI, the driver must allocate and initialize all members of the WNODE_<I>XXX</I> structure that contains an event.</P>
+
+<P>A driver must send an event only after WMI has sent an <A HREF="k901_10du.htm">IRP_MN_ENABLE_EVENTS</A> request to enable the event. Then, when the event's trigger condition occurs, the driver:
+
+<OL>
+	<LI>Allocates a buffer from nonpaged pool to contain the WNODE_<I>XXX</I> structure needed for the event, including space for variable data, if any. 
+<P>Depending on the event, the driver might allocate a <A HREF="k112_20c2.htm">WNODE_SINGLE_ITEM</A>, a <A HREF="k112_7a2a.htm">WNODE_SINGLE_INSTANCE</A>, or a <A HREF="k112_1dpu.htm">WNODE_ALL_DATA</A> for the event. The size of the WNODE_<I>XXX</I> plus variable data must not exceed the registry-defined limit of 1K.
+</LI>
+
+	<LI>Initializes all members of the WNODE_<I>XXX</I> structure, including <B>WnodeHeader.Flags</B>: 
+<UL>
+	<LI>The driver sets WNODE_FLAG_EVENT_ITEM to indicate that the structure is an event.</LI>
+
+	<LI>The driver sets one of the following to indicate the type of WNODE_<I>XXX</I> structure:
+<P>WNODE_FLAG_ALL_DATA<BR>
+WNODE_FLAG_SINGLE_INSTANCE<BR>
+WNODE_FLAG_SINGLE_ITEM
+</LI>
+
+	<LI>The driver sets or clears the following flags to indicate whether the block uses static or dynamic instance names:
+<P>WNODE_FLAG_STATIC_INSTANCE_NAMES<BR>
+WNODE_FLAG_PDO_INSTANCE_NAMES
+</LI>
+
+	<LI>The driver might set additional flags depending on the event. </LI>
+</UL>
+</LI>
+
+	<LI>Casts a pointer to the WNODE_<I>XXX</I> to a PWNODE_EVENT_ITEM.</LI>
+
+	<LI>Calls <B>IoWMIWriteEvent</B> with the pointer.
+<P>If <B>IoWMIWriteEvent</B> completes successfully, WMI releases the driver-allocated memory for the event.
+</LI>
+</OL>
+
+<P>After <A HREF="k104_2uya.htm"><B>IoWmiWriteEvent</B></A> returns, the driver resumes monitoring the event's trigger condition and sending the event each time its trigger condition occurs, until WMI sends an <A HREF="k901_0drm.htm">IRP_MN_DISABLE_EVENTS</A> request to disable that event.</P>
+
+<P>If the size of an event exceeds the registry-defined maximum of 1K (not recommended) the driver should call <B>IoWmiWriteEvent</B> with an initialized <A HREF="k112_17zm.htm">WNODE_EVENT_REFERENCE</A> that specifies the event's GUID, its size, and its instance index (for static instance names) or name (for dynamic instance names). WMI will use the information in the WNODE_EVENT_REFERENCE to query for the event.</P>
+
+<P>A driver can send an events that does not use dynamic instance names and that consists of a single instance by calling the WMI library routine <A HREF="k902_43hu.htm"><B>WmiFireEvent</B></A>. The driver does not need to allocate and initialize a WNODE_<I>XXX</I> structure for a <B>WmiFireEvent</B> call. WMI packages the driver's event data in a <A HREF="k112_7a2a.htm">WNODE_SINGLE_INSTANCE</A> and delivers it to data consumers. For more information about sending events with <B>WmiFireEvent</B>, see <A HREF="wmi_3kbr.htm">Sending an Event with <B>WmiFireEvent</B></A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Sending%20an%20Event%20with%20IoWMIWriteEvent"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Changing the WIA Item Tree Structure</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Changing the WIA Item Tree Structure">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_changing_the_wia_item_tree_structure_si"></A>Changing the WIA Item Tree Structure</H1>
+
+<P>A WIA minidriver has the ability to change the WIA item tree structure at any time. When the minidriver makes a change to the WIA item tree, the minidriver must notify the WIA service, which in turn notifies all connected WIA applications. It is the responsibility of the WIA application to enumerate the WIA item tree to determine the result of any changes.</P>
+
+<P>The WIA service utility function <A HREF="wiasfncs_2ckp.htm"><B>wiasQueueEvent</B></A> is used to communicate changes in the tree structure to the WIA service. A WIA minidriver can only queue events that were reported in <A HREF="minidrv_3ctl.htm"><B>IWiaMiniDrv::drvGetCapabilities</B></A>. For more information on reporting WIA events, see <A HREF="wia_arch_2q7d.htm">Event Reporting</A>.</P>
+
+<H4>Explanation of the IWiaMiniDrv::drvDeleteItem Implementation</H4>
+
+<P>The WIA service calls the <A HREF="minidrv_4f55.htm"><B>IWiaMiniDrv::drvDeleteItem</B></A> method when a WIA application calls the <B>IWiaItem::DeleteItem</B> (described in the Platform SDK documentation) method to delete a WIA item.</P>
+
+<P>The WIA service verifies the following before calling this method.
+
+<OL>
+	<LI>The item is not a root item.</LI>
+
+	<LI>The item is a folder, and has no children</LI>
+
+	<LI>The item's access rights allow deletion.</LI>
+</OL>
+
+<P>Because the WIA service verifies these criteria, it is not necessary for the WIA driver to do so also.</P>
+
+<P>The following example shows an implementation of <B>IWiaMiniDrv::drvDeleteItem</B>:</P>
+
+<PRE>HRESULT _stdcall CWIADevice::drvDeleteItem(
+  BYTE *pWiasContext,
+  LONG lFlags,
+  LONG *plDevErrVal)
+{
+  //
+  // If the caller did not pass in the correct parameters,
+  // then fail the call with E_INVALIDARG.
+  //
+
+  if ((!pWiasContext)||(!plDevErrVal)) {
+      return E_INVALIDARG;
+  }
+
+  *plDevErrVal = 0;
+
+  HRESULT hr = S_OK;
+
+  //
+  // Two bits of information are needed to queue an event.
+  // 1. full item name
+  // 2. device ID (passed in from drvInitializeWia,
+  //    or read from the ROOT item's property set.)
+  //
+
+  BSTR bstrFullItemName = NULL;
+  hr = wiasReadPropStr(pWiasContext,WIA_IPA_FULL_ITEM_NAME,&amp;bstrFullItemName,NULL,TRUE);
+  if (hr == S_OK) {
+    hr = HARDWARE_DELETE_DATA_FOR_ITEM();
+    if (hr == S_OK) {
+
+      //
+      // use m_bstrDeviceID cached from the 
+      // drvInitializeWia method call.
+      //
+
+      hr = wiasQueueEvent(m_bstrDeviceID,&amp;WIA_EVENT_ITEM_DELETED,bstrFullItemName);
+    }
+
+    //
+    // free item's full item name, read above.
+    //
+
+    if (bstrFullItemName) {
+      SysFreeString(bstrFullItemName);
+      bstrFullItemName = NULL;
+    }
+  }
+
+  //
+  // returning S_OK, will instruct the WIA service to remove the WIA
+  // item from the item tree.  The WIA Minidriver should only remove
+  //  any associated data corresponding to the target item.
+  //
+
+  return hr;
+}</PRE>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Changing%20the%20WIA%20Item%20Tree%20Structure"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

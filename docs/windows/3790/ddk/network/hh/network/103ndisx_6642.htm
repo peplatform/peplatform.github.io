@@ -1,0 +1,74 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NDIS_SET_PACKET_CANCEL_ID</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NDIS_SET_PACKET_CANCEL_ID">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndis_set_packet_cancel_id_nr"></A>NDIS_SET_PACKET_CANCEL_ID</H1>
+
+<P>NDIS_SET_PACKET_CANCEL_ID marks a packet with a cancellation identifier that a driver can later use to cancel the pending transmission of the packet. </P>
+
+<PRE class=syntax><B>VOID
+  NDIS_SET_PACKET_CANCEL_ID(
+    IN PNDIS_PACKET  </B><I>Packet<B>
+    </B></I><B>IN ULONG_PTR  </B><I>CancelId</I><B>
+<I>    </I>); </B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Packet</I></DT>
+
+<DD>Pointer to an <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A> structure that is the descriptor for a packet. </DD>
+
+<DT><I>CancelId</I></DT>
+
+<DD>A cancellation identifier.</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>A protocol driver or intermediate driver can call the NDIS_SET_PACKET_CANCEL_ID function for each packet that it passes to lower-level drivers for transmission. The NDIS_SET_PACKET_CANCEL_ID function marks the specified packet with a cancellation identifier. </P>
+
+<P>To cancel the pending transmission of a marked packet, a protocol or intermediate driver passes the packet’s cancellation ID to <A HREF="103ndisx_6ynn.htm"><B>NdisCancelSendPackets</B></A>. The caller of NDIS_SET_PACKET_CANCEL_ID should therefore store the assigned cancellation ID internally so that it can pass it, as necessary, to <B>NdisCancelSendPackets</B>. A driver can also obtain a packet’s cancellation ID by calling NDIS_GET_PACKET_CANCEL_ID.</P>
+
+<P>An intermediate driver should not modify the cancellation ID of packets that it passes to a lower-level driver. However, an intermediate driver can set a cancellation ID for packets that it originates.</P>
+
+<P>Before assigning cancellation IDs to packets, a driver should call <A HREF="103ndisx_2r8y.htm"><B>NdisGeneratePartialCancelId</B></A> to obtain the high-order byte of each cancellation ID that it assigns. This ensures that the driver does not duplicate cancellation IDs assigned by other drivers in the system. <B>NdisGeneratePartialCancelId</B>  is typically called once from the <B>DriverEntry</B> routine; however, a protocol or intermediate driver can obtain more than one partial cancellation identifier by calling <B>NdisGeneratePartialCancelId</B> more than once. </P>
+
+<P>A protocol driver or intermediate driver might assign cancellation IDs to packets as follows:
+
+<UL>
+	<LI>The driver could mark all packets sent over a connection with the same cancellation identifier.</LI>
+
+	<LI>The driver could mark each packet with a unique cancellation identifier.</LI>
+
+	<LI>The driver could mark all packets within a subgroup of packets (for example, packets sent on behalf of a single client) with a unique identifier.</LI>
+</UL>
+
+<P>If a driver marks all packets with the same cancellation identifier, it can cancel all pending packet transmissions from an adapter with a single call to <A HREF="103ndisx_6ynn.htm"><B>NdisCancelSendPackets</B></A>. If a driver marks each packet with a unique cancellation identifier, it can cancel the pending transmission of individual packets from an adapter by calling <B>NdisCancelSendPackets</B> once for each packet. If a driver marks all packets within a subgroup of packets with a unique identifier, it can cancel all pending transmissions of packets within that subgroup with a single call to <B>NdisCancelSendPackets</B>.</P>
+
+<P>After aborting the pending transmission of a packet, the underlying miniport driver calls the <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A>, <A HREF="103ndisx_5t2q.htm"><B>NdisMCoSendComplete</B></A>, or <A HREF="103ndisx_7x0y.htm"><B>NdisMWanSendComplete</B></A> function to return the packet descriptor and a completion status of NDIS_STATUS_ABORTED to the protocol or intermediate driver that requested the transmission. NDIS, in turn, calls the protocol or intermediate driver's <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A> or <A HREF="104tdlow_2t4i.htm"><I>ProtocolCoSendComplete</I></A> function. </P>
+
+<P>In its <I>ProtocolSendComplete</I> or <I>ProtocolCoSendComplete</I> function, a protocol driver can call NDIS_SET_PACKET_CANCEL_ID with <I>CancelId</I> set to NULL. This prevents the packet from inadvertently being used again with a stale cancelation ID.</P>
+
+<P>System support for NDIS_SET_PACKET_CANCEL_ID is available in Windows XP and later operating systems.</P>
+
+<P>Callers of NDIS_SET_PACKET_CANCEL_ID run at IRQL &lt;= DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_70j6.htm"><I>MiniportCancelSendPackets</I></A>, <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_6t82.htm"><B>NdisAllocatePacketPool</B></A>, <A HREF="103ndisx_390y.htm"><B>NdisAllocatePacketPoolEx</B></A>, <A HREF="103ndisx_6ynn.htm"><B>NdisCancelSendPackets</B></A>, <A HREF="103ndisx_2r8y.htm"><B>NdisGeneratePartialCancelId</B></A>, <A HREF="103ndisx_4diq.htm">NDIS_GET_PACKET_CANCEL_ID</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NDIS_SET_PACKET_CANCEL_ID"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

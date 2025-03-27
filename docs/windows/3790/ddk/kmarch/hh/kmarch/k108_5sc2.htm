@@ -1,0 +1,110 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>PsSetLoadImageNotifyRoutine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="PsSetLoadImageNotifyRoutine">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_pssetloadimagenotifyroutine_kr"></A>PsSetLoadImageNotifyRoutine</H1>
+
+<P><B>PsSetLoadImageNotifyRoutine</B> registers a driver-supplied callback that is subsequently notified whenever an image is loaded for execution. </P>
+
+<PRE class=syntax><B>NTSTATUS
+</B>  <B>PsSetLoadImageNotifyRoutine(</B>
+<B>    IN PLOAD_IMAGE_NOTIFY_ROUTINE</B>  <I>NotifyRoutine</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>NotifyRoutine</I></DT>
+
+<DD>Specifies the entry point of the caller-supplied load-image callback. 
+</DD>
+</DL>
+
+<H4>Include</H4>
+
+<P><I>ntddk.h</I> </P>
+
+<H4>Return Value</H4>
+
+<P><B>PsSetLoadImageNotifyRoutine</B> either returns STATUS_SUCCESS or it returns STATUS_INSUFFICIENT_RESOURCES if it failed the callback registration </P>
+
+<H4>Comments</H4>
+
+<P>Highest-level system-profiling drivers can call <B>PsSetLoadImageNotifyRoutine</B> to set up their load-image notify routines, declared as follows:</P>
+
+<PRE>VOID
+(*PLOAD_IMAGE_NOTIFY_ROUTINE) (
+    IN PUNICODE_STRING  FullImageName,
+    IN HANDLE  ProcessId, // where image is mapped
+    IN PIMAGE_INFO  ImageInfo
+    );</PRE>
+
+<P>After such a driver's callback has been registered, the system calls its load-image notify routine whenever an executable image is mapped into virtual memory, whether in system space or user space, before the execution of the image begins. The system registers up to eight such load-image callbacks. Any driver that successfully registers such a callback <I>must remain loaded until the system itself is shut down</I>. </P>
+
+<P>When the load-image notify routine is called, the input <I>FullImageName</I> points to a buffered Unicode string identifying the executable image file. The <I>ProcessId</I> handle identifies the process in which the image has been mapped, but this handle is zero if the newly loading image is a driver. The buffered data at <I>ImageInfo</I> is formatted as follows:</P>
+
+<PRE>typedef struct  _IMAGE_INFO {
+    union {
+        ULONG  Properties;
+        struct {
+            ULONG ImageAddressingMode  : 8; //code addressing mode
+            ULONG SystemModeImage      : 1; //system mode image
+            ULONG ImageMappedToAllPids : 1; //mapped in all processes
+            ULONG Reserved             : 22;
+        };
+    };
+    PVOID  ImageBase;
+    ULONG  ImageSelector;
+    ULONG  ImageSize;
+    ULONG  ImageSectionNumber;
+} IMAGE_INFO, *PIMAGE_INFO;</PRE>
+
+<P>When such a profiling driver's load-image routine is called, the members of this structure contain the following information:
+
+<DL>
+<DT><B>ImageAddressingMode</B></DT>
+
+<DD>Always set to IMAGE_ADDRESSING_MODE_32BIT.</DD>
+
+<DT><B>SystemModeImage</B></DT>
+
+<DD>Set either to one for newly loaded kernel-mode components, such as drivers, or to zero for images that are mapped into user space.</DD>
+
+<DT><B>ImageMappedToAllPids</B> and <B>Reserved</B></DT>
+
+<DD>Always set to zero.</DD>
+
+<DT><B>ImageBase</B></DT>
+
+<DD>Set to the virtual base address of the image.</DD>
+
+<DT><B>ImageSelector</B></DT>
+
+<DD>Always set to zero.</DD>
+
+<DT><B>ImageSize</B></DT>
+
+<DD>Set to the virtual size, in bytes, of the image.</DD>
+
+<DT><B>ImageSectionNumber</B></DT>
+
+<DD>Always set to zero.
+</DD>
+</DL>
+
+<P>Callers of <B>PsSetLoadImageNotifyRoutine</B> must be running at IRQL PASSIVE_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k108_4zw2.htm"><B>PsGetCurrentProcessId</B></A>, <A HREF="k108_5lwy.htm"><B>PsSetCreateProcessNotifyRoutine</B></A>, <A HREF="k108_690y.htm"><B>PsSetCreateThreadNotifyRoutine</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: PsSetLoadImageNotifyRoutine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

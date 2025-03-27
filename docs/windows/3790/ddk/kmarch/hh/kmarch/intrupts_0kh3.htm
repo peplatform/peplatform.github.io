@@ -1,0 +1,127 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Managing Hardware Priorities</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Managing Hardware Priorities">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_managing_hardware_priorities_kg"></A>Managing Hardware Priorities</H1>
+
+<P>The IRQL at which a driver routine executes determines which kernel-mode driver support routines it can call. For example, some driver support routines require that the caller be running at IRQL DISPATCH_LEVEL. Others cannot be called safely if the caller is running any raised IRQL; that is, at any IRQL higher than PASSIVE_LEVEL. </P>
+
+<P>Following is a list of IRQLs at which the most commonly implemented standard driver routines are called. The IRQLs are listed from lowest to highest priority. </P>
+
+
+
+<DL>
+<DT><A NAME="ddk_passive_level_kg"></A><B>PASSIVE_LEVEL</B></DT>
+
+<DD><I>Interrupts Masked Off</I> — None.
+
+<P><I>Driver Routines Called at</I> PASSIVE_LEVEL — <B>DriverEntry</B>, <I>AddDevice</I>, <I>Reinitialize</I>, <I>Unload</I> routines, most dispatch routines, driver-created threads, worker-thread callbacks. 
+
+
+<P>
+</DD>
+
+<DT><A NAME="ddk_apc_level_kg"></A><B>APC_LEVEL</B></DT>
+
+<DD><I>Interrupts Masked Off</I> — APC_LEVEL interrupts are masked off. 
+
+<P><I>Driver Routines Called at</I> APC_LEVEL — Some dispatch routines (see <A HREF="drvcomps_1ezr.htm">Dispatch Routines and IRQLs</A>). 
+
+
+<P>
+</DD>
+
+<DT><A NAME="ddk_dispatch_level_kg"></A><B>DISPATCH_LEVEL</B></DT>
+
+<DD><I>Interrupts Masked Off</I> — DISPATCH_LEVEL and APC_LEVEL interrupts are masked off. Device, clock, and power failure interrupts can occur.
+
+<P><I>Driver Routines Called at</I> DISPATCH_LEVEL — <I>StartIo</I>, <I>AdapterControl</I>, <I>AdapterListControl</I>, <I>ControllerControl</I>, <I>IoTimer</I>, <I>Cancel</I> (while holding the cancel spin lock), <I>DpcForIsr</I>, <I>CustomTimerDpc</I>, <I>CustomDPC</I> routines.
+
+
+<P>
+</DD>
+
+<DT><A NAME="ddk_dirql_kg"></A><B>DIRQL</B></DT>
+
+<DD><I>Interrupts Masked Off</I> — All interrupts at IRQL&lt;= DIRQL of driver's interrupt object. Device interrupts with a higher DIRQL value can occur, along with clock and power failure interrupts.
+
+<P><I>Driver Routines Called at</I> DIRQL — <I>InterruptService</I>, <I>SynchCritSection</I> routines.
+
+
+<P>
+
+</DD>
+</DL>
+
+
+
+<P>The only difference between APC_LEVEL and PASSIVE_LEVEL is that a process executing at APC_LEVEL cannot get APC interrupts. But both IRQLs imply a thread context and both imply that the code can be paged out.</P>
+
+<P>Lowest-level drivers process IRPs while running at one of three IRQLs:
+
+<UL>
+	<LI>PASSIVE_LEVEL, with no interrupts masked off on the processor, in the driver’s Dispatch routine(s)
+<P><B>DriverEntry</B>, <B>AddDevice</B>, <I>Reinitialize</I>, and <I>Unload</I> routines also are run at PASSIVE_LEVEL, as are any driver-created system threads.
+</LI>
+
+	<LI>DISPATCH_LEVEL, with DISPATCH_LEVEL and APC_LEVEL interrupts masked off on the processor, in the <I>StartIo</I> routine 
+<P><I>AdapterControl</I>, <I>AdapterListControl</I>, <I>ControllerControl</I>, <I>IoTimer</I>, <I>Cancel</I> (while it holds the cancel spin lock), and <I>CustomTimerDpc</I> routines also are run at DISPATCH_LEVEL, as are <I>DpcForIsr</I> and <I>CustomDpc</I> routines.  
+</LI>
+
+	<LI>Device IRQL (DIRQL), with all interrupts at less than or equal to the <I>SynchronizeIrql</I> of the driver’s interrupt object(s) masked off on the processor, in the ISR and <I>SynchCritSection</I> routines </LI>
+</UL>
+
+<P>Most higher-level drivers process IRPs while running at either of two IRQLs: 
+
+<UL>
+	<LI>PASSIVE_LEVEL, with no interrupts masked off on the processor, in the driver’s dispatch routines 
+<P><B>DriverEntry</B>, <I>Reinitialize</I>, <I>AddDevice</I>, and <I>Unload</I> routines also are run at PASSIVE_LEVEL, as are any driver-created system threads or worker-thread callback routines or file system drivers. 
+</LI>
+
+	<LI>DISPATCH_LEVEL, with DISPATCH_LEVEL and APC_LEVEL interrupts masked off on the processor, in the driver’s <I>IoCompletion</I> routine(s) 
+<P><I>IoTimer</I>, <I>Cancel</I>, and <I>CustomTimerDpc</I> routines also are run at DISPATCH_LEVEL. 
+</LI>
+</UL>
+
+<P>In some circumstances, intermediate and lowest-level drivers of mass-storage devices are called at IRQL APC_LEVEL. In particular, this can occur at a page fault for which a file system driver sends an IRP_MJ_READ request to lower drivers. </P>
+
+<P>Most standard driver routines are run at an IRQL that allows them simply to call the appropriate support routines. For example, a device driver must call <A HREF="kdma_92r6.htm"><B>AllocateAdapterChannel</B></A> while running at IRQL DISPATCH_LEVEL. Since most device drivers call these routines from a <I>StartIo</I> routine, usually they are running at DISPATCH_LEVEL already. </P>
+
+<P>Note that a device driver that has no <I>StartIo</I> routine because it sets up and manages its own queues of IRPs is not necessarily running at DISPATCH_LEVEL IRQL when it should call <B>AllocateAdapterChannel</B>. Such a driver must nest its call to <B>AllocateAdapterChannel</B> between calls to <A HREF="k105_02eq.htm"><B>KeRaiseIrql</B></A> and <A HREF="k105_4z02.htm"><B>KeLowerIrql</B></A> so that it runs at the required IRQL when it calls <B>AllocateAdapterChannel</B> and restores the original IRQL when the calling routine regains control. </P>
+
+<P>When calling driver support routines, be aware of the following.
+
+<UL>
+	<LI>Calling <A HREF="k105_02eq.htm"><B>KeRaiseIrql</B></A> with an input <I>NewIrql</I> value that is less than the current IRQL causes a fatal error. Calling <A HREF="k105_4z02.htm"><B>KeLowerIrql</B></A> except to restore the original IRQL (that is, after a call to <B>KeRaiseIrql</B>) also causes a fatal error. </LI>
+
+	<LI>While running at raised IRQL, calling <A HREF="k105_40c2.htm"><B>KeWaitForSingleObject</B></A> or <A HREF="k105_18oi.htm"><B>KeWaitForMultipleObjects</B></A> for kernel-defined dispatcher objects to wait for a nonzero interval causes a fatal error. </LI>
+
+	<LI>The only driver routines that can safely wait on events, semaphores, mutexes, or timers are those that run in a nonarbitrary thread context at IRQL PASSIVE_LEVEL, such as driver-created threads, the <B>DriverEntry</B> and <I>Reinitialize</I> routines, or dispatch routines for inherently synchronous I/O operations (such as most device I/O control requests). </LI>
+
+	<LI>Even while running at IRQL PASSIVE_LEVEL, pageable driver code must not call <A HREF="k105_1prm.htm"><B>KeSetEvent</B></A>, <A HREF="k105_1cmq.htm"><B>KeReleaseSemaphore</B></A>, or <A HREF="k105_44du.htm"><B>KeReleaseMutex</B></A> with the input <I>Wait</I> parameter set to TRUE. Such a call can cause a fatal page fault. </LI>
+
+	<LI>Any routine that is running at greater than IRQL APC_LEVEL can neither allocate memory from paged pool nor access memory in paged pool safely. If a routine running at IRQL greater than APC_LEVEL causes a page fault, it is a fatal error. </LI>
+
+	<LI>A driver must be running at IRQL DISPATCH_LEVEL when it calls <A HREF="k105_9vaq.htm"><B>KeAcquireSpinLockAtDpcLevel</B></A> and <A HREF="k105_5ar6.htm"><B>KeReleaseSpinLockFromDpcLevel</B></A>. 
+<P>A driver can be running at IRQL &lt;= DISPATCH_LEVEL when it calls <B>KeAcquireSpinLock</B> but it must release that spin lock by calling <B>KeReleaseSpinLock</B>. In other words, it is a programming error to release a spin lock acquired with <B>KeAcquireSpinLock</B> by calling <B>KeReleaseSpinLockFromDpcLevel</B>. 
+
+<P>A driver must not call <B>KeAcquireSpinLockAtDpcLevel</B>, <B>KeReleaseSpinLockFromDpcLevel</B>, <B>KeAcquireSpinLock</B>, or <B>KeReleaseSpinLock</B> while running at IRQL&gt;DISPATCH_LEVEL. 
+</LI>
+
+	<LI>Calling a support routine that uses a spin lock, such as an <B>ExInterlocked</B><I>Xxx </I>routine, raises IRQL on the current processor either to DISPATCH_LEVEL or to DIRQL if the caller is not already running at raised IRQL. </LI>
+
+	<LI>Driver code that runs at raised IRQL should execute as quickly as possible. The higher the IRQL at which a routine runs, the more important it is for good overall performance to tune that routine to execute as quickly as possible. For example, any driver that calls <B>KeRaiseIrql</B> should make the reciprocal call to <B>KeLowerIrql</B> as soon as it can.</LI>
+</UL>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Managing%20Hardware%20Priorities"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

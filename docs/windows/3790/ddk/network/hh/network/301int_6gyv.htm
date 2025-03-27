@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Transmitting Packets Through an Intermediate Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Transmitting Packets Through an Intermediate Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_transmitting_packets_through_an_intermediate_driver_ng"></A>Transmitting Packets Through an Intermediate Driver</H2>
+
+<P>As discussed in <A HREF="301int_184n.htm">Registering an Intermediate Driver as a Miniport</A>, an intermediate driver must provide a <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A> function when it registers with <A HREF="103ndisx_0sj7.htm"><B>NdisIMRegisterLayeredMiniport</B></A>. The <I>MiniportSendPackets</I> function can forward incoming packet arrays by calling <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A> if the driver has a connectionless lower edge or <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A> if the driver has a connection-oriented lower edge. <I>MiniportSendPackets</I> can send the array of packets it receives with <B>NdisSendPackets</B> without regard to the capabilities of the underlying miniport driver. NDIS can, transparently to the intermediate driver, queue the packets in the array and send each individual packet to the underlying connectionless miniport driver’s <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A> function when the miniport driver is able to accept the send request.</P>
+
+<P>An NDIS 4.0 or 5.0 intermediate driver will, at a minimum, replace the packet descriptor for each incoming send with its own. It must retain the original descriptor (and chained buffers if it copies them to new buffers) from the higher-level driver and, when the send completes, the intermediate driver must return the original packet descriptor and the data buffers of the as-sent packet before completing the send back to the higher-level driver. </P>
+
+<P>In most common cases, an NDIS 5.1 intermediate driver that implements packet-stacking will not have to allocate a new packet descriptor. For more information on how to allocate packet resources and copy information from one packet to another, see <A HREF="301int_955z.htm">Intermediate Driver Packet Management</A>.</P>
+
+<P><I>MiniportSendPackets</I> receives an array of packet descriptors arranged in an order determined by the caller of <B>NdisSendPackets</B>. In most cases, the intermediate driver should maintain this ordering as it passes an incoming array of packets on to the underlying miniport driver. An intermediate driver that modifies per-packet information or OOB data in incoming packets before passing them on to the underlying driver might reorder an incoming array. </P>
+
+<P>NDIS always preserves the ordering of packet descriptor pointers as passed as an array to <B>NdisSendPackets</B>. The underlying miniport driver also assumes that an array of packet pointers passed in to its <I>MiniportSendPackets</I> function implies the packets should be transmitted in the same order.</P>
+
+<P>An intermediate driver with a connectionless lower edge can call <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A> with a <B>RequestType</B> of <B>NdisQueryInformation</B> and an <A HREF="22genoid_9roy.htm">OID_GEN_MAXIMUM_SEND_PACKETS</A> to obtain the maximum number of send packets that the underlying driver will accept in a packet array. When an intermediate driver with a connectionless lower edge transmits one or more packets by calling <B>NdisSendPackets</B> or when an intermediate driver with a connection-oriented lower edge transmits one or more packets by calling <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>, the send operation is implicitly asynchronous. The caller relinquishes ownership of its packet descriptors and all the resources that they describe until each packet descriptor and the final status of the send for that packet is returned to <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A> or <A HREF="104tdlow_2t4i.htm"><I>ProtocolCoSendComplete</I></A>. <I>Protocol(Co)SendComplete</I> must propagate the status of the send of each packet back to the next higher driver as described in the previous paragraph. </P>
+
+<P>As a consequence, when an intermediate driver sends packets in an array using <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A>, the intermediate driver should not attempt to read the <B>Status</B> members of the associated OOB blocks on return from <B>NdisSendPackets</B>. This member is in use by NDIS to track the progress of an in-transition send request and is volatile. An intermediate driver can only obtain the status of a transmit request by examining the <I>Status</I> argument passed to its <I>Protocol(Co)SendComplete</I> function.</P>
+
+<P>If an intermediate driver requests the transmission of an array of packets of different priorities by rearranging the packets that it receives from an overlying driver before transmitting them, it should place the highest priority packets at the beginning of the array. NDIS retains this ordering when it passes the packets to either the <I>MiniportSend</I> or to the <I>Miniport(Co)SendPackets</I> function of the underlying miniport driver, even if NDIS queues some of the packets internally. This ordering is maintained by NDIS for each call to <B>Ndis(Co)SendPackets</B>. </P>
+
+<P>Unless an intermediate driver has special knowledge of the manner in which a miniport driver handles packet priority, it should assume that the miniport driver transmits the packets in the order in which it receives them, preserving the as-received order. </P>
+
+<P>The structure of the <B>Private</B> member of an <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A>-type descriptor is opaque to an intermediate driver and is accessed to read and, in some cases, to write using NDIS-supplied macros or functions. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Transmitting%20Packets%20Through%20an%20Intermediate%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

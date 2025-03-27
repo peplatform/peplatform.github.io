@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Installing a Device-Specific GFX Filter</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Installing a Device-Specific GFX Filter">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_inf_addreg_directive_dr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ioregisterdeviceinterface_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_installing_a_device_specific_gfx_filter_ksg"></A>Installing a Device-Specific GFX Filter</H3>
+
+<P>In Windows&nbsp;XP and later, the operating system provides a setup mechanism that allows automatic loading and connection of a vendor-supplied global effect that is designed for a specific audio device.</P>
+
+<P>The user can access the global effect through the Multimedia control-panel user interface, which can do the following:
+
+<UL>
+	<LI>Enumerate audio devices.</LI>
+
+	<LI>Indicate the GFX that is currently applied to each audio device.</LI>
+
+	<LI>Enumerate the GFX filters that are available for each audio device.</LI>
+
+	<LI>Select which GFX filter is applied to an audio device.</LI>
+
+	<LI>Invoke a vendor-supplied GFX-specific user interface for each GFX instance.</LI>
+
+	<LI>Remove GFX filters from an audio graph.</LI>
+</UL>
+
+<P>At driver-installation time, the vendor loads information about its proprietary GFX factory into a registry path that has the following format:</P>
+
+<P class=indent1><I>&lt;DIRegKey&gt;</I><B>\Gfx\AutoLoad\</B><I>&lt;GfxAutoLoadInst&gt;</I></P>
+
+<P>In the path above, <I>DIRegKey</I> represents the subpath for the filter’s KSCATEGORY_AUDIO device-interface registry key, <B>Gfx</B> and <B>AutoLoad</B> are both literal subkey names, and <I>GfxAutoLoadInst</I> represents the subkey that contains the information that the operating system needs to automatically load the GFX factory.</P>
+
+<P>The vendor supplies an INF file that installs the GFX factory. This file uses an <A HREF="JavaScript:hhobj_1.Click()"><B>AddReg</B></A> directive to add the registry subkey <B>AutoLoad</B> to the device's <B>Gfx</B> key. Under the <B>AutoLoad</B> key, the INF file adds one or more <I>GfxAutoLoadInst</I> subkeys and assigns arbitrary names to these subkeys. Typically these subkeys are named “0”, “1”, “2”, and so on. Most GFX drivers need only one subkey and name it “0”. The <I>GfxAutoLoadInst</I> subkey contains the values that are shown in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=29%>Value&nbsp;Name<BR>
+[Data&nbsp;Type]</TH>
+<TH align=left width=71%><BR>
+Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%><B>NewAutoLoad</B><BR>
+[REG_DWORD]</TD>
+<TD width=71%>Indicates whether the audio system has processed this <I>GfxAutoLoadInst</I> registry key.
+<P class=indent1>1 = Audio system needs to process this registry key.<BR>
+0 = Audio system has processed this registry key.</P>
+
+<P>The <B>AddReg</B> directive in the GFX driver's INF file sets this value to one. The directives in the <I>add-registry-section </I>use the FLG_ADDREG_NOCLOBBER flag so that the audio system does not reprocess the registry entries if the GFX driver is only being updated.</P>
+
+<P>After the audio system processes this registry information, it sets this value to zero.</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%><B>Type</B><BR>
+[REG_DWORD]</TD>
+<TD width=71%>Specifies whether the system should load the GFX filter as a render or capture GFX.
+<P class=indent1>1 = render<BR>
+2 = capture</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%><B>HardwareId</B><BR>
+[REG_MULTI_SZ]</TD>
+<TD width=71%>The PnP device IDs of the hardware devices that expose the rendering or capture device interfaces through which this GFX filter is managed.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%><B>ReferenceString</B><BR>
+[REG_SZ]</TD>
+<TD width=71%>The reference string that is used by the hardware device to call <A HREF="JavaScript:hhobj_2.Click()"><B>IoRegisterDeviceInterface</B></A> when registering the rendering or capture device interface through which this GFX filter is managed.</TD>
+</TR>
+</TABLE><BR>
+
+<P>The <I>GfxAutoLoadInst</I> key should also contain a subkey that is named <B>UserInterface\CLSID</B>. This subkey contains the information that the operating system needs to identify the vendor's GFX user interface. The subkey's value is shown in the table below.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=29%>Value Name<BR>
+[Data Type]</TH>
+<TH align=left width=71%><BR>
+Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=29%><B>(Default)</B><BR>
+[REG_SZ]</TD>
+<TD width=71%>String representation of the CLSID of the COM object that implements the GFX-specific user interface.</TD>
+</TR>
+</TABLE><BR>
+
+<P>Given the registry information above, the operating system can find the device interfaces that it needs to load the hardware-specific GFX filter.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Installing%20a%20Device-Specific%20GFX%20Filter"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

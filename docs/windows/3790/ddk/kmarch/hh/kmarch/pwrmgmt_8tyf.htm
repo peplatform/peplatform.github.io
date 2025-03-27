@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling a System Query-Power IRP in a Device Power Policy Owner</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling a System Query-Power IRP in a Device Power Policy Owner">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_handling_a_system_query_power_irp_in_a_device_power_policy_owner_kg"></A>Handling a System Query-Power IRP in a Device Power Policy Owner</H3>
+
+<P>When a device power policy owner receives an <A HREF="poirp_9e9e.htm">IRP_MN_QUERY_POWER</A> for a system state, it responds by passing down the query and, in an<I> IoCompletion</I> routine, sending an IRP_MN_QUERY_POWER for a device power state. When all drivers in the stack have completed the device query, the device power policy owner completes the system query.</P>
+
+<P>A device power policy owner should take the following steps in its <A HREF="drvcomps_157r.htm"><I>DispatchPower</I> routine</A> to respond to a system query:
+
+<OL>
+	<LI>Call <A HREF="k104_6tde.htm"><B>IoAcquireRemoveLock</B></A>, passing the current IRP, to ensure that the driver does not receive a PnP IRP_MN_REMOVE_DEVICE request while handling the power IRP. 
+<P>If <B>IoAcquireRemoveLock</B> returns a failure status, the driver should not continue processing the IRP. Instead, it should call <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A>, then complete the IRP (<A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>), and return the failure status. 
+</LI>
+
+	<LI>Ensure that the driver can support the queried system power state, as described in <A HREF="pwrmgmt_89lz.htm">Failing a System Query-Power IRP in a Filter or Function Driver</A>. If not, complete the IRP with a failure status as described in that section.
+<P>However, a driver must not fail a query for S4 (<B>PowerSystemHibernate</B>) if its device is enabled for wake-up but it cannot wake the system from the hibernate state. In this case, the power policy owner for the driver (which sent the IRP_MN_WAIT_WAKE) must cancel the wait/wake IRP and succeed the system query. For more information, see <A HREF="pwrmgmt_5xgn.htm">Canceling a Wait/Wake IRP</A>. 
+</LI>
+
+	<LI>If the driver can support the queried system power state, call <B>IoMarkIrpPending</B>. </LI>
+
+	<LI>Set up the IRP stack location for the next-lower driver by calling <A HREF="k104_4fqq.htm"><B>IoCopyCurrentIrpStackLocationToNext</B></A>. </LI>
+
+	<LI>Set an<I> IoCompletion</I> routine in the system query power IRP.</LI>
+
+	<LI>Call <A HREF="portn_7tki.htm"><B>PoCallDriver</B></A> to pass the IRP to the next-lower driver. </LI>
+
+	<LI>Return STATUS_PENDING.  </LI>
+</OL>
+
+<P>The<I> <A HREF="drvrrtns_4rsi.htm">IoCompletion</A></I> routine should do the following:
+
+<OL>
+	<LI>Check <B>Irp-&gt;IoStatus.Status</B> to ensure that lower drivers have completed the IRP successfully. If any driver has failed the IRP, call <B>IoCompleteRequest</B> to complete the IRP and return the failure status.</LI>
+
+	<LI>If lower drivers have successfully completed the IRP, call <A HREF="portn_55gy.htm"><B>PoRequestPowerIrp</B></A> to send a device query-power IRP for a device state that is valid for the queried system state. If necessary, consult the DEVICE_STATE array in the DEVICE_CAPABILITIES structure to determine which device states are valid for the queried system state. </LI>
+
+	<LI>Specify a callback routine (<I>CompletionFunction </I>parameter) in the call to <B>PoRequestPowerIrp</B> and pass the system IRP in the <I>Context</I> area.</LI>
+
+	<LI>Return STATUS_MORE_PROCESSING_REQUIRED from the<I> IoCompletion</I> routine, so the driver can finish processing the system query IRP in the callback routine.</LI>
+</OL>
+
+<P>After the IRP has been completed and all<I> IoCompletion</I> routines set during IRP processing have been run, the Power Manager, through the I/O Manager, calls the power policy manager's callback routine (the <I>CompletionFunction </I>parameter to <B>PoRequestPowerIrp</B>). The callback routine, in turn, must do the following:
+
+<OL>
+	<LI>Call <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A> to start the next power IRP.</LI>
+
+	<LI>Complete the system query-power IRP (call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>) with the status returned for the device query-power IRP.</LI>
+
+	<LI>Call <A HREF="k104_8n5e.htm"><B>IoReleaseRemoveLock</B></A> to free the previously acquired lock.</LI>
+</OL>
+
+<P>Remember that the device power policy owner not only sends the device query but also must handle it on its way down the device stack. For more information, see <A HREF="pwrmgmt_0y07.htm">Handling IRP_MN_QUERY_POWER for Device Power States</A>. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20a%20System%20Query-Power%20IRP%20in%20a%20Device%20Power%20Policy%20Owner"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

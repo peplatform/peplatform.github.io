@@ -1,0 +1,120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>MiniportSetInformation</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="MiniportSetInformation">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_miniportsetinformation_nr"></A>MiniportSetInformation</H1>
+
+<P>The <I>MiniportSetInformation </I>function is a required function that allows bound protocol drivers (or NDIS) to request changes in the state information that the miniport driver maintains for particular OIDs, such as changes in multicast addresses.</P>
+
+<PRE class=syntax><B>NDIS_STATUS</B> <B>
+</B>  <B>MiniportSetInformation(
+    IN</B> <B>NDIS_HANDLE</B>  <I>MiniportAdapterContext</I><B>,</B>
+    <B>IN</B> <B>NDIS_OID</B>  <I>Oid</I><B>,</B>
+    <B>IN</B> <B>PVOID</B>  <I>InformationBuffer</I><B>,</B>
+    <B>IN</B> <B>ULONG</B>  <I>InformationBufferLength</I><B>,</B>
+    <B>OUT</B> <B>PULONG</B> <I> BytesRead</I><B>,</B>
+    <B>OUT</B> <B>PULONG</B>  <I>BytesNeeded
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>MiniportAdapterContext</I></DT>
+
+<DD>Specifies the handle to a miniport driver-allocated context area in which the driver maintains per-NIC state, set up by <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>.</DD>
+
+<DT><I>Oid</I></DT>
+
+<DD>Specifies the system-defined OID_<I>XXX</I> code designating the set operation the driver should carry out. </DD>
+
+<DT><I>InformationBuffer</I></DT>
+
+<DD>Pointer to a buffer containing the OID-specific data used by <I>MiniportSetInformation</I> for the set.</DD>
+
+<DT><I>InformationBufferLength</I></DT>
+
+<DD>Specifies the number of bytes at <I>InformationBuffer</I>. </DD>
+
+<DT><I>BytesRead</I></DT>
+
+<DD>Pointer to a variable that <I>MiniportSetInformation</I> sets to the number of bytes it read from the buffer at <I>InformationBuffer</I>.</DD>
+
+<DT><I>BytesNeeded</I></DT>
+
+<DD>Pointer to a variable that <I>MiniportSetInformation</I> sets to the total number of bytes it needs to satisfy the request if <I>InformationBufferLength</I> is less than <I>Oid</I> requires.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>MiniportSetInformation</I> can return one of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD><I>MiniportSetInformation</I> used the data at <I>InformationBuffer</I> to set itself or its NIC to the state required by the given <I>Oid</I>,<I> </I>and it set the variable at <I>BytesRead</I> to the amount of supplied data it used. </DD>
+
+<DT>NDIS_STATUS_PENDING</DT>
+
+<DD>The driver will complete the request asynchronously with a call to <A HREF="103ndisx_3alu.htm"><B>NdisMSetInformationComplete</B></A> when it has set itself or its NIC to the state requested. </DD>
+
+<DT>NDIS_STATUS_INVALID_OID</DT>
+
+<DD><I>MiniportSetInformation</I> did not recognize the <I>Oid</I>. </DD>
+
+<DT>NDIS_STATUS_INVALID_LENGTH</DT>
+
+<DD>The <I>InformationBufferLength</I> does not match the length required by the given <I>Oid</I>. <I>MiniportSetInformation</I> returned how many bytes the buffer should be at <I>BytesNeeded</I>. </DD>
+
+<DT>NDIS_STATUS_INVALID_DATA</DT>
+
+<DD>The data supplied at <I>InformationBuffer</I> was invalid for the given <I>Oid</I>. </DD>
+
+<DT>NDIS_STATUS_NOT_ACCEPTED</DT>
+
+<DD><I>MiniportSetInformation</I> attempted the requested set operation on the NIC but was unsuccessful. </DD>
+
+<DT>NDIS_STATUS_NOT_SUPPORTED</DT>
+
+<DD><I>MiniportSetInformation</I> does not support the <I>Oid</I>, which is optional. </DD>
+
+<DT>NDIS_STATUS_RESOURCES</DT>
+
+<DD><I>MiniportSetInformation</I> could not carry out the requested operation due to resource constraints. This return value does not necessarily mean that the same request, submitted at a later time, will be failed for the same reason. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h.</I></P>
+
+<H4>Comments</H4>
+
+<P>NDIS calls <I>MiniportSetInformation</I> either on its own behalf, such as to manage bindings to the miniport driver, or when a bound protocol driver calls <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A>. </P>
+
+<P>If <I>MiniportSetInformation</I> returns NDIS_STATUS_PENDING, the driver must complete the request later by calling <A HREF="103ndisx_3alu.htm"><B>NdisMSetInformationComplete</B></A>. Until it completes any request, the miniport driver can safely access the memory at <I>InformationBuffer</I>, <I>BytesRead</I>, and <I>BytesNeeded</I>. After the miniport driver completes any set request, ownership of these variables and the buffer reverts to NDIS or the caller of <B>NdisRequest</B>, whichever allocated the memory. </P>
+
+<P>After a call to <I>MiniportSetInformation</I>, NDIS submits no other requests to the driver until it has completed the operation, either synchronously or asynchronously. Instead, NDIS holds requests queued until the current set operation is completed. </P>
+
+<P>Note that NDIS does not validate the OID-specific contents at <I>InformationBuffer</I>. The driver itself must therefore validate these contents. If the driver determines that the value to be set is out of bounds, it should fail the request and return NDIS_STATUS_INVALID_DATA.</P>
+
+<P>For more information about the system-defined OIDs, see <A HREF="21oidovw_8q9e.htm">NDIS Object Identifiers</A>.</P>
+
+<P><I>MiniportSetInformation</I> can be preempted by an interrupt.</P>
+
+<P><I>MiniportSetInformation</I> runs at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, <A HREF="101mini_2vw2.htm"><I>MiniportQueryInformation</I></A>, <A HREF="103ndisx_3alu.htm"><B>NdisMSetInformationComplete</B></A>, <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A>, <A HREF="105nstru_3f8y.htm">NDIS_REQUEST</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: MiniportSetInformation"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

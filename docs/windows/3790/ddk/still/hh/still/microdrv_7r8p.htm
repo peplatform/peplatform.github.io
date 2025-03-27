@@ -1,0 +1,83 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Required Commands</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Required Commands">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_required_commands_si"></A>Required Commands</H1>
+
+<P>The following set of required commands must be implemented by every microdriver.
+
+<DL>
+<DT>CMD_GETCAPABILITIES</DT>
+
+<DD>Called by the WIA Flatbed Driver to get button event information. Three members of the passed <A HREF="microdrv_0ld5.htm">VAL</A> structure should be filled in: <B>lVal</B> should be set to the number of buttons; <B>pGuid</B> should be set to an array of event GUIDs; <B>ppButtonNames</B> can optionally be set to a <B>WCHAR</B>* array that contains the button names in the same order as they are in <B>pGuid</B> (for example, “Scan Button” or “Fax Button”). If <B>ppButtonNames</B> is set to NULL, the WIA Flatbed Driver will create generic button names. The arrays can be allocated in response to CMD_INITIALIZE, and freed in CMD_UNINITIALIZE.</DD>
+
+<DT>CMD_INITIALIZE</DT>
+
+<DD>Called by the WIA Flatbed Driver to initialize the microdriver and set device I/O handles to valid values. This command will be sent to the microdriver when the WIA service calls the method <A HREF="minidrv_4mg9.htm"><B>IWiaMiniDrv::drvInitializeWia</B></A> on the WIA Flatbed Driver.
+
+<P>The WIA Flatbed Driver will automatically create one device I/O handle and put it in the <B>DeviceIOHandles</B> array member of the passed <A HREF="microdrv_39k9.htm">SCANINFO</A> structure at index 0. The microdriver should use this handle when it needs to communicate with the device. If the microdriver needs additional device handles (for example, to use multiple bulk USB pipes), they can be created and stored in the <B>DeviceIOHandles</B> array up to a maximum number of MAX_IO_HANDLES. The WIA Flatbed Driver will automatically close the handle at index 0, because it created that handle during initialization. The other handles must be closed by the microdriver in response to CMD_UNINITIALIZE.
+
+
+<P>As part of this command, the microdriver should also initialize all of the values in the <A HREF="microdrv_39k9.htm">SCANINFO</A> structure. The microdriver should set the <B>SupportedDataTypes</B>, <B>IntensityRange</B>, <B>ContrastRange</B>, <B>BedWidth</B>, and <B>BedHeight</B> members of the SCANINFO structure, so that the WIA Flatbed Driver can automatically validate these values against the legal ranges for the device.
+</DD>
+
+<DT>CMD_RESETSCANNER</DT>
+
+<DD>Called by the WIA Flatbed Driver to reset the device in response to a WIA service request. The microdriver should set the device to its power-on state.</DD>
+
+<DT>CMD_SETDATATYPE</DT>
+
+<DD>Called by the WIA Flatbed Driver to set the data type for the scan. One of the following values is passed in the <B>lVal</B> member of the passed <A HREF="microdrv_0ld5.htm">VAL</A> structure:
+
+<P>WIA_DATA_THRESHOLD – 1-bit black/white
+
+
+<P>WIA_DATA_GRAYSCALE – 8-bit grayscale
+
+
+<P>WIA_DATA_COLOR – 24-bit color
+
+
+<P>The microdriver should store the value in the <B>DataType</B> member of the passed <A HREF="microdrv_39k9.htm">SCANINFO</A> structure.
+</DD>
+
+<DT>CMD_SETCONTRAST</DT>
+
+<DD>Called by the WIA Flatbed Driver to set the contrast value for the scan. The desired contrast value is passed in the <B>lVal</B> member of the passed <A HREF="microdrv_0ld5.htm">VAL</A> structure. The value –1000 should be interpreted as the lowest contrast value, 0 nominal, and 1000 the device’s maximum contrast. The microdriver should store the value in the <B>Contrast</B> member of the passed <A HREF="microdrv_39k9.htm">SCANINFO</A> structure.</DD>
+
+<DT>CMD_SETINTENSITY</DT>
+
+<DD>Called by the WIA Flatbed Driver to set the intensity or brightness value for the scan. The desired intensity value is passed in the <B>lVal</B> member of the passed <A HREF="microdrv_0ld5.htm">VAL</A> structure. The value –1000 should be interpreted as the lowest brightness value, 0 nominal, and 1000 the device’s maximum brightness. The microdriver should store the value in the <B>Intensity</B> member of the passed <A HREF="microdrv_39k9.htm">SCANINFO</A> structure.</DD>
+
+<DT>CMD_SETXRESOLUTION</DT>
+
+<DD>Called by the WIA Flatbed Driver to set the horizontal scan resolution. The desired resolution in pixels is passed in the <B>lVal</B> member of the passed <A HREF="microdrv_0ld5.htm">VAL</A> structure. The microdriver should store the value in the <B>XResolution</B> member of the passed <A HREF="microdrv_39k9.htm">SCANINFO</A> structure.</DD>
+
+<DT>CMD_SETYRESOLUTION</DT>
+
+<DD>Called by the WIA Flatbed Driver to set the vertical scan resolution. The desired resolution in pixels is passed in the <B>lVal</B> member of the passed VAL structure. The microdriver should store the value in the <B>YResolution</B> member of the passed SCANINFO structure.</DD>
+
+<DT>CMD_STI_DEVICERESET</DT>
+
+<DD>Called by the WIA Flatbed Driver to reset the device in response to a Still Image (STI) request. This command is typically called only once, during initialization.</DD>
+
+<DT>CMD_STI_DIAGNOSTIC</DT>
+
+<DD>Called by the WIA Flatbed Driver when the user requests a test of the device.</DD>
+
+<DT>CMD_UNINITIALIZE</DT>
+
+<DD>Uninitialize the microdriver and close Device I/O handles. The WIA Flatbed Driver will automatically close the device I/O handle in the <B>DeviceIOHandles</B> array member of the <A HREF="microdrv_39k9.htm">SCANINFO</A> structure, at index 0. This command will be sent to the microdriver when the WIA Flatbed driver is unloading.
+</DD>
+</DL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Required%20Commands"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

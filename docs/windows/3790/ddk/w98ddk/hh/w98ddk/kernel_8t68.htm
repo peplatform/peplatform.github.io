@@ -1,0 +1,53 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Pageable VxDs</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_pss_1120"></A>Pageable VxDs</H2>
+
+<P>This section describes how paging works using the Windows 3.1 model. Then, changes to the model for Windows 95 are described. </P>
+
+<P>Under Windows 3.1, VxD code segments are always locked. This implies that VxD code is normally not preempted, with the following exceptions: 
+
+<UL>
+	<LI>If interrupts are enabled, hardware interrupts may be serviced. Therefore, any data structures that may be accessed by hardware interrupts must be protected by disabling interrupts during the access. (And obviously, any data structures accessed by a hardware interrupt must be locked.) </LI>
+
+	<LI>Accessing swappable memory may result in the code being pre-empted, even if interrupts are disabled. (The VMM might need to wait for the page to arrive from the swap device.) Therefore, any data structures that exist in swappable memory must be protected by some sort of synchronization mechanism; merely disabling interrupts is not good enough. </LI>
+
+	<LI>Calling a service that adjusts execution priorities may result in the code being pre-empted if the result of the adjustment is that the current virtual machine no longer has the highest execution priority in the system. </LI>
+
+	<LI>Calling a service that allocates or frees memory from the system heap or pages from the page allocator may result in the code being pre-empted if the swap file needs to be adjusted to account for the memory being allocated or freed. </LI>
+</UL>
+
+<P>The terms pageable and swappable are synonymous. The VMM uses paging as its form of memory management. It does not swap segments or tasks. Where you see the word swap or a derivative thereof, substitute the corresponding form of the word page. </P>
+
+<P>Windows 95 supports VxD with pageable code segments. While this has the benefits of allowing rarely-used code segments to get paged out, thus freeing up memory, it does come at the cost of adding more rules to follow. </P>
+
+<P>Here are additional rules that apply to Windows 95 pageable VxDs. They are in addition to the existing rules from Windows 3.1. 
+
+<UL>
+	<LI>Pageable code and data may not be accessed by a hardware interrupt. </LI>
+
+	<LI>Code in pageable segments may be preempted at any time by the paging system, even if interrupts are disabled. Thus, care should be taken to protect data structures from corruption by unsynchronized access. Consider the following code fragment: 
+<PRE>    pushfd                 ; Disable interrupts to protect a global
+    cli                    ; variable, so that the update is atomic
+    mov eax, pHead         ; Get the head of the list
+    mov ecx, [eax].pNext   ; And delete it from the list
+    mov     pHead, ecx
+    popfd                  ; End of critical section
+ </PRE>
+
+<P>If this code fragment resides in pageable memory, then it may be possible for code to interrupt this sequence and corrupt the linked list. Using standard synchronization techniques such as semaphores, you can serialize access to the data structure, but since there are hidden possibilities for deadlocks, the safest way to guarantee the correctness of the code is to keep it in locked memory. Furthermore, the data in which the linked list resides should also reside in locked memory. 
+
+<P>If Windows 95 is paging through MS-DOS, allowing VxD code segments to be paged out would be catastrophic. In such situations, the VMM automatically locks all VxD code segments (and VxDLdr does the same for dynamically-loaded VxDs). 
+</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Pageable%20VxDs"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

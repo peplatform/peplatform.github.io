@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>GetBltStatus32</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_getbltstatus32_gg"></A><I>GetBltStatus32</I></H1>
+
+<P>The <I>GetBltStatus32</I> callback function checks whether the blitter queue has room for more blts and whether the blitter is busy. </P>
+
+<PRE class=syntax><B>DWORD
+  (FAR PASCAL *LPDDHALSURFCB_GETBLTSTATUS)(</B>
+    <B>LPDDHAL_GETBLTSTATUSDATA</B>  <I>lpGetBltStatus</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>lpGetBltStatus</I></DT>
+
+<DD>Points to a <A HREF="ddstrcts_35lz.htm">DDHAL_GETBLTSTATUSDATA</A> structure that contains the information required to perform the blit status query.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>GetBltStatus32</I> returns one of the following callback codes:</P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_handled_gg">DDHAL_DRIVER_HANDLED</A> </P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_nothandled_gg">DDHAL_DRIVER_NOTHANDLED</A> </P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ddrawi.h</I>. Include <I>ddrawi.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><I>GetBltStatus32</I> first checks the <B>dwFlags</B> member of the DDHAL_GETBLTSTATUSDATA structure to see whether blts are supported. If they are, it makes sure any flips away from the destination surface have been completed. If no flip is pending, <I>GetBltStatus32</I> checks to see whether there is room in the FIFO or if the FIFO is as empty as it can be. If there is not enough room for the blt parameters, the return value (the <B>ddRVal</B> member of the DDHAL_GETBLTSTATUSDATA structure) is set to DDERR_WASSTILLDRAWING. If there is enough FIFO to do a blt, the return value is set to DD_OK. If a blt cannot be added, the draw engine is checked and the return value is set to DDERR_WASSTILLDRAWING if it is busy or DD_OK if not. In either case, DDHAL_DRIVER_HANDLED is returned. This simply means the call has been dealt with successfully, not that any specific action has been performed. </P>
+
+<P>The ENOUGH_FIFO_FOR_BLT and DRAW_ENGINE_BUSY macros in the following sample implementation can be written to test whether the hardware FIFO has enough room for a blt and whether the blitter is busy, respectively. These macros are implementation-specific. </P>
+
+<P>The equivalent NT-based callback is <A HREF="ddfncs_8lk7.htm"><I>DdGetBltStatus</I></A>.</P>
+
+<P>The following is the sample implementation of <I>GetBltStatus32</I>: </P>
+
+<PRE>/*
+ * GetBltStatus32
+ */
+DWORD __stdcall GetBltStatus32(
+        LPDDHAL_GETBLTSTATUSDATA lpGetBltStatus )
+{
+    /*
+     * CANBLT: can we add a blt?
+     */
+    if( lpGetBltStatus-&gt;dwFlags == DDGBS_CANBLT )
+    {
+        /*
+         * Make sure that we've flipped away from the destination 
+         * surface
+         */
+        lpGetBltStatus-&gt;ddRVal = updateFlipStatus(
+                        lpGetBltStatus-&gt;lpDDSurface-&gt;lpGbl-&gt;fpVidMem );
+        if( lpGetBltStatus-&gt;ddRVal == DD_OK )
+        {
+            /*
+             * There was no flip going on. Is there room in the FIFO
+             * to add a blt?
+             */
+            if( !ENOUGH_FIFO_FOR_BLT )
+            {
+                lpGetBltStatus-&gt;ddRVal = DDERR_WASSTILLDRAWING;
+            }
+            
+else
+            {
+                lpGetBltStatus-&gt;ddRVal = DD_OK;
+            }
+        }
+    }
+    /*
+     * DONEBLT: Is a blt in progress?
+     */
+    else
+    {
+        if( DRAW_ENGINE_BUSY )
+        {
+            lpGetBltStatus-&gt;ddRVal = DDERR_WASSTILLDRAWING;
+        }
+        else
+        {
+            lpGetBltStatus-&gt;ddRVal = DD_OK;
+        }
+    }
+    return DDHAL_DRIVER_HANDLED;
+
+} /* GetBltStatus32 */
+ </PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: GetBltStatus32"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

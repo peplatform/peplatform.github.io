@@ -1,0 +1,32 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Opening an Adapter Underlying a Protocol Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Opening an Adapter Underlying a Protocol Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_opening_an_adapter_underlying_a_protocol_driver_ng"></A>Opening an Adapter Underlying a Protocol Driver</H2>
+
+<P>Whenever an underlying NIC to which a protocol driver can bind itself becomes available, NDIS calls the protocol’s <A HREF="104tdlow_2bqq.htm"><I>ProtocolBindAdapter</I></A> function. The protocol driver typically reads adapter-specific configuration information from the registry and calls <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A> to set up a binding to the adapter.</P>
+
+<P>To obtain a handle to the registry key that contains adapter-specific information, a protocol driver calls <A HREF="103ndisx_6yr6.htm"><B>NdisOpenProtocolConfiguration</B></A> with the <I>ProtocolSection</I> parameter set to the <I>SystemSpecific1</I> value that was passed to the protocol driver's <I>ProtocolBindAdapter</I> function. The protocol driver can call <A HREF="103ndisx_5ek2.htm"><B>NdisReadConfiguration</B></A> and <A HREF="103ndisx_5kaa.htm"><B>NdisWriteConfiguration</B></A> to read and write adapter-specific information. It can call <A HREF="103ndisx_1e2a.htm"><B>NdisOpenConfigurationKeyByIndex</B></A> or <A HREF="103ndisx_1k6q.htm"><B>NdisOpenConfigurationKeyByName</B></A> to obtain a handle to a subkey of the registry key opened with <A HREF="103ndisx_6yr6.htm"><B>NdisOpenProtocolConfiguration</B></A>.</P>
+
+<P>To bind to an underlying NIC and the miniport driver that controls it, a protocol driver calls <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A>. A protocol driver passes a handle at the <I>ProtocolBindingContext</I> parameter to a binding-specific context area that it allocated to store state information for the binding. NDIS will pass this handle back to the protocol driver in subsequent calls pertaining to the binding, for example, in calls to <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A>, <A HREF="104tdlow_6e42.htm"><I>ProtocolStatus</I></A>, or <A HREF="104tdlow_3khe.htm"><I>ProtocolCoStatus</I></A>. </P>
+
+<P>NDIS returns a handle to the protocol driver in the <I>NdisBindingHandle </I>parameter of <B>NdisOpenAdapter</B>. This handle must be retained by the protocol, usually in its binding-specific context area. The protocol driver must pass this handle to NDIS in future calls relating to this binding, such as calls to <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A>, <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A>, or <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>.</P>
+
+<P>The protocol driver passes the name of the adapter from the <I>DeviceName</I> parameter of <A HREF="104tdlow_2bqq.htm"><I>ProtocolBindAdapter</I></A> to the <I>AdapterName </I>parameter of <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A>. </P>
+
+<P>The <I>DeviceName</I> parameter is valid only in the context of the call to <I>ProtocolBindAdapter</I>. If the protocol driver calls <B>NdisOpenAdapter</B> from a different thread context (after returning NDIS_STATUS_PENDING from <I>ProtocolBindAdapter</I>), it must copy the string indicated by <I>DeviceName</I> and pass a pointer to the new string to <B>NdisOpenAdapter</B>. </P>
+
+<P>The protocol driver passes the types of mediums it supports to the <I>MediumArray</I> parameter of <B>NdisOpenAdapter</B>. If the call to <B>NdisOpenAdapter</B> succeeds, NDIS selects a medium from <I>MediumArray</I> and returns its index in the <I>SelectedMediumIndex </I>parameter. The value that the protocol driver passes to the <I>NdisProtocolHandle</I> parameter is the value returned to the protocol driver from a successful call to <A HREF="103ndisx_2cfm.htm"><B>NdisRegisterProtocol</B></A>.</P>
+
+<P>If a protocol driver cannot successfully bind to an underlying adapter (for example, if <B>NdisOpenAdapter</B> returns an error), it should deallocate any resources it previously allocated for that binding. If the protocol driver cannot successfully open any of the possible adapters, it should deallocate any global resources the protocol has previously allocated and return an appropriate failure status. Typically, the protocol driver's <I>ProtocolBindAdapter</I> function should log failed binding attempts with appropriate descriptive information by calling <A HREF="103ndisx_8prm.htm"><B>NdisWriteEventLogEntry</B></A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Opening%20an%20Adapter%20Underlying%20a%20Protocol%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

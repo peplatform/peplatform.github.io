@@ -1,0 +1,75 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Supporting Mount Manager Requests in a Storage Class Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Supporting Mount Manager Requests in a Storage Class Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ioregisterdeviceinterface_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_supporting_mount_manager_requests_in_a_storage_class_driver_kg"></A>Supporting Mount Manager Requests in a Storage Class Driver</H1>
+
+<P>The Mount Manager (MM) is responsible for managing volume names. For each volume, it stores a name that is unique and is permanently identified with the volume, even after the volume has been removed from the system. It also manages less permanent names, like drive letters, that persist across reboots, but whose assignments can change as volumes are added to or removed from the system.</P>
+
+<P>The Mount Manager provides a unique interface to each volume in the system by creating a symbolic link to the volume's device object. Since the symbolic links themselves and the device objects they target do not persist when the system restarts, the Mount Manager preserves the <I>name</I> of the symbolic link in a <I>persistent name database</I> in the registry. </P>
+
+<P>This symbolic link name is called a <I>unique volume name</I>. Like a traditional volume label, it persists when the system restarts, but like a drive letter, and unlike a volume label, it is unique. The format for unique volume names is:</P>
+
+<P class=indent1>"<B>\??\Volume{</B><I>GUID</I><B>}\</B></P>
+
+<P>where <I>GUID</I> is a globally unique identifier that identifies the volume.</P>
+
+<P>Mount Manager's persistent name database is located in the <B>MountedDevices</B> registry key of the SYSTEM hive (<B>HKLM/SYSTEM/MountedDevices</B>) of the registry. In addition to unique volume names, the Mount Manager also stores <I>mount point </I>names in its persistent name database. Mount point names can be further subdivided into two categories: Win32-style pathnames that serve as the root directory of the mounted volume's file system, and drive letters. </P>
+
+<P>Each persistent symbolic link name in the database appears as the name of a registry value under the <B>MountedDevices</B> key accompanied by a <I>unique id</I>. The unique id is another unique identifier of a volume (different from the unique volume name). It helps identify which of the potentially numerous persistent symbolic link names refer to the same volume.</P>
+
+<P>For instance, a single volume with a unique volume name of <B>"\\?\Volume{</B>7603f260-142a-11d4-ac67-806d6172696f<B> }\"</B> might have an accompanying drive letter “\DosDevices\D:” and two mount points “\DosDevices\C:\mymount” and “\DosDevices\E:\FilesysD\mnt”. This would produce four entries in Mount Manager's persistent symbolic link name database: one for the unique volume name, one for the drive letter, and two for the two mount point names. All four entries would share the same unique id. Thus someone viewing the <B>MountedDevices</B> registry key would be able to detect that all four persistent names point to the same volume.</P>
+
+<P>The following figure illustrates how persistent names appear in the <B>MountedDevices</B> registry key.</P>
+
+<P><IMG SRC="images/mntmgr.gif" ALT="" BORDER=0></P>
+
+<P><B>MountedDevices Registry Key</B></P>
+
+<P>The Mount Manager relies on the Plug and Play device interface notification mechanism to alert it of volume arrival and removal. Therefore every client (that is, every volume driver, usually a class driver) must create an interface in the MOUNTDEV_MOUNTED_DEVICE_GUID interface class by calling <A HREF="JavaScript:hhobj_1.Click()"><B>IoRegisterDeviceInterface</B></A> to notify the Mount Manager of the arrival in the system of the volume it manages. The MOUNTDEV_MOUNTED_DEVICE_GUID interface class GUID is defined in <I>mountmgr.h</I>. </P>
+
+<P>Upon receiving a Plug and Play notification of the arrival of a volume interface, Mount Manager sends the client three device control IRPs:</P>
+
+<P><A HREF="k307_70vm.htm">IOCTL_MOUNTDEV_QUERY_DEVICE_NAME</A> <BR>
+<A HREF="k307_1m42.htm">IOCTL_MOUNTDEV_QUERY_UNIQUE_ID</A> <BR>
+<A HREF="k307_17hu.htm">IOCTL_MOUNTDEV_QUERY_SUGGESTED_LINK_NAME</A> </P>
+
+<P>In response to these three IOCTLs the client should return the volume's nonpersistent device object name (or target name) located in the <B>Device</B> directory of the system object tree (for example: "\Device\HarddiskVolume1"), the unique volume ID, and a suggested persistent symbolic link name for the volume, respectively. Although clients may elect to ignore the first and third of these three IOCTLs, they are required to provide a unique volume ID upon receiving IOCTL_MOUNTDEV_QUERY_UNIQUE_ID. The Mount Manager relies entirely upon the client to provide the unique volume ID, and if the client does not provide it, then the Mount Manager is not able to assign mount points, such as drive letters, to the volume.</P>
+
+<P>For more information on these IOCTLs, see <A HREF="k307_4ugi.htm">I/O Control Codes Sent by the Mount Manager</A>.</P>
+
+<P>If a client alerts the Mount Manager of the arrival of its volume but fails to provide a unique ID for the volume when queried, the volume is placed on a <I>dead mounted device </I>list. When this occurs, clients can send an <A HREF="k307_3tf6.htm">IOCTL_MOUNTMGR_CHECK_UNPROCESSED_VOLUMES</A> IOCTL to the Mount Manager to request that the Mount Manager rescan its dead mounted device list and make another attempt to query the clients on the list for the unique IDs of their respective volumes. For more information on the IOCTL_MOUNTMGR_xxx IOCTLs, see <A HREF="k307_60qa.htm">I/O Control Codes Sent by Mount Manager Clients</A></P>
+
+<P>Once the Mount Manager receives a unique volume ID for a newly introduced volume, then it searches its database for all of the persistent names assigned to that unique ID and creates symbolic links to the volume for each persistent symbolic link name.</P>
+
+<P>If the Mount Manager discovers that the volume does not have a unique volume name, it constructs one and stores it in the database.  </P>
+
+<P>When the Mount Manager detects that a volume has gone off line then it deletes the symbolic links pointing to the device object without deleting the corresponding symbolic link names in the Mount Manager's database.</P>
+
+<P>For information on how Mount Manager clients create persistent symbolic names, see <A HREF="k307_92nm.htm">IOCTL_MOUNTMGR_CREATE_POINT</A>.</P>
+
+<DL>
+<DT></DT>
+</DL>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Supporting%20Mount%20Manager%20Requests%20in%20a%20Storage%20Class%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

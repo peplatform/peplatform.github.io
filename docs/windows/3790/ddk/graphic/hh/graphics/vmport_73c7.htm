@@ -1,0 +1,53 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Points to Consider When Using DMA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Points to Consider When Using DMA">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_mmgetphysicaladdress_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_adapter_objects_and_dma_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_points_to_consider_when_using_dma_gg"></A>Points to Consider When Using DMA</H2>
+
+<P>This section provides some important points to consider if you plan to use DMA operations in your miniport driver. </P>
+
+<H4>Additional Notes on VideoPortStartDma</H4>
+
+<P>The display driver usually sends transfer requests to the miniport driver, which actually carries out those DMA transfers. The display driver cannot assume that just because its DMA engine is idle, all data in a transfer request has been transferred. This is because the miniport driver needs to call <A HREF="vpfncs_789z.htm"><B>VideoPortStartDma</B></A> and <A HREF="vpfncs_7a5j.htm"><B>VideoPortCompleteDma</B></A> multiple times for a large transfer request. The hardware's DMA engine is idle between two such DMA operations, even though there might be additional data to transfer. It is the miniport driver's responsibility to inform the display driver when the transfer request has been completely accomplished. </P>
+
+<P>The <I>Context</I> parameter of <B>VideoPortStartDma</B> should point to nonpaged memory, such as memory in the hardware extension. This parameter is passed through to the miniport driver's <A HREF="vmpfncs_5bqf.htm"><I>HwVidExecuteDma</I></A> callback routine, which runs at IRQL DISPATCH_LEVEL. </P>
+
+<H4>DMA and Interrupts</H4>
+
+<P>For many devices, an interrupt is generated when a hardware DMA operation is complete. The video miniport driver's interrupt service routine (ISR) should queue a DPC routine for further DMA-related tasks. Do not call the video port driver's DMA functions in an ISR since they can only be called at or below IRQL DISPATCH_LEVEL. </P>
+
+<P>It is safe to check the size being transferred in the aforementioned DPC routine, even if the <B>VideoPortStartDma</B> function has not yet returned, since the variable pointed to by the <I>pLength</I> argument of <B>VideoPortStartDma</B> has already been updated at the time <I>HwVidExecuteDma</I> was called.</P>
+
+<H4>Logical Addresses Versus Physical Addresses</H4>
+
+<P>The video port driver's DMA implementation uses the concept of logical addresses, which are addresses used by the DMA hardware. Logical addresses can be different from physical addresses. The video port driver-provided DMA functions take into account any platform-specific memory restrictions. For this reason, it is important to use the video port driver DMA functions instead of such kernel-mode functions as <A HREF="JavaScript:hhobj_1.Click()"><B>MmGetPhysicalAddress</B></A>. Please refer to <A HREF="JavaScript:hhobj_2.Click()">Adapter Objects and DMA</A> for more information about logical addresses. </P>
+
+<H4>Concurrent DMA</H4>
+
+<P>For devices that support concurrent DMA transfers, either on a DMA controller that supports simultaneous reads and writes, or on two separate DMA controllers, miniport drivers should obtain a separate DMA adapter object for each concurrent path. For example, if a device has two DMA controllers that work in parallel, the miniport driver should make two calls to <B>VideoPortGetDmaAdapter</B>, thereby obtaining pointers to two VP_DMA_ADAPTER structures. After that, whenever the miniport driver makes a DMA transfer request of a particular DMA controller, it should use the appropriate pointer in that request.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Points%20to%20Consider%20When%20Using%20DMA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

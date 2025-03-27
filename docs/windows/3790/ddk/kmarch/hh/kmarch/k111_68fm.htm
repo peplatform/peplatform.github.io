@@ -1,0 +1,136 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ZwWriteFile</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ZwWriteFile">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_zwwritefile_kr"></A>ZwWriteFile</H1>
+
+<P>The <B>ZwWriteFile</B> routine writes data to an open file.</P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>ZwWriteFile(</B>
+    <B>IN HANDLE</B>  <I>FileHandle</I><B>,</B>
+    <B>IN HANDLE</B>  <I>Event</I>  <B>OPTIONAL,</B>
+    <B>IN PIO_APC_ROUTINE</B><I>  ApcRoutine</I>  <B>OPTIONAL,</B>
+    <B>IN PVOID</B>  <I>ApcContext</I>  <B>OPTIONAL,</B>
+    <B>OUT PIO_STATUS_BLOCK</B>  <I>IoStatusBlock</I><B>,</B>
+    <B>IN PVOID</B>  <I>Buffer</I><B>,</B>
+    <B>IN ULONG</B>  <I>Length</I><B>,</B>
+    <B>IN PLARGE_INTEGER</B>  <I>ByteOffset</I>  <B>OPTIONAL,</B>
+    <B>IN PULONG</B>  <I>Key</I>  <B>OPTIONAL</B>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>FileHandle</I></DT>
+
+<DD>Handle to a file object.  The handle is created by a successful call to <A HREF="k111_9dte.htm"><B>ZwCreateFile</B></A>.</DD>
+
+<DT><I>Event</I></DT>
+
+<DD>Optional.  Handle to an event object that is set to the signaled state after the write operation completes. Device and intermediate drivers should set this parameter to NULL.</DD>
+
+<DT><I>ApcRoutine</I></DT>
+
+<DD>Reserved.  Device and intermediate drivers should set this pointer to NULL.</DD>
+
+<DT><I>ApcContext</I></DT>
+
+<DD>Reserved.  Device and intermediate drivers should set this pointer to NULL.</DD>
+
+<DT><I>IoStatusBlock</I></DT>
+
+<DD>Pointer to a variable that receives the final completion status and information about the requested write operation.</DD>
+
+<DT><I>Buffer</I></DT>
+
+<DD>Pointer to a caller-allocated buffer containing the data to be written to the file.</DD>
+
+<DT><I>Length</I></DT>
+
+<DD>Specifies the size in bytes of the given <I>Buffer</I>. A successful call to <B>ZwWriteFile</B> transfers the given number of bytes to the file. If necessary, the length of the file is extended.</DD>
+
+<DT><I>ByteOffset</I></DT>
+
+<DD>Pointer to a variable that specifies the starting byte offset in the file where the write operation will begin. If a given <I>Length</I> and <I>ByteOffset</I> specify a write operation past the current end-of-file mark, <B>ZwWriteFile</B> automatically extends the file and updates the end-of-file mark; any bytes that are not explicitly written between such old and new end-of-file marks are defined to be zero.
+
+<P>If the call to <B>ZwCreateFile</B> set only the <I>DesiredAccess</I> flag FILE_APPEND_DATA, <I>ByteOffset</I> is ignored. Data in the given <I>Buffer</I>, for <I>Length</I> bytes, is written starting at the current end of file.
+
+
+<P>If the call to <B>ZwCreateFile</B> set either of the <I>CreateOptions</I> flags, FILE_SYNCHRONOUS_IO_ALERT or FILE_SYNCHRONOUS_IO_NONALERT, the I/O Manager maintains the current file position. If so, the caller of <B>ZwWriteFile</B> can specify that the current file position offset be used instead of an explicit <I>ByteOffset</I> value. This specification can be made by using one of the following methods:
+
+
+<UL>
+	<LI>Specify a pointer to a LARGE_INTEGER value with the <B>HighPart</B> member set to -1 and the <B>LowPart</B> member set to the system-defined value FILE_USE_FILE_POINTER_POSITION.</LI>
+
+	<LI>Pass a NULL pointer for <I>ByteOffset</I>.</LI>
+</UL>
+
+
+<P><B>ZwWriteFile</B> updates the current file position by adding the number of bytes written when it completes the write operation, if it is using the current file position maintained by the I/O Manager.
+
+
+<P>Even when the I/O Manager is maintaining the current file position, the caller can reset this position by passing an explicit <I>ByteOffset</I> value to <B>ZwWriteFile</B>. Doing this automatically changes the current file position to that <I>ByteOffset </I>value, performs the write operation, and then updates the position according to the number of bytes actually written. This technique gives the caller atomic seek-and-write service.
+
+
+<P>It is also possible to cause a write operation to start at the current end of file by specifying for <I>ByteOffset</I> a pointer to a LARGE_INTEGER value with <B>HighPart</B> set to -1 and <B>LowPart</B> set to FILE_WRITE_TO_END_OF_FILE. This works whether or not the I/O Manager is maintaining the current file position.
+</DD>
+
+<DT><I>Key</I></DT>
+
+<DD>Device and intermediate drivers should set this pointer to NULL.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>. </P>
+
+<H4>Return Value</H4>
+
+<P><B>ZwWriteFile</B> either returns STATUS_SUCCESS or an appropriate error status. The number of bytes actually written to the file is returned in the <B>Information</B><I> </I>member of <I>IoStatusBlock</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Callers of <B>ZwWriteFile</B> must have already called <B>ZwCreateFile</B> with the <I>DesiredAccess</I> flags FILE_WRITE_DATA and/or FILE_APPEND_DATA set, either explicitly or by setting these flags with GENERIC_WRITE. Note that having only FILE_APPEND_DATA access to a file does not allow the caller to write anywhere in the file except at the current end-of-file mark, while having FILE_WRITE_DATA access to a file does not preclude the caller from writing to or beyond the end of a file.</P>
+
+<P>If the preceding call to <B>ZwCreateFile</B> set the <I>CreateOptions</I> flag FILE_NO_INTERMEDIATE_BUFFERING, the <I>Length</I> and <I>ByteOffset</I> parameters to <B>ZwWriteFile</B> must be an integral of the sector size. For more information, see <A HREF="k111_9dte.htm"><B>ZwCreateFile</B></A>.</P>
+
+<P><B>ZwWriteFile</B> begins writing data from the given <I>Buffer</I> at the given <I>ByteOffset</I> in the file<I>,</I> at the current file position within the file, or at the end-of-file mark. It terminates the write operation when it has written <I>Length</I> bytes to the file, extending the length of the file if necessary, and resetting the end-of-file mark.</P>
+
+<P>If the caller opened the file with the <I>DesiredAccess</I> SYNCHRONIZE flag set, the caller can wait for this routine to set the given <I>FileHandle</I> to the signaled state.</P>
+
+<P>Drivers should call <B>ZwWriteFile</B> in the context of the system process in three cases:
+
+<OL>
+	<LI>The driver creates the file handle that it passes to <B>ZwWriteFile</B>.</LI>
+
+	<LI><B>ZwWriteFile</B> notifies the driver of I/O completion by means of an event created by the driver.</LI>
+
+	<LI><B>ZwWriteFile</B> notifies the driver of I/O completion by means of an APC callback routine that the driver passes to <B>ZwWriteFile</B>.</LI>
+</OL>
+
+<P>File and event handles are only valid in the process context where the handles are created. Therefore, to avoid security holes, the driver should create any file or event handle that it passes to <B>ZwWriteFile</B> in the context of the system process instead of the process context that the driver is in.</P>
+
+<P>Likewise, <B>ZwWriteFile</B> should be called in the context of the system process if it notifies the driver of I/O completion by means of an APC, because APCs are always fired in the context of the thread issuing the I/O request. If the driver calls <B>ZwWriteFile</B> in the context of a process other than the system process, the APC could be delayed indefinitely, or it might not fire at all.</P>
+
+<P>Callers of <B>ZwWriteFile</B> must be running at IRQL&nbsp;= PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k105_8jaq.htm"><B>KeInitializeEvent</B></A>, <A HREF="k111_9dte.htm"><B>ZwCreateFile</B></A>, <A HREF="k111_9pyq.htm"><B>ZwQueryInformationFile</B></A>, <A HREF="k111_8ype.htm"><B>ZwReadFile</B></A>, <A HREF="k111_7xyq.htm"><B>ZwSetInformationFile</B></A> </P>
+
+<P></P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ZwWriteFile"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

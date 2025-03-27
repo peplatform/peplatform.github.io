@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>AVC_FUNCTION_COMMAND</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="AVC_FUNCTION_COMMAND">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_avc_function_command_ks"></A>AVC_FUNCTION_COMMAND</H1>
+
+<P>The AVC_FUNCTION_COMMAND function code is used to send an AV/C request and receive a response as one operation.</P>
+
+<H4>I/O Status Block</H4>
+
+<P>If successful, the AV/C protocol driver sets <B>Irp-&gt;IoStatus.Status </B>to STATUS_SUCCESS.</P>
+
+<P>Possible error return values include:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=38%>Error Status</TH>
+<TH align=left width=62%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>STATUS_TIMEOUT</TD>
+<TD width=62%>The request was made, but no response was received before all timeout and retry processing was complete. The target device ignores requests if a previous request is still being processed. Some AV/C devices are noncompliant, and refuse to respond within the 100ms timeout, even after several successive attempts. The AVC_COMMAND_IRB structure permits the adjustment of the default <B>Timeout</B><I> </I>and <B>Retries </B>members (100ms and 9, respectively), but these default settings have been sufficient for all known implementations.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>STATUS_PENDING</TD>
+<TD width=62%>The request was made, and an interim response was received. It is the responsibility of the completion routine to handle the final response and free the IRP and IRB resources.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>STATUS_REQUEST_ABORTED</TD>
+<TD width=62%>When submitting AV/C requests, immediately abort when the IRP completion status is STATUS_REQUEST_ABORTED.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=38%>STATUS_*</TD>
+<TD width=62%>Any other return code indicates that an error occurred that was beyond the scope of the AV/C protocol.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>avc.h</I>. Include <I>avc.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>This function uses the AVC_COMMAND_IRB structure as shown below.</P>
+
+<PRE class=syntax>typedef struct _AVC_COMMAND_IRB {
+  AVC_IRB  Common;
+  UCHAR  SubunitAddrFlag : 1;
+  UCHAR  AlternateOpcodesFlag : 1;
+  UCHAR  TimeoutFlag : 1;
+  UCHAR  RetryFlag : 1;
+  union {
+    UCHAR  CommandType;
+    UCHAR  ResponseCode;
+  };
+  PUCHAR  SubunitAddr;
+  PUCHAR  AlternateOpcodes;
+  LARGE_INTEGER  Timeout;
+  UCHAR  Retries;
+  UCHAR  Opcode;
+  ULONG  OperandLength;
+  UCHAR  Operands[MAX_AVC_OPERAND_BYTES];
+  NODE_ADDRESS  NodeAddress;
+  ULONG  Generation;
+} AVC_COMMAND_IRB, *PAVC_COMMAND_IRB;</PRE>
+
+<H4>AVC_COMMAND_IRB Input</H4>
+
+<DL>
+<DT><B>Common</B></DT>
+
+<DD>The <B>Function</B> submember of this member must be set to AVC_FUNCTION_COMMAND from the AVC_FUNCTION enumeration.</DD>
+
+<DT><B>SubunitAddrFlag</B></DT>
+
+<DD>Set this to one to override the subunit address that <I>avc.sys</I> associates with the subunit driver. Reasons to override include: the subunit driver represents multiple subunits in a single instance; a unit command must be sent; or the driver was loaded because <I>avc.sys</I> could not determine the subunit type or ID. If this is set, the <B>SubunitAddr</B> member must point to nonpaged memory containing the desired subunit address.
+
+<P>This must be set to one (and the appropriate <B>SubunitAddr</B> supplied) if the caller is submitting requests directly to an <I>avc.sys</I> FDO.
+
+
+<P>Note: If this flag is not set on request, on response from a successful request, this flag is set, and the <B>SubunitAddr</B> member points to the actual address of the subunit. Do not attempt to alter the contents or free the memory: it is part of the parent driver’s device extension. This may, of course, be set back to zero, and the <B>SubunitAddr</B> pointer cleared to reuse the structure for a different subunit.
+</DD>
+
+<DT><B>AlternateOpcodesFlag</B></DT>
+
+<DD>Set this to one if the command type and opcode of this request results in a response with a different opcode. Without this, only responses with matching opcodes are accepted. If this is set, the <B>AlternateOpcodes</B> member must pointer to nonpaged memory containing the list of alternate opcodes.</DD>
+
+<DT><B>TimeoutFlag</B></DT>
+
+<DD>Set this to one if the default timeout is not appropriate for the subunit. If this is set, the <B>Timeout</B> member must be set to the desired timeout (in 100ns units).</DD>
+
+<DT><B>RetryFlag</B></DT>
+
+<DD>Set this to one if the default retry count is not appropriate for the subunit. If this is set, the <B>Retries</B> member must be set to the desired retry count.</DD>
+
+<DT><B>CommandType</B></DT>
+
+<DD>On request, this member must be set to one of the enumerators from the <B>AvcCommandType</B> enumeration. This is a required parameter.</DD>
+
+<DT><B>ResponseCode</B></DT>
+
+<DD>On response, this member is set to a value from the <B>AvcResponseCode</B> enumeration.</DD>
+
+<DT><B>SubunitAddr</B></DT>
+
+<DD>Set this to the address of nonpaged memory containing the desired subunit address encoded according to Section 5.3.3 of the AV/C Digital Interface Command Set General Specification, Rev 3.0. This specification can be found at the <a href="http://go.microsoft.com/fwlink/?linkid=8728&clcid=0x409" target="_blank">1394 Trade Association</A> Web site. No length is necessary because the subunit address encoding implies this. This parameter is ignored if <B>SubunitAddrFlag</B> is zero.</DD>
+
+<DT><B>AlternateOpcodes</B></DT>
+
+<DD>Set this to the address of nonpaged memory containing the desired alternate opcode list. The first byte of the opcode list is the count of opcodes to follow (equivalent to the number of bytes). The total length of the memory containing the alternate opcode list is AlternateOpcodes[0]+1. This parameter is ignored if <B>AlternateOpcodesFlag</B> is zero.</DD>
+
+<DT><B>Timeout</B></DT>
+
+<DD>Set this to the desired timeout in 100ns units. For example, the default timeout value is: <B>Timeout.QuadPart</B> = 1000000 (100ms in 100ns units). This parameter is ignored if <B>TimeoutFlag</B> is zero.</DD>
+
+<DT><B>Retries</B></DT>
+
+<DD>Set this to the desired number of times <I>avc.sys</I> should attempt to retry requests after each timeout without a response. Note that a retry count of zero means that the request is tried once. The total amount of time spent trying to process a command without getting a response is calculated by the following formula:
+
+<P><I><B>Timeout</B> * (<B>Retries </B>+ 1)</I>
+
+
+<P>This parameter is ignored if <B>RetryFlag</B> is zero.
+</DD>
+
+<DT><B>Opcode</B></DT>
+
+<DD>Set this to the desired AV/C opcode (appropriate for the subunit type). This is a required parameter. On response, if <B>AlternateOpcodesFlag</B> was set, and one of the alternate opcodes was used to match the response, this is set to that alternate opcode.</DD>
+
+<DT><B>OperandLength</B></DT>
+
+<DD>Set this to the number of bytes used to store the operands in the <B>Operands</B> member. This is a required parameter. On response, this parameter is set to the number of bytes in the operand list used by the response.</DD>
+
+<DT><B>Operands</B></DT>
+
+<DD>Set this to the operand list appropriate for the subunit type and opcode. This is a required parameter. On response, this parameter contains the operand list of the response.</DD>
+
+<DT><B>NodeAddress</B></DT>
+
+<DD>Reserved. This must be zero.</DD>
+
+<DT><B>Generation</B></DT>
+
+<DD>Reserved. This must be zero.
+</DD>
+</DL>
+
+<P>The AVC_FUNCTION_COMMAND function code is not supported by virtual instances of <I>avc.sys</I>. If the caller wishes to control an external device, that device’s nonvirtual instance can be located through a private mechanism, or through some combination of the AVC_FUNCTION_FIND_PEER_DO, AVC_FUNCTION_PEER_DO_LIST and AVC_FUNCTION_GET_SUBUNIT_INFO function codes of the IOCTL_AVC_CLASS I/O control code.</P>
+
+<P>This structure defines the common components of an AV/C command request. It holds the opcode and operands of a request, and the opcode and operands of a response (upon completion). The size of the operand list is fixed at the maximum allowable number of operands given a one-byte subunit address. If the subunit address is extended in any way, the maximum permissible number of operand bytes is reduced accordingly.</P>
+
+<P>The recommended use of this structure is to first zero the structure (use <B>RtlZeroMemory</B>) before filling in the parameters.</P>
+
+<P>This must be called at IRQL = PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="avcref_8xir.htm">AVC_FUNCTION</A>, <A HREF="avcref_5r1v.htm">AvcCommandType</A>, <A HREF="avcref_25kj.htm">AvcResponseCode</A>, <A HREF="avcref_35ir.htm">AVC_FUNCTION_FIND_PEER_DO</A>, <A HREF="avcref_2mur.htm">AVC_FUNCTION_PEER_DO_LIST</A>, <A HREF="avcref_1a2b.htm">AVC_FUNCTION_GET_SUBUNIT_INFO</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: AVC_FUNCTION_COMMAND"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

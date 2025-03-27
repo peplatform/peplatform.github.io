@@ -1,0 +1,126 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WaitForVerticalBlank32</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_waitforverticalblank32_gg"></A><I>WaitForVerticalBlank32</I></H1>
+
+<P>The <I>WaitForVerticalBlank32</I> callback function handles requests for vertical blank status. </P>
+
+<PRE class=syntax><B>DWORD
+  (FAR PASCAL *LPDDHAL_WAITFORVERTICALBLANK)(</B>
+<B>    LPDDHAL_WAITFORVERTICALBLANKDATA</B>  <I>lpWaitForVerticalBlank</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>lpWaitForVerticalBlank</I></DT>
+
+<DD>Points to a <A HREF="ddstrcts_98yv.htm">DDHAL_WAITFORVERTICALBLANKDATA</A> structure that contains the information required to obtain the vertical blank status.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>WaitForVerticalBlank32</I> returns one of the following callback codes:</P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_handled_gg">DDHAL_DRIVER_HANDLED</A> </P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_nothandled_gg">DDHAL_DRIVER_NOTHANDLED</A> </P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ddrawi.h</I>. Include <I>ddrawi.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>If <I>WaitForVerticalBlank32</I> does not return DDHAL_DRIVER_HANDLED, DirectDraw returns an error to the application because DirectDraw cannot emulate this function. </P>
+
+<P><I>WaitForVerticalBlank32</I> determines why the function was called based on which flag it was passed. The three options are: DDWAITVB_I_TESTVB, DDWAITVB_BLOCKBEGIN, and DDWAITVB_BLOCKEND. 
+
+<UL>
+	<LI>The DDWAITVB_I_TESTVB flag means the vertical blank status is all that is wanted. The status of the vertical blank in this sample is tested with the IN_VBLANK macro and the <B>bIsInVB</B> member of the DDHAL_WAITFORVERTICALBLANKDATA structure is set accordingly. The function then returns DDHAL_DRIVER_HANDLED. </LI>
+
+	<LI>If the case is DDWAITVB_BLOCKBEGIN, <I>WaitForVerticalBlank32</I> waits for the beginning of the vertical blank. To do this, the IN_VBLANK macro is used to wait until the scan line leaves the vertical blank and the IN_DISPLAY macro is used to wait until the scan line pops out of display. This indicates that the scan line is at the very start of vertical blank. At this time, the <B>ddRVal</B> member of the DDHAL_WAITFORVERTICALBLANKDATA structure is set to DD_OK and DDHAL_DRIVER_HANDLED is returned. </LI>
+
+	<LI>If the case is DDWAITVB_BLOCKEND, <I>WaitForVerticalBlank32</I> waits for the end of the vertical blank interval. If the scan line is currently in vertical blank, the IN_VBLANK macro is used to wait until the scan line is no longer in vertical blank. Then the <B>bFlipFlag</B> member of the <A HREF="ddstrcts_7k4n.htm">FLIPRECORD</A> structure is set to FALSE (since a display cycle has been completed), the <B>ddRVal</B> member of the DDHAL_WAITFORVERTICALBLANKDATA structure is set to DD_OK and DDHAL_DRIVER_HANDLED is returned. If the scan line is not currently in vertical blank, the IN_DISPLAY macro is used to wait until the scan line is no longer in display. Then, as before, the IN_VBLANK macro is used to wait until the scan line is no longer in vertical blank. The <B>bFlipFlag</B> member of the FLIPRECORD structure is set to FALSE, the <B>ddRVal</B> member of the DDHAL_WAITFORVERTICALBLANKDATA structure is set to DD_OK, and DDHAL_DRIVER_HANDLED is returned. </LI>
+</UL>
+
+<P>If none of the preceding cases occurs, <I>WaitForVerticalBlank32</I> returns DDHAL_DRIVER_NOTHANDLED because the request cannot be processed correctly, and DirectDraw returns an error to the application. </P>
+
+<P>IN_VBLANK is an implementation-specific macro that reads hardware register(s) to determine whether the scan line is in vertical blank. It returns immediately with a positive value if the scan line is in vertical blank and with zero if not. Likewise, IN_DISPLAY returns a positive value if the scan line is in display and returns zero if it is not. These macros must be defined before <I>WaitForVerticalBlank32</I> can work correctly. </P>
+
+<P>The equivalent NT-based callback is <A HREF="ddfncs_6693.htm"><I>DdWaitForVerticalBlank</I></A>.</P>
+
+<P>The following is the sample implementation of <I>WaitForVerticalBlank32</I>: </P>
+
+<PRE>/*
+ * WaitForVerticalBlank32
+ */
+DWORD __stdcall WaitForVerticalBlank32(
+        LPDDHAL_WAITFORVERTICALBLANKDATA lpWaitForVerticalBlank )
+{
+
+    switch( lpWaitForVerticalBlank-&gt;dwFlags )
+    {
+    case DDWAITVB_I_TESTVB:
+        /* 
+         * If testvb is just a request for the current vertical blank 
+         * status
+         */
+        lpWaitForVerticalBlank-&gt;ddRVal = DD_OK;
+                                   // We got the vertical blank status
+        lpWaitForVerticalBlank-&gt;bIsInVB = IN_VBLANK; 
+                                   // Are we in vertical blank?
+        return DDHAL_DRIVER_HANDLED;// Request dealt with
+
+    case DDWAITVB_BLOCKBEGIN:
+        /* 
+         * If blockbegin is requested we wait until the vertical blank
+         * is over, and then wait for the display period to end.
+         */
+        while(IN_VBLANK);     // Wait until we are not in vertical blank
+        while(IN_DISPLAY);    // Wait until we leave display
+        lpWaitForVerticalBlank-&gt;ddRVal = DD_OK;
+                              //We got waited until block begin
+        return DDHAL_DRIVER_HANDLED;
+                              // Request dealt with
+
+    case DDWAITVB_BLOCKEND:
+        /* 
+         * If blockend is requested we wait for the vblank interval to 
+         * end.
+         */
+        if( IN_VBLANK )
+        {
+            while( IN_VBLANK );//Wait until we are not in vertical blank
+        }
+        else
+        {
+            while(IN_DISPLAY); // Wait until we are not in display
+            while(IN_VBLANK);  // Wait until we leave vertical blank
+        }
+        flipRecord.bFlipFlag = FALSE;           
+                               // No longer need to wait for flip
+        lpWaitForVerticalBlank-&gt;ddRVal = DD_OK;
+                               // We successfully reached blockend
+        return DDHAL_DRIVER_HANDLED;// Request handled
+    }
+
+    return DDHAL_DRIVER_NOTHANDLED; // Unable to handle request
+
+} /* WaitForVerticalBlank32 */ </PRE>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddstrcts_7k4n.htm">FLIPRECORD</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WaitForVerticalBlank32"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>StorPortNotification</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="StorPortNotification">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_storportnotification_kr"></A>StorPortNotification</H1>
+
+<P>The <B>StorPortNotification</B> routine notifies the operating-system-supplied port driver of certain events. </P>
+
+<PRE class=syntax><B>VOID</B>
+  <B>StorPortNotification(</B>
+    <B>IN SCSI_NOTIFICATION_TYPE</B>  <I>NotificationType</I>,
+<B>    IN PVOID</B>  <I>HwDeviceExtension</I>,
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>NotificationType</I></DT>
+
+<DD>Specifies the notification type, which can be one of the following values. 
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Notification Type</TH>
+<TH align=left width=52%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>BusChangeDetected</B></TD>
+<TD width=52%>Indicates that a target device might have been added or removed from a dynamic bus. If this value is set, <B>StorPortNotification</B> requires an additional parameter: the path ID of the bus on which the change was detected. After this notification, the port driver re-enumerates the bus by issuing INQUIRY commands. Bus enumeration is time-consuming and ties up the bus, so a miniport driver should not send this notification unnecessarily<B> </B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>LinkUp</B></TD>
+<TD width=52%>Indicates that the link has been restored. StorPort will cause the adapter to resume operation in response to this notification. Miniports should not send this notification unless the link is down.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>LinkDown</B></TD>
+<TD width=52%>Indicates that the link is down and will probably be down for some time. StorPort will pause the adapter in response to this notification.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>RequestComplete</B></TD>
+<TD width=52%>Indicates the given <I>Srb</I> has finished. If this value is set, <B>StorPortNotification</B> requires one additional parameter: the address of the SRB. After this notification, the OS-specific port driver owns the request. The miniport driver must not access the <I>Srb</I>, and it must not pass the <I>Srb</I> to another routine.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>NextRequest</B></TD>
+<TD width=52%>Not needed. The Storport driver is written with the assumption that the miniport driver will be ready to process the next request as soon as it returns from its <A HREF="k301_4ng2.htm"><I>HwStorStartIo</I></A> routine. Therefore, this notification type is not necessary.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>NextLuRequest</B> </TD>
+<TD width=52%>Not needed. See description of <B>NextRequest</B> for an explanation.  </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>ResetDetected</B></TD>
+<TD width=52%>Indicates that the HBA has detected a reset on the SCSI bus. After this notification, the miniport driver is still responsible for completing any active requests. The SCSI port driver will manage all required bus-reset delays.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>CallDisableInterrupts</B></TD>
+<TD width=52%>Not supported with <B>StorPortNotification</B>. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>CallEnableInterrupts</B></TD>
+<TD width=52%>Not supported with <B>StorPortNotification</B>. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>RequestTimerCall</B></TD>
+<TD width=52%>Indicates that the miniport driver requires the OS-specific port driver to call the miniport driver's <A HREF="k302_9stu.htm"><I>HwScsiTimer</I></A> routine in the requested number of microseconds. If this value is set, <B>StorPortNotification</B> requires two additional parameters: (1) the entry point for the miniport driver's <I>HwScsiTimer</I> routine, and (2) a <I>MiniportTimerValue</I> interval, in microseconds. Note that the resolution of the system timer is approximately 10 milliseconds.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>WMIEvent</B></TD>
+<TD width=52%>Indicates that the miniport driver has detected an event for which one or more WMI data consumers is registered. If this value is set, <B>StorPortNotification</B> requires at least three additional arguments: (1) a pointer to a WMI event structure, (2) the size of the event structure, and (3) the path ID of the target device if the event originated from a device, or 0xFF if the event originated from the adapter. If (3) is a path ID, <B>StorPortNotification</B> requires two additional arguments: (4) the target ID, and (5) the logical unit number (LUN) of the target device. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>WMIRegister</B></TD>
+<TD width=52%>Indicates that the miniport driver has changed the data items or the number of instances of a given data block previously registered by calling <B>IoWMIRegistrationControl</B>. If <B>WMIReregister</B> is set, <B>StorPortNotification</B> requires at least two additional arguments: (1) the path ID of the target device to reregister that device, or 0xFF to reregister the adapter. If (1) is a path ID, <B>StorPortNotification</B> requires two additional arguments: (2) the target ID, and (3) the logical unit number (LUN) of the target device. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><I>HwDeviceExtension</I></DT>
+
+<DD>Pointer to the hardware device extension. This is a per-HBA storage area that the port driver allocates and initializes on behalf of the miniport driver. Miniport drivers usually store HBA-specific information in this extension, such as the state of the HBA and the HBA's mapped access ranges. This area is available to the miniport driver in the <B>DeviceExtension-&gt;HwDeviceExtension</B> member of the HBA's device object immediately after the miniport driver calls <A HREF="k301_2wqa.htm"><B>StorPortInitialize</B></A>. The port driver frees this memory when it removes the device. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>None </P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>storport.h</I>. Include <I>storport.h</I>. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k301_659u.htm"><B>ScsiPortNotification</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: StorPortNotification"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Postponing PnP IRP Processing Until Lower Drivers Finish</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Postponing PnP IRP Processing Until Lower Drivers Finish">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_postponing_pnp_irp_processing_until_lower_drivers_finish_kg"></A>Postponing PnP IRP Processing Until Lower Drivers Finish</H1>
+
+<P>Some PnP and power IRPs must be processed first by the parent bus driver for a device and then by each next-higher driver in the device stack. For example, the parent bus driver must be the first driver to perform its start operations for a device (IRP_MN_START_DEVICE), followed by each next-higher driver. For such an IRP, function and filter drivers must set an I/O completion routine, pass the IRP to the next-lower driver, and postpone any activities to process the IRP until the lower drivers have finished with the IRP.</P>
+
+<P>An <A HREF="drvrrtns_4rsi.htm"><I>IoCompletion</I></A> routine can be called at IRQL DISPATCH_LEVEL, but a function or filter driver might need to process the IRP at IRQL PASSIVE_LEVEL. To return to passive IRQL from an <I>IoCompletion</I> routine, a driver can use a kernel event. The driver registers an <I>IoCompletion</I> routine that sets a kernel-mode event and then the driver waits on the event in its <A HREF="drvrrtns_8uya.htm"><I>DispatchPnP</I></A> routine. When the event is set, lower drivers have completed the IRP and the driver is allowed to process the IRP.</P>
+
+<P>Note that a driver must not use this technique to wait for lower drivers to finish a power IRP (IRP_MJ_POWER). Waiting on an event in the <A HREF="drvrrtns_00mq.htm"><I>DispatchPower</I></A> routine that is set in the <I>IoCompletion</I> routine can cause a deadlock. See <A HREF="pwrmgmt_5n3b.htm">Passing Power IRPs</A> for more information. </P>
+
+<P>The following two figures show an example of how a driver waits for lower drivers to complete a PnP IRP. The example shows what the function and bus drivers must do, plus how they interact with the PnP Manager and the I/O Manager.</P>
+
+<P><IMG SRC="images/delay1.gif" ALT="" BORDER=0></P>
+
+<P><B>Postponing PnP IRP Handling </B><B>—</B><B> Part 1</B></P>
+
+<P>The following notes correspond to the circled numbers in the previous figure:
+
+<OL>
+	<LI>The PnP Manager calls the I/O Manager to send an IRP to the top driver in the device stack.</LI>
+
+	<LI>The I/O Manager calls the <I>DispatchPnP</I> routine of the top driver. In this example, there are only two drivers in the device stack (the function driver and the parent bus driver) and the function driver is the top driver.</LI>
+
+	<LI>The function driver declares and initializes a kernel-mode event, sets up the stack location for the next-lower driver, and sets an <I>IoCompletion</I> routine for this IRP. 
+<P>The function driver can use <A HREF="k104_4fqq.htm"><B>IoCopyCurrentIrpStackLocationToNext</B></A> to set up the stack location.
+
+<P>In the call to <A HREF="k104_5w6q.htm"><B>IoSetCompletionRoutine</B></A>, the function driver sets <I>InvokeOnSuccess</I>, <I>InvokeOnError</I>, and <I>InvokeOnCancel</I> to TRUE and passes the kernel-mode event as part of the context parameter.
+</LI>
+
+	<LI>The function driver passes the IRP down the device stack with <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A> before performing any operations to handle the IRP.</LI>
+
+	<LI>The I/O Manager sends the IRP to the next-lower driver in the device stack by calling that driver's <I>DispatchPnP</I> routine.</LI>
+
+	<LI>The next-lower driver in this example is the lowest driver in the device stack, the parent bus driver. The bus driver performs its operations to start the device. The bus driver sets <B>Irp-&gt;IoStatus.Status</B>, sets <B>Irp-&gt;IoStatus.Information</B> if relevant to this IRP, and completes the IRP by calling <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>.
+<P>If the bus driver calls other driver routines or sends I/O to the device in order to start it, the bus driver does not complete the PnP IRP in its <I>DispatchPnP</I> routine. Instead, it must mark the IRP pending with <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A> and return STATUS_PENDING from its <I>DIspatchPnP</I> routine. The driver later calls <B>IoCompleteRequest</B> from another driver routine, possibly a DPC routine.
+</LI>
+</OL>
+
+<P>The following figure shows the second part of the example, where the higher drivers in the device stack resume their postponed IRP processing.</P>
+
+<P><IMG SRC="images/delay2.gif" ALT="" BORDER=0></P>
+
+<P><B>Postponing PnP IRP Handling </B><B>—</B><B> Part 2</B></P>
+
+<P>The following notes correspond to the circled numbers in the previous figure: 
+
+<OL start=7>
+	<LI>When the bus driver calls <B>IoCompleteRequest</B>, the I/O Manager examines the stack locations of the higher drivers and calls any <I>IoCompletion</I> routines it finds. In this example, the I/O Manager locates and calls the <I>IoCompletion</I> routine for the next-higher driver, the function driver.</LI>
+
+	<LI>The function driver's <I>IoCompletion</I> routine sets the kernel-mode event supplied in the context parameter and returns STATUS_MORE_PROCESSING_REQUIRED.
+<P>The IoCompletion routine must return STATUS_MORE_PROCESSING_REQUIRED to prevent the I/O Manager from calling <I>IoCompletion</I> routines set by higher drivers at this time. The <I>IoCompletion</I> routine uses this status to forestall completion so its driver's <I>DispatchPnP</I> routine can regain control. The I/O Manager will resume calling higher drivers' <I>IoCompletion</I> routines for this IRP when this driver's <I>DispatchPnI</I> routine completes the IRP.
+</LI>
+
+	<LI>The I/O Manager stops completing the IRP and returns control to the routine that called <B>IoCompleteRequest</B>, which in this example is the bus driver's <I>DispatchPnP</I> routine.</LI>
+
+	<LI>The bus driver returns from its <I>DispatchPnp</I> routine with status indicating the result of its IRP processing: either STATUS_SUCCESS or an error status.</LI>
+
+	<LI><B>IoCallDriver</B> returns control to its caller, which in this example is the function driver's <I>DispatchPnP</I> routine. </LI>
+
+	<LI>The function driver's <I>DispatchPnP</I> routine resumes processing the IRP.
+<P>If <B>IoCallDriver</B> returns STATUS_PENDING, the <I>DispatchPnP</I> routine has resumed execution before its <I>IoCompletion</I> routine has been called. The <I>DispatchPnP</I> routine, therefore, must wait for the kernel event to be signaled by its <I>IoCompletion</I> routine. This ensures that the <I>DispatchPnP</I> routine will not continue processing the IRP until all lower drivers have completed it.
+
+<P>If <B>Irp-&gt;IoStatus.Status</B> is set to an error, a lower driver has failed the IRP and the function driver must not continue handling the IRP (except for any necessary cleanup).
+</LI>
+
+	<LI>Once lower drivers have successfully completed the IRP, the function driver processes the IRP. 
+<P>For IRPs being handled first by the parent bus driver, the bus driver typically sets a successful status in <B>Irp-&gt;IoStatus.Status</B> and optionally sets a value in <B>Irp-&gt;IoStatus.Information</B>. Function and filter drivers leave the values in <B>IoStatus</B> as is unless they fail the IRP.
+
+<P>The function driver's <I>DispatchPnP</I> routine calls <B>IoCompleteRequest</B> to complete the IRP. The I/O Manager resumes I/O completion processing. In this example, there are no filter drivers above the function driver, and thus no more <I>IoCompletion</I> routines to call. When <B>IoCompleteRequest</B> returns control to the function driver <I>DispatchPnP</I> routine, the <I>DispatchPnP</I> routine returns status.
+</LI>
+</OL>
+
+<P>For some IRPs, if a function or filter driver fails the IRP on its way back up the device stack, the PnP Manager informs the lower drivers. For example, if a function or filter driver fails an IRP_MN_START_DEVICE, the PnP Manager sends an IRP_MN_REMOVE_DEVICE to the device stack. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Postponing%20PnP%20IRP%20Processing%20Until%20Lower%20Drivers%20Finish"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

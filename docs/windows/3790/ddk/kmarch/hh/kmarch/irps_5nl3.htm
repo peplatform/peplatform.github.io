@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Synchronizing IRP Cancellation</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Synchronizing IRP Cancellation">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_synchronizing_irp_cancellation_kg"></A>Synchronizing IRP Cancellation</H2>
+
+<P>From a driver's perspective, an IRP can be canceled at any time. IRP cancellation occurs asynchronously; therefore, drivers must be able to handle a number of potential race conditions, created if the IRP is canceled at any of the following points:
+
+<UL>
+	<LI>After a driver routine is called, but before it queues an IRP.</LI>
+
+	<LI>After a driver routine is called, but before it tries to process an IRP. For example, an IRP might be canceled after a driver's <I>StartIo </I>routine is called, but before the <I>StartIo </I>routine removes the IRP from the device queue.</LI>
+
+	<LI>After the driver routine dequeues the IRP, but before it starts the requested I/O.</LI>
+</UL>
+
+<P>Note that after a driver queues an IRP and releases any spin locks that protect the queue, another thread can access and change the IRP. When the original thread resumes — even as soon as the next line of code — the IRP might have already been canceled or otherwise changed.</P>
+
+<P>Driver can use the cancel-safe IRP queue framework to implement IRP queuing. The system then registers a <A HREF="drvrrtns_8y0i.htm"><I>Cancel</I></A> routine for the driver that automatically handles synchronization to safely cancel IRPs. See <A HREF="irps_4sdj.htm">Cancel-Safe IRP Queues</A> for more information. Otherwise, drivers must implement their own synchronization.</P>
+
+<P>The following members of an IRP contain information about cancellation:
+
+<UL>
+	<LI><B>Irp-&gt;Cancel</B> indicates whether an IRP is being canceled or should be canceled.</LI>
+
+	<LI><B>Irp-&gt;CancelRoutine</B> indicates whether an IRP is cancelable. If this member contains a pointer to a cancel routine, then the IRP is cancelable. If this member is NULL, then the IRP is not cancelable. If this member is NULL, but <B>Irp-&gt;Cancel</B> is set, that indicates that the cancel routine is running and the IRP is in the process of being canceled.</LI>
+</UL>
+
+<P>If a driver handles cancelable IRPs, it is responsible for setting the appropriate <I>Cancel </I>routine in each IRP that it holds in a cancelable state.</P>
+
+<P>This section includes the following topics on synchronizing IRP cancellation.</P>
+
+<P class=indent1><A HREF="irps_773b.htm">Using the System's Cancel Spin Lock</A> </P>
+
+<P class=indent1><A HREF="irps_4g13.htm">Synchronizing Cancellation in Driver Routines that Process IRPs</A> </P>
+
+<P class=indent1><A HREF="irps_3rjb.htm">Synchronizing Cancellation in Higher-Level Drivers Without <I>Cancel</I> Routines</A> </P>
+
+<P class=indent1><A HREF="irps_712f.htm">Using a Driver-Supplied Spin Lock</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Synchronizing%20IRP%20Cancellation"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

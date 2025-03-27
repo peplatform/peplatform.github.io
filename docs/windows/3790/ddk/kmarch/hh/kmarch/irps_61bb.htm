@@ -1,0 +1,126 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>StartIo Routines in Lowest-Level Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="StartIo Routines in Lowest-Level Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_startio_routines_in_lowest_level_drivers_kg"></A><I>StartIo </I>Routines in Lowest-Level Drivers</H3>
+
+<P>The I/O Manager's call to a driver's dispatch routine is the first stage in satisfying a device I/O request. The <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A><I> </I>routine is the second stage. Every device driver with a <I>StartIo </I>routine is likely to call <A HREF="k104_1nsi.htm"><B>IoStartPacket</B></A> from its <A HREF="drvrrtns_7s4y.htm"><I>DispatchRead</I></A> and <A HREF="drvrrtns_6mr6.htm"><I>DispatchWrite</I></A> routines, and usually for a subset of the I/O control codes it supports in its <A HREF="drvrrtns_0zoy.htm"><I>DispatchDeviceControl</I></A> routine. The <B>IoStartPacket</B> routine adds the IRP to the device's system-supplied device queue or, if the queue is empty, immediately calls the driver's <I>StartIo </I>routine to process the IRP.</P>
+
+<P>You can assume that when a driver’s <I>StartIo </I>routine is called, the target device is not busy. This is because the I/O manager calls <I>StartIo</I> under two circumstances; either one of the driver’s dispatch routines has just called <B>IoStartPacket</B> and the device queue was empty, or the driver’s <I>DpcForIsr</I> routine is completing another request and has just called <A HREF="k104_7eb6.htm"><B>IoStartNextPacket</B></A> to dequeue the next IRP.</P>
+
+<P>Before the <I>StartIo </I>routine in a highest-level device driver is called, that driver’s dispatch routine should have probed and locked down the user buffer, if necessary, to set up valid mapped buffer addresses in the IRP queued to its <I>StartIo </I>routine. If a highest-level device driver sets up its device objects for direct I/O (or for neither buffered nor direct I/O), the driver <I>cannot</I> defer locking down a user buffer to its <I>StartIo </I>routine; every <I>StartIo </I>routine is called in an arbitrary thread context at IRQL&nbsp;= DISPATCH_LEVEL. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Keep in mind the following fact: </B></P>
+
+<P class=indent1>Any buffer memory to be accessed by a driver’s <I>StartIo </I>routine <I>must</I> be locked down or allocated from resident, system-space memory and <I>must</I> be accessible in an arbitrary thread context. </P>
+
+<P>In general, any lower-level device driver’s <I>StartIo </I>routine is responsible for calling <A HREF="k104_89pu.htm"><B>IoGetCurrentIrpStackLocation</B></A> with the input IRP and then doing whatever request-specific processing is necessary to start the I/O operation on its device. Request-specific processing can include the following:
+
+<UL>
+	<LI>Setting up or updating any state information about the current request that the driver maintains. The state information might be stored in the device extension of the target device object or elsewhere in nonpaged pool allocated by the driver. 
+<P>For example, if a device driver maintains an InterruptExpected Boolean for the current transfer operation, its <I>StartIo </I>routine might set this variable to TRUE. If the driver maintains a time-out counter for the current operation, its <I>StartIo </I>routine might set up this value, or the <I>StartIo </I>routine might queue the driver’s <A HREF="drvrrtns_0iwi.htm"><I>CustomTimerDpc</I></A> routine. 
+
+<P>If the StartIo routine shares access to state information or <A HREF="plugplay_1xk7.htm">hardware resources</A> with other driver routines, the state information or resource must be protected by a spin lock. (See <A HREF="synchro_8unb.htm">Spin Locks</A>.)
+
+<P>If the <I>StartIo </I>routine shares access to state information or resources with the driver’s <A HREF="drvrrtns_29ma.htm">InterruptService</A> routine, <I>StartIo </I>must use <A HREF="k105_99rm.htm"><B>KeSynchronizeExecution</B></A> to call a <A HREF="drvrrtns_4m2a.htm"><I>SynchCritSection</I></A> routine that accesses the state or resource information. (See <A HREF="intrupts_6g13.htm">Using Critical Sections</A>.)
+</LI>
+
+	<LI>Assigning a sequence number to the IRP in case the driver must log a device I/O error while processing the IRP.
+<P>See <A HREF="other_92jr.htm">Logging Errors</A> for more information.
+</LI>
+
+	<LI>If necessary, translating the parameters in the driver’s I/O stack location into device-specific values.
+<P>For example, a disk driver might need to calculate the starting sector or byte offset to the physical disk address for a transfer operation, and whether the requested length of the transfer will cross a particular sector boundary or exceed the transfer capacity of its physical device. 
+</LI>
+
+	<LI>If the driver controls a removable-media device, checking for media changes before programming the device for I/O and notifying its overlying file system if the media has changed
+<P>For more information, see <A HREF="other_5ag7.htm">Supporting Removable Media</A>. 
+</LI>
+
+	<LI>If the device uses DMA, checking whether the requested <B>Length</B> (number of bytes to be transferred, found in the driver’s I/O stack location of the IRP) should be split into partial-transfer operations, as explained in <A HREF="iputoput_92cn.htm">Input/Output Techniques</A>, assuming a closely coupled higher-level driver does not pre-split large transfers for the device driver.
+<P>The <I>StartIo </I>routine of such a device driver also can be responsible for calling <A HREF="k105_6asy.htm"><B>KeFlushIoBuffers</B></A> and, if the driver uses packet-based DMA, for calling <A HREF="kdma_92r6.htm"><B>AllocateAdapterChannel</B></A> with the driver’s <I>AdapterControl</I> routine.
+
+<P>See <A HREF="iputoput_2wtj.htm">Adapter Objects and DMA</A>, and <A HREF="iputoput_7pgn.htm">Maintaining Cache Coherency</A>, for additional details.
+</LI>
+
+	<LI>If the device uses PIO, mapping the base virtual address of the buffer, described in the IRP at <B>Irp-&gt;MdlAddress</B>, to a system-space address with <A HREF="k106_0nqq.htm"><B>MmGetSystemAddressForMdlSafe</B></A>.
+<P>For read requests, the device driver’s <I>StartIo </I>routine can be responsible for calling <A HREF="k105_6asy.htm"><B>KeFlushIoBuffers</B></A> before PIO operations begin. See <A HREF="iputoput_7pgn.htm">Maintaining Cache Coherency</A> for more information.
+</LI>
+
+	<LI>If a non-WDM driver uses a controller object, calling <A HREF="k104_4qia.htm"><B>IoAllocateController</B></A> to register its <A HREF="drvrrtns_2ype.htm"><I>ControllerControl</I></A> routine. </LI>
+
+	<LI>If the driver handles cancelable IRPs, checking whether the input IRP has already been canceled.</LI>
+
+	<LI>If an input IRP can be canceled before it is processed to completion, the <I>StartIo </I>routine must call <A HREF="k104_6hiq.htm"><B>IoSetCancelRoutine</B></A> with the IRP and the entry point of the driver’s <A HREF="drvrrtns_8y0i.htm"><I>Cancel</I></A><I> </I>routine. The <I>StartIo </I>routine must acquire the cancel spin lock for its call to <B>IoSetCancelRoutine</B>. Alternatively, a driver can use <A HREF="k104_48tu.htm"><B>IoSetStartIoAttributes</B></A> to set the <I>NonCancelable</I> attribute for the <I>StartIo</I> routine to true. This prevents the system from trying to cancel an IRP that has been passed to <I>StartIo</I> by a call to <B>IoStartPacket</B>.</LI>
+</UL>
+
+<P>As a general rule, a driver that uses buffered I/O has a simpler <I>StartIo </I>routine than one that uses direct I/O. Drivers that use buffered I/O transfer small amounts of data for each transfer request, while those that use direct I/O (whether DMA or PIO) transfer large amounts of data to or from locked-down buffers that can span physical page boundaries in system memory. </P>
+
+<P>Higher-level drivers layered above physical device drivers usually set up their device objects to match those of their respective device drivers. However, a highest-level driver, particularly a file system driver, can set up device objects for neither direct nor buffered I/O.</P>
+
+<P>Drivers that set up their device objects for buffered I/O can rely on the I/O Manager to pass valid buffers in all IRPs it sends to the driver. Lower-level drivers that set up device objects for direct I/O can rely on the highest-level driver in their chain to pass valid buffers in all IRPs sent through any intermediate drivers to the underlying lower-level device driver. </P>
+
+<H4>Using Buffered I/O in <I>StartIo </I>Routines</H4>
+
+<P>If a driver's <A HREF="drvrrtns_7s4y.htm"><I>DispatchRead</I></A>, <A HREF="drvrrtns_6mr6.htm"><I>DispatchWrite</I></A>, or <A HREF="drvrrtns_0zoy.htm"><I>DispatchDeviceControl</I></A> routine determines that a request is valid and calls <A HREF="k104_1nsi.htm"><B>IoStartPacket</B></A>, the I/O Manager calls a the driver’s <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A><I> </I>routine to process the IRP immediately if the device queue is empty. If the queue is not empty, <B>IoStartPacket</B> queues the IRP. Eventually, a call to <A HREF="k104_7eb6.htm"><B>IoStartNextPacket</B></A> from the driver’s <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> or <A HREF="drvrrtns_3tbm.htm"><I>CustomDpc</I></A> routine causes the I/O manager to dequeue the IRP and call the driver's <I>StartIo </I>routine. </P>
+
+<P>The <I>StartIo </I>routine calls <A HREF="k104_89pu.htm"><B>IoGetCurrentIrpStackLocation</B></A> and determines which operation must be performed to satisfy the request. It preprocesses the IRP in any way necessary before programming the physical device to carry out the I/O request. </P>
+
+<P>If access to the physical device (or the device extension) must be synchronized with an <A HREF="drvrrtns_29ma.htm"><I>InterruptService</I></A> routine, the <I>StartIo </I>routine must call a <A HREF="drvrrtns_4m2a.htm"><I>SynchCritSection</I></A> routine to perform the necessary device programming. For more information, see <A HREF="intrupts_6g13.htm">Using Critical Sections</A>.</P>
+
+<P>A physical device driver that uses buffered I/O transfers data either to or from a system-space buffer, allocated by the I/O Manager, that the driver finds in each IRP at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B>. </P>
+
+<H4>Using Direct I/O in <I>StartIo </I>Routines</H4>
+
+<P>If a driver's <I>DispatchRead</I>, <I>DispatchWrite</I>, or <I>DispatchDeviceControl</I> routine determines that a request is valid and calls <B>IoStartPacket</B>, the I/O Manager calls a the driver’s <I>StartIo </I>routine to process the IRP immediately if the device queue is empty. If the queue is not empty, <B>IoStartPacket</B> queues the IRP. Eventually, a call to <B>IoStartNextPacket</B> from the driver’s <I>DpcForIsr</I> or <I>CustomDpc</I> routine causes the I/O manager to dequeue the IRP and call the driver's <I>StartIo </I>routine. </P>
+
+<P>The <I>StartIo </I>routine calls <B>IoGetCurrentIrpStackLocation</B> and determines which operation must be performed to satisfy the request. It preprocesses the IRP in any way necessary, such as splitting up a large DMA transfer request into partial-transfer ranges and saving state about the <B>Length</B> of an incoming transfer request that must be split. Then it programs the physical device to carry out the I/O request. </P>
+
+<P>If access to the physical device (or the device extension) must be synchronized with the driver’s ISR, the <I>StartIo </I>routine must use a driver-supplied <A HREF="drvrrtns_4m2a.htm"><I>SynchCritSection</I></A> routine to perform the necessary programming. For more information, see <A HREF="intrupts_6g13.htm">Using Critical Sections</A>.</P>
+
+<P>Any driver that uses direct I/O either reads data into or writes data from a locked-down buffer, described by a memory descriptor list (MDL), that the driver finds in the IRP at <B>Irp-&gt;MdlAddress</B>. Such a driver commonly uses buffered I/O for device control requests. For more information, see <A HREF="#ddk_handling_i_o_control_requests_in_startio_routines_kg">Handling I/O Control Requests in StartIo Routines</A>. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>As a type defined by, used exclusively by, and changeable by the Memory Manager, all MDLs are opaque to drivers. Consider the following an implementation guideline: </B></P>
+
+<P class=indent1>Drivers <I>cannot</I> use the address mappings contained in <I>any</I> MDL, including an MDL at <B>Irp-&gt;MdlAddress</B>, directly. </P>
+
+<P>Instead, drivers that use PIO remap user-space buffers by calling <B>MmGetSystemAddressForMdlSafe</B> with the <B>Irp-&gt;MdlAddress</B>. Drivers that use DMA also pass <B>Irp-&gt;MdlAddress</B> to support routines during their transfer operations to have the buffer addresses remapped to logical ranges for their devices.</P>
+
+<P>Unless a closely coupled higher-level driver pre-splits large DMA transfer requests for the underlying device driver, a lowest-level device driver’s <I>StartIo </I>routine must split up each transfer request that is larger than its device can manage in a single transfer operation. Drivers that use system DMA are required to split transfer requests that are too large for the system DMA controller or for their devices to handle in a single transfer operation. </P>
+
+<P>If the device is a slave DMA device, its driver must synchronize transfers through a system DMA controller with a driver-allocated adapter object, representing the DMA channel, and a driver-supplied <I>AdapterControl</I> routine. The driver of a bus-master DMA device also must use a driver-allocated adapter object to synchronize its transfers and must supply an <I>AdapterControl</I> routine if it uses the system’s packet-based DMA support, or an <I>AdapterListControl</I> routine if it uses the system's scatter/gather support. </P>
+
+<P>Depending on the driver’s design, it might synchronize transfer and device control operations on a physical device with a controller object and supply a <I>ControllerControl</I> routine. </P>
+
+<P>See <A HREF="iputoput_2wtj.htm">Adapter Objects and DMA</A> and <A HREF="iputoput_5xd3.htm">Controller Objects</A> for more information.</P>
+
+
+
+<H4><A NAME="ddk_handling_i_o_control_requests_in_startio_routines_kg"></A>Handling I/O Control Requests in <I>StartIo</I> Routines</H4>
+
+<P>In general, only a subset of device I/O control requests are passed on from a driver's <A HREF="drvrrtns_0zoy.htm"><I>DispatchDeviceControl</I></A> or <A HREF="drvrrtns_0cvm.htm"><I>DispatchInternalDeviceControl</I></A> routine for further processing by the driver’s <I>StartIo </I>routine. The driver’s <I>StartIo </I>routine only has to handle valid device control requests that require device state changes or return volatile information about the current device state.</P>
+
+<P>Each new driver must support the same set of public I/O control codes as all other drivers for the same kind of device. The system defines public, device-type-specific I/O control codes for IRP_MJ_DEVICE_CONTROL requests as buffered requests. </P>
+
+<P>Consequently, physical device drivers make data transfers to or from a system-space buffer that each driver finds in the IRP at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B> for device control requests. Even drivers that set up their device objects for direct I/O use buffered I/O to satisfy device control requests with public I/O control codes. </P>
+
+<P>The definition of each I/O control code determines whether data transferred for that request is buffered. Any privately defined I/O control codes for driver-specific IRP_MJ_INTERNAL_DEVICE_CONTROL requests between paired drivers can define a code with method buffered, method direct, or method neither. As a general rule, any privately defined I/O control code should be defined with method neither if a closely coupled higher-level driver must allocate a buffer for that request. </P>
+
+<H4>Programming the Device for I/O Operations</H4>
+
+<P>Usually, the <I>StartIo </I>routine in a lowest-level device driver must synchronize access to any memory or device registers it shares with the driver’s ISR by using <A HREF="k105_99rm.htm"><B>KeSynchronizeExecution</B></A> to call a driver-supplied <A HREF="drvrrtns_4m2a.htm"><I>SynchCritSection</I></A> routine. The driver’s <I>StartIo </I>routine uses the <I>SynchCritSection</I> routine to actually program the physical device for I/O at DIRQL. For more information, see <A HREF="intrupts_6g13.htm">Using Critical Sections</A>.</P>
+
+<P>Before calling <B>KeSynchronizeExecution</B>, the <I>StartIo </I>routine must do any preprocessing necessary for the request. Preprocessing might include calculating an initial partial-transfer range and saving any state information about the original request for other driver routines. </P>
+
+<P>If a device driver uses DMA, its <I>StartIo </I>routine usually calls <A HREF="kdma_92r6.htm"><B>AllocateAdapterChannel</B></A> with a driver-supplied <I>AdapterControl</I> routine. In these circumstances, the <I>StartIo </I>routine postpones the responsibility for programming the physical device to the <I>AdapterControl</I> routine. It, in turn, can call <B>KeSynchronizeExecution</B> to have a driver-supplied <I>SynchCritSection</I> routine program the device for a DMA transfer. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: StartIo%20Routines%20in%20Lowest-Level%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

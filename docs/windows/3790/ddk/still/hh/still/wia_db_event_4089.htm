@@ -1,0 +1,136 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Adding Polling Event Support</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Adding Polling Event Support">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_adding_polling_event_support_si"></A>Adding Polling Event Support</H1>
+
+<P>To properly set up your WIA driver to report polling events, do the following:
+
+<OL>
+	<LI>Set <B>Capabilities=0x33</B> in your device's INF file. (See <A HREF="wia_gs_07ft.htm">INF Files for WIA Devices</A> for details.)</LI>
+
+	<LI>Report STI_GENCAP_NOTIFICATIONS and STI_USD_GENCAP_NATIVE_PUSHSUPPORT in the <A HREF="stifnc_63zd.htm"><B>IStiUSD::GetCapabilities</B></A> method.</LI>
+
+	<LI>Report all supported events in the <A HREF="minidrv_3ctl.htm"><B>IWiaMiniDrv::drvGetCapabilities</B></A> method.</LI>
+
+	<LI>Respond to calls to the <A HREF="stifnc_1qcp.htm"><B>IStiUSD::GetStatus</B></A> method. The WIA service calls this method at a preset interval that is configurable in the INF file. The default setting is a 1-second interval.</LI>
+
+	<LI> Report the proper event information response in the <A HREF="stifnc_1zft.htm"><B>IStiUSD::GetNotificationData</B></A> method.</LI>
+</OL>
+
+<P>The WIA service calls the <B>IStiUSD::GetStatus</B> method for two major operations:
+
+<OL>
+	<LI>Checking the device's online status.</LI>
+
+	<LI>Polling for device events, such as a push button event.</LI>
+</OL>
+
+<P>Determining the operation request can be done by checking the <B>StatusMask</B> member of the <A HREF="stifnc_8rl5.htm">STI_DEVICE_STATUS</A> structure. The <B>StatusMask</B> member can be either of the following requests:
+
+<DL>
+<DT>STI_DEVSTATUS_ONLINE_STATE</DT>
+
+<DD>This operation request checks whether the device is online and should be filled by setting the <B>dwOnlinesState</B> member of the STI_DEVICE_STATUS structure.</DD>
+
+<DT>STI_DEVSTATUS_EVENTS_STATE</DT>
+
+<DD>This operation request checks for device events. It should be filled by setting the <B>dwEventHandlingState</B> member of the STI_DEVICE_STATUS structure. The value that should be used is STI_EVENTHANDLING_PENDING. (The device has an event pending and is waiting to report it to the WIA service.)
+</DD>
+</DL>
+
+<P>When STI_EVENTHANDLING_PENDING is set, the WIA service is signaled that an event has occurred in the WIA driver. The WIA service calls the <B>IStiUSD::GetNotificationData</B> method to get more information about the event.</P>
+
+<P>The <B>IStiUSD::GetNotificationData</B> method is called for polled events and interrupt events. It is in this method that you should fill out the proper event information to return to the WIA service.</P>
+
+<P class=note><B>Notes</B>&nbsp;&nbsp;Always clear the STI_EVENTHANDLING_PENDING flag in the <B>dwEventHandlingState</B> member to ensure that it is properly set when a device event occurs.</P>
+
+<P class=note>This WIA driver should set the <I>m_guidLastEvent</I> class member variable to the proper event GUID when an event is detected. The <I>m_guidLastEvent</I> is checked at a later time when the WIA service calls the <B>IStiUSD::GetNotificationData</B> method. The <I>m_guidLastEvent</I> member variable is defined in the <B>CWIADevice</B> class (in the following code snippet), used to cache the last event signaled. This member variable is always set to GUID_NULL after it has been requested by the WIA service. . </P>
+
+<P>The following example shows an implementation of the <A HREF="stifnc_1qcp.htm"><B>IStiUSD::GetStatus</B></A> method.</P>
+
+<PRE>STDMETHODIMP CWIADevice::GetStatus(PSTI_DEVICE_STATUS pDevStatus)
+{
+  //
+  // If the caller did not pass in the correct parameters,
+  // then fail the call with E_INVALIDARG.
+  //
+
+  if(!pDevStatus)
+  {
+      return E_INVALIDARG;
+  }
+
+  HRESULT hr = S_OK;
+
+  //
+  // If we are asked, verify state of an event handler 
+  //(front panel buttons, user controlled attachments, etc.).
+  //
+  // If your device requires polling, then this is where you would
+  // specify the event result.
+  // However, It is not recommended to have polled events.
+  // Interrupt events are better for performance, and reliability.
+  // See the SetNotificationsHandle method for how to
+  // implement interrupt events.
+  //
+
+  //
+  // clear the dwEventHandlingState field first to make sure we are really setting
+  // a pending event.
+  //
+
+  pDevStatus-&gt;dwEventHandlingState &amp;= ~STI_EVENTHANDLING_PENDING;
+  if (pDevStatus-&gt;StatusMask &amp; STI_DEVSTATUS_EVENTS_STATE) {
+
+    //
+    // set the polled event result here, for the GetNotificationData()
+    // method to read and report.
+    // (m_guidLastEvent will be read in GetNotificationData)
+    //
+
+    LONG lEventResult = 0;
+    PollMyDeviceForEvents(&amp;lEventResult)
+
+    if(lEventResult == DEVICE_SCAN_BUTTON_PRESSED) {
+
+        //
+        // polled event result was one we know about
+        //
+
+        m_guidLastEvent = WIA_EVENT_SCAN_IMAGE;
+    } else {
+
+        //
+        // nothing happened, so continue
+        //
+
+        m_guidLastEvent = GUID_NULL;
+    }
+
+    if (m_guidLastEvent != GUID_NULL) {
+
+        //
+        // if the event GUID is NOT GUID_NULL, set the
+        // STI_EVENTHANDLING_PENDING flag letting the WIA service
+        // know that we have an event ready. This will tell the WIA
+        // service to call GetNotificationData() for the event
+        // specific information.
+        //
+
+        pDevStatus-&gt;dwEventHandlingState |= STI_EVENTHANDLING_PENDING;
+    }
+  }
+  return S_OK;
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Adding%20Polling%20Event%20Support"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

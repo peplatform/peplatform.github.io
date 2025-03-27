@@ -1,0 +1,172 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Bug Check 0x1E:  KMODE_EXCEPTION_NOT_HANDLED</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="bug check 0x1E">
+<META NAME="MS-HKWD" CONTENT="KMODE_EXCEPTION_NOT_HANDLED">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Driver&nbsp;Development&nbsp;Tools:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_bug_check_0x1e_bug"></A>Bug Check 0x1E: KMODE_EXCEPTION_NOT_HANDLED</H1>
+
+<P>The KMODE_EXCEPTION_NOT_HANDLED bug check has a value of 0x0000001E. This indicates that a kernel-mode program generated an exception which the error handler did not catch.</P>
+
+<H4>Parameters</H4>
+
+<P>The following parameters are displayed on the blue screen.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=27%>Parameter</TH>
+<TH align=left width=73%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>1</TD>
+<TD width=73%>The exception code that was not handled</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>2</TD>
+<TD width=73%>The address at which the exception occurred</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>3</TD>
+<TD width=73%>Parameter&nbsp;0 of the exception</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>4</TD>
+<TD width=73%>Parameter&nbsp;1 of the exception</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Cause</H4>
+
+<P>This is a very common bug check. To interpret it, you must identify which exception was generated.</P>
+
+<P>Common exception codes include:
+
+<UL>
+	<LI>0x80000002: STATUS_DATATYPE_MISALIGNMENT
+<P>An unaligned data reference was encountered.
+</LI>
+
+	<LI>0x80000003: STATUS_BREAKPOINT
+<P>A breakpoint or ASSERT was encountered when no kernel debugger was attached to the system.   
+</LI>
+
+	<LI>0xC0000005: STATUS_ACCESS_VIOLATION
+<P>A memory access violation occurred. (Parameter&nbsp;4 of the bug check is the address that the driver attempted to access.)
+</LI>
+</UL>
+
+<P>For a complete list of exception codes, see the <I>ntstatus.h </I>file located in the <I>inc</I> directory of the Windows DDK.</P>
+
+<H4>Resolving the Problem</H4>
+
+<P><I>If you are not equipped to debug this problem</I>, you should use some basic troubleshooting techniques. If a driver is identified in the bug check message, disable the driver or check with the manufacturer for driver updates. Try changing video adapters. Check with your hardware vendor for any BIOS updates. Disable BIOS memory options such as caching or shadowing.</P>
+
+<P><I>If you plan to debug this problem</I>, you may find it difficult to obtain a stack trace. Parameter&nbsp;2 (the exception address) should pinpoint the driver or function that caused this problem.</P>
+
+<P>If exception code 0x80000003 occurs, this indicates that a hard-coded breakpoint or assertion was hit, but the system was started with the <B>/NODEBUG</B> switch. This problem should rarely occur. If it occurs repeatedly, make sure a kernel debugger is connected and the system is started with the <B>/DEBUG</B> switch.</P>
+
+<P>If exception code 0x80000002 occurs, the trap frame will supply additional information.</P>
+
+<P>If the specific cause of the exception is unknown, the following should be considered:</P>
+
+<P><I>Hardware incompatibility. </I>First, make sure that any new hardware installed is listed on the Microsoft Windows Hardware Compatibility List (HCL).</P>
+
+<P><I>Faulty device driver or system service. </I>In addition, a faulty device driver or system service might be responsible for this error. Hardware issues, such as BIOS incompatibilities, memory conflicts, and IRQ conflicts can also generate this error.</P>
+
+<P>If a driver is listed by name within the bug check message, disable or remove that driver. Disable or remove any drivers or services that were recently added. If the error occurs during the startup sequence and the system partition is formatted with NTFS file system, you might be able to use Safe Mode to rename or delete the faulty driver. If the driver is used as part of the system startup process in Safe Mode, you need to start the computer by using the Recovery Console to access the file. </P>
+
+<P>If the problem is associated with <I>Win32k.sys</I>, the source of the error might be a third-party remote control program. If such software is installed, the service can be removed by starting the system using the Recovery Console and deleting the offending system service file.</P>
+
+<P>Check the System Log in <B>Event Viewer</B> for additional error messages that might help pinpoint the device or driver that is causing bug check 0x1E. Disabling memory caching of the BIOS might also resolve the error. You should also run hardware diagnostics, especially the memory scanner, supplied by the system manufacturer. For details on these procedures, see the owner’s manual for your computer. </P>
+
+<P>The error that generates this message can occur after the first restart during Windows Setup, or after Setup is finished. A possible cause of the error is a system BIOS incompatibility. BIOS problems can be resolved by upgrading the system BIOS version.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To get a stack trace if the normal stack tracing procedures fail</B>
+
+<OL>
+	<LI>Use the <B>KB (Display Stack Backtrace)</B> debugger command to display parameters in the stack trace. Look for the call to <B>NT!PspUnhandledExceptionInSystemThread</B>. (If this function is not listed, see the note below.)</LI>
+
+	<LI>The first parameter to <B>NT!PspUnhandledExceptionInSystemThread</B> is a pointer to a structure, which contains pointers to an <B>except</B> statement:
+<PRE>typedef struct _EXCEPTION_POINTERS {
+    PEXCEPTION_RECORD ExceptionRecord;
+    PCONTEXT ContextRecord;
+    } EXCEPTION_POINTERS, *PEXCEPTION_POINTERS;
+
+ULONG PspUnhandledExceptionInSystemThread(
+    IN PEXCEPTION_POINTERS ExceptionPointers
+    )
+</PRE>
+
+<P>Use the  <B>DD&nbsp;(Display Memory)</B> command on that address to display the necessary data. 
+</LI>
+
+	<LI>The first retrieved value is an exception record and the second is a context record. Use the <B>.exr&nbsp;(Display Exception Record)</B> command and the <B>.cxr&nbsp;(Display Context Record)</B> command with these two values as their arguments, respectively.</LI>
+
+	<LI>After the <B>.cxr</B> command executes, use the <B>KB</B> command to display a stack trace that is based on the context record information. This stack trace indicates the calling stack where the unhandled exception occurred.</LI>
+</OL>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;This procedure assumes that you can locate <B>NT!PspUnhandledExceptionInSystemThread</B>. However, in some cases (such as an access violation crash) you will not be able to do this. In that case, look for <B>ntoskrnl!KiDispatchException</B>. The third parameter passed to this function is a trap frame address. Use the <B>.trap&nbsp;(Display Trap Frame)</B> command with this address to set the Register Context to the proper value. You can then perform stack traces and issue other commands.&nbsp;&nbsp; </P>
+
+<P>Here is an example of bug check 0x1E on an x86 processor:</P>
+
+<PRE>kd&gt; <B>.bugcheck         </B>        get the bugcheck data
+Bugcheck code 0000001e
+Arguments c0000005 8013cd0a 00000000 0362cffff
+
+kd&gt;<B> kb</B>                        start with a stack trace 
+FramePtr  RetAddr   Param1   Param2   Param3   Function Name 
+8013ed5c  801263ba  00000000 00000000 fe40cb00 NT!_DbgBreakPoint 
+8013eecc  8013313c  0000001e c0000005 8013cd0a NT!_KeBugCheckEx+0x194
+fe40cad0  8013318e  fe40caf8 801359ff fe40cb00 NT!PspUnhandledExceptionInSystemThread+0x18
+fe40cad8  801359ff  fe40cb00 00000000 fe40cb00 NT!PspSystemThreadStartup+0x4a
+fe40cf7c  8013cb8e  fe43a44c ff6ce388 00000000 NT!_except_handler3+0x47
+00000000  00000000  00000000 00000000 00000000 NT!KiThreadStartup+0xe
+
+kd&gt; <B>dd fe40caf8 L2 </B>           dump EXCEPTION_POINTERS structure
+0xFE40CAF8  fe40cd88 fe40cbc4                   ..@...@.
+
+kd&gt;<B> .exr fe40cd88  </B>           first DWORD is the exception record
+Exception Record @ FE40CD88:
+   ExceptionCode: c0000005
+  ExceptionFlags: 00000000
+  Chained Record: 00000000
+ExceptionAddress: 8013cd0a
+NumberParameters: 00000002
+   Parameter[0]: 00000000
+   Parameter[1]: 0362cfff
+
+kd&gt;<B> .cxr fe40cbc4  </B>           second DWORD is the context record
+CtxFlags: 00010017
+eax=00087000 ebx=00000000 ecx=03ff0000 edx=ff63d000 esi=0362cfff edi=036b3fff
+eip=8013cd0a esp=fe40ce50 ebp=fe40cef8 iopl=0         nv dn ei pl nz ac po cy
+vip=0    vif=0
+cs=0008  ss=0010  ds=0023  es=0023  fs=0030  gs=0000             efl=00010617
+0x8013cd0a  f3a4             rep movsb
+
+kd&gt;<B> kb     </B>                   kb gives stack for context record
+ChildEBP RetAddr  Args to Child
+fe40ce54 80402e09 ff6c4000 ff63d000 03ff0000 NT!_RtlMoveMemory@12+0x3e
+fe40ce68 80403c18 ffbc0c28 ff6ce008 ff6c4000 HAL!_HalpCopyBufferMap@20+0x49
+fe40ce9c fe43b1e4 ff6cef90 ffbc0c28 ff6ce009 HAL!_IoFlushAdapterBuffers@24+0x148
+fe40ceb8 fe4385b4 ff6ce388 6cd00800 ffbc0c28 QIC117!_kdi_FlushDMABuffers@20+0x28
+fe40cef8 fe439894 ff6cd008 ffb6c820 fe40cf4c QIC117!_cqd_CmdReadWrite@8+0x26e
+fe40cf18 fe437d92 ff6cd008 ffb6c820 ff6e4e50 QIC117!_cqd_DispatchFRB@8+0x210
+fe40cf30 fe43a4f5 ff6cd008 ffb6c820 00000000 QIC117!_cqd_ProcessFRB@8+0x134
+fe40cf4c 80133184 ff6ce388 00000000 00000000 QIC117!_kdi_ThreadRun@4+0xa9
+fe40cf7c 8013cb8e fe43a44c ff6ce388 00000000 NT!_PspSystemThreadStartup@8+0x40
+</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Bug%20Check%200x1E:%20%20KMODE_EXCEPTION_NOT_HANDLED"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

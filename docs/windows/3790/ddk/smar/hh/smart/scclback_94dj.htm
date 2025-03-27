@@ -1,0 +1,117 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>RDF_CARD_TRACKING</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="RDF_CARD_TRACKING">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iocompleterequest_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Smart&nbsp;Card&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_ntclback_rdf_card_tracking"></A>RDF_CARD_TRACKING</H1>
+
+<P>The card tracking callback function installs an event handler to track card insertions and removals.</P>
+
+<PRE class=syntax><B>NTSTATUS 
+  (*ReaderFunction[RDF_CARD_TRACKING])(
+    PSMARTCARD_EXTENSION  </B><I>SmartcardExtension</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>SmartcardExtension</I></DT>
+
+<DD>For WDM device drivers, <I>SmartcardExtension-&gt;OsData-&gt;NotificationIrp </I>contains the IRP that is to be informed of the insertion/removal event.<BR>
+For VxD device drivers, <I>SmartcardExtension-&gt;OsData-&gt;NotificationOverlappedData</I> points to the overlapped structure of the caller to be informed of the insertion/removal event.</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>This function returns an NTSTATUS value. Possible values for WDM and VxD device drivers are the following.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=54%>Value</TH>
+<TH align=left width=46%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=54%>STATUS_PENDING</TD>
+<TD width=46%>Card tracking has been started.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=54%>STATUS_INVALID_DEVICE_STATE</TD>
+<TD width=46%>The device cannot accept the request.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=54%>STATUS_SUCCESS</TD>
+<TD width=46%>Card status matches the requested tracking call.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=54%>STATUS_DEVICE_BUSY</TD>
+<TD width=46%>A card tracking event is already pending.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>smclib.h</I>. Include <I>smclib.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>It is mandatory for card reader drivers to implement this callback function. </P>
+
+<P>Upon receiving an <A HREF="scioctls_0ees.htm">IOCTL_SMARTCARD_IS_PRESENT</A> request, the driver library checks to see if the card is already present. If it is, it completes the request with a status of STATUS_SUCCESS. If not, it calls the reader driver's card tracking callback function, and the reader driver starts card tracking. After initiating card tracking, the driver library marks the request as having a status of STATUS_PENDING. </P>
+
+<P>The driver library handles the completion of the request in two different manners, depending on whether it is a WDM or a VxD driver.</P>
+
+<P><B>WDM Device Drivers</B>: In the case of WDM device drivers, the corresponding WDM driver library places a pointer to the request in <I>SmartcardExtension-&gt;OsData-&gt;NotificationIrp</I>. The reader driver must complete this request as soon as it detects an insertion or a removal. It completes the request by calling <A HREF="JavaScript:hhobj_1.Click()"><B>IoCompleteRequest</B></A>. After the call to <B>IoCompleteRequest</B>, the reader driver must set the <B>NotificationIrp</B> member of <B>SmartcardExtension -&gt; OsData</B> back to NULL. This tells the driver library that the reader driver can accept further card-tracking requests. </P>
+
+<P>It is important to mark this IRP as cancelable, because this call can be of an indefinite duration, and the caller can terminate before this request can be completed.</P>
+
+<P><B>VxD Device Drivers</B>: In the case of VxD device drivers, the reader driver callback function must poll the structure member <I>OsData-&gt;NotificationOverlappedData</I> for a non-NULL value. A non-NULL value signals an insertion or removal. Once the value is non-NULL, the reader driver should call <A HREF="scfunc_9vmn.htm"><B>SmartcardCompleteCardTracking</B> (VxD)</A> to inform the driver library of the card insertion/removal event. </P>
+
+<P>The following offers a code sample.</P>
+
+<PRE>MyDriverCardSupervision(
+SmartcardExtension, 
+OtherParameters)
+//
+//    This function is called whenever the card status changes
+//    For example, card has been inserted or card has been removed
+//
+{
+    //
+    // Do some other tasks here
+    //
+    if (SmartcardExtension-&gt;OsData-&gt;NotificationOverlappedData != NULL){
+
+        SmartcardCompleteCardTracking(SmartcardExtension);
+    }
+    //
+    // Do additional tasks
+    //
+}</PRE>
+
+<H4>See Also</H4>
+
+<P><A HREF="scstruct_50a6.htm">SMARTCARD_EXTENSION</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: RDF_CARD_TRACKING"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,162 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>The DEVMODEW Structure</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="The DEVMODEW Structure">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_the_devmodew_structure_gg"></A>The DEVMODEW Structure</H1>
+
+<P>The <A HREF="grstrcts_6v8n.htm">DEVMODEW</A> structure is the Unicode version of the DEVMODE structure, which is described in the Platform SDK documentation. (The 'W' suffix on DEVMODEW stands for "wide", or Unicode characters.) While applications can use either structure, drivers are required to use the DEVMODEW structure rather than the DEVMODE structure.</P>
+
+<H4>Public and Private Members</H4>
+
+<P>Immediately following a DEVMODEW structure's defined members (often referred to as its public DEVMODEW members), there can be a set of driver-defined members (its private DEVMODEW members). The following figure shows the public section (the actual DEVMODEW structure itself) and the private section Normally, the private members are used only by printer drivers. The driver supplies the size, in bytes, of this private area in the <B>dmDriverExtra</B> member. Driver-defined private members are for exclusive use by the driver. </P>
+
+<P><IMG SRC="images/devmodew.gif" ALT="" BORDER=0></P>
+
+<P><B>The DEVMODEW Structure, Public and Private Sections</B></P>
+
+<P>For printer drivers, the DEVMODEW structure is used to specify user choices for a print document. It is also used to specify default values of these choices for printers, such as the number of copies to print, paper size, and other attributes. For display devices, the DEVMODEW structure specifies display attributes such as the number of bits per pixel, pixel dimensions, and display frequency.</P>
+
+<H4>Initializing a DEVMODEW Structure</H4>
+
+<P>Depending on whether it is to be used by a display driver or by a printer driver, a DEVMODEW structure is initialized in two different ways.
+
+<UL>
+	<LI>Display driver DEVMODEW initialization
+<P>A display driver's <A HREF="ddifncs_0wtj.htm"><I>DrvGetModes</I></A> entry point initializes all members of the DEVMODEW structure to zero. <I>DrvGetModes</I> then copies the name of the display driver DLL to the <B>dmDeviceName</B> member, fills in the <B>dmSpecVersion</B> and <B>dmDriverVersion</B> members with the version of the DEVMODEW structure, and copies display attribute information to the appropriate members.
+</LI>
+
+	<LI>Printer driver DEVMODEW initialization
+<P>When an application makes a call to either <B>DocumentProperties</B> (a printer interface DLL function that is described in the Platform SDK documentation) or <A HREF="drvrfnc_30yv.htm"><B>DrvDocumentPropertySheets</B></A> (an NT-based operating system graphics DDI), a DEVMODEW structure is created with default values. An application is then free to modify any of the public DEVMODEW members. After any changes, the application should then make a second call to the same function it called before, in order to merge the changed members with those of the driver's internal DEVMODEW structure. The second call is necessary since some changes may not work correctly; the printer driver must be called to correct the DEVMODEW structure. When the document is about to be printed, the application passes the merged DEVMODEW structure to <B>CreateDC</B> (described in the Platform SDK documentation), which passes it on to the <A HREF="ddifncs_0zzb.htm"><I>DrvEnablePDEV</I></A> DDI. At that time, the driver's rendering DLL validates the DEVMODEW structure and makes repairs, if necessary, before carrying out the print job.
+</LI>
+</UL>
+
+<H4>Using a DEVMODEW Structure</H4>
+
+<P>Several APIs and graphics DDIs use the information in the DEVMODEW structure for such purposes as printing, querying device capabilities, showing user interface, and others. For example, <A HREF="drvrfnc_8s6f.htm"><B>DrvConvertDevMode</B></A> is a print spooler graphics DDI that translates the DEVMODEW structure from one operating system version to another. This might be necessary if a printer driver gets a DEVMODEW structure from another machine that is running on a different operating system version.</P>
+
+<H4>Modifying a DEVMODEW Structure</H4>
+
+<P>Applications and drivers are free to ask for a DEVMODEW structure and modify its public part directly. Only drivers, however, are permitted to modify the private DEVMODEW structure members.</P>
+
+<P>In order to modify private DEVMODEW structure members, a driver must first determine the offset of the beginning of the private data. Given a pointer to the beginning of this structure, and the <B>dmSize</B> member, which holds the size of the public portion of the structure, the beginning of the private portion can be found. The following example shows how to initialize a pointer to the beginning of the private section. In this example, <I>pdm</I> points to the beginning of the DEVMODEW structure.</P>
+
+<PRE>PVOID pvDriverData = (PVOID)  (((BYTE *) pdm) + (pdm -&gt; dmSize));</PRE>
+
+<H4>Printer Driver/Display Driver DEVMODEW Differences</H4>
+
+<P>The DEVMODEW structure members fall into three categories: 
+
+<UL>
+	<LI>Members used only by printer drivers</LI>
+
+	<LI>Members used only by display drivers</LI>
+
+	<LI>Members used by both printer and display drivers</LI>
+</UL>
+
+<P>The following table lists several public DEVMODEW members that are used <I>only</I> by printer drivers:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>DEVMODEW Members Used Only by Printer Drivers</TH>
+<TH align=left width=52%>Purpose</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>dmScale</B></TD>
+<TD width=52%>Specifies the percentage by which the image is to be scaled for printing.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>dmCopies</B></TD>
+<TD width=52%>Specifies the number of copies to be printed.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>dmColor</B></TD>
+<TD width=52%>Specifies whether a color printer should print color or monochrome.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>dmOrientation</B></TD>
+<TD width=52%>Specifies the orientation of the paper, either portrait or landscape.</TD>
+</TR>
+</TABLE><BR>
+
+<P>The next table lists several public DEVMODEW members that are used <I>only</I> by display drivers:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>DEVMODEW Members Used Only by Display Drivers</TH>
+<TH align=left width=52%>Purpose</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>dmFields</B></TD>
+<TD width=52%>Specifies bit flags identifying which of the DEVMODEW members that follow it are in use. For example, the DM_BITSPERPEL flag is set when the <B>dmBitsPerPel</B> member contains valid data.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>dmBitsPerPel</B></TD>
+<TD width=52%>Specifies the color resolution, in bits per pixel, of the display device.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>dmPelsWidth</B></TD>
+<TD width=52%>Specifies the width, in pixels, of the visible device surface.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>dmPelsHeight</B></TD>
+<TD width=52%>Specifies the height, in pixels, of the visible device surface.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>dmDisplayFlags</B></TD>
+<TD width=52%>Specifies the display mode - color versus monochrome, interlaced versus noninterlaced.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>dmDisplayFrequency</B></TD>
+<TD width=52%>Specifies, in hertz, the display's refresh rate.</TD>
+</TR>
+</TABLE><BR>
+
+<P>The third table lists several public DEVMODEW members that are used by both printer and display drivers:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>DEVMODEW Members Used by Printer and Display Drivers</TH>
+<TH align=left width=52%>Purpose</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>dmDeviceName</B></TD>
+<TD width=52%>For displays, specifies the display driver's DLL. <BR>
+For printers, specifies the "friendly name" of the printer.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>dmSize</B></TD>
+<TD width=52%>Specifies the size, in bytes, of the public portion of the DEVMODEW structure.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%><B>dmDriverExtra</B></TD>
+<TD width=52%>Specifies the number of bytes of private driver data following the public structure members. For display drivers, this is usually zero.</TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: The%20DEVMODEW%20Structure"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

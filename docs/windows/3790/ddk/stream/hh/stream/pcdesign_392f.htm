@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Writing 64-Bit Audio Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Writing 64-Bit Audio Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_driver_programming_techniques_kg">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_kr">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_cm_partial_resource_descriptor_kr">
+</OBJECT>
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_the_new_data_types_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_writing_64_bit_audio_drivers_ksg"></A>Writing 64-Bit Audio Drivers</H3>
+
+<P>If you are writing a 64-bit driver or writing a driver that can be compiled to run on both 32- and 64-bit systems, follow the porting guidelines in <A HREF="JavaScript:hhobj_1.Click()">Driver Programming Techniques</A>. Some of the pitfalls that you might encounter in writing a 64-bit audio driver are described below.</P>
+
+<P>First and foremost, a potential problem to look for in existing 32-bit driver code is conversion between pointer types and integer types such as DWORD or ULONG. Programmers with experience writing code for 32-bit machines might be used to assuming that a pointer value fits into a DWORD or ULONG. For 64-bit code, this assumption is dangerous. Casting a pointer to type DWORD or ULONG can cause a 64-bit pointer to be truncated. A better approach is to cast the pointer to type DWORD_PTR or ULONG_PTR. An unsigned integer of type DWORD_PTR or ULONG_PTR is always large enough to store the entire pointer, regardless of whether the code is compiled for a 32- or 64-bit machine. </P>
+
+<P>For example, the <A HREF="JavaScript:hhobj_2.Click()">IRP</A> pointer field <I>IoStatus.Information </I>is of type ULONG_PTR. The following code shows what <I>not</I> to do when copying a 64-bit pointer value to this field:</P>
+
+<PRE>    PDEVICE_RELATIONS pDeviceRelations;
+    Irp-&gt;IoStatus.Information = (ULONG)pDeviceRelations;  // wrong</PRE>
+
+<P>This code sample erroneously casts the <I>pDeviceRelations</I> pointer to type ULONG, which can truncate the pointer value if <B>sizeof</B>(<I>pDeviceRelations</I>) &gt; <B>sizeof</B>(ULONG). The correct approach is to cast the pointer to ULONG_PTR, as shown in the following:</P>
+
+<PRE>    PDEVICE_RELATIONS pDeviceRelations;
+    Irp-&gt;IoStatus.Information = (ULONG_PTR)pDeviceRelations;  // correct</PRE>
+
+<P>This preserves all 64 bits of the pointer value.</P>
+
+<P>A resource list stores the physical address of a resource in a structure of type PHYSICAL_ADDRESS (see <A HREF="audmp-routines_4c37.htm"><B>IResourceList</B></A>). To avoid truncating a 64-bit address, you should access the structure's <B>QuadPart</B> member rather than its <B>LowPart</B> member when copying an address into the structure or reading an address from the structure. For example, the <B>FindTranslatedPort</B> macro returns a pointer to a <A HREF="JavaScript:hhobj_3.Click()">CM_PARTIAL_RESOURCE_DESCRIPTOR</A> structure that contains the base address of an I/O port. The <B>u.Port.Start</B> member of this structure is a PHYSICAL_ADDRESS pointer to the base address. The following code shows what <I>not</I> to do:</P>
+
+<PRE>    PUSHORT pBase = (PUSHORT)FindTranslatedPort(0)-&gt;u.Port.Start.LowPart;  // wrong</PRE>
+
+<P>Again, this can truncate the pointer. Instead, you should access the <B>QuadPart</B> of this member, as shown in the following:</P>
+
+<PRE>    PUSHORT pBase = (PUSHORT)FindTranslatedPort(0)-&gt;u.Port.Start.QuadPart;  // correct</PRE>
+
+<P>This copies the entire 64-bit pointer.</P>
+
+<P>Inline Win64 functions such as <B>PtrToUlong</B> and <B>UlongToPtr</B> safely convert between pointer and integer types without relying on assumptions about the relative sizes of these types. If one type is shorter than the other, it must be extended when converting to the longer type. Whether the shorter type is extended by filling with the sign bit or with zeros is well defined for each Win64 function. This means that any code snippets such as</P>
+
+<PRE>    ULONG ulSlotPhysAddr[NUM_PHYS_ADDRS];
+    ulSlotPhysAddr[0] = ULONG(pulPhysDmaBuffer) + DMA_BUFFER_SIZE;  // wrong</PRE>
+
+<P>should be replaced by</P>
+
+<PRE>    ULONG_PTR ulSlotPhysAddr[NUM_PHYS_ADDRS];
+    ulSlotPhysAddr[0] = PtrToUlong(pulPhysDmaBuffer) + DMA_BUFFER_SIZE;  // correct</PRE>
+
+<P>This is preferred even though <I>ulSlotPhyAddr</I> might represent the value of a hardware register that is only 32 rather than 64 bits long. For a list of all the new Win64 helper functions for converting between pointer and integer types, see <A HREF="JavaScript:hhobj_4.Click()">The New Data Types</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Writing%2064-Bit%20Audio%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

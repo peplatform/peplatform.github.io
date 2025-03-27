@@ -1,0 +1,190 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Writing WIA Properties by a Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Writing WIA Properties by a Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_writing_wia_properties_by_a_driver_si"></A>Writing WIA Properties by a Driver</H3>
+
+<P>A WIA minidriver can update any of the current values of its WIA properties and valid values by using the following WIA service functions:
+
+<DL>
+<DT><A HREF="wiasfncs_64a1.htm"><B>wiasWriteMultiple</B></A></DT>
+
+<DD>Write all WIA property types. This is a general function that allows a WIA driver to write any property existing on a WIA item, including custom properties. It can be used to write to multiple properties per call.</DD>
+
+<DT><A HREF="wiasfncs_9l49.htm"><B>wiasWritePropStr</B></A></DT>
+
+<DD>Write WIA properties that are strings (type VT_BSTR).</DD>
+
+<DT><A HREF="wiasfncs_05ux.htm"><B>wiasWritePropLong</B></A></DT>
+
+<DD>Write WIA properties that are four-byte integers (type VT_I4).</DD>
+
+<DT><A HREF="wiasfncs_1d49.htm"><B>wiasWritePropFloat</B></A></DT>
+
+<DD>Write WIA properties that are four-byte real numbers (type VT_R4).</DD>
+
+<DT><A HREF="wiasfncs_512h.htm"><B>wiasWritePropGuid</B></A></DT>
+
+<DD>Write WIA properties that are GUIDs (type VT_CLSID).</DD>
+
+<DT><A HREF="wiasfncs_3cfd.htm"><B>wiasWritePropBin</B></A></DT>
+
+<DD>Write WIA properties that are strings of unsigned bytes (type VT_VECTOR | VT_UI1).</DD>
+
+<DT><A HREF="wiasfncs_0ai1.htm"><B>wiasGetChangedValueLong</B></A></DT>
+
+<DD>Get the current changed information for WIA properties that are four-byte integers (type VT_I4).</DD>
+
+<DT><A HREF="wiasfncs_9m7d.htm"><B>wiasGetChangedValueFloat</B></A></DT>
+
+<DD>Get the current changed information for WIA properties that are four-byte real numbers (type VT_R4).</DD>
+
+<DT><A HREF="wiasfncs_55pl.htm"><B>wiasGetChangedValueGuid</B></A></DT>
+
+<DD>Get the current changed information for WIA properties that are GUIDs (type VT_CLSID).</DD>
+
+<DT><A HREF="wiasfncs_5dbd.htm"><B>wiasGetChangedValueStr</B></A></DT>
+
+<DD>Get the current changed information for WIA properties that are strings (type VT_BSTR).</DD>
+
+<DT><A HREF="wiasfncs_8hex.htm"><B>wiasCreatePropContext</B></A></DT>
+
+<DD>Create a WIA property context, which is used in the <A HREF="wiasfncs_0ai1.htm"><B>wiasGetChangedValueLong</B></A>, <A HREF="wiasfncs_9m7d.htm"><B>wiasGetChangedValueFloat</B></A>, <A HREF="wiasfncs_55pl.htm"><B>wiasGetChangedValueGUID</B></A>, and <A HREF="wiasfncs_5dbd.htm"><B>wiasGetChangedValueStr</B></A> service functions.</DD>
+
+<DT><A HREF="wiasfncs_4t9l.htm"><B>wiasFreePropContext</B></A></DT>
+
+<DD>Free the allocated context memory that was created by <A HREF="wiasfncs_8hex.htm"><B>wiasCreatePropContext</B></A>.
+</DD>
+</DL>
+
+<H4>Implementing IWiaMiniDrv::drvValidateItemProperties</H4>
+
+<P>The <A HREF="minidrv_3d0p.htm"><B>IWiaMiniDrv::drvValidateItemProperties</B></A> method is called when changes are made to an item's WIA properties. The WIA minidriver should not only check that the values are valid, but must update any valid values that change.</P>
+
+<P>If a WIA property is not being written by the application, and its value is invalid, "fold" it to a new value, or else fail validation (because the application is setting the property to an invalid value).</P>
+
+<P>The following example shows an implementation of the <B>IWiaMiniDrv::drvValidateItemProperties</B> method:</P>
+
+<PRE>HRESULT _stdcall CWIADevice::drvValidateItemProperties(
+  BYTE           *pWiasContext,
+  LONG           lFlags,
+  ULONG          nPropSpec,
+  const PROPSPEC *pPropSpec,
+  LONG           *plDevErrVal)
+{
+  //
+  // If the caller did not pass in the correct parameters,
+  //  then fail the call with E_INVALIDARG.
+  //
+
+  if (!pWiasContext) {
+      return E_INVALIDARG;
+  }
+
+  if (!plDevErrVal) {
+      return E_INVALIDARG;
+  }
+
+  if (!pPropSpec) {
+      return E_INVALIDARG;
+  }
+
+  HRESULT hr      = S_OK;
+  LONG lItemType  = 0;
+  WIA_PROPERTY_CONTEXT Context;
+
+  *plDevErrVal = 0;
+
+  //
+  // create a WIA property context, to gain access to
+  // the WIA application's intended settings.
+  //
+
+  hr = wiasCreatePropContext(nPropSpec,
+                             (PROPSPEC*)pPropSpec,
+                             0,
+                             NULL,
+                             &amp;Context);
+  if(S_OK == hr) {
+
+    //
+    // get the current item type to help determine what property set to validate
+    //
+
+      hr = wiasGetItemType(pWiasContext, &amp;lItemType);
+      if (S_OK == hr) {
+          if (lItemType &amp; WiaItemTypeRoot) {
+
+            //
+            //  validate root item properties here
+            //
+
+        } else {
+
+            //
+            // validate item properties here
+            //
+
+              WIAS_CHANGED_VALUE_INFO cviDataType;
+              memset(&amp;cviDataType,0,sizeof(cviDataType));
+
+            //
+            // check to see if the application was updating
+            // the WIA_IPA_DATATYPE property
+            //
+
+              hr = wiasGetChangedValueLong(pWiasContext,pContext,FALSE,WIA_IPA_DATATYPE,&amp;cviDataType);
+              if(S_OK == hr) {
+                  if (cviDataType.bChanged) {
+
+                    //
+                    // This value was changed, and needs to be checked
+                    //
+                    // cviDataType.Current.lVal is the current application setting.
+                    //
+
+                  } else {
+
+                    //
+                    // Nothing has been changed, so leave this property alone.
+                    // Let the WIA service function wiasValidateItemProperties
+                    // do the rest of the work for you.
+                    //
+
+                  }
+              }
+          }
+
+        //
+        // free the property context
+        //
+
+          wiasFreePropContext(&amp;Context);
+      }
+
+    //
+    // call WIA service helper when you have finished updating dependent values
+    //
+
+    if(S_OK == hr) {
+
+        //
+        // call WIA service helper to validate other properties
+        //
+
+          hr = wiasValidateItemProperties(pWiasContext, nPropSpec, pPropSpec);
+      }
+  }
+  return hr;
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Writing%20WIA%20Properties%20by%20a%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

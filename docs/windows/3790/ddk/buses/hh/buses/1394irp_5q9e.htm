@@ -1,0 +1,366 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>REQUEST_ALLOCATE_ADDRESS_RANGE</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="REQUEST_ALLOCATE_ADDRESS_RANGE">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_mmprobeandlockpages_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_request_allocate_address_range_kr"></A>REQUEST_ALLOCATE_ADDRESS_RANGE</H1>
+
+<P>The REQUEST_ALLOCATE_ADDRESS_RANGE request allocates addresses in the computer's IEEE 1394 address space. </P>
+
+<P>The relevant members of the IRB for this request are:</P>
+
+<PRE class=syntax>typedef struct _IRB {
+  ULONG FunctionNumber;
+    .
+    .
+    .
+  union {
+    struct {
+      PMDL            Mdl;
+      ULONG           fulFlags;
+      ULONG           nLength;
+      ULONG           MaxSegmentSize;
+      ULONG           fulAccessType;
+      ULONG           fulNotificationOptions;
+      PVOID           Callback;
+      PVOID           Context;
+      ADDRESS_OFFSET  Required1394Offset;
+      PSLIST_HEADER   FifoSListHead;
+      PKSPIN_LOCK     FifoSpinLock;
+      ULONG           AddressesReturned;
+      PADDRESS_RANGE  p1394AddressRange;
+      HANDLE          hAddressRange;
+      PVOID           DeviceExtension;
+    } AllocateAddressRange;
+    .
+    .
+    .
+  } u;
+} IRB;</PRE>
+
+<H4>IRB Input</H4>
+
+<DL>
+<DT><B>FunctionNumber</B></DT>
+
+<DD>REQUEST_ALLOCATE_ADDRESS_RANGE</DD>
+
+<DT><B>u.AllocateAddressRange.Mdl</B></DT>
+
+<DD>If non-NULL, points to the MDL that describes the application’s buffer where asynchronous operations are to be read, written, or locked. The memory for the MDL must be allocated from nonpaged pool or locked down by means of a call to <A HREF="JavaScript:hhobj_1.Click()"><B>MmProbeAndLockPages</B></A>. If the driver specifies <B>u.AllocateAddressRange.Mdl</B>, then <B>u.AllocateAddressRange.FifoSListHead</B> and <B>u.AllocateAddressRange.FifoSpinLock</B> must be NULL. </DD>
+
+<DT><B>u.AllocateAddressRange.fulFlags</B></DT>
+
+<DD>Specifies whether the array entries in p1394AddressRange use big-endian byte order. If the caller specifies BIG_ENDIAN_ADDRESS_RANGE, the array entries are in big-endian byte order (the native byte order of the IEEE 1394 protocol), even if the local host is a little-endian machine. In order to specify a little-endian address range, the caller must explicitly guarantee that the BIG_ENDIAN_ADDRESS_RANGE flag is not set using a statement similar to the following:<BR>
+fulFlags = fulFlags &amp; ~(0x0ffffffff &amp; BIG_ENDIAN_ADDRESS_RANGE)</DD>
+
+<DT><B>u.AllocateAddressRange.nLength</B></DT>
+
+<DD>Specifies the number of the IEEE 1394 addresses to allocate. </DD>
+
+<DT><B>u.AllocateAddressRange.MaxSegmentSize</B></DT>
+
+<DD>Specifies the maximum size for each range of addresses the bus driver allocates. Use zero to indicate that the driver does not have a required maximum segment size. This member is ignored if <B>u.AllocateAddressRange.Required1394Offset</B> is non-NULL.</DD>
+
+<DT><B>u.AllocateAddressRange.fulAccessType</B></DT>
+
+<DD>Specifies access type using one or more of the following flags.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=49%>Access</TH>
+<TH align=left width=51%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>ACCESS_FLAGS_TYPE_READ </TD>
+<TD width=51%>Allocated addresses can be read.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>ACCESS_FLAGS_TYPE_WRITE </TD>
+<TD width=51%>Allocated addresses can be written to<I>.</I></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>ACCESS_FLAGS_TYPE_LOCK </TD>
+<TD width=51%>Allocated addresses can be the target of a lock operation<I>.</I></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>ACCESS_FLAGS_TYPE<BR>
+_BROADCAST</TD>
+<TD width=51%>Allocated addresses can receive asynchronous I/O requests from any node on the bus. (By default, only the device driver's device can send requests to the allocated addresses).</TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>Special considerations apply to drivers of virtual devices. Virtual devices do not have node IDs, and so when a driver sends a request to a virtual device, the bus driver has no means of identifying which device is the target. Thus in order for a virtual device to receive requests, its driver must allocate a range of addresses with the ACCESS_FLAGS_TYPE_BROADCAST flag set in <B>fulAccessType</B>. This permits the virtual device to receive all request packets, no matter what node ID is indicated in the request packet. 
+</DD>
+
+<DT><B>u.AllocateAddressRange.fulNotificationOptions</B></DT>
+
+<DD>If the device driver requests that the bus driver handle each request, and notifies the device driver upon completion, this specifies which asynchronous I/O request types will trigger the bus driver to the notify the device driver upon completion. See the <B>Operation</B> section for more details. The driver may specify one or more of the NOTIFY_FLAGS_AFTER_XXX flags.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=49%>Flag</TH>
+<TH align=left width=51%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%> NOTIFY_FLAGS_NEVER</TD>
+<TD width=51%>No notification.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>NOTIFY_FLAGS_AFTER_READ </TD>
+<TD width=51%>Notify the device driver after carrying out an asynchronous read operation.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>NOTIFY_FLAGS_AFTER_WRITE </TD>
+<TD width=51%>Notify the device driver after carrying out an asynchronous write operation.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=49%>NOTIFY_FLAGS_AFTER_LOCK </TD>
+<TD width=51%>Notify the device driver after carrying out an asynchronous lock operation.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>u.AllocateAddressRange.Callback</B></DT>
+
+<DD>Points to a device driver callback routine. If the device driver specifies that the bus driver notify the device driver for each asynchronous I/O request, <B>u.AllocateAddressRange.Callback</B> points to the device driver's notification routine, which must have the following prototype:
+
+<PRE>VOID DriverNotificationRoutine(IN PNOTIFICATION_INFO );
+</PRE>
+
+
+<P>If the device driver specifies that it receives no notification, and submits this request at raised IRQL through the port driver's physical mapping routine, then <B>u.AllocateAddressRange.Callback</B> points to the device driver's allocation completion routine, which must have the following prototype:
+
+
+<PRE>VOID AllocationCompletionRoutine( IN PVOID );
+</PRE>
+
+
+<P>Drivers that do not request notification, and submit this request in the normal way at PASSIVE_LEVEL, must set this member to NULL.
+</DD>
+
+<DT><B>u.AllocateAddressRange.Context</B></DT>
+
+<DD>Points to any context data that that the device driver wants to pass for this set of addresses. If the provided callback (see previous) is a notification routine, the bus driver passes <B>u.AllocateAddressRange.Context</B> within the NOTIFICATION_INFO the parameter. If the callback is an allocation completion routine, the bus driver passes <B>u.AllocateAddressRange.Context</B> as the sole parameter to the routine.</DD>
+
+<DT><B>u.AllocateAddressRange.Required1394Offset</B></DT>
+
+<DD>Specifies a hard-coded address in the computer's IEEE 1394 address space. The bus driver allocates the addresses beginning at <B>u.AllocateAddressRange.Required1394Offset</B>. If no specific address is required, the driver should fill in each member of the ADDRESS_OFFSET with zero. The bus driver then chooses the addresses to allocate.</DD>
+
+<DT><B>u.AllocateAddressRange.FifoSListHead</B></DT>
+
+<DD>If non-NULL, specifies a properly initialized (for example, by <B>ExInitializeSListHead</B>) interlocked, singly-linked list of ADDRESS_FIFO elements. Each ADDRESS_FIFO contains an MDL. As the bus driver handles each incoming write request to the allocated addresses, it pops off the first element on the list and writes incoming data to the MDL. It then calls the driver's notification routine.
+
+<P>Each MDL provided must only span one page in memory. The driver can add or remove elements from the ADDRESS_FIFO list by using <B>ExInterlockedPushEntrySList</B> and <B>ExInterlockedPopEntrySList</B>.
+
+
+<P>If this member is non-NULL, the <B>Mdl</B> member of <B>u.AllocateAddress</B> range must be NULL, the <B>fulNotificationFlags</B> member must be NOTIFY_FLAGS_AFTER_WRITE (no other flags must be specified), and the driver must provide a spin lock in <B>FifoSpinLock</B>.
+</DD>
+
+<DT><B>u.AllocateAddressRange.FifoSpinLock</B></DT>
+
+<DD>If non-NULL, specifies a properly initialized spin lock (for example, by <B>KeInitializeSpinLock</B>). The spin lock is used to serialize access to the SList provided in <B>u.AllocateAddressRange.FifoSListHead</B>.
+
+<P>The <B>u.AllocateAddressRange.FifoSpinLock</B> member is non-NULL if and only if <B>u.AllocateAddressRange.FifoSListHead</B> is non-NULL as well.
+</DD>
+
+<DT><B>u.AllocateAddressRange.p1394AddressRange</B></DT>
+
+<DD>Points to an array of ADDRESS_RANGE structures. The array must be large enough to hold the maximum number of structures the bus driver can return.
+
+<P>If the driver specifies a required address offset, or if the driver does not provide any backing store, the bus driver only returns one address range. If the driver provides backing store in <B>u.AllocateAddressRange.Mdl</B> the bus driver segments the allocated addresses along physical memory boundaries. If the <B>MaxSegmentSize</B> of <B>u.AllocateAddressRange</B> is 0, or if <B>MaxSegmentSize</B> is bigger than the page size, the driver can use the ALLOCATE_AND_SIZE_TO_SPAN_PAGES macro to determine the worst case. Otherwise, the maximum number of addresses ranges returned by the bus driver is <B>u.AllocateAddressRange.nLength</B> / <B>u.MaxSegmentSize</B>. 
+</DD>
+
+<DT><B>u.AllocateAddressRange.DeviceExtension</B></DT>
+
+<DD>Reserved.
+</DD>
+</DL>
+
+<H4>IRB Output</H4>
+
+<DL>
+<DT><B>u.AllocateAddressRange.AddressesReturned</B></DT>
+
+<DD>Specifies the number of ADDRESS_RANGE structures returned in the <B>p1394Address </B>member.</DD>
+
+<DT><B>u.AllocateAddressRange.p1394AddressRange</B></DT>
+
+<DD>If the request is successful, this points to an array of ADDRESS_RANGE structures that describe the set of address ranges allocated to fulfill this request.</DD>
+
+<DT><B>u.AllocateAddressRange.hAddressRange</B></DT>
+
+<DD>If the request is successful, this specifies the handle to use when freeing the allocated address ranges with the REQUEST_FREE_ADDRESS_RANGE request.
+</DD>
+</DL>
+
+<H4>I/O Status Block</H4>
+
+<P>The bus driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS on success, or the appropriate error code on failure.</P>
+
+<H4>Operation</H4>
+
+<P>If the driver provides an address in <B>u.AllocateAddressRange.Required1394Offset</B>, the bus driver allocates one contiguous range of addresses, beginning at that address. Otherwise, the bus driver allocates several ranges of addresses to fulfill the request.</P>
+
+<P>Asynchronous I/O packets sent to the allocated address range are received by the bus driver. What the bus driver does with the packet depends on settings in the IRB when it is submitted. These settings also determine when the bus driver notifies the client driver of the operation and whether the client driver or the bus driver sends the response packet.</P>
+
+<P>There are three types of notification used by the bus driver to inform the client that it has received a packet:
+
+<UL>
+	<LI><B>No-notification</B> - the bus driver does not notify the client that it has received a request packet.</LI>
+
+	<LI><B>Postnotification</B> - the bus driver handles the request packet, then notifies the client that it has received a request.</LI>
+
+	<LI><B>Prenotification</B> - the bus driver, does not handle the request, but rather passes it to the client upon receiving it.</LI>
+</UL>
+
+<P>The following table explains how the bus driver and the client share responsibility for handling request and response packets.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=32%>Values of fields in address allocation IRB</TH>
+<TH align=left width=32%>Type of Notification</TH>
+<TH align=left width=36%>Driver Responsible for Sending Response Packet</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><B><U>Case 1</U>:</B>
+<OL>
+	<LI><B>Mdl</B> != NULL</LI>
+
+	<LI><B>fulNotificationFlags</B> = NOTIFY_FLAGS_NEVER </LI>
+</OL>
+</TD>
+<TD width=32%><B><U>No notification</U></B>
+<P>(Bus driver handles request packets transparently, no prenotifications or postnotifications).</P>
+</TD>
+<TD width=36%>Bus driver</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><B><U>Case 2</U>:</B>
+<OL>
+	<LI><B>Mdl</B> != NULL</LI>
+
+	<LI><B>fulNotificationFlags</B> = one or more of NOTIFY_FLAGS_AFTER_XXX</LI>
+
+	<LI><B>FifoSListHead</B> = NULL <B>FifoSpinLock</B> = NULL</LI>
+</OL>
+</TD>
+<TD width=32%><B><U>Postnotification</U></B>
+<P>(Bus driver handles request packet, then notifies the client driver upon completion using the client's callback routine).</P>
+</TD>
+<TD width=36%>Bus driver</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><B><U>Case 3</U>:</B>
+<OL>
+	<LI><B>Mdl</B> = NULL</LI>
+
+	<LI><B>FifoSListHead</B> != NULL <B>FifoSpinLock</B> != NULL </LI>
+
+	<LI><B>fulNotificationFlags</B> = NOTIFY_FLAGS_AFTER_WRITE</LI>
+</OL>
+</TD>
+<TD width=32%><B><U>Postnotification</U></B><BR>
+(Bus driver handles request packet, then notifies the client driver upon completion using the client's callback routine).</TD>
+<TD width=36%>Bus driver</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><B><U>Case 4</U>:</B>
+<OL>
+	<LI><B>Mdl</B> = NULL</LI>
+
+	<LI><B>FifoSListHead </B>= NULL</LI>
+
+	<LI><B>FifoSpinLock</B> = NULL</LI>
+</OL>
+</TD>
+<TD width=32%><B><U>Prenotification</U></B>
+<P>(Client handles the request packet. Instead of using the callback routine to send a notification, the bus driver uses the callback routine to pass the request packet to the client driver. In this case, the client driver must also send its own response packet).</P>
+</TD>
+<TD width=36%>Client driver</TD>
+</TR>
+</TABLE><BR>
+
+<P>The following is a detailed description of the four cases listed in the preceding table:
+
+<UL>
+	<LI><B><U>Case 1</U></B>: The bus driver transparently handles the request packet by reading or writing data using the MDL. The device driver receives no notification. For this setting, the bus driver allocates the address range asynchronously. Upon completion, it calls the allocation completion routine that the driver passed in <B>u.AllocateAddressRange.Callback</B>. As a parameter, it passes <B>u.AllocateAddressRange.Context</B>. This form of REQUEST_ALLOCATE_ADDRESS_RANGE can only be submitted in the normal way at IRQL PASSIVE_LEVEL. At raised IRQL, the driver can submit the IRB directly to the port driver through a special interface. See the following discussion for details.</LI>
+
+	<LI><B><U>Case 2</U></B>: The bus driver handles the request packet by reading or writing data using the MDL. After each request type specified by NOTIFY_FLAGS_AFTER_XXX, the bus driver calls the driver's notification routine (passed in <B>u.AllocateAddressRange.Callback</B>), and passes a description of the operation in NOTIFICATION_INFO. See <A HREF="1394stct_252q.htm">NOTIFICATION_INFO</A> for details. Drivers can submit this form of REQUEST_ALLOCATE_ADDRESS_RANGE at any IRQL. </LI>
+
+	<LI><B><U>Case 3</U></B>: The bus driver acquires the spin lock, pops the first element off the list, and uses the MDL to handle the request packet. It then calls the driver's notification routine (passed in <B>u.AllocateAddressRange.Callback</B>), and passes a description of the operation in NOTIFICATION_INFO. See <A HREF="1394stct_252q.htm">NOTIFICATION_INFO</A> for details. Drivers can submit this form of REQUEST_ALLOCATE_ADDRESS_RANGE at any IRQL.</LI>
+
+	<LI><B><U>Case 4</U></B>: The bus driver passes the request packet in the NOTIFICATION_INFO parameter of the driver's notification routine (passed in <B>u.AllocateAddressRange.Callback</B>). The device driver must provide the response packet. See <A HREF="1394stct_252q.htm">NOTIFICATION_INFO</A>. The NOTIFY_FLAGS_XXX flags are ignored. The bus driver ignores the setting of <B>u.AllocateAddressRange.MaxSegmentSize</B>, and always returns a contiguous range of addresses. Drivers can submit this setting of REQUEST_ALLOCATE_ADDRESS_RANGE at any IRQL.</LI>
+</UL>
+
+<P>REQUEST_ALLOCATE_ADDRESS_RANGE can be submitted through <B>IoCallDriver</B> at any IRQL, with one exception. If the driver receives no notification (<B>u.AllocateAddressRange.Mdl</B> is non-NULL and <B>u.AllocateAddressRange.fulNotificationFlags</B> is NOTIFY_FLAGS_NEVER), then the request can only be submitted through <B>IoCallDriver</B> at PASSIVE_LEVEL.</P>
+
+<P>In this specific circumstance, the driver can submit the request through an alternative method, the port driver's physical mapping routine. The device driver can hand off the IRB directly to the physical mapping routine. Drivers can get a pointer to the physical mapping routine by submitting the REQUEST_GET_LOCAL_HOST_INFO bus request with <B>nLevel</B> = GET_PHYS_ADDR_ROUTINE. See <A HREF="1394stct_0a0i.htm">GET_LOCAL_HOST_INFO4</A> for details.</P>
+
+<P>The following table explains how to submit the request at different IRQLs.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Notification?</TH>
+<TH align=left width=30%>DISPATCH_LEVEL</TH>
+<TH align=left width=36%>Below DISPATCH_LEVEL</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>yes</TD>
+<TD width=30%><B>IoCallDriver</B></TD>
+<TD width=36%><B>IoCallDriver</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>no</TD>
+<TD width=30%>Port driver's physical mapping routine</TD>
+<TD width=36%><B>IoCallDriver</B></TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>1394.h</I>. Include <I>1394.h</I>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="1394irp_06ya.htm">IOCTL_IEEE1394_API_REQUEST</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: REQUEST_ALLOCATE_ADDRESS_RANGE"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

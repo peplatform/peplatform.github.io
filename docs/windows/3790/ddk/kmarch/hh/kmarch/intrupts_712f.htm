@@ -1,0 +1,38 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Which Type of DPC Should You Use?</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Which Type of DPC Should You Use?">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_which_type_of_dpc_should_you_use_kg"></A>Which Type of DPC Should You Use?</H2>
+
+<P>Depending on a driver’s design, it can have any of the following:
+
+<UL>
+	<LI>A single <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> to complete all interrupt-driven I/O operations</LI>
+
+	<LI>A set of one or more <A HREF="drvrrtns_3tbm.htm"><I>CustomDpc</I></A> routines. </LI>
+
+	<LI>Both a <I>DpcForIsr</I> and a set of operation-specific <I>CustomDpc</I> routines</LI>
+</UL>
+
+<P>Whether a driver has a single <I>DpcForIsr</I> routine, a set of <I>CustomDpc</I> routines, or both, depends on the nature of its underlying device and the set of I/O requests it must support. </P>
+
+<P>Most lowest-level device drivers have a single <I>DpcForIsr</I> routine to complete I/O processing for each IRP that requires one or more operations on their respective devices. Using a single <I>DpcForIsr</I> to complete per-request, interrupt-driven I/O operations on a device that does one operation at a time is relatively easy. Such a driver’s ISR need only call <A HREF="k104_3mb6.htm"><B>IoRequestDpc</B></A> for each interrupt-driven I/O operation.</P>
+
+<P>Few lowest-level drivers have <I>CustomDpc</I> routines unless their devices require more than one DPC to complete a varied set of interrupt-driven I/O operations.</P>
+
+<P>Using a single <I>DpcForIsr</I> to complete overlapped, interrupt-driven I/O operations on a device that can do concurrent operations is possible with careful design, but can be relatively difficult. In addition to or instead of queuing a <I>DpcForIsr</I>, an ISR can queue a set of operation-specific, driver-supplied <I>CustomDpc</I> routines by calling <A HREF="k105_75iq.htm"><B>KeInsertQueueDpc</B></A>.</P>
+
+<P>For example, consider some of the design challenges involved in writing a serial driver. As the driver of a full-duplex device, a serial driver cannot rely on a one-to-one correspondence between the order in which IRPs are queued to a <I>StartIo</I> routine and the sequence of interrupts from its device in a multitasking, multiprocessor system. Furthermore, serial drivers must handle timing out requests and asynchronous user-generated requests to cancel previously requested operations, to purge buffered data, and so forth.</P>
+
+<P>Consequently, a serial driver might maintain internal queues for the read, write, purge, and wait operations that user-mode COM port applications can request. It also could maintain reference counts or use some other tracking mechanism, such as a set of flags, for the IRPs in its internal queues. Its ISR would call <B>KeInsertQueueDpc</B> with any of a number of driver-allocated and initialized DPC objects, each associated with a driver-supplied <I>CustomDpc</I> routine. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Which%20Type%20of%20DPC%20Should%20You%20Use%3F"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

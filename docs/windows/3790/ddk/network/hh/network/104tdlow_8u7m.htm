@@ -1,0 +1,79 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProtocolTransferDataComplete</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProtocolTransferDataComplete">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocoltransferdatacomplete_nr"></A>ProtocolTransferDataComplete</H1>
+
+<P>The <I>ProtocolTransferDataComplete</I> function is a required driver function if the protocol might bind itself to an underlying connectionless NIC driver that does not indicate full-packet receives with <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>. <I>ProtocolTransferDataComplete</I> completes the processing of a protocol-initiated transfer-data request for which <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A> returned NDIS_STATUS_PENDING. </P>
+
+<P>Exclusively connection-oriented protocols need no <I>ProtocolTransferDataComplete</I> function. </P>
+
+<PRE class=syntax><B>VOID
+</B>  <B>ProtocolTransferDataComplete(</B>
+    <B>IN NDIS_HANDLE </B> <I>ProtocolBindingContext</I><B>,
+</B>    <B>IN PNDIS_PACKET</B>  <I>Packet</I><B>,
+</B>    <B>IN NDIS_STATUS</B>  <I>Status</I><B>,
+</B>    <B>IN UINT </B> <I>BytesTransferred</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>ProtocolBindingContext</I></DT>
+
+<DD>Specifies the handle to a protocol-allocated context area in which the protocol driver maintains per-binding run-time state. The driver supplied this handle when it called <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A>.  </DD>
+
+<DT><I>Packet</I></DT>
+
+<DD>Pointer to the protocol-allocated packet descriptor the driver originally passed to <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A>. </DD>
+
+<DT><I>Status</I></DT>
+
+<DD>Specifies the final status of the transfer-data operation. </DD>
+
+<DT><I>BytesTransferred</I></DT>
+
+<DD>Specifies the number of bytes of data that the NIC driver transferred into the buffers mapped by buffer descriptors chained to the packet descriptor at <I>Packet</I>. The protocol uses this value to determine whether the miniport driver supplied all the requested data for the originally indicated network packet. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><I>ProtocolTransferDataComplete</I> can be called before <B>NdisTransferData</B> returns control. If this occurs, the protocol driver has no opportunity to inspect the status code that <B>NdisTransferData</B> returns at <I>Status</I>. The protocol must assume that the given packet descriptor at <I>Packet</I> was pending until <I>ProtocolTransferDataComplete</I> was called. </P>
+
+<P>When the underlying NIC driver calls <A HREF="103ndisx_6nhu.htm"><B>NdisMTransferDataComplete</B></A>, NDIS forwards the miniport driver-supplied <I>Packet</I> pointer and <I>Status</I> value to <I>ProtocolTransferDataComplete</I>. When this occurs, the protocol regains ownership of the resources it allocated for a preceding call to <B>NdisTransferData</B>. <I>ProtocolTransferDataComplete</I> can postprocess the miniport driver-supplied data in the buffers the protocol chained to the packet descriptor at <I>Packet</I>, along with the data <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> copied in the corresponding indication. Then, <I>ProtocolTransferDataComplete</I> can notify interested clients of the received network data.</P>
+
+<P><I>ProtocolTransferDataComplete</I> also can either release the resources that the protocol allocated for its call to <B>NdisTransferData</B> or prepare the returned buffer and packet descriptors for reuse in a subsequent call to <B>NdisTransferData</B>. As a general rule, reusing such resources yields better performance than releasing them except, possibly, in periods of low network traffic if the protocol previously allocated a surplus of these resources to handle a period of heavy I/O demand. </P>
+
+<P>To prepare the buffer and packet descriptors for reuse, <I>ProtocolTransferDataComplete</I> should follow these guidelines:
+
+<UL>
+	<LI><I>Always</I> call an <B>NdisUnchainBufferAt</B><I>Xxx</I> function as many times as necessary to save the buffer descriptor pointers before <I>ProtocolTransferDataComplete</I> calls <A HREF="103ndisx_87hu.htm"><B>NdisReinitializePacket</B></A> with the descriptor at <I>Packet</I>. 
+<P>Otherwise, <B>NdisReinitializePacket</B> sets the head of the buffer chain to NULL so the protocol cannot recover pointers to the buffer descriptors chained to the packet descriptor. In effect, the protocol loses a set of buffer descriptors that the protocol allocated with <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A>, and possibly loses access to the protocol-allocated buffers mapped by these descriptors as well. 
+</LI>
+
+	<LI><I>Never</I> call <A HREF="103ndisx_1ype.htm"><B>NdisZeroMemory</B></A> with a pointer to a packet descriptor. Use <B>NdisReinitializePacket</B> instead. 
+<P>Otherwise, <B>NdisZeroMemory</B> destroys the packet descriptor the protocol allocated with <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, rendering it unusable for specifying subsequent data transfers and sends. 
+</LI>
+</UL>
+
+<P><I>ProtocolTransferDataComplete</I> runs at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_9a42.htm"><I>MiniportTransferData</I></A>, <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A>, <A HREF="103ndisx_044y.htm"><B>NdisFreeBuffer</B></A>, <A HREF="103ndisx_6sc2.htm"><B>NdisFreeMemory</B></A>, <A HREF="103ndisx_47le.htm"><B>NdisFreePacket</B></A>, <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, <A HREF="103ndisx_6nhu.htm"><B>NdisMTransferDataComplete</B></A>, <A HREF="103ndisx_87hu.htm"><B>NdisReinitializePacket</B></A>, <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A>, <A HREF="103ndisx_9vci.htm"><B>NdisUnchainBufferAtBack</B></A>, <A HREF="103ndisx_30mq.htm"><B>NdisUnchainBufferAtFront</B></A>, <A HREF="103ndisx_1ype.htm"><B>NdisZeroMemory</B></A>, <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A>, <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProtocolTransferDataComplete"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Rectangular Memory Allocation</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Rectangular Memory Allocation">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_rectangular_memory_allocation_gg"></A>Rectangular Memory Allocation</H3>
+
+<P>Display memory is considered <I>rectangular</I> whenever the pitch is fixed to a particular size for all the surfaces within a given heap. </P>
+
+<P>With rectangular display memory, the layout is two-dimensional, with a finite width and height. This width is not always the same as the width of the screen. Because display memory must account for different display resolutions and design considerations, the actual horizontal width might span a much larger region than what is currently displayed on the monitor. As described in Memory Heap Allocation, the pitch value is based on the number of bytes to add to a column of display memory in order to reach the same column of display memory on the following scan line. </P>
+
+<P>For example, even though a screen might be displaying 640 pixels across, if the rectangular display memory is 1280 bytes across with 8-bit pixels, then the pitch is 1280 (not 640). The pitch across a 1280-pixel horizontal stretch of memory with 16-bit pixels is 2560. The pitch for 32-bit pixels is quadruple what it is for 8-bit pixels, so if the display is 1280 32-bit pixels across, the pitch is 5120. </P>
+
+<P>Rectangular memory is generally used less efficiently by applications than linear memory because small fragments might remain after an application stores a large surface. Applications might be unable to store other surfaces in the remaining space even though the number of available bytes in the remaining space is greater than any new surfaces require. Applications can access this space on a first-come, first-served basis and can only store small surfaces that fit in the remaining fragments.</P>
+
+<P>A rectangular heap can be as large as a contiguous region of available memory, but it cannot be L-shaped because its size is measured in X by Y coordinates. If the rectangular heap is not tall enough and wide enough to hold a primary surface, then it cannot be a back buffer. If the pitch of the primary surface is not equal to the display width of the primary surface, a rectangular block of memory to the conceptual right of the display is left over (Heap 1 in the following figure). This block is as wide as the pitch minus the width of the display. Leftover memory to the right can also happen in linear cards if the existing display driver assumes a fixed pitch. Rectangular or linear memory may also be left over below the primary surface (but not in this example). </P>
+
+<P><IMG SRC="images/ddfig5.gif" ALT="" BORDER=0> </P>
+
+<P><B>Rectangular Memory Allocation</B></P>
+
+<P>In the preceding figure, the starting point (indicated by the <B>fpStart</B> member of the <A HREF="ddstrcts_90yv.htm">VIDEOMEMORY</A> structure) of the rectangular heap is calculated by adding the width of the primary surface to the starting address of the primary surface. The width and height are also calculated to give the dimensions of the rectangular heap. If any memory remains below the Windows caches, a heap could be created there. </P>
+
+<P>The following pseudo code shows how a <A HREF="ddstrcts_90yv.htm">VIDEOMEMORY</A> structure is set up for rectangular memory: </P>
+
+<PRE>/*
+ * video memory pool usage
+ */
+static VIDEOMEMORY vidMem [] = {
+    { VIDMEM_ISRECTANGULAR, 0x00000000, 0x00000000,
+           { 0 }, { 0 } },
+};</PRE>
+
+<P>The only difference between the code for rectangular memory and its linear counterpart is the VIDMEM_ISRECTANGULAR flag, which indicates that this is rectangular memory </P>
+
+<P>The following pseudo code shows how rectangular memory heaps are set up: </P>
+
+<PRE>/*
+ * video memory pool information
+ */
+
+/* set up the pointer to the first available video memory after the primary surface */
+    ddHALInfo.vmiData.pvmList      = vidMem;
+
+/* this is set to zero because there may only be one heap depending on the pitch 
+    ddHALInfo.vmiData.dwNumHeaps      = 0; 
+
+
+/*
+ *  Compute the Pitch here ...
+ */
+
+
+    vidMem[0].fpStart  = ddHALInfo.vmiData.fpPrimary + dwPrimarySurfaceWidth;
+    vidMem[0].dwWidth  = dwPitch - dwPrimarySurfaceWidth;
+    vidMem[0].dwHeight = dwPrimarySurfaceHeight;
+    vidMem[0].ddsCaps.dwCaps = 0;      // surface has no use restrictions</PRE>
+
+<P>The memory heap starting point is set to the starting address of the primary surface plus the width of the primary surface. The width is determined by the pitch minus the width of the primary surface. The height is set to the height of the primary surface. The surface capabilities are set to zero to indicate that there are no imposed surface use restrictions (therefore, the surface can be used for sprites or any other type of surface). </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Rectangular%20Memory%20Allocation"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

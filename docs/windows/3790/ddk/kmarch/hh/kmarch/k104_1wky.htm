@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IoReportResourceForDetection</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IoReportResourceForDetection">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ioreportresourcefordetection_kr"></A>IoReportResourceForDetection</H1>
+
+<P>The <B>IoReportResourceForDetection</B> routine claims hardware resources in the configuration registry for a legacy device. </P>
+
+<PRE class=syntax><B>NTSTATUS
+</B>  <B>IoReportResourceForDetection(</B>
+    <B>IN PDRIVER_OBJECT </B> <I>DriverObject</I><B>,</B>
+    <B>IN PCM_RESOURCE_LIST</B>  <I>DriverList</I>  <B>OPTIONAL,</B>
+    <B>IN ULONG</B>  <I>DriverListSize</I>  <B>OPTIONAL,</B>
+    <B>IN PDEVICE_OBJECT</B>  <I>DeviceObject</I>  <B>OPTIONAL,</B>
+    <B>IN PCM_RESOURCE_LIST </B> <I>DeviceList</I>  <B>OPTIONAL,</B>
+    <B>IN ULONG</B>  <I>DeviceListSize</I>  <B>OPTIONAL,</B>
+    <B>OUT PBOOLEAN</B>  <I>ConflictDetected</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DriverObject</I></DT>
+
+<DD>Pointer to the driver object that was input to the driver's <B>DriverEntry</B> routine. </DD>
+
+<DT><I>DriverList</I></DT>
+
+<DD>Optionally points to a caller-supplied buffer containing the driver's resource list, if the driver claims the same resources for all its devices. If the caller specifies a <I>DeviceList</I>, this parameter is ignored.</DD>
+
+<DT><I>DriverListSize</I></DT>
+
+<DD>Specifies the size in bytes of an optional <I>DriverList</I>. If <I>DriverList</I> is NULL, this parameter should be zero.</DD>
+
+<DT><I>DeviceObject</I></DT>
+
+<DD>Optionally points to the device object representing device for which the driver is attempting to claim resources. </DD>
+
+<DT><I>DeviceList</I></DT>
+
+<DD>Optionally points to the a caller-supplied buffer containing the device's resource list. If the driver claims the same resources for all its devices, the caller can specify a <I>DriverList</I> instead.</DD>
+
+<DT><I>DeviceListSize</I></DT>
+
+<DD>Specifies the size in bytes of an optional <I>DeviceList</I>. If <I>DeviceList</I> is NULL, this parameter should be zero.</DD>
+
+<DT><I>ConflictDetected</I></DT>
+
+<DD>Pointer to a caller-supplied BOOLEAN value set to TRUE on return if the resources are not available. 
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>IoReportResourceForDetection</B> returns STATUS_SUCCESS if the resources are claimed. Possible error return values include the following.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=47%>Error Status</TH>
+<TH align=left width=53%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%>STATUS_CONFLICTING_ADDRESSES</TD>
+<TD width=53%>The resources could not be claimed because they are already in use or are needed for a PnP-enumerable device.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%>STATUS_UNSUCCESSFUL</TD>
+<TD width=53%>The <I>DeviceList</I> or <I>DriverList</I> is invalid.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ntddk.h. </I>Include <I>ntddk.h.</I></P>
+
+<H4>Comments</H4>
+
+<P>This routine is for drivers that detect legacy hardware which cannot be enumerated by PnP.</P>
+
+<P>If a driver supports only PnP hardware, it does no detection and therefore does not call <B>IoReportResourceForDetection</B>. The PnP system enumerates each PnP device, assigns resources to the device, and passes those resources to the device's driver(s) in an <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> request.</P>
+
+<P>If a PnP driver supports legacy hardware, however, it must call <B>IoReportResourceForDetection</B> to claim hardware resources before it attempts to detect the device.</P>
+
+<P>Callers of this routine specify a <A HREF="k112_92k2.htm">CM_RESOURCE_LIST</A> in either a <I>DeviceList</I> or a <I>DriverList</I>, allocated from paged memory. The caller is responsible for freeing the memory. </P>
+
+<P>A driver that can control more than one legacy card at the same time should claim the resources for each device against the device object for the respective device (using a the <I>DeviceObject</I>, <I>DeviceList</I>, and <I>DeviceListSize</I> parameters). Such a driver must not claim these resources against their driver object.</P>
+
+<P>A CM_RESOURCE_LIST contains two variable-sized arrays. Each array has a default size of one. If either array has more than one element, the caller must allocate memory dynamically to contain the additional elements. Only one <A HREF="k112_8xbm.htm">CM_PARTIAL_RESOURCE_DESCRIPTOR</A> can be part of each <A HREF="k112_4m9e.htm">CM_FULL_RESOURCE_DESCRIPTOR</A> in the list, except for the last full resource descriptor in the CM_RESOURCE_LIST, which can have additional partial resource descriptors in its array.</P>
+
+<P><B>IoReportResourceForDetection</B>, with the help of the PnP Manager, determines whether the resources being requested conflict with resources that have already been claimed.</P>
+
+<P>If a conflict is detected, this routine sets the BOOLEAN at <I>ConflictDetected</I> to TRUE and returns STATUS_CONFLICTING_ADDRESSES. </P>
+
+<P>If no conflict is detected, this routine claims the resources, sets the BOOLEAN at <I>ConflictDetected</I> to FALSE, and returns STATUS_SUCCESS.</P>
+
+<P>If this routine succeeds and the driver detects a legacy device, the driver reports the device to the PnP Manager by calling <A HREF="k104_8o8i.htm"><B>IoReportDetectedDevice</B></A>. In that call, the driver sets <I>ResourceAssigned</I> to TRUE so the PnP Manager does not attempt to claim the resources again.</P>
+
+<P>When a driver no longer requires the resources claimed by a call to this routine, the driver calls this routine again with a <I>DriverList</I> or <I>DeviceList</I> with a <B>Count</B> of zero.</P>
+
+<P>If a driver claims resources on a device-specific basis for more than one device, the driver must call this routine for each such device.</P>
+
+<P>A driver can call this routine more than once for a given device. If one set of resources fails, the driver can call the routine again for the same device with a different set of resources. If a set of resources succeeds, the driver can call this routine again with a new list; the new list replaces the previous list.</P>
+
+<P>Callers of <B>IoReportResourceForDetection</B> must be running at IRQL&nbsp;= PASSIVE_LEVEL in the context of a system thread.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k112_92k2.htm">CM_RESOURCE_LIST</A>, <A HREF="k104_8o8i.htm"><B>IoReportDetectedDevice</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IoReportResourceForDetection"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

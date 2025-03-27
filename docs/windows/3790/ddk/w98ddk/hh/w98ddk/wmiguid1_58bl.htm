@@ -1,0 +1,54 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WNODE_ALL_DATA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_wmiguid1_wnode_all_data"></A>WNODE_ALL_DATA</H1>
+
+<PRE>typedef struct tagWNODE_ALL_DATA {
+    struct _WNODE_HEADER WnodeHeader;
+
+    ULONG DataBlockOffset;  // Offset from begin of WNODE to first data block
+
+    ULONG InstanceCount;    // Count of instances whose data follows.
+
+                            // Offset to an array of offsets to the instance names
+    ULONG OffsetInstanceNameOffsets;
+
+    // If WNODE_FLAG_FIXED_INSTANCE_SIZE is set in Flags then FixedInstanceSize 
+    // specifies the size of each data block. In this case there is one ULONG 
+    // followed by the data blocks. If WNODE_FLAG_FIXED_INSTANCE_SIZE is not set
+    // then OffsetInstanceDataAndLength is an array of OFFSETINSTANCEDATAANDLENGTH 
+    // that specifies the offsets and lengths of the data blocks for each instance.
+    union
+    {
+        ULONG FixedInstanceSize;
+        OFFSETINSTANCEDATAANDLENGTH OffsetInstanceDataAndLength[];
+                                    /* [InstanceCount] */
+    };
+
+    // padding so that first data block begins on a 8 byte boundry
+
+    // data blocks and instance names for all instances
+
+} WNODE_ALL_DATA, *PWNODE_ALL_DATA;
+ </PRE>
+
+<H4>Comments</H4>
+
+<P>A WNODE is defined to be a WNODE_ALL_DATA by setting the WNODE_FLAG_ALL_DATA in the <B>Flags</B> field of the WNODE_HEADER. The sizes of each instance of the data block is described as contained in a union, but is not a union in the true sense. </P>
+
+<P>If WNODE_FLAG_FIXED_INSTANCE_SIZE is set in the <B>Flags</B> field of the WNODE_HEADER, then there is only a DWORD that specifies the size of every instance of the data block that is part of the WNODE_ALL_DATA. If WNODE_FLAG_FIXED_INSTANCE_SIZE is not set, then there are <B>InstanceCount</B> OFFSETINSTANCEDATAANDLENGTH structures and each one specifies the offset and size of the data block for a particular instance. It is required that each instance of a data block be aligned on an eight-byte boundary.</P>
+
+<P>Data blocks that were registered as static instance name data blocks should ignore the <B>OffsetInstanceNames</B> array. Before passing the WNODE to the data provider, WMI will set the WNODE_FLAG_STATIC_INSTANCE_NAMES flag. Before returning to the data consumer, WMI will automatically fill in the <B>OffsetInatanceNames</B> array and append the instance names. Data blocks that did not register as having static instance names are defined to have registered as having dynamic instance names. In this case, WMI will not set the WNODE_FLAG_STATIC_INSTANCE_NAMES and the data provider must fill in the <B>OffsetInstanceNames</B> array and include the instance names in the WNODE_ALL_DATA returned.</P>
+
+<P>If a data provider can keep track of when the number or names of the instances change for a dynamic instance name data block, it should set the WNODE_FLAG_INSTANCES_SAME flag appropriately. If this flag is set, WMI will avoid extra work to detect changed dynamic instance names and update its tables. A data provider that does not track changes in instances that it provides should always leave the flag reset. Use of this flag is optional, but highly recommended to improve performance. The flag is ignored for data blocks registered as having static instance names. Calling the WMI registration APIs described in the following topics changes static instance names.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WNODE_ALL_DATA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

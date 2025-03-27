@@ -1,0 +1,120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProtocolBindAdapter</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProtocolBindAdapter">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_installation_overview_dg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocolbindadapter_nr"></A>ProtocolBindAdapter</H1>
+
+<P>The <I>ProtocolBindAdapter</I> function is required to support Plug and Play. All NDIS protocol drivers must export a <I>ProtocolBindAdapter</I> function.</P>
+
+<PRE class=syntax><B>VOID 
+</B>  <B>ProtocolBindAdapter(</B>
+    <B>OUT PNDIS_STATUS</B> <I>Status</I><B>,</B><I>
+</I>    <B>IN NDIS_HANDLE</B>  <I>BindContext</I><B>,
+</B>    <B>IN PNDIS_STRING</B>  <I>DeviceName</I><B>,
+</B>    <B>IN PVOID</B>  <I>SystemSpecific1</I><B>,
+</B>    <B>IN PVOID</B>  <I>SystemSpecific2</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Status</I></DT>
+
+<DD>Pointer to a variable in which <I>ProtocolBindAdapter</I> returns the status of its operation(s), as one of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>The driver completed initialization successfully and bound itself to the given NIC driver specified at <I>DeviceName</I>.</DD>
+
+<DT>NDIS_STATUS_PENDING</DT>
+
+<DD>The protocol will complete the bind operation asynchronously with a call to <A HREF="103ndisx_2w6q.htm"><B>NdisCompleteBindAdapter</B></A> when it is ready to accept receives from the underlying driver and to send transmit, query, and set requests down to the underlying driver. </DD>
+
+<DT>NDIS_STATUS_<I>XXX</I> or NTSTATUS<I>_XXX</I></DT>
+
+<DD>The protocol’s attempt to set up a binding failed or the protocol could not allocate the resources it needed to carry out network I/O operations. Usually, such an error status is propagated from an <B>Ndis</B><I>Xxx</I> function or a kernel-mode support routine. </DD>
+</DL>
+</DD>
+
+<DT><I>BindContext</I></DT>
+
+<DD>Specifies a handle, supplied by NDIS, that the protocol passes subsequently to <B>NdisCompleteBindAdapter</B>.  </DD>
+
+<DT><I>DeviceName</I></DT>
+
+<DD>Pointer to a buffered Unicode string naming an underlying NIC driver or virtual NIC driver to which <I>ProtocolBindAdapter</I> should bind. </DD>
+
+<DT><I>SystemSpecific1</I></DT>
+
+<DD>Specifies a registry path pointer that is a required parameter to <A HREF="103ndisx_6yr6.htm"><B>NdisOpenProtocolConfiguration</B></A>. The caller cannot use this pointer for any other purpose. </DD>
+
+<DT><I>SystemSpecific2</I></DT>
+
+<DD>Reserved for system use. The caller cannot use this pointer for any purpose. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><I>ProtocolBindAdapter</I> performs dynamic binding operations whenever an underlying NIC to which the protocol can bind itself becomes available. In addition, <I>ProtocolBindAdapter</I> continues driver initialization operations deferred from the <B>DriverEntry</B> function to support Plug and Play. <I>ProtocolBindAdapter</I> allocates sufficient memory to maintain per-binding run-time state and calls <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A> with the given <I>BindContext</I> and <I>DeviceName</I> to bind itself to the underlying driver. </P>
+
+<P>If <B>NdisOpenAdapter</B> returns NDIS_STATUS_PENDING, the driver’s <A HREF="104tdlow_9xbm.htm"><I>ProtocolOpenAdapterComplete</I></A> function will be called subsequently when the binding operation has completed. <I>ProtocolBindAdapter</I> should store the input <I>BindContext</I> handle in the area it allocated for per-binding state; the <I>ProtocolBindContext</I> handle it supplied to <B>NdisOpenAdapter</B> is an input parameter to the driver’s <A HREF="104tdlow_9xbm.htm"><I>ProtocolOpenAdapterComplete</I></A> function, which must pass the <I>BindContext</I> handle to <A HREF="103ndisx_2w6q.htm"><B>NdisCompleteBindAdapter</B></A> subsequently. The underlying NIC driver returns NDIS_STATUS_ADAPTER_NOT_READY for any requests it receives while the open operation is pending. Consequently, <I>ProtocolBindAdapter</I> cannot call <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A> or <A HREF="103ndisx_8xde.htm"><B>NdisCoRequest</B></A> to query the underlying driver if <B>NdisOpenAdapter</B> returns NDIS_STATUS_PENDING. </P>
+
+<P>In these circumstances, <I>ProtocolBindAdapter</I> simply sets <I>Status</I> to NDIS_STATUS_PENDING and returns control, thereby deferring whatever actions the protocol takes to set up binding-specific state and to allocate binding-specific resources to <I>ProtocolOpenAdapterComplete</I> if this function is called with an input <I>Status</I> of NDIS_STATUS_SUCCESS. </P>
+
+<P>Similarly, if <B>NdisOpenAdapter</B> returns an error status, <I>ProtocolBindAdapter</I> sets <I>Status</I> to the returned value, releases any per-binding resources the driver has allocated, and returns control immediately. Otherwise, a successful binding has been established and the protocol can receive indications from the underlying driver to its <A HREF="104tdlow_6e42.htm"><I>ProtocolStatus</I></A><I> </I>or <A HREF="104tdlow_3khe.htm"><I>ProtocolCoStatus</I></A>, <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A><I> </I>or <A HREF="104tdlow_3pwy.htm"><I>ProtocolCoReceivePacket</I></A>, and/or <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> functions. </P>
+
+<P>Consequently, when <B>NdisOpenAdapter</B> returns NDIS_STATUS_SUCCESS, <I>ProtocolBindAdapter</I> allocates the resources the driver needs to carry out network I/O on the binding and sets up whatever binding-specific run-time state the protocol uses to track network I/O operations. If the driver’s installation script installed adapter-specific configuration information in the protocol section of the registry, <I>ProtocolBindAdapter</I> calls <A HREF="103ndisx_6yr6.htm"><B>NdisOpenProtocolConfiguration</B></A> and <A HREF="103ndisx_5ek2.htm"><B>NdisReadConfiguration</B></A> to retrieve this information. For more information about driver installation scripts, see <A HREF="JavaScript:hhobj_1.Click()">Device Installation Overview</A>. </P>
+
+<P>Depending on the underlying media, <I>ProtocolBindAdapter</I> also can call <A HREF="103ndisx_8xde.htm"><B>NdisCoRequest</B></A> or <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A> to query the underlying driver (or NDIS) about the underlying driver’s NIC-specific limits, such as its maximum frame size, transmit/receive buffer space, and so forth, to set up appropriate state for the binding.</P>
+
+<P>Any protocol bound to a connection-oriented NIC driver can assume that the underlying miniport driver both supports multipacket sends and indicates full-packet receives. </P>
+
+<P>A protocol bound to a connectionless miniport driver can determine whether the underlying driver indicates full-packet receives by comparing the values that driver returns for the <A HREF="22genoid_1jzm.htm">OID_GEN_CURRENT_LOOKAHEAD</A> and <A HREF="22genoid_5dgy.htm">OID_GEN_RECEIVE_BLOCK_SIZE</A> queries the protocol passes to <B>NdisRequest</B>. If they are identical, the protocol will make no calls to <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A> on this binding. The protocol can determine whether the underlying driver supports multipacket sends with the <A HREF="22genoid_9roy.htm">OID_GEN_MAXIMUM_SEND_PACKETS</A> query. However, even if the underlying driver returns one, indicating that it does not have a <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A> function, the protocol can still call <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A> on the binding, as long as the protocol does not supply out-of-band information with the packet descriptors it allocates for sends. NDIS handles the submission of packet arrays to such an underlying connectionless NIC driver transparently to bound protocols. The protocol is responsible for ensuring that the underlying driver is capable of handling protocol-supplied out-of-band data, if any.</P>
+
+<P>For more information about general and medium-specific OID requests, see <A HREF="21oidovw_8q9e.htm">NDIS Object Identifiers</A>.  </P>
+
+<P>A driver’s <I>Protocol(Co)ReceivePacket</I> or <I>ProtocolReceive</I> function can be called as soon as the protocol sets up a packet filter with <A HREF="22genoid_4qgi.htm">OID_GEN_CURRENT_PACKET_FILTER</A> for the binding. For the NULL filter, receive indications are enabled on return from a successful call to <B>NdisOpenAdapter</B>. </P>
+
+<P>Every NDIS protocol driver should allocate sufficient packet pool and buffer pool from which to allocate packet descriptors and buffer descriptors for subsequent network transmits and, possibly, for subsequent transfer-data requests, depending on whether the underlying driver indicates full-packet receives with <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A> or <A HREF="103ndisx_6f02.htm"><B>NdisMCoIndicateReceivePacket</B></A>. </P>
+
+<P>The <I>ProtocolBindAdapter</I> function of a connection-oriented call manager or MCM driver must call <A HREF="103ndisx_58tu.htm"><B>NdisCmRegisterAddressFamily</B></A> or <A HREF="103ndisx_58fm.htm"><B>NdisMCmRegisterAddressFamily</B></A>, respectively, to register its <B>ProtocolCm</B><I>Xxx</I> functions and signalling services for this adapter with NDIS. NDIS will advertise the call manager's services to possible client protocols by calling their <A HREF="104tdlow_2goi.htm"><I>ProtocolCoAfRegisterNotify</I></A> functions, which each potential connection-oriented client registered when it called <A HREF="103ndisx_2cfm.htm"><B>NdisRegisterProtocol</B></A> from its <B>DriverEntry</B> function. </P>
+
+<P>Note that connection-oriented client protocols cannot call <A HREF="103ndisx_6quq.htm"><B>NdisClOpenAddressFamily</B></A> from their <I>ProtocolBindAdapter</I> functions. Instead, these protocols make this call to register their <B>ProtocolCl</B><I>Xxx</I> functions with NDIS from their <I>ProtocolCoAfRegisterNotify</I> functions. </P>
+
+<P>The <I>ProtocolBindAdapter</I> function of an NDIS intermediate driver is responsible for prompting the initialization of the driver’s virtual NIC by calling <A HREF="103ndisx_0jn6.htm"><B>NdisIMInitializeDeviceInstanceEx</B></A> or <A HREF="103ndisx_3m2a.htm"><B>NdisIMInitializeDeviceInstance</B></A>, which, in turn, calls the driver’s <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A> function. Such a driver must initialize its virtual NIC after <I>ProtocolBindAdapter</I> (or <I>ProtocolBindAdapterComplete</I>) establishes a binding to the underlying driver specified at <I>DeviceName</I>. Still higher level protocols cannot bind to such an intermediate driver until its virtual NIC has been initialized. If the intermediate driver sets up a device context area with <B>NdisIMInitializeDeviceInstanceEx</B>, higher level protocols that bind themselves to its virtual NIC subsequently can call <A HREF="103ndisx_6y5u.htm"><B>NdisIMGetBindingContext</B></A> to query the information that the intermediate driver provided. </P>
+
+<P>If <I>ProtocolBindAdapter</I> cannot allocate the resources it needs to carry out subsequent network I/O operations, it should free all resources it has already allocated, set <I>Status</I> to an appropriate error value, and return control. </P>
+
+<P>If the driver is ready to carry out network I/O on the established binding, <I>ProtocolBindAdapter</I> calls <A HREF="103ndisx_2w6q.htm"><B>NdisCompleteBindAdapter</B></A> with NDIS_STATUS_SUCCESS for the <I>Status</I> and <I>OpenStatus</I> arguments. </P>
+
+<P><I>ProtocolBindAdapter</I> runs at IRQL = PASSIVE_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="104tdlow_9raq.htm"><B>DriverEntry of NDIS Protocol Drivers</B></A>, <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A>, <A HREF="103ndisx_1unm.htm"><B>NdisAllocateBufferPool</B></A>, <A HREF="103ndisx_4m42.htm"><B>NdisAllocateMemoryWithTag</B></A>, <A HREF="103ndisx_6t82.htm"><B>NdisAllocatePacketPool</B></A>, <A HREF="103ndisx_6quq.htm"><B>NdisClOpenAddressFamily</B></A>, <A HREF="103ndisx_58tu.htm"><B>NdisCmRegisterAddressFamily</B></A>, <A HREF="103ndisx_2w6q.htm"><B>NdisCompleteBindAdapter</B></A>, <A HREF="103ndisx_8xde.htm"><B>NdisCoRequest</B></A>, <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>, <A HREF="103ndisx_6y5u.htm"><B>NdisIMGetBindingContext</B></A>, <A HREF="103ndisx_3m2a.htm"><B>NdisIMInitializeDeviceInstance</B></A>, <A HREF="103ndisx_0jn6.htm"><B>NdisIMInitializeDeviceInstanceEx</B></A>, <A HREF="103ndisx_581e.htm"><B>NdisInitUnicodeString</B></A>, <A HREF="103ndisx_58fm.htm"><B>NdisMCmRegisterAddressFamily</B></A>, <A HREF="103ndisx_6f02.htm"><B>NdisMCoIndicateReceivePacket</B></A>, <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A>, <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A>, <A HREF="103ndisx_6yr6.htm"><B>NdisOpenProtocolConfiguration</B></A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="103ndisx_5ek2.htm"><B>NdisReadConfiguration</B></A>, <A HREF="103ndisx_0u42.htm"><B>NdisRequest</B></A>, <A HREF="105nstru_3f8y.htm">NDIS_REQUEST</A>, <A HREF="104tdlow_2goi.htm"><I>ProtocolCoAfRegisterNotify</I></A>, <A HREF="104tdlow_3pwy.htm"><I>ProtocolCoReceivePacket</I></A>, <A HREF="104tdlow_3khe.htm"><I>ProtocolCoStatus</I></A>, <A HREF="104tdlow_9xbm.htm"><I>ProtocolOpenAdapterComplete</I></A>, <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A>, <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A>, <A HREF="104tdlow_6e42.htm"><I>ProtocolStatus</I></A>, <A HREF="104tdlow_1l6a.htm"><I>ProtocolUnbindAdapter</I></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProtocolBindAdapter"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

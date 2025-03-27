@@ -1,0 +1,137 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Why Thunking Is Necessary</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Why Thunking Is Necessary">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_why_thunking_is_necessary_kg"></A>Why Thunking Is Necessary</H3>
+
+<P>Kernel-mode drivers must validate the size of any I/O buffer passed in from a user-mode application. If a 32-bit application passes a buffer containing pointer-precision data types to a 64-bit driver, and no thunking takes place, the driver will expect the buffer to be larger than it actually is. This is because pointer precision is 32 bits on 32-bit Microsoft® Windows® and 64 bits on 64-bit Windows. For example, consider the following structure definition:</P>
+
+<PRE>typedef struct _DRIVER_DATA
+{
+    HANDLE           <I>Event</I>;
+    UNICODE_STRING   <I>ObjectName</I>;
+} DRIVER_DATA;
+</PRE>
+
+<P>On 32-bit Windows, the size of the DRIVER_DATA structure is 12 bytes.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=24%>HANDLE <I>Event</I></TH>
+<TH align=left colspan=3 width=76%>UNICODE_STRING <I>ObjectName</I></TH>
+</TR>
+
+<TR VALIGN="top">
+<TH align=left width=24%>&nbsp;</TH>
+<TH align=left width=16%>USHORT<BR>
+<I>Length</I></TH>
+<TH align=left width=20%>USHORT<BR>
+<I>Maximum-<BR>
+Length</I></TH>
+<TH align=left width=40%>PWSTR<BR>
+<I>Buffer</I></TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=24%>32 bits<BR>
+(4 bytes)</TD>
+<TD width=16%>16 bits<BR>
+(2 bytes)</TD>
+<TD width=20%>16 bits<BR>
+(2 bytes)</TD>
+<TD width=40%>32 bits<BR>
+(4 bytes)</TD>
+</TR>
+</TABLE><BR>
+
+<P>On 64-bit Windows, the size of the DRIVER_DATA structure is 24 bytes. (The 4 bytes of structure padding are required so that the <I>Buffer</I> member can be aligned on an 8-byte boundary.)</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=24%>HANDLE <I>Event</I></TH>
+<TH align=left colspan=4 width=76%>UNICODE_STRING <I>ObjectName</I></TH>
+</TR>
+
+<TR VALIGN="top">
+<TH align=left width=24%>&nbsp;</TH>
+<TH align=left width=16%>USHORT<BR>
+<I>Length</I></TH>
+<TH align=left width=20%>USHORT<BR>
+<I>Maximum-<BR>
+Length</I></TH>
+<TH align=left width=18%>Empty<BR>
+(Structure<BR>
+Padding)</TH>
+<TH align=left width=22%>PWSTR<BR>
+<I>Buffer</I></TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=24%>64 bits<BR>
+(8 bytes)</TD>
+<TD width=16%>16 bits<BR>
+(2 bytes)</TD>
+<TD width=20%>16 bits<BR>
+(2 bytes)</TD>
+<TD width=18%>32 bits<BR>
+(4 bytes)</TD>
+<TD width=22%>64 bits<BR>
+(8 bytes)</TD>
+</TR>
+</TABLE><BR>
+
+<P>If a 64-bit driver receives 12 bytes of DRIVER_DATA when it expected 24 bytes, the size validation will fail. To prevent this, the driver must detect whether a DRIVER_DATA structure was sent by a 32-bit application, and if so, thunk it appropriately before performing the validation.</P>
+
+<P>For example, a thunked version of the above DRIVER_DATA structure could be defined as follows:</P>
+
+<PRE>typedef struct _DRIVER_DATA32
+{
+    VOID *POINTER_32   Event;
+    UNICODE_STRING32   ObjectName;
+} DRIVER_DATA32;
+</PRE>
+
+<P>Because it contains only fixed-precision data types, this new structure is the same size on 32-bit Windows and 64-bit Windows.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=30%>POINTER_32 <I>Event</I></TH>
+<TH align=left colspan=3 width=70%>UNICODE_STRING32 <I>ObjectName</I></TH>
+</TR>
+
+<TR VALIGN="top">
+<TH align=left width=30%>&nbsp;</TH>
+<TH align=left width=17%>USHORT<BR>
+<I>Length</I></TH>
+<TH align=left width=19%>USHORT<BR>
+<I>Maximum-<BR>
+Length</I></TH>
+<TH align=left width=34%>ULONG<BR>
+<I>Buffer</I></TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>32 bits<BR>
+(4 bytes)</TD>
+<TD width=17%>16 bits<BR>
+(2 bytes)</TD>
+<TD width=19%>16 bits<BR>
+(2 bytes)</TD>
+<TD width=34%>32 bits<BR>
+(4 bytes)</TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Why%20Thunking%20Is%20Necessary"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

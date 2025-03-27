@@ -1,0 +1,70 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling Renaming on Windows 2000</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling Renaming on Windows 2000">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_handling_renaming_on_windows_2000_gg"></A>Handling Renaming on Windows 2000</H4>
+
+<P>In order to correctly perform vertex buffer renaming it is important to understand the nature of the <B>fpVidMem</B> pointer stored in the surface global object on Windows®&nbsp;2000 and later. The interpretation of <B>fpVidMem</B> depends on the type of memory in which the surface is stored. For both system and nonlocal video memory (AGP) surfaces the <B>fpVidMem</B> is a pointer directly into the user mode address space of the process owning that surface.</P>
+
+<P>For local video memory surfaces, <B>fpVidMem</B> is an offset from the start of video memory. In order to convert this to a user mode pointer it is necessary to add the base address of video memory as mapped into a user mode process. This base address can be found in the <B>fpProcess</B> field of the DirectDraw local object for a given process.  </P>
+
+<P>Although <B>fpVidMem</B> for a nonlocal video memory surface is simply a user mode pointer the means by which this user mode pointer are generated are somewhat complex. It is necessary to understand how the Windows&nbsp;2000 kernel maintains AGP heaps and manages surface allocations from them. The first important point is that, for nonlocal heaps, the start address of the heap maintained by the kernel may not be a heap into any real address space. It is in fact, normally, a numerical offset designed to ensure that valid allocations from that heap cannot have a NULL (zero) address.</P>
+
+<P>It may be helpful to think of AGP heaps as residing in a conceptual address space that does not correspond to any real address space. The <B>fpStart</B> field of an AGP heap is the base address of the heap in this conceptual address space. Furthermore, any surfaces allocated from an AGP heap have an <B>fpHeapOffset</B> that also lies in this conceptual address space. Thus, <B>fpHeapOffset</B> is an offset from the base of this conceptual heap and it is not an offset from the start of the heap itself. Furthermore, it is not a pointer into any real address space. In order for a user mode process to access the memory of a surface <B>fpHeapOffset</B> must be mapped (via pointer arithmetic) into the address space of that user mode process. When a surface is created, the kernel performs this mapping according to the formula outlined below.</P>
+
+<P>Given a surface (<B>pSurface</B>), a kernel mode AGP heap (<B>pvmHeap</B>) and a mapping of the heap into a particular user mode process (<B>pMap</B>), the following formula is used to compute the actual, user mode, <B>fpVidMem</B> for a surface:</P>
+
+<PRE>fpVidMem = pMap-&gt;pvVirtAddr +
+    (pSurface-&gt;fpHeapOffset – pvmHeap-&gt;fpStart)</PRE>
+
+<P><B>pvVirtAddr</B> is the base address of the user mode mapping of the AGP heap into a given process. <B>fpStart</B> is the offset of the base of the AGP heap into the conceptual address space described above and <B>fpHeapOffset</B> is the offset of the start of the surface from the base of the same conceptual address space.</P>
+
+<P>Your driver is notified of the conceptual base address of AGP heaps through the <A HREF="ddfncs_0yhz.htm"><I>DdGetDriverInfo</I></A> callback. When <I>DdGetDriverInfo</I> is called with GUID_UpdateNonLocalHeap the <B>fpGARTLin</B> field of the data structure passed is the same value as <B>fpStart</B>, that is, the base address of the start of the AGP heap in the conceptual address space. Unfortunately, your driver is not notified of the value of <B>pvVirtAddr</B> and it is not visible to the driver through any of the data structures passed to the driver. Therefore, its value has to be computed from the <B>fpVidMem</B> computed by the kernel for the vertex buffer on initial creating. Given the <B>fpVidMem</B> computed by the kernel, simply subtract the current <B>fpHeapOffset</B> less the heap’s <B>fpStart</B>. Given the <B>fpHeapOffset</B> of the new memory to be swapped into the vertex buffer on renaming, the new value of <B>fpVidMem</B> can be easily computed.</P>
+
+<P>The following code fragment demonstrates computing a new <B>fpVidMem</B> for an AGP surface in a lock call.</P>
+
+<PRE>// Get the vertex buffer’s surface local and global from the
+// lock data
+LPDDRAWI_DDRAWSURFACE_LCL*pLcl = pLockData-&gt;lpDDSurface;
+LPDDRAWI_DDRAWSURFACE_GBL*pGbl = pLcl-&gt;lpGbl;
+
+// Get heap this vertex buffer was allocated from
+LPVVIDEOMEMORY pHeap = pGbl-&gt;lpVidMemHeap;
+
+// Get the current fpVidMem for the vertex buffer
+FLATPTR fpCurrentVidMem = pGbl-&gt;fpVidMem;
+
+// Compute the virtual base address of the mapping of this AGP
+// into the process owning this vertex buffer.
+FLATPTR pvVirtAddr = fpCurrentVidMem –
+                     (pGbl-&gt;fpHeapOffset – pHeap-&gt;fpStart);
+
+// Given the fpHeapOffset of the nonlocal video memory to be
+// swapped into the new vertex buffer compute the new fpVidMem
+// as follow
+FLATPTR fpNewVidMem = pvVirtAddr + (fpNewHeapOffset – pHeap-&gt;fpStart);
+
+// Now store the new fpVidMem in the surface global object and
+// also in the lock data.
+pGbl-&gt;fpHeapOffset = fpNewHeapOffset;
+pGbl-&gt;fpVidMem = fpNewVidMem;
+pLockData-&gt;lpSurfData = fpNewVidMem;
+
+// Return success and driver handled
+pLockData-&gt;ddRVal = DD_OK;
+return DDHAL_DRIVER_HANDLED;</PRE>
+
+<P>In order to make nonlocal video memory accessible to a user mode process it is necessary for the memory to be both committed and mapped to the user mode process. To ensure that this is done when vertex buffer renaming is being performed it is essential, that the new memory for the vertex buffer be allocated using the <B>Eng</B><I>Xxx</I> function <A HREF="gdifncs_8dnr.htm"><B>HeapVidMemAllocAligned</B></A>. This guarantees that the memory is committed and mapped before use. <B>HeapVidMemAllocAligned</B> returns an offset into the conceptual address space of the AGP heap and, therefore, this pointer can be used as an <B>fpHeapOffset</B> directly.</P>
+
+<P>If the driver returns DDHAL_DRIVER_HANDLED for a lock of an AGP surface the kernel code returns the value of <B>lpSurfData</B> in the <A HREF="ddstrcts_7g6f.htm">DD_LOCKDATA</A> data structure to the runtime and application. If the driver returns DDHAL_DRIVER_NOTHANDLED the kernel simply returns the value of <B>fpVidMem</B> to user mode. Therefore, it is not necessary to return DDHAL_DRIVER_HANDLED as long as <B>fpVidMem</B> is updated to point to the new user mode pointer. However, we recommend that the driver both set <B>fpVidMem</B> and <B>lpSurfData</B> and return DDHAL_DRIVER_HANDLED.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20Renaming%20on%20Windows%202000"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

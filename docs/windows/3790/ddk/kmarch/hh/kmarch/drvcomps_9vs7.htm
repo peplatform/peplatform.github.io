@@ -1,0 +1,46 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Guidelines for Writing Dispatch(Internal)DeviceControl Routines</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Guidelines for Writing Dispatch(Internal)DeviceControl Routines">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_guidelines_for_writing_dispatch_internal_devicecontrol_routines_kg"></A>Guidelines for Writing <I>Dispatch(Internal)DeviceControl </I>Routines</H3>
+
+<P>Keep the following points in mind when writing a <I>DispatchDeviceControl</I> or <I>DispatchInternalDeviceControl</I> routine:
+
+<UL>
+	<LI>At a minimum, a higher-level driver must copy the parameters for an <A HREF="k113_0hiq.htm">IRP_MJ_DEVICE_CONTROL</A> or <A HREF="k113_2yia.htm">IRP_MJ_INTERNAL_DEVICE_CONTROL</A> request from its own I/O stack location in the IRP to the next-lower-level driver’s I/O stack location. Then, it must call <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A> with a pointer to the next-lower driver’s device object and the IRP. 
+<P>The higher-level driver should propagate the status value returned by <B>IoCallDriver</B> or set it in the returned IRP’s I/O status block when it returns control for a request that lower drivers handle synchronously.
+</LI>
+
+	<LI>The underlying device driver must process device control requests unless it has a closely coupled class driver that completes a subset of these requests on its behalf. A device driver’s <I>DispatchDeviceControl</I> routine usually begins processing these requests by <B>switch</B>ing on the <B>Parameters.DeviceIoControl.IoControlCode</B> in its I/O stack location of each IRP.</LI>
+
+	<LI>A lower-level device driver should check the parameters passed in with the request and fail the IRP with an appropriate error if any parameter is invalid. The most common check on the validity of parameters to these requests has the form:
+<PRE>    if (Irp-&gt;Parameters.DeviceIoControl.InputBufferLength &lt; 
+            (sizeof(<I>IOCTL_SPECIFIC_STRUCTURE</I>))) { 
+        status = STATUS_<I>XXX</I>; </PRE>
+
+<P class=indent1>or</P>
+
+<PRE>    if (Irp-&gt;Parameters.DeviceIoControl.OutputBufferLength &lt; 
+            (sizeof(<I>IOCTL_SPECIFIC_STRUCTURE</I>))) { 
+        status = STATUS_<I>XXX</I>; </PRE>
+
+<P class=indent1>where the status value set is one of STATUS_BUFFER_TOO_SMALL or STATUS_INVALID_PARAMETER.</P>
+</LI>
+
+	<LI>Every device driver’s <I>DispatchDeviceControl</I> or <I>DispatchInternalDeviceControl</I> routine must handle the receipt of an unrecognized I/O control code by setting the I/O status block with an appropriate NTSTATUS value, setting its <B>Information</B> field to zero, and completing the IRP with a <I>PriorityBoost</I> of IO_NO_INCREMENT.</LI>
+
+	<LI>The particular I/O control codes a device driver handles must include any device-type-specific, system-defined I/O control codes for the same type of device. See the device-specific sections of this DDK for more information about the system requirements for each type of device and the corresponding (SDK) header files, each beginning with the prefix <I>ntdd</I>, for declarations of the system-defined structures for these I/O control codes.</LI>
+
+	<LI>The class driver of a closely coupled class/port driver pair can process and complete a subset of device control requests without passing them on to the underlying port driver. However, such a class driver must pass on all valid device control requests that require a change of state for the device and those that require the return of volatile information about the device, such as its current baud rate, volume, or video mode.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Guidelines%20for%20Writing%20Dispatch(Internal)DeviceControl%20Routines"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

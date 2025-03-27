@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Driver-Managed IRP Queues</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Driver-Managed IRP Queues">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_driver_managed_irp_queues_kg"></A>Driver-Managed IRP Queues</H2>
+
+<P>Except for file system drivers, the I/O Manager associates a device queue object (for queuing IRPs) with each device object that a driver creates.</P>
+
+<P>Most device drivers call the I/O Manager's support routines to use the associated device queue, which holds IRPs whenever device I/O requests for a target device object come in faster than the driver can process them to completion. With this technique, IRPs are queued to a driver-supplied <I>StartIo </I>routine.</P>
+
+<P>For good performance, most intermediate drivers simply pass IRPs on to lower drivers as fast as they come in, so intermediate drivers almost never use the device queues associated with their respective device objects.</P>
+
+<P>However, you can design a driver to manage internal queues of IRPs by explicitly setting up one or more device queues, interlocked queues, or cancel-safe queues. This approach can be particularly useful if the driver controls a device that overlaps I/O operations. For such a device, it can be difficult to manage concurrent processing of two or more IRPs for the same target device object using only a single queue.</P>
+
+<P>The simplest way to build an internal queue is to use the cancel-safe IRP queue framework. You can implement the queuing mechanism of your choice in your driver. You can then use <A HREF="k104_1lbm.htm"><B>IoCsqInitialize</B></A> to register a set of callback routines that handle IRP insertion and deletion, as well as locking and unlocking your queue. The cancel-safe IRP queue framework provides the <A HREF="k104_1bxu.htm"><B>IoCsqInsertIrp</B></A>, <A HREF="k104_39de.htm"><B>IoCsqRemoveIrp</B></A>, and <A HREF="k104_7fw2.htm"><B>IoCsqRemoveNextIrp</B></A> routines that automatically use the callback routines to safely insert and remove IRPs from the driver's queue. The system also uses your callback routines to safely remove any IRPs that are canceled.</P>
+
+<P>You also might opt to set up supplemental queues for IRPs in the driver of a device controller for a set of heterogeneous physical devices. For example, the SCSI port driver uses device queue objects for internal queues. This driver both has a <I>StartIo </I>routine and sets up device queue objects as supplemental queues, in addition to the device queue associated with the device object it creates to represent an HBA. The SCSI port driver uses its supplemental device queues to hold IRPs bound for particular logical units on the HBA-controlled SCSI bus(es).</P>
+
+<P>The system floppy controller driver is an example of a driver that has no <I>StartIo </I>routine and uses an interlocked queue. This driver sets up a doubly linked interlocked queue into which and from which the driver and its device-dedicated thread insert and remove IRPs.</P>
+
+<P>The Kernel defines the device queue object type. The Executive Support component provides routines for inserting and removing IRPs in interlocked queues. Drivers for Windows&nbsp;XP and later operating systems can use <A HREF="irps_4sdj.htm">cancel-safe IRP queues</A> to handle IRP queuing.</P>
+
+<P>The following sections explain how to use device queues, interlocked queues, and cancel-safe queues:</P>
+
+<P class=indent1><A HREF="irps_0cvb.htm">Setting Up and Using Device Queues</A> </P>
+
+<P class=indent1><A HREF="irps_09ev.htm">Managing Device Queues</A> </P>
+
+<P class=indent1><A HREF="irps_1ktj.htm">Setting Up and Using Interlocked Queues</A> </P>
+
+<P class=indent1><A HREF="irps_8qw7.htm">Managing Interlocked Queues with a Driver-Created Thread</A> </P>
+
+<P class=indent1><A HREF="irps_4sdj.htm">Cancel-Safe IRP Queues</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Driver-Managed%20IRP%20Queues"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

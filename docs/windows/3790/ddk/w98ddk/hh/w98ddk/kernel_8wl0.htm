@@ -1,0 +1,169 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>PD</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_1274"></A>PD</H1>
+
+<PRE>#include &lt;vmm.h&gt;
+
+typedef ULONG _cdecl FUNPAGE(PULONG ppagerdata, PVOID ppage,
+    ULONG faultpage);
+typedef FUNPAGE *PFUNPAGE;
+
+typedef struct pd_s {
+    PFUNPAGE pd_virginin;
+    PFUNPAGE pd_taintedin;
+    PFUNPAGE pd_cleanout;
+    PFUNPAGE pd_dirtyout;
+    PFUNPAGE pd_virginfree;
+    PFUNPAGE pd_taintedfree;
+    PFUNPAGE pd_dirty;
+    ULONG pd_type;
+} PD, *PPD;
+ </PRE>
+
+<P>Pager-descriptor structure. Contains pointers to a pager's callback functions, and information about the overcommit characteristics of the pages the pager manages. 
+
+<DL>
+<DT><B>pd_virginin</B> and <B>pd_taintedin</B></DT>
+
+<DD>Addresses of the pager functions that the system calls swap a page into memory. If the page has never been written to, the system calls the function specified by the <B>pd_virginin</B> member; otherwise it calls the function specified by the <B>pd_taintedin</B> member. 
+
+<P>These functions must return a nonzero value if successful, or zero otherwise. The parameters have the following meanings: 
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=17%><I>ppagerdata</I></TD>
+<TD width=83%>Address of a pager-defined 32-bit value stored with the virtual page. The pager can modify this value during page in and out operations, but not at other times. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%><I>ppage</I></TD>
+<TD width=83%>Ring-zero physical address of the page. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%><I>faultpage</I></TD>
+<TD width=83%>Linear page number that triggered a page fault. A pager should not attempt to access this page number. Note that the same page can be mapped to more than one linear address. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>pd_cleanout</B> and <B>pd_dirtyout</B></DT>
+
+<DD>Addresses of the pager functions that the system calls to swap a page out of memory. If the page has not been written to since it was last paged out, the system calls the function specified by the <B>pd_cleanout</B> member; otherwise it calls the function specified by the <B>pd_dirtyout</B> member. 
+
+<P>These functions must return a nonzero value if successful, or zero otherwise. The parameters have the following meanings: 
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=17%><I>ppagerdata</I></TD>
+<TD width=83%>Address of a pager-defined 32-bit value stored with the virtual page. The pager can modify this value during page in and out operations, but not at other times. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%><I>ppage</I></TD>
+<TD width=83%>Ring-zero physical address of the page. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%><I>faultpage</I></TD>
+<TD width=83%>Always – 1. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>pd_virginfree</B> and <B>pd_taintedfree</B></DT>
+
+<DD>Addresses of the pager functions that the system calls when the last reference to a virtual page controlled by the pager is decommitted. If the page has never been written to since it was committed, the system calls the function specified by the <B>pd_virginfree</B> member; otherwise it calls the function specified by the <B>pd_taintedfree</B> member. 
+
+<P>The return value of these functions is ignored. The parameters have the following meanings: 
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=17%><I>ppagerdata</I></TD>
+<TD width=83%>Address of a pager-defined 32-bit value stored with the virtual page. The pager can modify this value during page in and out operations, but not at other times. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%><I>ppage</I></TD>
+<TD width=83%>Ring-zero physical address of the page if it is in memory, NULL otherwise. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%><I>faultpage</I></TD>
+<TD width=83%>Linear page number of the page being decommitted. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>pd_dirty</B></DT>
+
+<DD>Address of the pager function that the memory manager calls when it detects that a page has been written to. If a page is dirtied in more than one memory context, this function is called once for each context. 
+
+<P>The return value of this function is ignored. The parameters have the following meanings: 
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=17%><I>ppagerdata</I></TD>
+<TD width=83%>Address of a pager-defined 32-bit value stored with the virtual page. The pager can modify this value during page in and out operations, but not at other times. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%><I>ppage</I></TD>
+<TD width=83%>Undefined. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%><I>faultpage</I></TD>
+<TD width=83%>Linear page number of the dirtied page. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>pd_type</B></DT>
+
+<DD>Value specifying the overcommit characteristics of the pages associated with this pager. Can be one of these values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=21%>PD_SWAPPER </TD>
+<TD width=79%>Pages controlled by this pager may be paged out. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>PD_PAGERONLY </TD>
+<TD width=79%>Pages controlled by this pager are never paged out to the swap file. If this value is specified, the VMM calls the pager's virgin-in function as soon as a page is committed; the tainted-in and page-out functions are never called. </TD>
+</TR>
+</TABLE><BR>
+
+
+</DD>
+</DL>
+
+<H4>See Also</H4>
+
+<P><B>_PagerRegister</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: PD"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

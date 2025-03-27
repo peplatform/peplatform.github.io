@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Enabling DualView</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Enabling DualView">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_enabling_dualview_gg"></A>Enabling DualView</H2>
+
+<P>For a minimal DualView implementation, perform the following actions:
+
+<UL>
+	<LI>Just before the miniport driver's <A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A> returns, call the new video port driver entry point, <A HREF="vpfncs_7o2v.htm"><B>VideoPortCreateSecondaryDisplay</B></A>, to generate a device extension for the secondary view. In the secondary device extension, add two new private members: </LI>
+</UL>
+
+<OL>
+	<LI>A flag that indicates the device extension is for a secondary display</LI>
+
+	<LI>A pointer that contains the address of the primary display's device extension</LI>
+</OL>
+
+<UL>
+	<LI>Four changes must be made in the miniport driver's <A HREF="vmpfncs_3wo7.htm"><I>HwVidStartIO</I></A> callback routine, modifying the way it responds to the four IOCTL requests shown. The fourth item in the following list presents two ways of accomplishing the same outcome.</LI>
+</UL>
+
+<OL>
+	<LI>In response to the <A HREF="virqs_4gx3.htm">IOCTL_VIDEO_MAP_VIDEO_MEMORY</A> request, each view's frame buffer pointer and length should be properly set.</LI>
+
+	<LI>The response to the <A HREF="virqs_2y3r.htm">IOCTL_VIDEO_SET_CURRENT_MODE</A> request should be made specific to the secondary view.</LI>
+
+	<LI>The response to the <A HREF="virqs_7fzb.htm">IOCTL_VIDEO_RESET_DEVICE</A> request depends on whether the device is the primary or the secondary display. If the device is the primary display, carry out any needed operations. If the device is the secondary display, however, it is recommended that no action be taken.</LI>
+
+	<LI>Change the response to the <A HREF="virqs_5hnr.htm">IOCTL_VIDEO_SHARE_VIDEO_MEMORY</A> request, to get a correct map of both views. Note that for DirectDraw implementations, you can modify the DirectDraw function <A HREF="ddfncs_35wn.htm"><B>DdMapMemory</B></A> to get the correct map of both views.</LI>
+</OL>
+
+<UL>
+	<LI>The display driver should take care of the adjustment between the logical frame buffer address and the physical video memory offset. This is especially important for DirectDraw implementations, because in Dualview the primary surface may start anywhere other than memory location 0. The display driver should notify DirectDraw by filling <B>pHalInfo-&gt;vmiData.pvPrimary</B> and <B>pHalInfo-&gt;vmiData.fpPrimary</B> with the appropriate video memory offsets on handling <A HREF="ddfncs_4yav.htm"><B>DrvGetDirectDrawInfo</B></A>.</LI>
+</UL>
+
+<H4>Additional Implementation Notes</H4>
+
+<UL>
+	<LI><A HREF="vmpfncs_6alj.htm"><I>HwVidInitialize</I></A> is called only once for the primary device object. Any secondary device objects must be initialized in this call.</LI>
+
+	<LI>For a <A HREF="ddifncs_00pz.htm"><B>DrvAssertMode</B></A> call in which <I>bEnable</I> is set to FALSE, the miniport driver should check the status of the other views. It should avoid turning off the video chip while other views are still active.</LI>
+
+	<LI>Never assume that drawing operations have the same drawing context (for example, color depth and stride). This is especially important for chips that use tile frame buffers.</LI>
+
+	<LI>GDI can only set the primary view on a built-in device. Some systems, such as laptop computers, have built-in monitor devices (LCDs), but can also be connected to external monitors. The miniport driver should mark a view as removable by passing the VIDEO_DUALVIEW_REMOVABLE flag when it calls <A HREF="vpfncs_7o2v.htm"><B>VideoPortCreateSecondaryDisplay</B></A>.</LI>
+
+	<LI>On laptop computers in DualView mode, hotkey switches should be disabled. On a video ACPI-enabled system, the miniport driver should reject <A HREF="virqs_7ovb.htm">IOCTL_VIDEO_VALIDATE_CHILD_STATE_CONFIGURATION</A> requests.</LI>
+
+	<LI>For laptop computers supporting multichild devices, the miniport driver should handle <A HREF="virqs_3b1j.htm">IOCTL_VIDEO_GET_CHILD_STATE</A> requests and return logical child relationships (discussed in the following section). </LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Enabling%20DualView"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

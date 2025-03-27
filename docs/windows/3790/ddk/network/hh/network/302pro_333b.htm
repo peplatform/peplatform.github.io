@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Protocol Driver Packet Management</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Protocol Driver Packet Management">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocol_driver_packet_management_ng"></A>Protocol Driver Packet Management</H1>
+
+<P>A protocol driver must manage packet pools and data buffer pools while sending and receiving data. The driver uses packet pools to manage packet descriptors and buffer pools to manage buffer descriptors.</P>
+
+<P>Packet descriptors can be allocated as needed, when the driver initializes, or at binding time. You can allocate packet descriptors with chained buffer descriptors at initialization time to hold receive packets that occur immediately after the protocol binds itself to an underlying miniport driver. In this case, the <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> function must return control to the underlying driver as quickly as possible. Otherwise, subsequently received data can be lost. </P>
+
+<P>A connectionless protocol driver can receive incoming data from an underlying miniport driver from either its <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A> function or <I>ProtocolReceive</I> function. Data received with <I>ProtocolReceivePacket </I>is a packet descriptor specifying a full network packet. Data indicated to <I>ProtocolReceive</I> must be copied into a protocol-supplied buffer chained to a protocol-allocated packet descriptor. A connection-oriented protocol always receives incoming data at its <A HREF="104tdlow_3pwy.htm"><I>ProtocolCoReceivePacket</I></A> function.</P>
+
+<P>Every connectionless protocol driver must provide a <I>ProtocolReceive</I> function. When NDIS calls this function, the protocol driver must copy the indicated lookahead data into a protocol-allocated buffer, chained to a preallocated packet descriptor. The protocol must pass the descriptor to <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A>. This call passes the packet descriptor to the underlying miniport driver which adds any additional data that it received, beyond the indicated lookahead data. </P>
+
+<P>If a protocol driver binds itself only to underlying NDIS drivers that indicate arrays of packets with <A HREF="103ndisx_6f02.htm"><B>NdisMCoIndicateReceivePacket</B></A>, <A HREF="104tdlow_3pwy.htm"><I>ProtocolCoReceivePacket</I></A> need not provide packet descriptors, buffers, and buffer descriptors for incoming data. </P>
+
+<P>When NDIS indicates a full network packet to a protocol driver's <I>Protocol(Co)ReceivePacket</I> function, the driver can give clients direct read-only access to the buffered data. The protocol driver provides such access until the clients consume the data and release the packet descriptor and all its resources. When the protocol driver takes ownership of such packet resources, it is not required to copy data into a preallocated packet or call <B>NdisTransferData</B>.</P>
+
+<P>If a protocol driver supplies a packet descriptor with more than one chained buffer to <A HREF="103ndisx_6bci.htm"><B>NdisTransferData</B></A>, <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A>, or <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>, and the length of actual data in the last buffer is less than the allocated length of its buffer, the protocol driver should call <A HREF="103ndisx_2pki.htm"><B>NdisAdjustBufferLength</B></A> to set the actual length of the data in the buffer descriptor. When NDIS returns the packet descriptor to the protocol driver, the driver should readjust the buffer descriptor’s specified length to the full length of the buffer.</P>
+
+<P>The following topics contain additional information about protocol driver packet management:</P>
+
+<P class=indent1><A HREF="302pro_0bqf.htm">Allocating Packet Pools and Buffer Pools in a Protocol Driver</A></P>
+
+<P class=indent1><A HREF="302pro_6mhz.htm">Packet Reuse in a Protocol Driver</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Protocol%20Driver%20Packet%20Management"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,266 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>I/O Subsystem Enhancements</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="I/O Subsystem Enhancements">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Appendix:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_supp_i_o_subsystem_enhancements"></A>I/O Subsystem Enhancements</H1>
+
+<P>The I/O subsystem consists of kernel components that provide an interface to hardware devices for applications and other mandatory system components. Windows&nbsp;XP enhances the I/O subsystem while retaining complete compatibility with drivers written for Windows&nbsp;2000. This compatibility was essential because the I/O subsystem provides the interface to all devices, and too many changes to process I/O can break existing applications and drivers. </P>
+
+<P>Enhancements were made by adding new routines, available to drivers written to take advantage of the new Windows&nbsp;XP functionality. For this reason, while existing Windows&nbsp;2000 drivers will work with Windows&nbsp;XP, they must be rewritten to take advantage of the new I/O improvements, including the following:
+
+<UL>
+	<LI>New cancel queue</LI>
+
+	<LI>File system filter driver routines</LI>
+
+	<LI>Improved low-memory performance</LI>
+
+	<LI>I/O throttling</LI>
+
+	<LI>Direct Memory Access (DMA) improvements</LI>
+
+	<LI>WebDAV Redirector</LI>
+
+	<LI>System Restore</LI>
+
+	<LI>Volume Snapshot Service</LI>
+</UL>
+
+<H3>New Cancel Queue</H3>
+
+<P>Rather than having drivers perform device queuing and handling the I/O request packet (IRP) cancellation race, Windows&nbsp;XP I/O automates this process. In Windows&nbsp;XP, drivers handle IRP queuing and do not have to handle IRP cancellations. Intelligence in the queuing process lets the I/O routines handle requests rather than drivers in cases where the I/O is canceled. A common problem with cancellation of IRPs in a driver is synchronization between the cancel lock or the <B>InterlockedExchange</B> in the I/O Manager with the driver's queue lock.</P>
+
+<P>Windows&nbsp;XP abstracts the cancel logic in the routines while allowing the driver to implement the queue and associated synchronization. The driver provides routines to insert and remove IRPs from a queue, and it provides a lock to be held while calling these routines. The driver ensures that the memory for the queue comes from the correct pool. When the driver actually wants to insert something into the queue, it does not call its insertion routine, but instead calls <B>IoCsqInsertIrp</B>. </P>
+
+<P>To remove an IRP from the queue, the driver can either specify an IRP to be retrieved, or pass NULL, and the first IRP in the queue will be retrieved. Once the IRP has been retrieved, it cannot be canceled; it is expected that the driver will process the IRP and complete it quickly. </P>
+
+<H3>File System Filter Driver Routines</H3>
+
+<P>Several new kernel-mode support routines provide greater all-around reliability. Microsoft worked with third-party developers to test their filter drivers. If a driver crashed attempting to perform illegal functions, together we determined the functionality required, and provided kernel-mode support routines to let them accomplish what needed to be done without harming the rest of the system. These routines are included in the Windows Installable File System (IFS) Kit for Windows&nbsp;XP.</P>
+
+<H3>Improved Low-Memory Performance</H3>
+
+<P>Windows&nbsp;XP is more resilient during periods of low memory because “must succeed” allocations are no longer permitted. Earlier versions of the kernel and drivers contained memory allocation requests that had to succeed even when the memory pool was low. These allocations would crash the system if no memory were available. Two important I/O allocation routines used “must succeed,” with the first being for IRP allocation, and the other for Memory Descriptor List (MDL) allocations. If memory couldn’t be allocated, the system would blue screen if these routines were used. For Windows&nbsp;XP, kernel components and drivers are no longer allowed to request “must succeed” allocations; memory allocation routines will not allocate memory if the pool is too low. These changes allow drivers and other components to take appropriate error actions, rather than an extreme approach such as bug checking a machine.</P>
+
+<H3>I/O Throttling</H3>
+
+<P>Another improvement for low-memory conditions is I/O throttling. If the system can’t allocate memory, it throttles down to process one page at a time, if necessary, using freely allocated resources. This allows the system to continue at a slower pace until more resources are available.</P>
+
+<H3>DMA Improvements</H3>
+
+<P>Three new entries are added to the end of the DMA_OPERATIONS structure. These three entries will be accessible to any driver, which uses <B>IoGetDmaAdapter</B>. To safely check whether the new functionality exists, the driver should set the version field of the DEVICE_DESCRIPTION structure provided to <B>IoGetDmaAdapter </B>to DEVICE_DESCRIPTION_VERSION2. </P>
+
+<P>The current Hardware Abstraction Layers (HAL), which don't support the new interface, will fail the operation because of the version number. HALs that support this feature will understand the new version and will succeed the request, assuming all the other parameters are in order. The driver should try to access these new function pointers only when the driver successfully gets the adapter using DEVICE_DESCRIPTION_VERSION2.</P>
+
+<H3>WebDAV Redirector</H3>
+
+<P>Windows&nbsp;XP includes a new component — the WebDAV redirector. The WebDAV redirector allows applications on Windows&nbsp;XP to connect to the Internet, and to natively read and write data on the Internet. The WebDAV protocol is an extension to Hypertext Transfer Protocol (HTTP) that allows data to be written to HTTP targets such as the Microsoft MSN® Web Communities. The WebDAV redirector provides file system-level access to these servers in the same that the existing redirector provides access to SMB/CIFS servers.</P>
+
+<P>One way to access a WebDAV share is to use the <B>net use</B> command, for example: </P>
+
+<PRE>NET USE * http://webserver/davscratch </PRE>
+
+<P>To connect to an MSN Community, use <B>http://www.msnusers.com/yourcommunityname/files/</B> as the target. The credentials you need in this case are your Passport credentials; enter these details in the Connect Using Different User Name dialog if you are using mapped network drive, or use the <B>/u:</B> switch with the <B>net use</B> command. For example:</P>
+
+<PRE>net use http://www.msnusers.com/fooname/files /u:yourpassportaccount@hotmail.com</PRE>
+
+<P>The simplest ways to create a WebDAV share are:
+
+<UL>
+	<LI>Use Microsoft Internet Information Server (IIS). In IIS, you only need to make a directory browsable to access it through WebDAV and allow writes, and you can also save to it.</LI>
+
+	<LI>Use MSN Communities. File Cabinets in MSN Communities are WebDAV shares. </LI>
+</UL>
+
+<H3>System Restore</H3>
+
+<P>System Restore is a combination of a file system filter driver and user-mode services that provide a way for user to unwind configuration operations and restore a system to an earlier configuration. System Restore includes a file system filter driver called <I>Sr.sys</I>, which helps to implement a copy-on-write process. System Restore is a feature only of Windows&nbsp;XP Personal and the 32-bit version of Windows XP Professional; and it is not a feature of the server versions of Windows&nbsp;XP.</P>
+
+<H3>Volume Snapshot Service</H3>
+
+<P>A volume snapshot is a point-in-time copy of that volume. The snapshot is typically used by a backup application so that it may backup files in a consistent manner, even though the files may be changing during the backup. Windows&nbsp;XP includes a framework for orchestrating the timing for a snapshot, as well as a storage filter driver, not a file system filter driver, that uses a copy-on-write technique in order to create a snapshot.</P>
+
+<P>One important new snapshot-related I/O Control (IOCTL) that affects file systems is IOCTL_VOLSNAP_FLUSH_AND_HOLD_WRITES. This is actually intended for interpretation by file systems, even though it is an IOCTL. This is because all file systems should pass the IOCTL down to a lower-level driver that is waiting to process the IOCTL after the file system. The choice of an IOCTL instead of an FSCTL ensures that even legacy file system drivers will pass the IOCTL down.</P>
+
+<P>This IOCTL is sent by the Volume Snapshot Service. When a file system such as NTFS receives the IOCTL, it should flush the volume and hold all file resources to make sure that nothing more gets dirty. When the IRP completes or is canceled, the file system then releases the resources and returns.</P>
+
+<H3>Changes in Existing I/O Features</H3>
+
+<P>Windows&nbsp;XP includes several changes in existing I/O features, including:
+
+<UL>
+	<LI><B>FAT32 on DVD-RAM</B> 
+<P>DVD-RAM disks can appear as both CD/DVD devices and as rewriteable disks. Windows&nbsp;XP will allow DVD-RAM media in DVD-RAM drives to be formatted and used with the FAT32 file system.
+</LI>
+
+	<LI><B>Defragmentation APIs </B>
+<P>Since the release of Windows NT 4.0, the NTFS file system has exposed APIs that allow a user-mode application to query the allocated ranges of files on disk, and optimize file arrangements in order to defragment (or carefully fragment) files in order to minimize seeks while processing file I/O. In Windows&nbsp;2000, these APIs have a number of limitations; for example, they do not function on the master file table (MFT), the PageFile, or NTFS attributes. The feature set in Windows&nbsp;XP changes the behavior on NTFS as follows:
+
+<UL>
+	<LI>The defragmentation APIs will no longer defragment data by using the system cache. This means encrypted files will no longer need to be opened with read access.</LI>
+
+	<LI>NTFS will now defragment at the cluster boundary for noncompressed files. In Windows&nbsp;2000, this was limited to the page granularity for noncompressed files.</LI>
+
+	<LI>NTFS will now defragment the MFT. This was not allowed in Windows&nbsp;2000. This is through the regular code path, so there is no limit to how much at once can be moved, and any part of it can be moved other than the first 0x10 clusters. If there is no available space in the MFT to describe the change, then it will be rejected. The API can move an MFT segment even if a file with its File Entry in that section is currently open.</LI>
+
+	<LI>NTFS will now defragement for cluster sizes greater than 4 KB. NTFS will now defragment Reparse points, bitmaps, and attribute_lists. These can now be opened for file read attributes and synchronize. The files are named using the regular syntax (<I>file</I>:<I>name</I>:type<I>);</I> for example:
+<P>foo:$i30:$INDEX_ALLOCATION<BR>
+foo::$DATA<BR>
+foo::$REPARSE_POINT<BR>
+foo::$ATTRIBUTE_LIST
+</LI>
+
+	<LI>NTFS's QueryBitmap FSCTL will now return results on a byte boundary rather than page boundary.</LI>
+
+	<LI>NTFS will now defragment all parts of a stream, up to and including the allocation size. In Windows&nbsp;2000, it was not possible to defragment the file tail between valid data length (VDL) and end of file (EOF).</LI>
+
+	<LI>You can now defragment into or out of the MFT Zone. The MFT Zone is now just an NTFS-internal hint for the NTFS allocation engine.</LI>
+
+	<LI>It is possible to Pin an NTFS file so that it may not be defragmented using FSCTL_MOVE_FILE. This is done by calling FSCTL_MARK_HANDLE and passing MARK_HANDLE_PROTECT_CLUSTERS as an argument. This stays in effect until the handle is closed.</LI>
+</UL>
+</LI>
+
+	<LI><B>Large Files</B> 
+<P>Windows&nbsp;XP and Windows&nbsp;2000 Service Pack 2 are able to create sections on arbitrarily large mapped files. A constraint that had existed in earlier versions of the memory manager (creating Prototype Page Table entries for all pages in the section) does not apply, because the Windows&nbsp;XP memory manager can reuse prototype page table entries (PPTE) for any parts of a section that do not have a mapped view. In fact, it only creates PPTEs for active views based on the view size (not the section size).
+</LI>
+
+	<LI><B>Verifiers</B> 
+<P>There are new Verifier levels in addition to a new deadlock verifier. 
+</LI>
+
+	<LI><B>Read-only NTFS</B> 
+<P>NTFS will now mount read-only on an underlying read-only volume. If the volume requires a log restart or a Chkdsk, the mount will fail.
+</LI>
+
+	<LI><B>New flag: FILE_READ_ONLY_VOLUME</B> 
+<P><B>GetVolumeInformation</B> now returns a FILE_READ_ONLY_VOLUME for read-only volumes.
+</LI>
+
+	<LI><B>Remote Storage Service (RSS) on MO media </B></LI>
+
+	<LI><B>Encrypting File System (EFS)</B> 
+<P>The Client Side Caching database can now be encrypted.
+</LI>
+
+	<LI><B>Default NTFS ACL</B> The default access control list (ACL) on NTFS volumes has been strengthened.</LI>
+
+	<LI><B>Read-only flag on directories</B> 
+<P>The Read-only attribute has no defined effect on folders. However, in Windows&nbsp;XP, Windows Explorer is using this attribute on a folder to indicate that there is extra metadata in the folder that the shell should look at. This is a performance optimization.
+</LI>
+
+	<LI><B>Write-through mode</B> 
+<P>On hot-plug media, the FAT file system will work in WriteThrough mode. This is to eliminate corruption that could occur on media such as CompactFlash when it is unplugged from the system without using the <B>Safely Remove Hardware</B> user interface.
+</LI>
+</UL>
+
+<H3>Read-only Kernel and HAL Pages</H3>
+
+<P>On many Windows&nbsp;XP-based systems, the kernel and HAL pages will be marked read-only. This has affected drivers that were attempting to patch system code, dispatch tables, or data structures. The change to read-only kernel and HAL does not happen on all systems:
+
+<UL>
+	<LI>On systems with less than 256 MB RAM, the read-only restriction is used. </LI>
+
+	<LI>On systems with 256 MB or more RAM, the read-only restriction isn’t used because Windows&nbsp;XP uses large pages to map the kernel and HAL.</LI>
+
+	<LI>On all systems, the read-only restriction is used for all driver code because drivers are never mapped with large pages.</LI>
+
+	<LI>Driver Verifier disables large pages, so you can enable this on any machine of any size in order to test your code.</LI>
+</UL>
+
+<H3>New Filter Driver Functions</H3>
+
+<P>Windows&nbsp;XP includes several new filter driver function, including:
+
+<UL>
+	<LI><B>SetFileShortName</B>. This is a new Win32 function to set the short name of a file on NTFS.</LI>
+
+	<LI><B>GetVolumePathNamesForVolumeName</B>.<B> </B>This new function allows you to list all VolumePaths that a VolumeName may be mounted on.
+<PRE><B>BOOL
+  GetVolumePathNamesForVolumeName(</B>
+    <B>LPCWSTR</B>  lpszVolumeName,
+    <B>LPWSTR</B>  lpszVolumePathNames,
+    <B>DWORD</B>  cchBufferLength,
+    <B>PDWORD</B>  lpcchReturnLength
+<B>    )
+</B></PRE>
+
+<P>This routine returns a Multi-Sz list of volume path names for the given volume name. The returned <I>lpcchReturnLength</I> will include the extra tailing null characteristic of a Multi-Sz, unless ERROR_MORE_DATA is returned. In such a case, the list returned is as long as possible and may contain a part of a volume path.
+
+<P><B>Parameters</B>
+
+<DL>
+<DT><I>lpszVolumeName</I></DT>
+
+<DD>Supplies the volume name.</DD>
+
+<DT><I>lpszVolumePathNames</I></DT>
+
+<DD>Returns the volume path names.</DD>
+
+<DT><I>cchBufferLength</I></DT>
+
+<DD>Supplies the size of the return buffer.</DD>
+
+<DT><I>lpcchReturnLength</I></DT>
+
+<DD>Returns the number of characters copied back to the return buffer on success or the total number of characters necessary for the buffer on ERROR_MORE_DATA.
+</DD>
+</DL>
+
+<P><B>Return Value</B>
+
+<DL>
+<DT>FALSE</DT>
+
+<DD>Failure.</DD>
+
+<DT>TRUE</DT>
+
+<DD>Success.
+</DD>
+</DL>
+</LI>
+
+	<LI><B>FileIdBothDirectoryInformation and FileIdFullDirectoryInformation</B>. These two new FileInfo changes have been added to the file information class enumeration. The new file information classes can be passed as <I>FileInformationClass</I> parameter values to <B>ZwQueryInformationFile</B>, <B>ZwSetInformationFile</B>, and IRP_MN_QUERY_DIRECTORY.</LI>
+
+	<LI><B>SetFileValidData</B>. NTFS has the concept of Valid Data Length on a file stream. This is a way to preserve the C2 ‘Object Reuse’ requirement but not force file systems to write zeroes into file-tails. Definitions:
+<UL>
+	<LI>VDL = ‘Valid Data Length’. Each stream has such a value. </LI>
+
+	<LI>EOF = Allocated file length. Each stream has such a value. </LI>
+
+	<LI>File Tail = the region from VDL to EOF. Clearly, each stream has such a region and it may be zero length.</LI>
+</UL>
+
+<P>By definition, VDL must be less than or equal to the EOF. Any reads from the file tail are implicitly returned as zeroes by NTFS. Any writes into the file tail cause VDL to be increased to equal the end of this write, and any data between the previous VDL and the start of this write are written to be zeroes. In Windows&nbsp;XP, we have added an NTFS-only function call to set the Valid Data Length on a file, available to administrative users with <B>SeManageVolumePrivilege</B> (described later in this section).
+
+<P>Expected users include:
+
+<UL>
+	<LI>A Restore application that has the ability to pour the raw clusters directly onto the disk through hardware channel. This provides a method for informing the file system that the range contains valid user data and it can be returned to the user.</LI>
+
+	<LI>Multimedia/database tools that need to create large files, but not pay the zero-filling cost during the following times: <BR>
+(a) file extend time (the cost here is to make the extend a synchronous operation)<BR>
+(b) create time (the cost here is filling the file with zeroes)</LI>
+
+	<LI>Served-metadata cluster file systems that need to remotely extend the file, then "pump in" the data directly to the disk device.</LI>
+</UL>
+</LI>
+
+	<LI><B>SeManageVolumePrivilege</B>. The <B>SeManageVolumePrivilege</B> will let nonadministrators and remote users do administrative disk tasks on a machine. With Windows&nbsp;XP, this privilege is only used to allow nonadministrators and remote users make the <B>SetValidData</B> call. In the future, it will allow validated users to perform actions on the disk currently restricted to administrators.</LI>
+
+	<LI><B>IoAllocateWorkItem and IoQueueWorkItem</B>. These routines supersede <B>ExInitializeWorkItem</B> and <B>ExQueueWorkItem</B>, and are essential to support driver unloading.</LI>
+
+	<LI><B>IoGetDiskDeviceObject</B>. Returns the disk device object associated with a file system volume device object. The disk device object need not be an actual disk but in general associated with storage.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: I%2FO%20Subsystem%20Enhancements"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

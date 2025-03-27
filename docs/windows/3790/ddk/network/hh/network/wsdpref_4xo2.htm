@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WSAOVERLAPPED</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WSAOVERLAPPED">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wsaoverlapped_nr"></A>WSAOVERLAPPED</H1>
+
+<P>The Windows Sockets WSAOVERLAPPED structure provides a communication medium from the initiation of an overlapped I/O operation to its subsequent completion. Windows Sockets defines the WSAOVERLAPPED structure as equivalent to the Win32® OVERLAPPED structure. </P>
+
+<PRE class=syntax>typedef struct _WSAOVERLAPPED {
+  DWORD  Internal; 
+  DWORD  InternalHigh; 
+  DWORD  Offset; 
+  DWORD  OffsetHigh; 
+  WSAEVENT  hEvent;
+} WSAOVERLAPPED, FAR * LPWSAOVERLAPPED;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>Internal</B></DT>
+
+<DD>Reserved.</DD>
+
+<DT><B>InternalHigh</B></DT>
+
+<DD>Reserved.</DD>
+
+<DT><B>Offset</B></DT>
+
+<DD>Reserved.</DD>
+
+<DT><B>OffsetHigh</B></DT>
+
+<DD>Reserved.</DD>
+
+<DT><B>hEvent</B></DT>
+
+<DD>Handle to a WSAEVENT object that represents an event. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>Winsock2.h</I>. Include <I>Winsock2.h</I>. Requires Windows Sockets version&nbsp;2.0.</P>
+
+<H4>Comments</H4>
+
+<P>The SAN service provider exclusively controls only the <B>Offset</B> and <B>OffsetHigh</B> members of the WSAOVERLAPPED structure even though the SAN service provider's <B>WSPGetOverlappedResult</B> function must retrieve three values (byte count, flags, and error) from the structure. A SAN service provider can retrieve these three values any way it chooses as long as it interacts properly with the behavior of the <B>WPUCompleteOverlappedRequest</B> function. The following sequence outlines a typical implementation of <B>WSPGetOverlappedResult</B>:
+
+<OL>
+	<LI>At the start of an I/O operation, the SAN service provider sets the <B>Internal</B> member of the WSAOVERLAPPED structure to WSS_OPERATION_IN_PROGRESS. </LI>
+
+	<LI>After the I/O operation is complete, the SAN service provider performs the following actions: 
+<UL>
+	<LI>Sets <B>OffsetHigh</B> to the Windows Sockets error code resulting from the I/O operation. </LI>
+
+	<LI>Sets <B>Offset</B> to the flags resulting from the I/O operation. </LI>
+
+	<LI>Calls <B>WPUCompleteOverlappedRequest</B> and passes the number of bytes transferred. </LI>
+</UL>
+</LI>
+
+	<LI><B>WPUCompleteOverlappedRequest</B> eventually sets the <B>InternalHigh</B> member of the WSAOVERLAPPED structure to the number of bytes transferred and then sets <B>Internal</B> to a value other than WSS_OPERATION_IN_PROGRESS.</LI>
+
+	<LI>After the switch calls the SAN service provider's <B>WSPGetOverlappedResult</B> function, the SAN service provider checks the value in <B>Internal</B>. If the value is WSS_OPERATION_IN_PROGRESS, the SAN service provider waits for the event object (<B>hEvent</B> member) to be set to the signaled state or returns an error, based on the value that the switch passed to the <I>fWait</I> parameter of <B>WSPGetOverlappedResult</B>. If the value is not WSS_OPERATION_IN_PROGRESS, or after the operating system signals the event object, the SAN service provider returns the number of bytes transferred, the operation result error code, and the flags in the <B>InternalHigh</B>, <B>OffsetHigh</B>, and <B>Offset</B> members, respectively.</LI>
+</OL>
+
+<H4>See Also</H4>
+
+<P><A HREF="wsdpref_1b3m.htm"><B>WSPIoctl</B></A>, <A HREF="wsdpref_7soi.htm"><B>WSPRdmaRead</B></A>, <A HREF="wsdpref_7c6q.htm"><B>WSPRdmaWrite</B></A>, <A HREF="wsdpref_5hte.htm"><B>WSPRecv</B></A>, <A HREF="wsdpref_6rqq.htm"><B>WSPSend</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WSAOVERLAPPED"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>VxD_IO</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_1749"></A>VxD_IO</H1>
+
+<PRE>include vmm.inc
+
+VxD_IO  Port, IOCallback
+ </PRE>
+
+<P>Adds an I/O callback procedure and I/O port number to an I/O table. Virtual devices use the macro in conjunction with the <B>Begin_VxD_IO_Table</B> and <B>End_VxD_IO_Table</B> macros to create a table of I/O callback procedures for the <B>Install_Mult_IO_Handlers</B> service. 
+
+<UL>
+	<LI>No return value. </LI>
+</UL>
+
+<DL>
+<DT><I>Port</I></DT>
+
+<DD>Number of the I/O port to be trapped. </DD>
+
+<DT><I>IOCallback</I></DT>
+
+<DD>Name of the I/O callback procedure. For information about the callback procedure, see below. 
+</DD>
+</DL>
+
+<P>The I/O table can contain any number of <B>VxD_IO</B> macros. Each macro must specify an unique I/O port number, but the same I/O callback procedure can be assigned to more than one port. In such case, the I/O callback procedure can use the EDX register to determine which port was accessed by the virtual machine. </P>
+
+<P>After a virtual device installs the callback procedures, the system calls a procedure whenever a program in the virtual machine attempts to access the corresponding port. The system calls the procedure as follows: </P>
+
+<PRE>mov     ebx, VM             ; current VM handle
+mov     ecx, IOType         ; type of I/O
+mov     edx, Port           ; port number
+mov     ebp, OFFSET32 crs   ; points to a Client_Reg_Struc
+mov     eax, Data           ; output data (if I/O type is output)
+call    [IOCallback]
+
+mov     [Data], eax         ; input data (if I/O type is input)
+ </PRE>
+
+<P>The <I>VM</I> parameter specifies the current virtual machine, <I>Port</I> specifies the I/O port, and <I>crs</I> points to a <B>Client_Reg_Struc</B> structure containing the register contents for the current virtual machine. </P>
+
+<P>The <I>IOType</I> parameter specifies the type of input or output operation requested, and determines whether the callback procedure receives data in the EAX register or must return data in the EAX register. The <I>IOType</I> parameter can be a combination of the following values: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=17%>Value </TH>
+<TH align=left width=83%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>Addr_32_IO </TD>
+<TD width=83%>Use 32-bit address offsets for input or output string operations. If this value is not given, the 16-bit offsets are used. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>Byte_Input </TD>
+<TD width=83%>Input a single byte; place in AL if String_IO not given. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>Byte_Output </TD>
+<TD width=83%>Output a single byte from AL if String_IO not given. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>Dword_Input </TD>
+<TD width=83%>Input a double word; place in EAX if String_IO not given. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>Dword_Output </TD>
+<TD width=83%>Output a double word from EAX if String_IO not given. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>Rep_IO </TD>
+<TD width=83%>Repeat the input or output string operation the number of times specified by the <B>Client_CX</B> field in the <B>Client_Reg_Struc</B> structure. (<B>Client_ECX</B> if Addr_32_IO is set.) </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>Reverse_IO </TD>
+<TD width=83%>Decrement string address on each input or output operation. If this value is not given, the string address is incremented on each operation. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>String_IO </TD>
+<TD width=83%>Input or output a string. The high 16-bits specifies segment address of buffer containing the string to output or to receive the string input. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>Word_Input </TD>
+<TD width=83%>Input a word; place in AX if String_IO not given. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=17%>Word_Output </TD>
+<TD width=83%>Output a word from AX if String_IO not given. </TD>
+</TR>
+</TABLE><BR>
+
+<P>In memory, an I/O table consists of a <B>VxD_IOT_Hdr</B> structure followed by one or more <B>VxD_IO_Struc</B> structures. The first word in the table specified the number of entries. Each entry consists of a word specifying the port number and a double word specifying the 32-bit offset of the callback procedure. </P>
+
+<P>The <I>Data</I> parameter is used only when I/O type is for output. </P>
+
+<H4>See Also</H4>
+
+<P><B>Begin_VxD_IO_Table</B>, <B>End_VxD_IO_Table</B>, <B>Install_Mult_IO_Handlers</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: VxD_IO"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

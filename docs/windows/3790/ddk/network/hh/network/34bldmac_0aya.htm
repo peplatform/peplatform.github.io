@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TdiBuildReceiveDatagram</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TdiBuildReceiveDatagram">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdibuildreceivedatagram_nr"></A>TdiBuildReceiveDatagram</H1>
+
+<P><B>TdiBuildReceiveDatagram</B> sets up an internal device control IRP for a TDI_RECEIVE_DATAGRAM request to the underlying transport in which the local-node client has already opened a file object representing an address.</P>
+
+<PRE class=syntax><B>VOID 
+</B>  <B>TdiBuildReceiveDatagram(
+</B>    <B>IN PIRP</B>  <I>Irp</I><B>,
+</B>    <B>IN PDEVICE_OBJECT</B>  <I>DevObj</I><B>,
+</B>    <B>IN PFILE_OBJECT</B>  <I>FileObj</I><B>,
+</B>    <B>IN PVOID</B>  <I>CompRoutine</I><B>,
+</B>    <B>IN PVOID</B>  <I>Contxt</I><B>,
+</B>    <B>IN PMDL</B>  <I>MdlAddr</I><B>,
+</B>    <B>IN ULONG</B>  <I>ReceiveLen</I><B>,
+</B>    <B>IN PTDI_CONNECTION_INFORMATION</B>  <I>ReceiveDatagramInfo</I><B>,
+</B>    <B>OUT PTDI_CONNECTION_INFORMATION</B>  <I>ReturnInfo</I><B>,
+</B>    <B>ULONG</B>  <I>InFlags
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Irp</I></DT>
+
+<DD>Pointer to a client-supplied IRP, either originating in a higher level network component or allocated with <B>TdiBuildInternalDeviceControlIrp</B>. </DD>
+
+<DT><I>DevObj</I></DT>
+
+<DD>Pointer to the device object created by the underlying TDI transport driver.</DD>
+
+<DT><I>FileObj</I></DT>
+
+<DD>Pointer to a file object representing an address.</DD>
+
+<DT><I>CompRoutine</I></DT>
+
+<DD>Specifies the entry point of a client-supplied IoCompletion routine or NULL. The I/O Manager calls this routine when the given IRP is completed, unless the client sets this parameter to NULL. </DD>
+
+<DT><I>Contxt</I></DT>
+
+<DD>Pointer to a client-determined context. This client-supplied pointer is passed in to the IoCompletion routine when it is called with the completed IRP. <I>Contxt</I> is NULL if <I>CompRoutine</I> is NULL.</DD>
+
+<DT><I>MdlAddr</I></DT>
+
+<DD>Pointer to an MDL, possibly the initial MDL in a chain of MDLs, mapping a client-supplied buffer into which the transport is to transfer the received datagram. </DD>
+
+<DT><I>ReceiveLen</I></DT>
+
+<DD>Specifies the maximum size in bytes of the datagram to return in the buffer mapped at <I>MdlAddr</I>. If this parameter is zero, the transport can use the whole buffer mapped at <I>MdlAddr</I>.</DD>
+
+<DT><I>ReceiveDatagramInfo</I></DT>
+
+<DD>Pointer to a TDI_CONNECTION_INFORMATION structure specifying a particular remote-node address from which this local-node client will accept a datagram. If the <B>RemoteAddressLength</B> member is zero, a datagram from any remote node is acceptable to this client. A <B>RemoteAddressLength</B> of zero implies a <B>RemoteAddress</B> set to NULL. </DD>
+
+<DT><I>ReturnInfo</I></DT>
+
+<DD>Pointer to caller-supplied buffer in which the transport is to return the source address of the received datagram, formatted as a TDI_CONNECTION_INFORMATION structure.</DD>
+
+<DT><I>InFlags</I></DT>
+
+<DD>Specifies the type of receive to be returned by the transport as one or more (Ored) of the following:
+
+<DL>
+<DT>TDI_RECEIVE_NORMAL</DT>
+
+<DD>Return a normal TSDU to the client-supplied buffer.</DD>
+
+<DT>TDI_RECEIVE_PEEK</DT>
+
+<DD>Return an indicated datagram as soon as it arrives from a remote node, even if it is a partial TSDU, and the client will request another receive for the remainder of the datagram if it is of interest to this client. 
+
+<P>This flag is valied only if the underlying transport buffers received datagrams internally. In general, clients that go through the system AFD driver, which buffers data internally for nonbuffering transports, can use this flag. 
+
+</DD>
+</DL>
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>TdiKrnl.h</I>. Include <I>TdiKrnl.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>TdiBuildReceiveDatagram </B>sets IRP_MJ_INTERNAL_DEVICE_CONTROL as the <B>MajorFunction</B> and TDI_RECEIVE_DATAGRAM as the <B>MinorFunction</B> codes in the transport's I/O stack location of the given IRP.</P>
+
+<P>Because a datagram is not associated with an established connection, the TDI driver returns the transport address of the remote-node sender to the receiving client along with the datagram. </P>
+
+<P>The transport satisfies this IRP when it receives a datagram directed to the local-node address represented by the client's open file object and a source address matching the client's specification at <B>ReceiveDatagramInfo</B>. If such a received datagram is too large for the client-supplied buffer, the underlying transport truncates the datagram, discarding any superfluous data, and completes the client's receive-datagram request.</P>
+
+<P>TDI transports never fragment datagrams. Consequently, their clients make one receive-datagram request to receive each datagram. To determine the maximum possible value for <I>ReceiveLen</I>, the client usually issued a preceding query-information request, set up with <B>TdiBuildQueryInformation</B> for any of the <I>QType</I> values TDI_QUERY_PROVIDER_INFO, TDI_QUERY_DATAGRAM_INFO, or TDI_QUERY_MAX_DATAGRAM_INFO. </P>
+
+<P>A client can receive a broadcast datagram by opening a broadcast address that has a transport-specific format, which can be obtained with a query-information request. However, such a client cannot send a datagram from the broadcast address, nor can it establish an association between a connection of its own and that broadcast address.</P>
+
+<P>A client also can receive datagrams by registering its ClientEventReceiveDatagram and/or ClientEventChainedReceiveDatagram handler(s) on a particular address.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_0jci.htm"><B>ClientEventChainedReceiveDatagram</B></A>, <A HREF="35tdicli_82nm.htm"><B>ClientEventReceiveDatagram</B></A>, <A HREF="34bldmac_8df6.htm"><B>TdiBuildInternalDeviceControlIrp</B></A>, <A HREF="34bldmac_3f5e.htm"><B>TdiBuildQueryInformation</B></A>, <A HREF="34bldmac_3rhu.htm"><B>TdiBuildSendDatagram</B></A>, <A HREF="34bldmac_6sxe.htm"><B>TdiBuildSetEventHandler</B></A>, <A HREF="36tdstrc_9vg2.htm"><B>TDI_CONNECTION_INFORMATION</B></A>, <A HREF="32ioctl_7ype.htm"><B>TDI_RECEIVE_DATAGRAM</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TdiBuildReceiveDatagram"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

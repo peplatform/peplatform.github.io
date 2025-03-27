@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Exposing Miniport Topology</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Exposing Miniport Topology">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_exposing_miniport_topology_ksg"></A>Exposing Miniport Topology</H3>
+
+<P>A miniport driver describes the internal topology of a KS filter in terms of pins, nodes, and connections. This topology specifies the data-flow paths through the filter and also defines the logical targets—pins and nodes—for property requests. The intra-filter topology is a logical representation of the internal structure of the hardware device that underlies the filter. The miniport driver describes this topology with static arrays of pin, node, and connection descriptors.
+
+<UL>
+	<LI>Pins are specified in a static array of <A HREF="audpc-struct_5o6r.htm">PCPIN_DESCRIPTOR</A> structures. Each pin has an ID that is its ordinal in the array.</LI>
+
+	<LI>Nodes are specified in a static array of <A HREF="audpc-struct_973n.htm">PCNODE_DESCRIPTOR</A> structures. Each node has an ID that is its ordinal in the array.</LI>
+
+	<LI>Connections (pin-to-pin, pin-to-node, or node-to-node) are specified in a static array of <A HREF="audpc-struct_6yb7.htm">PCCONNECTION_DESCRIPTOR</A> structures.</LI>
+</UL>
+
+<P>The miniport driver exposes these three arrays in the <A HREF="audpc-struct_0otv.htm">PCFILTER_DESCRIPTOR</A> structure that it outputs from its <A HREF="audmp-routines_5k1f.htm"><B>IMiniport::GetDescription</B></A> method.</P>
+
+<H4>Example</H4>
+
+<P>The following code example specifies the internal topology of a simple KS filter that has one input pin and one output pin. The filter contains a single node, which is a volume-level control.</P>
+
+<PRE class=syntax>#define KSPIN_WAVEOUT_SRC  0
+#define KSPIN_SPEAKERS_DST  1
+
+PCPIN_DESCRIPTOR 
+MiniportPins[] =
+{
+    {   // Pin 0 -- KSPIN_WAVEOUT_SRC
+        0,0,0,  // InstanceCount
+        NULL,   // AutomationTable
+        {       // KsPinDescriptor
+            0,                                          // InterfacesCount
+            NULL,                                       // Interfaces
+            0,                                          // MediumsCount
+            NULL,                                       // Mediums
+            SIZEOF_ARRAY(PinDataRangePointersBridge),   // DataRangesCount
+            PinDataRangePointersBridge,                 // DataRanges
+            KSPIN_DATAFLOW_IN,                          // DataFlow
+            KSPIN_COMMUNICATION_NONE,                   // Communication
+            &amp;KSNODETYPE_LEGACY_AUDIO_CONNECTOR,         // Category
+            NULL,                                       // Name
+            0                                           // Reserved
+        }
+    },
+    {   // Pin 1 -- KSPIN_SPEAKERS_DST
+        0,0,0,  // InstanceCount
+        NULL,   // AutomationTable
+        {       // KsPinDescriptor
+            0,                                          // InterfacesCount
+            NULL,                                       // Interfaces
+            0,                                          // MediumsCount
+            NULL,                                       // Mediums
+            SIZEOF_ARRAY(PinDataRangePointersBridge),   // DataRangesCount
+            PinDataRangePointersBridge,                 // DataRanges
+            KSPIN_DATAFLOW_OUT,                         // DataFlow
+            KSPIN_COMMUNICATION_NONE,                   // Communication
+            &amp;KSNODETYPE_SPEAKER,                        // Category
+            &amp;KSAUDFNAME_VOLUME_CONTROL,                 // Name (This name shows up as the 
+                                                        // playback panel name in SndVol32)
+            0                                           // Reserved
+        }
+    }
+};
+
+#define KSNODE_WAVEOUT_VOLUME  0
+
+PCNODE_DESCRIPTOR TopologyNodes[] =
+{
+    {   // KSNODE_WAVEOUT_VOLUME
+        0,                      // Flags
+        &amp;AutomationVolume,      // AutomationTable
+        &amp;KSNODETYPE_VOLUME,     // Type
+        &amp;KSAUDFNAME_WAVE_VOLUME // Name
+    }
+};
+
+PCCONNECTION_DESCRIPTOR MiniportConnections[] =
+{ //FromNode---------------FromPin------------ToNode-----------------ToPin
+  { PCFILTER_NODE,         KSPIN_WAVEOUT_SRC, KSNODE_WAVEOUT_VOLUME, 1 },
+  { KSNODE_WAVEOUT_VOLUME, 0,                 PCFILTER_NODE,         KSPIN_SPEAKERS_DST }
+};</PRE>
+
+<P>The following figure shows the topology of the filter that is described by the preceding sample code.</P>
+
+<P><IMG SRC="images/audtop.gif" ALT="" BORDER=0></P>
+
+<P><B>A Simple Filter Topology</B></P>
+
+<P>This filter is a simple example of a <A HREF="aud-design_67qf.htm">topology filter</A>, which an adapter driver forms by binding its <A HREF="audmp-routines_70z7.htm"><B>IMiniportTopology</B></A> object to an <A HREF="audmp-routines_1c8j.htm"><B>IPortTopology</B></A> object that the PortCls system driver creates. The filter's input (sink) and output (source) pins are named KSPIN_WAVEOUT_SRC and KSPIN_SPEAKERS_DST. Both pins carry analog signals. The <B>mixer</B> API exposes the connections to these pins as source and destination mixer lines (MIXERLINE_COMPONENTTYPE_SRC_WAVEOUT and MIXERLINE_COMPONENTTYPE_DST_SPEAKERS), respectively.</P>
+
+<P>The following table illustrates a potential source of confusion when discussing the mapping of KS pins to mixer lines.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=41%>Pin Name</TH>
+<TH align=left width=33%>Mixer API Terminology</TH>
+<TH align=left width=26%>KS Filter Terminology</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>KSPIN_WAVEOUT_SRC</TD>
+<TD width=33%>Source mixer line</TD>
+<TD width=26%>Sink pin</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>KSPIN_SPEAKERS_DST</TD>
+<TD width=33%>Destination mixer line</TD>
+<TD width=26%>Source pin</TD>
+</TR>
+</TABLE><BR>
+
+<P>Note that KSPIN_WAVEOUT_SRC is a <I>source</I> mixer line and KSPIN_SPEAKERS_DST is a <I>source</I> pin. For more information, see the discussion of KS and mixer-line terminology in <A HREF="pcdesign_8nqf.htm">Kernel Streaming Topology to Audio Mixer API Translation</A>.</P>
+
+<P>Also note that the name "KSPIN_WAVEOUT_SRC" contains "WAVEOUT" not because the pin carries wave-formatted digital data, but because it carries the analog signal that is generated by a wave filter, which is a filter of type WaveCyclic or WavePci. The wave filter represents the portion of the audio adapter's hardware that converts a wave stream into an analog signal. Pin KSPIN_SPEAKERS_DST outputs an analog signal that drives a set of speakers.</P>
+
+<P>The filter contains a single node, KSNODE_WAVEOUT_VOLUME, which the <B>mixer</B> API represents as a volume control (MIXERCONTROL_CONTROLTYPE_VOLUME). The KS node type for the volume control is <A HREF="aud-prop_9eb7.htm">KSNODETYPE_VOLUME</A>. All nodes of this type support the <A HREF="aud-prop_6jar.htm">KSPROPERTY_AUDIO_VOLUMELEVEL</A> property, which a client of the filter uses to control the volume level.</P>
+
+<P>The volume node has two "logical" pins, which are numbered 0 and 1. The two connections that are specified by the <I>MiniportConnections</I> array are represented in the figure by dashed arrows that point in the direction of data flow. Each connection is described by one of the two elements in the array.</P>
+
+<P>The KSPIN_WAVEOUT_SRC and KSPIN_SPEAKERS_DST pins are both <I>bridge pins</I>, which means that they represent hard-wired connections in the adapter. In the preceding sample code, the two pin descriptors in the <I>MiniportPins</I> array both specify their IRP-flow direction as KSPIN_COMMUNICATION_NONE, which is appropriate because bridge pins neither send nor receive IRPs. The two pin descriptors also refer to a <I>PinDataRangePointersBridge</I> array, which is defined as follows:</P>
+
+<PRE class=syntax>static KSDATARANGE PinDataRangesBridge[] =
+{
+   {
+      sizeof(KSDATARANGE),
+      0, 0, 0,
+      STATICGUIDOF(KSDATAFORMAT_TYPE_AUDIO),
+      STATICGUIDOF(KSDATAFORMAT_SUBTYPE_ANALOG),
+      STATICGUIDOF(KSDATAFORMAT_SPECIFIER_NONE)
+   }
+};
+
+static PKSDATARANGE PinDataRangePointersBridge[] =
+{
+    &amp;PinDataRangesBridge[0]
+};</PRE>
+
+<P>The <I>PinDataRangePointersBridge</I> array defines the data range for a bridge pin that carries an analog audio signal. For more information, see the discussion of bridge pins in <A HREF="aud-design_5vs7.htm">Audio Filter Graphs</A>.</P>
+
+<P>For an example of a more complex topology, see <A HREF="aud-design_67qf.htm">Topology Filters</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Exposing%20Miniport%20Topology"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Smart Card Driver Library Callback Routines</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Smart Card Driver Library Callback Routines">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Smart&nbsp;Card&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_ntovr_smart_card_driver_library_callback_routines"></A>Smart Card Driver Library Callback Routines</H2>
+
+<P>The smart card architecture defines a set of standard callback function types that are discussed in the smart card reference documentation. See <A HREF="scclback_8qar.htm">Smart Card Driver Callbacks</A> for more information. </P>
+
+<P>A reader driver must make these callback functions available for the driver library routine, <A HREF="scfuncw_3s7z.htm"><B>SmartcardDeviceControl</B> (WDM)</A>, to call by storing pointers to them in the smart card device extension, <A HREF="scstruct_50a6.htm">SMARTCARD_EXTENSION</A>. These pointers are stored in an array of function pointers located in the <B>ReaderFunction</B> member of SMARTCARD_EXTENSION. Individual callback functions can be identified by means of a series of constant values that should be used as indices into the <B>ReaderFunction</B> array. </P>
+
+<P>For instance, if you want <B>SmartcardDeviceControl</B> to call a callback routine in your reader driver named <I>DriverCardPower</I> whenever it finishes processing an <A HREF="scioctls_3sxe.htm">IOCTL_SMARTCARD_POWER</A> request, you must use the <A HREF="scclback_4unm.htm">RDF_CARD_POWER</A> constant to initialize the device extension in the following manner:</P>
+
+<PRE>SmartcardExtension-&gt;ReaderFunction[RDF_CARD_POWER] = 
+DriverCardPower;</PRE>
+
+<P>RDF_CARD_POWER is a fixed system-defined constant that always corresponds to the callback that services the IOCTL_SMARTCARD_POWER request.</P>
+
+<P>If the member of the <B>ReaderFunction </B>array corresponding to the IOCTL being processed is NULL, <B>SmartcardDeviceControl</B> returns a status of STATUS_NOT_SUPPORTED to the reader driver. There are cases where this behavior is useful. If, for example, your driver does not support card ejecting or card swallowing, simply assign the appropriate member of the <B>ReaderFunction</B> array to be NULL, and <B>SmartcardDeviceControl</B> will return STATUS_NOT_SUPPORTED whenever that member function is called.</P>
+
+<P>The following table provides a list of the constant indices used to identify the various types of callback routines in the <B>ReadFunction</B> array. It also provides a brief description of each function type, and it indicates whether it is mandatory or optional for a reader driver to implement the function. This list applies to both WDM and VxD libraries. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=32%>Index</TH>
+<TH align=left width=39%>Description of Corresponding Callback Routine</TH>
+<TH align=left width=29%>Implementation by the Reader Driver</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><A HREF="scclback_4unm.htm">RDF_CARD_POWER</A></TD>
+<TD width=39%>Resets or powers down an inserted smart card. </TD>
+<TD width=29%>Mandatory</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><A HREF="scclback_9n3o.htm">RDF_CARD_EJECT</A></TD>
+<TD width=39%>Ejects an inserted smart card.  </TD>
+<TD width=29%>Optional</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><A HREF="scclback_94dj.htm">RDF_CARD_TRACKING</A></TD>
+<TD width=39%>Installs an event handler to track card insertions and removals. </TD>
+<TD width=29%>Mandatory</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><A HREF="scclback_3fle.htm">RDF_IOCTL_VENDOR</A></TD>
+<TD width=39%>Performs vendor-specific IOCTL operations.</TD>
+<TD width=29%>Optional</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><A HREF="scclback_8gfr.htm">RDF_READER_SWALLOW</A></TD>
+<TD width=39%>Does a mechanical swallow.</TD>
+<TD width=29%>Optional</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><A HREF="scclback_6o18.htm">RDF_SET_PROTOCOL</A></TD>
+<TD width=39%>Selects a transmission protocol for the currently-inserted card.</TD>
+<TD width=29%>Mandatory</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><A HREF="scclback_3zg4.htm">RDF_TRANSMIT</A></TD>
+<TD width=39%>Performs data transmissions.</TD>
+<TD width=29%>Mandatory</TD>
+</TR>
+</TABLE><BR>
+
+<P>When calling these functions, the reader driver should retrieve calling parameters from the input buffers as described in <A HREF="scclback_8qar.htm">Smart Card Driver Callbacks</A>. It should also store output data in the appropriate buffer areas as described in the same section.</P>
+
+<P>When any callback routine, other than the card tracking callback (see <A HREF="scclback_94dj.htm">RDF_CARD_TRACKING</A>), returns STATUS_PENDING, both the WDM and VxD versions of the smart card library will cease to service any further calls from the reader driver. If the reader driver attempts to use a driver library routine while the library is in this state, the library routine will return a status of STATUS_DEVICE_BUSY. This effectively prevents the reader driver from servicing IOCTL requests from the resource manager, because the reader driver can not process IOCTL requests if it can not call <B>SmartcardDeviceControl</B>.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;If the reader driver is a VxD driver, it should call <A HREF="scfunc_7ja7.htm"><B>SmartcardCompleteRequest</B></A> to complete a pending IOCTL request. This function informs the resource manager of the completion and unlocks memory that had been locked by the smart card driver library. It also enables further calls to the driver library.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Smart%20Card%20Driver%20Library%20Callback%20Routines"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

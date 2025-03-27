@@ -1,0 +1,134 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Exposing Multichannel Nodes</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Exposing Multichannel Nodes">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_exposing_multichannel_nodes_ksg"></A>Exposing Multichannel Nodes</H3>
+
+<P>In versions of Windows before Windows&nbsp;XP, WDM audio drivers do not have a streamlined way of exposing multichannel nodes of the following types:</P>
+
+<P class=indent1><A HREF="aud-prop_9eb7.htm">KSNODETYPE_VOLUME</A> </P>
+
+<P class=indent1><A HREF="aud-prop_3yyb.htm">KSNODETYPE_MUTE</A> </P>
+
+<P class=indent1><A HREF="aud-prop_0gxf.htm">KSNODETYPE_TONE</A> </P>
+
+<P>In particular, no mechanism exists for explicitly querying a node for the number of channels that it supports. Although workarounds exist for this problem, they have drawbacks. For example, a client can use the <A HREF="aud-prop_6jar.htm">KSPROPERTY_AUDIO_VOLUMELEVEL</A> property to iteratively query a volume node (<A HREF="aud-prop_9eb7.htm">KSNODETYPE_VOLUME</A>) for the volume level of each channel—0, 1, and so on—until the request returns an error indicating that no more channels exist. Unfortunately, this technique requires multiple queries and is too inefficient to handle newer multichannel audio devices.</P>
+
+<P>Windows&nbsp;XP and later operating systems overcome these limitations by defining two additional flag bits in the <B>MembersFlags</B> member of the <A HREF="ks-struct_7qr7.htm">KSPROPERTY_MEMBERSHEADER</A> structure, which the property handler outputs in response to a basic-support query:
+
+<UL>
+	<LI>KSPROPERTY_MEMBER_FLAG_BASICSUPPORT_MULTICHANNEL
+<P>During a basic-support property request on a node, the handler sets this flag bit to indicate that the <B>MembersCount</B> member of KSPROPERTY_MEMBERSHEADER contains the number of channels that the node supports.
+</LI>
+
+	<LI>KSPROPERTY_MEMBER_FLAG_BASICSUPPORT_UNIFORM
+<P>The handler bitwise ORs this flag bit with the KSPROPERTY_MEMBER_FLAG_BASICSUPPORT_MULTICHANNEL flag to indicate that a single property value is applied uniformly across all channels in a node. For example, if the hardware provides only a single volume-level control for all channels, the volume node's basic-support handler sets the KSPROPERTY_MEMBER_FLAG_BASICSUPPORT_UNIFORM flag to indicate this restriction. If this flag is not set, the meaning is that the volume level for each channel can be controlled independently of the volume levels for the other channels.
+</LI>
+</UL>
+
+<P>In miniport drivers for Windows&nbsp;XP and later, the property handler for a multichannel volume node should set the KSPROPERTY_MEMBER_FLAG_BASICSUPPORT_MULTICHANNEL bit in response to a KSPROPERTY_AUDIO_VOLUMELEVEL basic-support query. The handler returns an array of <A HREF="ks-struct_58kz.htm">KSPROPERTY_STEPPING_LONG</A> structures—one for each channel exposed by the node—and sets <B>MembersSize</B> to <B>sizeof</B>(KSPROPERTY_STEPPING_LONG). Each array element describes a channel's minimum and maximum volume levels and the delta between successive values in the range. A different range can be specified for each individual channel so that channels with non-uniform ranges can be exposed correctly. For example, a subwoofer channel might have a range that differs from that of the other channels.</P>
+
+<P>The following code example shows how to handle a <A HREF="aud-design_54iv.htm">basic-support query for an audio property</A> with non-uniform property values. Variable <I>pDescription </I>in the first line of code below points to the <A HREF="ks-struct_9wab.htm">KSPROPERTY_DESCRIPTION</A> structure at the beginning of the data buffer into which the handler writes the basic-support information:</P>
+
+<PRE>  //
+  // Fill in the members header.
+  //
+  PKSPROPERTY_MEMBERSHEADER pMembers = PKSPROPERTY_MEMBERSHEADER(pDescription + 1);
+
+  pMembers-&gt;MembersFlags = KSPROPERTY_MEMBER_STEPPEDRANGES;
+  pMembers-&gt;MembersSize = sizeof(KSPROPERTY_STEPPING_LONG);
+  pMembers-&gt;MembersCount = ulNumChannels;
+  pMembers-&gt;Flags = KSPROPERTY_MEMBER_FLAG_BASICSUPPORT_MULTICHANNEL;
+
+  //
+  // Fill in the stepped range with the driver default.
+  //
+  PKSPROPERTY_STEPPING_LONG pRange = PKSPROPERTY_STEPPING_LONG(pMembers + 1);
+  pRange-&gt;Reserved = 0;
+
+  for (ULONG i=0; i&lt;ulNumChannels; i++)
+  {
+      pRange[i].Bounds.SignedMinimum = ulChannelMin[i];
+      pRange[i].Bounds.SignedMaximum = ulChannelMax[i];
+      pRange[i].SteppingDelta = ChannelStepping[i];
+  }
+
+  pPropertyRequest-&gt;ValueSize = sizeof(KSPROPERTY_DESCRIPTION) +
+                                sizeof(KSPROPERTY_MEMBERSHEADER) + 
+                                ulNumChannels*sizeof(KSPROPERTY_STEPPING_LONG);</PRE>
+
+<P>The following figure shows the layout of the data buffer for this example. The <I>pDescription</I>, <I>pMembers</I>, and <I>pRange</I> pointers are shown pointing to their respective offsets within the buffer.</P>
+
+<P><IMG SRC="images/propdesc.gif" ALT="" BORDER=0></P>
+
+<P><B>Layout of Data Buffer for Basic-Support Query Example</B></P>
+
+<P>For this example, the handler sets <B>MembersCount</B> to <I>ulNumChannels</I>, the number of channels. The size in bytes of the range array is</P>
+
+<P class=indent1><B>MembersSize&nbsp;*&nbsp;MembersCount</B></P>
+
+<P>Note that if the KSPROPERTY_MEMBER_FLAG_BASICSUPPORT_UNIFORM flag were set in this example, the handler would set all of the KSPROPERTY_STEPPING_LONG structures in the array to the same range.</P>
+
+<P>The basic-support handler for a tone node's <A HREF="aud-prop_4joz.htm">KSPROPERTY_AUDIO_BASS</A>, <A HREF="aud-prop_7nzn.htm">KSPROPERTY_AUDIO_TREBLE</A>, or <A HREF="aud-prop_03zn.htm">KSPROPERTY_AUDIO_MID</A> property operates in similar fashion.</P>
+
+<P>If a multichannel node has a property with a per-channel property value of type BOOL, the basic-support handler does not need to fill in a stepping-range array because the range is implicitly limited to the values TRUE and FALSE. In this case, the handler sets <B>MembersSize</B> to zero and <B>MembersCount</B> to the number of channels. Two examples of this type of property are a mute node's <A HREF="aud-prop_1esz.htm">KSPROPERTY_AUDIO_MUTE</A> property and a tone node's <A HREF="aud-prop_8wxf.htm">KSPROPERTY_AUDIO_BASS_BOOST</A> property.</P>
+
+<P>The following code example shows how to handle a multichannel node's basic-support request for a property with no stepping ranges:</P>
+
+<PRE>  //
+  // Fill in the members header.
+  //
+  PKSPROPERTY_MEMBERSHEADER pMembers = PKSPROPERTY_MEMBERSHEADER(pDescription + 1);
+
+  pMembers-&gt;MembersFlags = 0;
+  pMembers-&gt;MembersSize = 0;
+  pMembers-&gt;MembersCount = ulNumChannels;
+  pMembers-&gt;Flags = KSPROPERTY_MEMBER_FLAG_BASICSUPPORT_MULTICHANNEL;
+
+  pPropertyRequest-&gt;ValueSize = sizeof(KSPROPERTY_DESCRIPTION) +
+                                sizeof(KSPROPERTY_MEMBERSHEADER);</PRE>
+
+<P>As before, the flag KSPROPERTY_MEMBER_FLAG_BASICSUPPORT_UNIFORM can be bitwise ORed with the KSPROPERTY_MEMBER_FLAG_BASICSUPPORT_MULTICHANNEL flag in the <B>MembersFlag</B> field to indicate that the hardware applies the same property value uniformly across all channels in a node.</P>
+
+<P>Using the MULTICHANNEL and UNIFORM flags eliminates the need to group the channels into pairs and expose a separate stereo volume node for each pair of channels, as is done in the <I>ac97</I> sample driver in the Windows DDK. Because Windows versions earlier than Windows&nbsp;XP do not support these flags, your driver's basic-support handler should use the <A HREF="audmp-routines_6apf.htm"><B>IPortClsVersion</B></A> interface to query for the <I>portcls.sys </I>version in order to determine whether to use these flags.</P>
+
+<P>The topology parser (in the kernel-mode <A HREF="aud-design_789z.htm#ddk_wdmaud_system_driver_ksg">WDMAud system driver</A>, <I>wdmaud.sys</I>) obtains an audio device's topology from its WDM audio driver. The parser exposes that device as a traditional mixer device through the legacy Windows Multimedia <B>mixer</B> API. In Windows&nbsp;XP and later, WDMAud uses the KSPROPERTY_MEMBER_FLAG_BASICSUPPORT_MULTICHANNEL flag to determine the number of channels to report in the <B>cChannels</B> member of the MIXERLINE structure. Additionally, if the node's basic-support handler specifies the KSPROPERTY_MEMBER_FLAG_BASICSUPPORT_UNIFORM flag, WDMAud sets the MIXERCONTROL_CONTROLF_UNIFORM flag in the corresponding MIXERCONTROL structure. Through this flag, applications can determine whether they can adjust each channel individually or all channels uniformly through a master control. For more information about MIXERCONTROL, MIXERLINE, and the <B>mixer</B> API, see the Platform SDK documentation.</P>
+
+<P>In Windows&nbsp;XP and later, the SndVol32 volume-control program (see <A HREF="pcdesign_9ulj.htm">SysTray and SndVol32</A>) displays controls for multichannel devices, as shown in the following figure.</P>
+
+<P><IMG SRC="images/volctrl.gif" ALT="" BORDER=0></P>
+
+<P><B>SndVol32 Volume-Control Program</B></P>
+
+<P>If SndVol32 detects a line that has more than two channels, it replaces the normal pan control with a button labeled <B>Speaker Volume</B>, which appears above the main volume slider in the preceding figure. Clicking on the <B>Speaker Volume</B> button will bring up a dialog displaying controls for all of the channels for a particular line, as shown in the following figure.</P>
+
+<P><IMG SRC="images/spkrvol.gif" ALT="" BORDER=0></P>
+
+<P><B>Advanced Audio Properties Dialog</B></P>
+
+<P>Because the <B>mixer</B> API exposes channels by number, it infers the channel names from the speaker configuration that is currently selected in the <B>Advanced Audio Properties</B> dialog in the multimedia control panel.</P>
+
+<P>For example, if a device exposes four channels on a line and the user has selected "Quadraphonic speakers", the channel names will be "Left" (channel 0), "Right" (channel 1), "Back Left" (channel 2), and "Back Right" (channel 3), as shown in the preceding figure. Changing the speaker configuration to "Surround sound speakers" will result in a channel mapping of "Left" (channel 0), "Right" (channel 1), "Front Center" (channel 2), and "Back Center" (channel 3).</P>
+
+<P>At the driver level, the KSPROPERTY_AUDIO_CHANNEL_CONFIG property uses a mask value of KSAUDIO_SPEAKER_QUAD or KSAUDIO_SPEAKER_SURROUND to represent a quadraphonic or surround speaker configuration, respectively. Header file <I>ksmedia.h</I> defines these values as follows:</P>
+
+<PRE>  #define KSAUDIO_SPEAKER_QUAD      (SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | \
+                                     SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT)
+
+  #define KSAUDIO_SPEAKER_SURROUND  (SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | \
+                                     SPEAKER_FRONT_CENTER | SPEAKER_BACK_CENTER)</PRE>
+
+<P>Either mask contains four bits that specify the speaker positions of the four channels. In either case, the KSPROPERTY_AUDIO_VOLUMELEVEL property identifies these same four channels as channels 0, 1, 2, and 3, respectively.</P>
+
+<P>If the node's basic-support handler specifies the KSPROPERTY_MEMBER_FLAG_BASICSUPPORT_UNIFORM flag, the sliders shown in the <B>Speaker Volume</B> dialog move in unison with changes made to any of the sliders.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Exposing%20Multichannel%20Nodes"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

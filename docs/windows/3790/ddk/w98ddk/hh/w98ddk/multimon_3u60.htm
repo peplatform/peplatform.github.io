@@ -1,0 +1,208 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>VDD Changes in Windows 98</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_multimon_vdd_changes_in_windows_98"></A>VDD Changes in Windows 98</H1>
+
+<P>Under Windows® 95 the default configuration accommodates one display and one VGA-compatible monitor. Windows® 98 provides Plug and Play support for display class devices and multiple output devices, but it still requires at least one VGA device. VDD, the Windows 98 device loader for graphics adapters, supports the following:
+
+<UL>
+	<LI>New services for display drivers</LI>
+
+	<LI>Hot docking for video devices</LI>
+
+	<LI>Power-on self test (POST) for secondary PCI VGA devices</LI>
+
+	<LI>VGA device isolation</LI>
+
+	<LI>New registry settings for secondary displays (DRV2)</LI>
+</UL>
+
+<P>The following table summarizes the functions provided to support Plug and Play configuration for multiple display devices.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Function</TH>
+<TH align=left width=66%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><A HREF="multimon_0s9x.htm"><B>VDD_CLOSE</B></A></TD>
+<TD width=66%>Closes the device associated with a particular handle. Each <B>VDD_OPEN</B> call must be balanced with an accompanying <B>VDD_CLOSE</B> call.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><A HREF="multimon_7c9x.htm"><B>VDD_ENABLE</B></A></TD>
+<TD width=66%>Enables or disables access to a device. Calls to video BIOS or VGA I/O must be bracketed with <B>VDD_ENABLE</B> calls. (Reads and writes to linear 8000 address, not physical 8000 address.)</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><A HREF="multimon_4nce.htm"><B>VDD_OPEN</B></A></TD>
+<TD width=66%>Opens a device with a given name, and returns a device handle to the device. The device handle is used in other main VDD calls.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><A HREF="multimon_33qx.htm"><B>VDD_OPEN_KEY</B></A></TD>
+<TD width=66%>Opens a key in the registry.</TD>
+</TR>
+</TABLE><BR>
+
+<P>For a VGA device, the multimonitor-enabled driver controls the three device states — OFF, VGA, and GUI mode — as summarized in the following table. </P>
+
+<P>The following table lists the device states for a VGA device.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=15%>State</TH>
+<TH align=left width=35%>Description</TH>
+<TH align=left width=50%>Comments</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%>OFF</TD>
+<TD width=35%>Initial state</TD>
+<TD width=50%>Set by <B>OEMDisable</B>, or if failure occurs in <B>OEMEnable</B>. Also set when <B>ENABLE_NONE</B> flag is used in <B>VDD_ENABLE</B>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%>VGA</TD>
+<TD width=35%>Used only for mode/palette set.</TD>
+<TD width=50%>Set when <B>ENABLE_ALL</B> flag is used in <B>VDD_ENABLE</B>.
+<P>ROM will be mapped in so that INT 10h can be used (then, turn it off before leaving the DDI call).</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=15%>GUI mode</TD>
+<TD width=35%>Typical Windows running mode</TD>
+<TD width=50%>Set by <B>OEMEnable</B> on success.
+<P>VGA resources must be turned off by the driver.</P>
+
+<P>VDD will check if you turned off the VGA.</P>
+
+<P>Set with <B>VDD_ENABLE ENABLE_MEM</B>.</P>
+</TD>
+</TR>
+</TABLE><BR>
+
+<P>The driver must use only MMIO and linear frame buffer access while drawing in GUI mode; it can use Int 10h to change modes. The driver can use VGA resources for these functions: <B>ReEnable</B>, <B>Disable</B>, <B>ValidateMode</B>/<B>ValidateDesk</B>, <B>SetPalette</B>, and <B>Control</B>.</P>
+
+<P>Plug and Play support for PCI display devices in Windows 98 assigns VGA resources to the right device and supports video devices behind a PCI bridge. PCI configuration control bits are used to enable and disable access to a hardware device, as follows:
+
+<UL>
+	<LI>PCI 04 bit 0 — I/O enable/disable.</LI>
+
+	<LI>PCI 04 bit 1 — memory access enable/disable.</LI>
+
+	<LI>ROM is mapped in and out of C000.</LI>
+</UL>
+
+<P>The following table provides a sample PCI configuration for multiple display devices.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=23%>&nbsp;</TH>
+<TH align=left colspan=3 width=39%>VGA #1</TH>
+<TH align=left colspan=3 width=38%>VGA #2<SUP>1</SUP></TH>
+</TR>
+
+<TR VALIGN="top">
+<TH align=left width=23%>&nbsp;</TH>
+<TH align=left width=10%>I/O</TH>
+<TH align=left width=16%>Memory</TH>
+<TH align=left width=13%>ROM<SUP>2</SUP></TH>
+<TH align=left width=9%>I/O</TH>
+<TH align=left width=16%>Memory</TH>
+<TH align=left width=13%>ROM</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=23%>System POST</TD>
+<TD width=10%>on</TD>
+<TD width=16%>on</TD>
+<TD width=13%>on</TD>
+<TD width=9%>off</TD>
+<TD width=16%>off</TD>
+<TD width=13%>off</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=23%>Windows Logo</TD>
+<TD width=10%>on</TD>
+<TD width=16%>on</TD>
+<TD width=13%>on</TD>
+<TD width=9%>off</TD>
+<TD width=16%>off</TD>
+<TD width=13%>off</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=23%>VGA #2 POST </TD>
+<TD width=10%>off</TD>
+<TD width=16%>off</TD>
+<TD width=13%>off</TD>
+<TD width=9%>on</TD>
+<TD width=16%>on</TD>
+<TD width=13%>on</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=23%>Enable #1</TD>
+<TD width=10%>on</TD>
+<TD width=16%>on</TD>
+<TD width=13%>on</TD>
+<TD width=9%>off</TD>
+<TD width=16%>off</TD>
+<TD width=13%>off</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=23%>End Enable #1</TD>
+<TD width=10%>on</TD>
+<TD width=16%>on</TD>
+<TD width=13%>on</TD>
+<TD width=9%>off</TD>
+<TD width=16%>off</TD>
+<TD width=13%>off</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=23%>Enable #2</TD>
+<TD width=10%>off</TD>
+<TD width=16%>off</TD>
+<TD width=13%>off</TD>
+<TD width=9%>on</TD>
+<TD width=16%>on</TD>
+<TD width=13%>on</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=23%>End Enable #2</TD>
+<TD width=10%>on</TD>
+<TD width=16%>on</TD>
+<TD width=13%>on</TD>
+<TD width=9%>off</TD>
+<TD width=16%>on*</TD>
+<TD width=13%>off</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD colspan=7 width=100%><SUP>1</SUP>VGA #2 has been programmed not to decode VGA resources (that is, GUI mode).<BR>
+<SUP>2</SUP>At C000.</TD>
+</TR>
+</TABLE><BR>
+
+<P>Two new miniVDD calls are provided to implement disabling the VGA: <B>TURN_VGA_ON</B> and <B>TURN_VGA_OFF</B>. This prevents the miniVDD from writing to the PCI configuration space.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: VDD%20Changes%20in%20Windows%2098"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

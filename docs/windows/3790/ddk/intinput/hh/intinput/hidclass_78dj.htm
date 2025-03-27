@@ -1,0 +1,53 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Enforcing a Secure Read For a HID Collection</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Enforcing a Secure Read For a HID Collection">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mj_close_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Interactive&nbsp;Input&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_enforcing_a_secure_read_for_a_hid_collection_kg"></A>Enforcing a Secure Read For a HID Collection</H2>
+
+<P>This section describes how a user-mode application or kernel-mode driver can enforce a <I>secure read</I> for a top-level <A HREF="hidclass_7ixz.htm">HID collection</A>.</P>
+
+<P>If a secure read is enabled for a collection, only "trusted" clients (those with <B>SeTcbPrivilege</B> privileges) can obtain input from an open file of a collection. Kernel-mode drivers have <B>SeTcbPrivilege</B> privileges by default, but user-mode applications do not. (For details about obtaining system privileges in user mode, see the information about authorization in the Platform SDK documentation.)</P>
+
+<P>This mechanism is provided primarily so that "trusted" user-mode system components can prevent user-mode applications without <B>SeTcbPrivilege</B> privileges from obtaining input from a collection during critical system operations. For example, a "trusted" user-mode system component can prevent a user-mode application without <B>SeTcbPrivilege</B> privileges from obtaining confidential information that a user supplies during a logon operation. </P>
+
+<P>"Trusted" clients use <A HREF="hidioreq_6302.htm">IOCTL_HID_ENABLE_SECURE_READ</A> and <A HREF="hidioreq_931u.htm">IOCTL_HID_DISABLE_SECURE_READ</A> requests to enable and disable a secure read for a collection. If a client without <B>SeTcbPrivilege</B> privileges uses these requests, the request does not change the secure read state of a collection, and the HID class driver returns a status value of STATUS_PRIVILEGE_NOT_HELD. </P>
+
+<P>Enabling and disabling a secure read for a collection works in the following way:
+
+<UL>
+	<LI>The HID class driver maintains a file-specific secure read count for each open file of a collection. The HID class driver also maintains a secure read count for the collection, which is the sum of the file-specific secure read counts. The secure read count for the collection is initialized to zero when the collection is created, and a secure read count for a file is initialized to zero when a file is opened.</LI>
+
+	<LI>When the HID class driver receives an enable request for a file, it increments by 1 the secure read count for the file (and increments by 1 the secure read count for the collection).</LI>
+
+	<LI>When the HID class driver receives a disable request for a file:
+<UL>
+	<LI>If the secure read count for the file is greater than zero, the driver decrements by 1 the secure read count for the file (and decrements by 1 the secure read count for the collection). </LI>
+
+	<LI>If the secure read count for the file is equal to zero, the driver does not change the secure read counts.</LI>
+</UL>
+</LI>
+
+	<LI>If the secure read count for a collection is greater than zero, the HID class driver enforces a secure read for the collection. Otherwise, the driver does not enforce a secure read for the collection.</LI>
+
+	<LI>A client should use a disable request to cancel a corresponding enable request. However, if the client does not do this, the HID class driver appropriately decrements the secure read count for a collection when it processes an <A HREF="JavaScript:hhobj_1.Click()">IRP_MJ_CLOSE</A> request for a file. When the driver processes the close request, it decrements the secure read count for the collection by the secure read count for the file being closed.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Enforcing%20a%20Secure%20Read%20For%20a%20HID%20Collection"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

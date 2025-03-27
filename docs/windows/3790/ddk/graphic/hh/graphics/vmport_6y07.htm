@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Interrupts in the Video Miniport</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Interrupts in the Video Miniport">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_interrupts_in_the_video_miniport_gg"></A>Interrupts in the Video Miniport</H1>
+
+<P>The miniport driver for an adapter that generates interrupts must implement a <A HREF="vmpfncs_2luv.htm"><I>HwVidInterrupt</I></A> routine. The miniport driver's <A HREF="vmpfncs_06g7.htm"><B>DriverEntry</B></A> routine should initialize the <B>HwInterrupt</B> member of the <A HREF="vstrcts_750n.htm">VIDEO_HW_INITIALIZATION_DATA</A> structure to point to the interrupt handler.</P>
+
+<P>The video port driver sets up an interrupt object for the miniport driver if the adapter generates interrupts. Because it is created and managed by the video port driver, a miniport driver writer needs no further information about interrupt objects.</P>
+
+<P>If the miniport driver's <A HREF="vmpfncs_3e3r.htm"><I>HwVidFindAdapter</I></A> function finds that the video adapter does not actually generate interrupts or that it cannot determine a valid interrupt vector/level for the adapter, <I>HwVidFindAdapter</I> should set both <B>InterruptLevel</B> and <B>InterruptVector</B> in the <A HREF="vstrcts_459j.htm">VIDEO_PORT_CONFIG_INFO</A> structure to zero.</P>
+
+<P>When <I>HwVidFindAdapter</I> returns control, the video port driver checks the interrupt configuration members in VIDEO_PORT_CONFIG_INFO and, if both are zero, does not connect an interrupt for the miniport driver. Explicitly setting both interrupt configuration members to zero in <I>HwVidFindAdapter</I> disables the <A HREF="vmpfncs_2luv.htm"><I>HwVidInterrupt</I></A> entry point, if any, that was set up by the miniport driver's <A HREF="vmpfncs_06g7.htm"><B>DriverEntry</B></A> function.</P>
+
+<P>Note that <I>HwVidInterrupt</I> can access the miniport driver's device extension since it is nonpaged. Depending on the design of the miniport driver, it might be impossible for other driver functions to share the device extension or a particular area of the device extension with <I>HwVidInterrupt</I> safely.</P>
+
+<P>For example, suppose the miniport driver's <A HREF="vmpfncs_3wo7.htm"><I>HwVidStartIO</I></A> function is accessing the device extension when the adapter interrupts, <I>HwVidInterrupt</I> is run on another processor, and <I>HwVidInterrupt</I> also accesses the device extension. If such a situation might occur, <I>HwVidStartIO</I> should call <A HREF="vpfncs_3huv.htm"><B>VideoPortSynchronizeExecution</B></A> with a driver-supplied <A HREF="vmpfncs_386f.htm"><I>HwVidSynchronizeExecutionCallback</I></A> function.</P>
+
+<P>A video miniport driver should adhere to the following two rules:
+
+<OL>
+	<LI>Whenever the miniport driver and hardware are in any state other than D0, the hardware <I>never</I> generates an interrupt.</LI>
+
+	<LI>Because of Rule 1, a device driver ISR should <I>never</I> act on an interrupt if the power state is D3 (it should return FALSE).</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Interrupts%20in%20the%20Video%20Miniport"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

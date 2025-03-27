@@ -1,0 +1,172 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Performance Issues for a WavePci Miniport Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Performance Issues for a WavePci Miniport Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_deferred_procedure_call_dpc_kg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_timer_objects_and_dpcs_kg">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_interlockedincrement_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_performance_issues_for_a_wavepci_miniport_driver_ksg"></A>Performance Issues for a WavePci Miniport Driver</H3>
+
+<P>An audio driver’s performance impact on the system can be significantly reduced by following these general principles:
+
+<UL>
+	<LI>Minimize the code that is run during normal operation.</LI>
+
+	<LI>Run code only when necessary.</LI>
+
+	<LI>Consider the total system resource consumption (not just CPU loading).</LI>
+
+	<LI>Optimize code for speed and size.</LI>
+</UL>
+
+<P>In addition, WavePci miniport drivers must address several performance issues that are specific to audio devices. The following discussion deals primarily with audio-rendering issues, although some of the suggested techniques apply to audio capture as well.</P>
+
+<H4>Stream Servicing Mechanisms</H4>
+
+<P>Before discussing performance optimizations, some background is necessary to understand the WavePci mechanisms for servicing streams.</P>
+
+<P>When processing a wave render or capture stream, an audio device requires servicing at regular intervals by the miniport driver. When new mappings are available for a stream, the driver adds those mappings to the stream's DMA queue. The driver also removes from the queue any mappings that have already been processed. For information about mappings, see <A HREF="aud-design_7btz.htm">WavePci Latency</A>.</P>
+
+<P>To perform the servicing, the miniport driver provides either a <A HREF="JavaScript:hhobj_1.Click()">deferred procedure call (DPC)</A> or interrupt service routine (ISR), depending on whether the interval is set by a system timer or by DMA-driven interrupts. In the latter case, the DMA hardware typically triggers an interrupt each time if finishes transferring some amount of stream data.</P>
+
+<P>Each time the DPC or ISR executes, it determines which streams require servicing. The DPC or ISR services a stream by calling the <A HREF="audmp-routines_2vn7.htm"><B>IPortWavePci::Notify</B></A> method. This method takes as a call parameter the stream's service group, which is an object of type <A HREF="audmp-routines_0p4j.htm"><B>IServiceGroup</B></A>. The <B>Notify</B> method calls the service group's <B>RequestService</B> method (see <A HREF="audmp-routines_4vg3.htm"><B>IServiceSink::RequestService</B></A>).</P>
+
+<P>A service-group object contains a group of service sinks, which are objects of type <A HREF="audmp-routines_7wz8.htm"><B>IServiceSink</B></A>. <B>IServiceGroup</B> is derived from <B>IServiceSink</B>, and both interfaces have <B>RequestService</B> methods. When the <B>Notify</B> method calls the service group's <B>RequestService</B> method, the service group responds by calling the <B>RequestService</B> method on each service sink in the group.</P>
+
+<P>A stream's service group contains at least one service sink, which the port driver adds to the service group immediately following creation of the stream. The port driver calls the miniport driver's <A HREF="audmp-routines_0g1f.htm"><B>IMiniportWavePci::NewStream</B></A> method to obtain a pointer to the service group. The service sink's <B>RequestService</B> method is the port driver's stream-specific service routine. This routine does the following:
+
+<UL>
+	<LI>Calls the miniport driver's <A HREF="audmp-routines_7sxf.htm"><B>IMiniportWavePciStream::Service</B></A> method.</LI>
+
+	<LI>Triggers any newly pending position or clock events on the stream since the last time the service routine executed.</LI>
+</UL>
+
+<P>As discussed in <A HREF="ks-overview_8crr.htm">KS Events</A>, clients can register to be notified when a stream reaches a particular position or when a clock reaches a particular time stamp. The <B>NewStream</B> method has the option of not supplying a service group, in which case the port driver sets up its own timer to mark off the intervals between calls to its service routine.</P>
+
+<P>Like the <B>NewStream</B> method, the miniport driver's <A HREF="audmp-routines_12ur.htm"><B>IMiniportWavePci::Init</B></A> method also outputs a pointer to a service group. Following the <B>Init</B> call, the port driver adds its service sink to the service group. This particular service sink contains the service routine for the filter as a whole. (The preceding paragraph describes the service sink for the stream associated with a pin on the filter.) This service routine calls the miniport driver's <A HREF="audmp-routines_9yyb.htm"><B>IMiniportWavePci::Service</B></A> method. The service routine executes each time the DPC or ISR calls <B>Notify</B> with the service group for the filter. The <B>Init</B> method has the option of not supplying a service group, in which case the port driver never calls its filter service routine.</P>
+
+<H4>Hardware Interrupts</H4>
+
+<P>Some miniport drivers generate either too many or not enough hardware interrupts. In some WavePci rendering devices with DirectSound hardware acceleration, a hardware interrupt occurs only when the supply of mappings is nearly exhausted and the rendering engine is at risk of starvation. In other hardware-accelerated WavePci devices, a hardware interrupt occurs on every single mapping completion or some other relatively small interval. In this case, the ISR frequently finds that it has little to do, but each interrupt still consumes system resources with register swaps and cache reloads. The first step in improving driver performance is to reduce the number of interrupts as much as possible without risking starvation. After eliminating unnecessary interrupts, additional performance gains can be achieved by designing the ISR to execute more efficiently.</P>
+
+<P>In some drivers, ISRs waste time by calling a stream’s <B>Notify</B> method every time a hardware interrupt occurs—regardless of whether the stream is actually running. If no streams are in the RUN state, then DMA is inactive, and any time spent trying to acquire mappings, release mappings, or check for new events in any streams is wasted. In an efficient driver, the ISR verifies that a stream is running before calling the stream’s <B>Notify</B> method.</P>
+
+<P>However, a driver with this type of ISR needs to make sure that any pending events on a stream are triggered when the stream exits the RUN state. Otherwise, the events might be delayed or lost. This issue arises only during RUN-to-PAUSE transitions in operating systems older than Windows&nbsp;XP. In Windows&nbsp;XP and later, the port driver automatically signals any outstanding position events immediately when a stream changes state from RUN to PAUSE. In the older operating systems, however, the miniport driver is responsible for triggering any outstanding events by making a final call to <B>Notify</B> immediately after the stream is paused. For more information, see <B>PAUSE/ACQUIRE Optimizations</B> below.</P>
+
+<P>A typical WavePci miniport driver manages a single playback stream from the <A HREF="aud-design_1kiv.htm#ddk_kmixer_system_driver_ksg">KMixer system driver</A>. The current implementation of KMixer uses a minimum of three mapping IRPs to buffer a playback stream. Each IRP contains enough buffer storage for about 10 milliseconds of audio. If the miniport driver triggers a hardware interrupt each time the DMA controller finishes with the final mapping in an IRP, interrupts should occur at fairly regular 10-millisecond intervals, which is frequent enough to keep the DMA queue from starving. For more information, see <A HREF="aud-design_3cx3.htm">KMixer Latency</A>.</P>
+
+<H4>Timer DPCs</H4>
+
+<P>If a driver manages any hardware-accelerated DirectSound streams, it should use a timer DPC (see <A HREF="JavaScript:hhobj_2.Click()">Timer Objects and DPCs</A>) instead of DMA-driven hardware interrupts. Equivalently, a WavePci device on a PCI card with an on-board timer can use a timer-driven hardware interrupt instead of a DPC.</P>
+
+<P>In the case of a DirectSound buffer, the entire buffer can be attached to a single IRP. If the buffer is large and the miniport driver schedules a hardware interrupt only when it reaches the end of the buffer, successive interrupts can occur so far apart that the DMA queue starves. Also, if the driver is managing a large number of hardware-accelerated DirectSound streams, and each stream generates its own interrupts, then the cumulative impact of all the interrupts can degrade system performance. In these circumstances, the miniport driver should avoid using hardware interrupts to schedule servicing of individual streams. Instead, it should service all streams in a single DPC that is scheduled to run at regular timer-generated intervals.</P>
+
+<P>By setting the timer interval to 10 milliseconds, the interval between successive DPC executions is similar to that described previously for the hardware interrupt in the case of a single KMixer playback stream. Thus, the DPC can handle the KMixer playback stream in addition to hardware-accelerated DirectSound streams.</P>
+
+<P>When the last stream exits the RUN state, the miniport driver should disable the timer DPC to avoid wasting system CPU cycles. Immediately after disabling the DPC, the driver should make sure that any clock or position events pending on previously running streams are flushed. In Windows&nbsp;98/Me and Windows&nbsp;2000, the driver should call <B>Notify</B> to trigger any pending events on the streams that are being paused. In Windows&nbsp;XP and later, the operating system triggers any pending events automatically when a stream exits the RUN state, without requiring intervention by the miniport driver.</P>
+
+<H4>PAUSE/ACQUIRE Optimizations</H4>
+
+<P>In Windows&nbsp;98/Me and Windows&nbsp;2000, the WavePci port driver's stream service routine (the <B>RequestService</B> method) always generates a call to the miniport driver’s <A HREF="audmp-routines_7sxf.htm"><B>IMiniportWavePciStream::Service</B></A> method regardless of whether the stream is in the RUN state. In these operating systems, the <B>Service</B> method should check whether the stream is running before spending time doing actual work. (However, if the miniport driver’s DPC or ISR has already been optimized to call <B>Notify</B> only for streams that are running, adding this check to the <B>Service</B> method might be redundant.)</P>
+
+<P>In Windows&nbsp;XP and later, this optimization is unnecessary because the <B>Notify</B> method calls the <B>Service</B> method only on streams that are running.</P>
+
+<H4>Using the IPreFetchOffset Interface</H4>
+
+<P>DirectSound users are familiar with the dual concepts of the play cursor and the write cursor. The play cursor indicates the position in the stream of the data being emitted from the device (the driver's best estimate of the sample currently at the DAC). The write position is the position in the stream of the next safe place for the client to write additional data. For WavePci, the default assumption is that the write cursor is positioned at the end of the last mapping requested. If the miniport driver has acquired a large number of outstanding mappings, the offset between the play cursor and write cursor can be very large—large enough to fail certain WHQL audio-position tests. In Windows&nbsp;XP and later, the <A HREF="audmp-routines_8r77.htm"><B>IPreFetchOffset</B></A> interface addresses these issues.</P>
+
+<P>The miniport driver uses <B>IPreFetchOffset</B> to specify the bus-master hardware's prefetch characteristics, which are largely determined by the hardware FIFO size. The audio subsystem uses this data to set a constant offset between the play cursor and the write cursor. This constant offset, which can be significantly smaller than the default offset, takes advantage of the fact that data can be written into a mapping even after the mapping has been handed to the hardware, as long as the play cursor is far enough away from the location into which data is written. (This statement assumes that the driver does not copy or otherwise manipulate the data in mappings.) A typical offset might be on the order of 64 samples, depending on the engine design. With an offset this small, a WavePci driver can be fully responsive and functional while still requesting a large number of mappings.</P>
+
+<P>Note that DirectSound currently pads the write cursor of a hardware-accelerated pin by 10 milliseconds.</P>
+
+<P>For a more information about how write and play cursors work at the driver level, see <A HREF="aud-prop_0303.htm">KSAUDIO_POSITION</A>.</P>
+
+<H4>Processing Data in Mappings</H4>
+
+<P>Avoid having your hardware driver touch the data in the mappings if at all possible. Any software processing of data contained in mappings should be split out into a software filter separate from the hardware driver. Having a hardware driver perform such processing reduces its efficiency and creates latency problems.</P>
+
+<P>A hardware driver should strive to be transparent about its real hardware capabilities. The driver should never claim to provide hardware support for a data transform that is actually performed in software.</P>
+
+<H4>Synchronization Primitives</H4>
+
+<P>A driver is less likely to have deadlock or performance problems now and in the future if its code is designed to avoid being blocked whenever possible. Specifically, a driver’s thread of execution should strive to run to completion without the risk of stalling while waiting for another thread or resource. For example, driver threads can use the <B>Interlocked<I>Xxx</I></B> functions (for example, see <A HREF="JavaScript:hhobj_3.Click()"><B>InterlockedIncrement</B></A>) to coordinate their accesses to certain shared resources without the risk of being blocked.</P>
+
+<P>Although these are powerful techniques, you might not be able to safely remove all spin locks, mutexes, and other blocking synchronization primitives from the execution path. Use the <B>Interlocked<I>Xxx</I></B> functions judiciously, with the knowledge that an indefinite wait might cause data starvation.</P>
+
+<P>Above all, do not create custom synchronization primitives. The built-in Windows primitives (mutexes, spin locks, and so on) are likely to be modified as needed to support new scheduler features in the future, and a driver that uses custom constructs is virtually guaranteed not to work in the future.</P>
+
+<H4>IPinCount Interface</H4>
+
+<P>In Windows&nbsp;XP and later, the <A HREF="audmp-routines_86k3.htm"><B>IPinCount</B></A> interface provides a way for a miniport driver to more accurately account for the hardware resources that are consumed by allocating a pin.</P>
+
+<P>For some audio devices, wave streams with different attributes (3D, stereo/mono, and so on) might also have different "weights" in terms of how many hardware resources they consume. When opening or closing a “lightweight” stream, the driver increments or decrements the count of available pins by one. When opening a "heavyweight" stream, however, the miniport driver might need to decrement the available pin count by two instead of by one in order to more accurately indicate the number of pins that can be created with the remaining resources.</P>
+
+<P>The process is reversed when a heavyweight stream is closed. The available pin count might increase by more than one in order to reflect the fact that two or more lightweight streams can be created from the newly freed resources.</P>
+
+<P>The <B>IPinCount</B> interface has been redistributed back onto Windows&nbsp;Me as QFE #25334 (see <a href="http://go.microsoft.com/fwlink/?linkid=3100&id=316638&clcid=0x409" target="_blank">Microsoft Knowledge Base Article Q316638</A>).</P>
+
+<P>The English versions of QFE binaries containing this fix have the attributes shown in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=21%>Date</TH>
+<TH align=left width=18%>Time</TH>
+<TH align=left width=22%>Revision</TH>
+<TH align=left width=17%>Size</TH>
+<TH align=left width=22%>File Name</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>02/02/2002</TD>
+<TD width=18%>11:09am</TD>
+<TD width=22%>4.90.0.3002</TD>
+<TD width=17%>147,744</TD>
+<TD width=22%>KMixer.sys</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>02/02/2002
+<P>08/08/2002</P>
+</TD>
+<TD width=18%>12:45am
+<P>04:16pm</P>
+</TD>
+<TD width=22%>4.90.3001.0
+<P>4.90.3001.0</P>
+</TD>
+<TD width=17%>147,184</TD>
+<TD width=22%>PortCls.sys</TD>
+</TR>
+</TABLE><BR>
+
+<P>Later Windows&nbsp;Me QFEs will also contain these fixes. Microsoft has no plans to redistribute this functionality back onto Windows&nbsp;98 or Windows&nbsp;2000.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Performance%20Issues%20for%20a%20WavePci%20Miniport%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

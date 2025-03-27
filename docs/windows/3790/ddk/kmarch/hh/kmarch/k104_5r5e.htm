@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IoRequestDeviceEject</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IoRequestDeviceEject">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_iorequestdeviceeject_kr"></A>IoRequestDeviceEject</H1>
+
+<P>The <B>IoRequestDeviceEject</B> routine notifies the PnP Manager that the device eject button was pressed. </P>
+
+<PRE class=syntax><B>VOID 
+</B>  <B>IoRequestDeviceEject(</B>
+    <B>IN PDEVICE_OBJECT </B> <I>PhysicalDeviceObject</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>PhysicalDeviceObject</I></DT>
+
+<DD>Pointer to the PDO for the device.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>None</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Note that this routine reports a request for device eject, not media eject.</P>
+
+<P>Typically, a PnP bus driver calls <B>IoRequestDeviceEject</B> to notify the PnP Manager that a user pressed the device eject button on one of its child devices. </P>
+
+<P>A driver calls this routine, rather than sending an <A HREF="pnp-irps_7fxu.htm">IRP_MN_EJECT</A> request, because this routine allows the PnP Manager to coordinate additional actions for the eject besides sending the IRP. For example, the PnP Manager notifies user-mode and kernel-mode components that registered for notification of changes on the device. </P>
+
+<P>The PnP Manager directs an orderly shutdown of the device. The PnP Manager:
+
+<OL>
+	<LI>Creates a list of other devices that are affected by this device being ejected. 
+<P>The PnP Manager queries for the device's removal relations, ejection relations, and bus relations (child devices). 
+</LI>
+
+	<LI>Determines whether the device and its related devices can be software-removed. 
+<P>The PnP Manager sends <A HREF="pnp-irps_22k2.htm">IRP_MN_QUERY_REMOVE_DEVICE</A> IRPs to the drivers for the device and its related devices. The PnP Manager also sends notifications to any user-mode and kernel-mode components that registered for device-change notification on the device or any of its related devices. If any of the drivers or user-mode components fail the query-remove, the PnP Manager pops up a dialog box to notify the user that the eject failed.
+</LI>
+
+	<LI>Software-removes the device and its related devices.
+<P>If the previous steps are successful, the PnP Manager notifies registered drivers and applications that the device and its related devices are being software-removed. Then the PnP Manager sends <A HREF="pnp-irps_4noy.htm">IRP_MN_REMOVE_DEVICE</A> IRPs to the drivers for the device and its related devices. Function and filter drivers detach from the device stack and delete their device objects for the device(s). The bus drivers retain the PDO(s) for the device(s), unless a device is physically gone and the bus driver omitted the device in its most recent response to <A HREF="pnp-irps_5aia.htm">IRP_MN_QUERY_DEVICE_RELATIONS</A>/<B>BusRelations</B> for the device's parent bus.
+</LI>
+
+	<LI>Directs the bus driver to eject the device (if possible).
+<P>The PnP Manager takes different steps, depending on the eject capabilities of the device:
+
+<UL>
+	<LI>Hot eject is supported.
+<P>If the <B>EjectSupported</B> capability is set for the device, the device can be ejected when the system is running (is in the <B>PowerSystemWorking</B> state). The PnP Manager sends an IRP_MN_EJECT request to the bus driver for the device. Any function and filter drivers detached previously from the stack in response to the remove IRP, so the bus driver handles the eject IRP. When the bus driver completes the IRP, the PnP Manager expects the device to be physically absent from the system.
+</LI>
+
+	<LI>Hot eject is not supported.
+<P>In this case, the device is <B>Removable</B> but does not support eject. The PnP Manager marks the device as not-present/not-working-properly. The PnP Manager will not restart the device until a user physically removes it and reinserts it. In this case, the PnP Manager does not send an IRP_MN_EJECT.
+</LI>
+</UL>
+
+<P>A device's parent bus driver sets the capabilities for a device, including its eject capabilities, in response to an <A HREF="pnp-irps_9unm.htm">IRP_MN_QUERY_CAPABILITIES</A> request. A function or filter driver can optionally specify capabilities.
+</LI>
+</OL>
+
+<P>When a device is ejected, its child devices are physically removed from the system along with it.</P>
+
+<P>A user-mode application can initiate a device eject. In that case, no driver calls this routine but the OS calls the PnP Manager to initiate the steps listed above.</P>
+
+<P>Callers of <B>IoRequestDeviceEject</B> must be running at IRQL&nbsp;&lt;= DISPATCH_LEVEL. The PnP Manager performs most of its device-eject tasks listed above at IRQL&nbsp;= PASSIVE_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="pnp-irps_7fxu.htm">IRP_MN_EJECT</A>, <A HREF="pnp-irps_22k2.htm">IRP_MN_QUERY_REMOVE_DEVICE</A>, <A HREF="pnp-irps_5aia.htm">IRP_MN_QUERY_DEVICE_RELATIONS</A>, <A HREF="pnp-irps_4noy.htm">IRP_MN_REMOVE_DEVICE</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IoRequestDeviceEject"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling DIF_ADDPROPERTYPAGE_ADVANCED Requests</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling DIF_ADDPROPERTYPAGE_ADVANCED Requests">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_handling_dif_addpropertypage_advanced_requests_dg"></A>Handling DIF_ADDPROPERTYPAGE_ADVANCED Requests</H1>
+
+<P>An installer that supplies one or more custom property pages must handle the <A HREF="dif-codes_89de.htm">DIF_ADDPROPERTYPAGE_ADVANCED</A> device installation function code. The Device Manager, through <I>Setupapi.dll</I>, sends this request when a user clicks on the Properties tab of a device in the Device Manager or in Control Panel. </P>
+
+<P>In response to this request, the installer provides information about each of its custom property pages, creates the pages, and adds the created pages to the list of dynamic property pages for the device. </P>
+
+<P>The installer should take the following steps:
+
+<OL>
+	<LI>Call <A HREF="di-rtns_11iq.htm"><B>SetupDiGetClassInstallParams</B></A><B> </B>to get the current class install parameters for the device. For example:
+<PRE>SP_ADDPROPERTYPAGE_DATA AddPropertyPageData;
+:
+ZeroMemory(&amp;AddPropertyPageData, sizeof(SP_ADDPROPERTYPAGE_DATA));
+AddPropertyPageData.ClassInstallHeader.cbSize =
+     sizeof(SP_CLASSINSTALL_HEADER);
+if (SetupDiGetClassInstallParams(DeviceInfoSet, DeviceInfoData,
+     (PSP_CLASSINSTALL_HEADER)&amp;AddPropertyPageData,
+     sizeof(SP_ADDPROPERTYPAGE_DATA), NULL )) {
+…</PRE>
+
+<P>The example zero-initializes the structure in which the class install parameters will be returned and sets the size of the class install header in the <B>cbSize</B> field as required by <B>SetupDiGetClassInstallParams</B>. The class install header is the first member of each class install parameters structure. 
+
+<P>When a DIF_ADDPROPERTYPAGE_ADVANCED request is active, this function returns an SP_ADDPROPERTYPAGE_DATA structure at <I>ClassInstallParams</I>. Therefore, the call to the <B>SetupDi</B> function can cast the returned <I>ClassInstallParams</I> to a structure of this type.
+</LI>
+
+	<LI>Ensure that the maximum number of dynamic pages for the device has not yet been met, with a statement like the following: 
+<PRE>if (AddPropertyPageData.NumDynamicPages &lt; 
+    MAX_INSTALLWIZARD_DYNAPAGES)
+ …</PRE>
+
+<P>If the test fails, do not initialize or create the page. Simply return NO_ERROR.
+</LI>
+
+	<LI>Allocate memory in which to save any device-specific data that will be needed later in the dialog box procedure and initialize this area with the data. This data must include the <I>DeviceInfoSet</I> and <I>DeviceInfoData</I> passed with the request. Release this memory in your property page callback when the property page is destroyed.
+<P>For example, a property page provider can define and use a structure as follows:
+
+<PRE>typedef struct _TEST_PROP_PAGE_DATA {
+    HDEVINFO DeviceInfoSet;
+    PSP_DEVINFO_DATA DeviceInfoData;
+} TEST_PROP_PAGE_DATA, *PTEST_PROP_PAGE_DATA;
+…
+PTEST_PROP_PAGE_DATA     pMyPropPageData;
+…
+pMyPropPageData = HeapAlloc(GetProcessHeap(), 0, 
+     sizeof(TESTPROP_PAGE_DATA));</PRE>
+</LI>
+
+	<LI>Initialize a PROPSHEETPAGE structure with information about the custom property page: 
+<UL>
+	<LI>In <B>dwFlags</B>, set the PSP_USECALLBACK flag and any other flags required for the custom property page. The PSP_USECALLBACK flag indicates that a callback function has been supplied.</LI>
+
+	<LI>In <B>pfnCallback</B>, set a pointer to the callback function for the property page. In the callback, process the PSPCB_RELEASE message and free the memory that was allocated in step 3.</LI>
+
+	<LI>In <B>pfnDlgProc</B>, set a pointer to the dialog box procedure for the property page.</LI>
+
+	<LI>In <B>lParam</B>, pass a pointer to the memory area allocated and initialized in step 3. </LI>
+
+	<LI>Set other members as appropriate for the custom property page. See the <I>Platform SDK </I>documentation<I> </I>for more information on the PROPSHEETPAGE structure.</LI>
+</UL>
+</LI>
+
+	<LI>Call <B>CreatePropertySheetPage</B> to create the new page.</LI>
+
+	<LI>Add the new page to the list of dynamic property pages in the <B>DynamicPages </B>member of the class install parameters and increment the <B>NumDynamicPages </B>member.</LI>
+
+	<LI>Repeat steps 2 through 6 for each additional custom property page.</LI>
+
+	<LI>Call <A HREF="di-rtns_5vg2.htm"><B>SetupDiSetClassInstallParams</B></A> to set the new class install parameters, which include the updated property page structure.</LI>
+
+	<LI>Return NO_ERROR.  </LI>
+</OL>
+
+<P>Setup adds the newly created property pages to the property sheet for the device, and the Device Manager makes Win32 API calls to create the sheet. When the property page is displayed, the system calls the dialog box procedure specified in the PROPSHEETPAGE structure.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20DIF_ADDPROPERTYPAGE_ADVANCED%20Requests"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

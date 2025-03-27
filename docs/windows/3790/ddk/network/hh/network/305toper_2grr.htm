@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Opening a Transport Address</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Opening a Transport Address">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_opening_a_transport_address_ng"></A>Opening a Transport Address</H1>
+
+<P>The following figure shows how a kernel-mode client opens a transport address in its underlying transport driver.</P>
+
+<P><IMG SRC="images/426-02.gif" ALT="" BORDER=0></P>
+
+<P><B>Opening a Transport Address</B></P>
+
+<P>After opening a transport-created device object for a binding, a TDI client usually begins communicating with its local-node transport by opening a file object that represents a transport address. To do this, the client calls <B>ZwCreateFile</B>, passing the address specification in the EA (extended attributes) buffer parameter to <B>ZwCreateFile</B>. Within the EA buffer, the client sets the <B>EaName</B> member to the system-defined value <B>TdiTransportAddress</B> followed by an EA value of the TDI-defined type <A HREF="36tdstrc_6hgy.htm">TRANSPORT_ADDRESS</A>, set up by the client to specify the transport-specific address to be opened. </P>
+
+<P>The client can specify that a particular transport address be either sharable with other clients or exclusive to the client when it calls <B>ZwCreateFile</B>. The initial client to successfully open a particular transport address for exclusive use prevents other clients from opening the same address until the original client closes that address. </P>
+
+<P>To do subsequent connectionless communication over the network, the client can specify the underlying transport's broadcast address in the EA buffer, assuming the transport supports broadcast datagrams. Such an address cannot be opened for exclusive use by any client. </P>
+
+<P>The client's call to <B>ZwCreateFile</B> causes the I/O Manager to create a client-process-specific file object to represent the address and to call the TDI transport driver’s <A HREF="31tddisp_6foy.htm">TdiDispatchCreate</A> routine with an IRP containing the client-supplied parameters to <B>ZwCreateFile</B>. TdiDispatchCreate parses the EA information, and the transport sets up internal state for the open address and for this client if the call succeeds. </P>
+
+<P>After its successful call to <B>ZwCreateFile</B> returns a file handle to the client and the client has obtained a pointer to the file object with <B>ObReferenceObjectByHandle</B>, it is ready to make certain TDI_<I>XXX</I> IOCTL requests to its underlying transport. For example, the client can send or receive datagrams on such an open address.  </P>
+
+<P>Usually, a client must first decide whether to register one or more of its ClientEvent<I>Xxx</I> handlers and whether it will use the open address to communicate with a remote-node peer process, in which case the client also must open a connection endpoint.   </P>
+
+<P>If the client wants to receive notifications of various network events, it can register its ClientEvent<I>Xxx</I> handler for each type of event by submitting one or more <A HREF="32ioctl_4hde.htm">TDI_SET_EVENT_HANDLER</A> requests, set up with <A HREF="34bldmac_6sxe.htm"><B>TdiBuildSetEventHandler</B></A>, to the underlying transport. For more information about setting up IOCTL requests and submitting them to an underlying transport, see <A HREF="305toper_1aav.htm">Packaging and Submitting IOCTL Requests</A>.</P>
+
+<P>After the client has registered its ClientEvent<I>Xxx</I> handlers, if any, on the open transport address, it is ready to make preparations for connection-oriented communication by opening a connection endpoint, as described in <A HREF="305toper_4wdj.htm">Opening a Connection Endpoint</A>, or to begin connectionless communication, as described in <A HREF="305toper_6r8n.htm">Sending and Receiving Connectionless Data</A>. </P>
+
+<P>When it is done with network communications on the opened transport address, the client must close the file object that represents that transport address by calling <B>ZwClose</B> with the handle returned by <B>ZwCreateFile</B>, as described later in <A HREF="305toper_8bfr.htm">Closing a Transport Address or Control Channel</A>. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Opening%20a%20Transport%20Address"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

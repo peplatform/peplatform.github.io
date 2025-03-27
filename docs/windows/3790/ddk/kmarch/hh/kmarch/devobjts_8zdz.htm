@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Initializing a Device Object</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Initializing a Device Object">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_initializing_a_device_object_kg"></A>Initializing a Device Object</H1>
+
+<P>After <A HREF="k104_8piq.htm"><B>IoCreateDevice</B></A> returns, giving the caller a pointer to a <I>DeviceObject</I> that contains a pointer to the <A HREF="devobjts_1gdj.htm">device extension</A>, drivers must set up certain fields in the device objects for their respective physical, logical, and/or virtual devices.</P>
+
+<P><B>IoCreateDevice</B> sets the <B>StackSize</B> field of a newly created device object to one. A lowest-level driver can ignore this field. When a higher-level driver calls <A HREF="k104_9tiq.htm"><B>IoAttachDeviceToDeviceStack</B></A> to attach itself to the next-lower driver,<B> </B>that routine automatically sets the <B>StackSize</B> field in the device object to that of the next-lower driver's device object plus one. For some device types, however, the higher-level driver might need to set the <B>StackSize</B> field to a greater value, as noted in the device-specific documentation. Setting the stack size ensures that IRPs sent to the higher-level driver will contain a driver-specific I/O stack location, plus the correct number of I/O stack locations for all lower-level drivers in the chain. </P>
+
+<P><B>IoCreateDevice</B> sets the <B>AlignmentRequirement</B> field of a newly created device object to the processor's data cache line size minus one, to ensure that buffers used in direct I/O are aligned correctly. After <B>IoCreateDevice</B> returns, lowest-level physical device drivers must do the following:
+
+<OL>
+	<LI>Subtract one from the alignment requirement of the device.</LI>
+
+	<LI>Compare the result of Step 1 with the current value of the device object's <B>AlignmentRequirement</B>.</LI>
+
+	<LI>If the device's alignment requirement is greater, set <B>AlignmentRequirement</B> to the result of Step 1. Otherwise, leave the <B>AlignmentRequirement</B> value as set by <B>IoCreateDevice</B>.</LI>
+</OL>
+
+<P>After any higher-level driver chains itself over another driver by calling <A HREF="k104_1os2.htm"><B>IoGetDeviceObjectPointer</B></A>, the higher-level driver must set the <B>AlignmentRequirement</B> field of its newly created device object to that of the next-lower-level driver's device object. As a general rule, a higher-level driver should not change this value. If a higher-level driver calls <A HREF="k104_3zci.htm"><B>IoAttachDevice</B></A> or <A HREF="k104_9tiq.htm"><B>IoAttachDeviceToDeviceStack</B></A>, those routines automatically set the <B>AlignmentRequirement</B> field in the device object to that of the lower-level driver's device object.  </P>
+
+<P><A HREF="k104_1os2.htm"><B>IoGetDeviceObjectPointer</B></A> returns pointers both to the lower-level driver's device object and to the associated file object. Only an FSD (or, possibly, another highest-level driver) can use the returned file object pointer. An intermediate driver that calls <B>IoGetDeviceObjectPointer</B> should save this file object pointer so it can be dereferenced by calling <A HREF="k107_6vg2.htm"><B>ObDereferenceObject</B></A> when the driver is unloaded.</P>
+
+<P>After an FSD mounts the volume containing the file object that represents a lower driver's device object, an intermediate driver cannot chain itself between the file system and the lower driver by calling <B>IoAttachDevice</B> or <B>IoAttachDeviceToDeviceStack</B>. </P>
+
+<P>An intermediate or lowest-level driver also sets a bit in the device object's <B>Flags</B> by ORing it either with DO_DIRECT_IO or with DO_BUFFERED_IO in every device object it creates. Highest-level drivers of logical or virtual devices can avoid setting <B>Flags</B> for either buffered or direct I/O if the driver writer decides the additional work involved will pay off in better driver performance. An intermediate driver must set up the <B>Flags</B> field of its device object to match that of the next-lower driver's device object.  </P>
+
+<P>Setting up a device object<B> Flags</B> field with DO_DIRECT_IO or DO_BUFFERED_IO determines how the I/O Manager passes access to user buffers in all data transfer requests subsequently sent to the driver.</P>
+
+<P>The driver can then set any other device-dependent values in the device object. For example, non-WDM drivers for removable-media devices must OR the device object's<B> Flags</B> member with DO_VERIFY_VOLUME if they detect (or suspect) a change in media during I/O operations. (See <A HREF="other_5ag7.htm">Supporting Removable Media</A> for more information.) Drivers of devices that require inrush power must OR the <B>Flags</B> member with DO_POWER_INRUSH, and drivers of devices that are not on the system paging path must OR the <B>Flags</B> member with DO_POWER_PAGABLE. Function and filter drivers must clear the DO_DEVICE_INITIALIZING flag. </P>
+
+<P>After initializing the device object, a driver can also initialize any Kernel-defined objects and other system-defined data structures for which it has provided storage in the device extension. Precisely when a driver performs these tasks depends on its device, the type of the object, and/or the nature of the data. In general, any objects or data structures that can persist through PnP start and stop requests can be initialized in the <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine. Those that require resource information provided with a PnP <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> request, or that might require changes when the device is stopped and/or restarted, should be initialized when the driver handles the IRP_MN_START_DEVICE request.  For more information about <I>AddDevice</I> routines, see <A HREF="drvcomps_2o13.htm">Writing an <I>AddDevice</I> Routine</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Initializing%20a%20Device%20Object"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

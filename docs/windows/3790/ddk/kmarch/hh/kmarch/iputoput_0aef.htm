@@ -1,0 +1,77 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Setting Up the System DMA Controller for Packet-Based DMA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_setting_up_the_system_dma_controller_for_packet_based_dma_kg"></A>Setting Up the System DMA Controller for Packet-Based DMA</H4>
+
+<P>When <A HREF="kdma_92r6.htm"><B>AllocateAdapterChannel</B></A> transfers control to a driver's <A HREF="drvrrtns_7vea.htm"><I>AdapterControl</I></A> routine, the driver "owns" the system DMA controller and a set of map registers. Then, the driver must set up the DMA controller for a transfer operation, as shown in the following figure.</P>
+
+<P><B><IMG SRC="images/3dmaptsf.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Programming the System DMA Controller</B></P>
+
+<P>If the driver has a <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A> routine, <A HREF="kdma_92r6.htm"><B>AllocateAdapterChannel</B></A> passes a pointer to <B>DeviceObject-&gt;CurrentIrp</B> in the <I>PIrp</I> parameter to the AdapterControl routine. If, however, the driver manages its own queue of IRPs, the driver should include a pointer to the current IRP as part of the context it passes to <I>AdapterControl</I>.</P>
+
+<P>As the previous figure shows, the driver's <I>AdapterControl</I> routine sets up the DMA transfer, as follows:
+
+<OL>
+	<LI>The <I>AdapterControl</I> routine gets the address at which to start the transfer. For the initial transfer required to satisfy an IRP, the <I>AdapterControl</I> routine calls <A HREF="k106_5nhu.htm"><B>MmGetMdlVirtualAddress</B></A>, passing a pointer to the MDL at <B>Irp-&gt;MdlAddress</B>, which describes the buffer for this DMA transfer. 
+<P><B>MmGetMdlVirtualAddress</B> returns a virtual address that the driver can use as an index for the system physical address where the transfer should start. 
+
+<P>If the IRP requires more than one transfer operation, the driver calculates an updated starting address, as described later in this section.
+</LI>
+
+	<LI>The <I>AdapterControl</I> routine saves the address returned by <B>MmGetMdlVirtualAddress</B> or calculated in Step 1. This address is a required parameter (<I>CurrentVa</I>) to <A HREF="kdma_1hv6.htm"><B>MapTransfer</B></A>.</LI>
+
+	<LI>The <I>AdapterControl</I> routine calls <B>MapTransfer</B> to set up the system DMA controller, supplying the following parameters:
+<UL>
+	<LI>The adapter object pointer returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A> </LI>
+
+	<LI>A pointer (<I>Mdl</I>) to the MDL at <B>Irp-&gt;MdlAddress</B> for the current IRP</LI>
+
+	<LI>The <I>MapRegisterBase</I> handle passed to the driver's <I>AdapterControl</I> routine by <B>AllocateAdapterChannel</B></LI>
+
+	<LI>The value (<I>CurrentVa</I>) returned by <B>MmGetMdlVirtualAddress</B> if this is the first call to<B> MapTransfer</B> for the IRP
+<P>Otherwise, the driver supplies an updated <I>CurrentVa</I> value, indicating where in the buffer the next transfer operation should start. 
+</LI>
+
+	<LI>A pointer to a variable (<I>Length</I>) indicating the number of bytes for this transfer
+<P>If the driver can transfer all the requested data with a single call to <B>MapTransfer</B> and has no device-specific constraints on its DMA operations, <I>Length</I> can be set to the value of <B>Length</B> in the driver's I/O stack location of the IRP. At most, the length in bytes can be (PAGE_SIZE * the <I>NumberOfMapRegisters</I> returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A>). Otherwise, the driver must split up the request, as explained in <A HREF="iputoput_70h3.htm">Splitting Transfer Requests</A>, and must update the value of <I>Length</I> in subsequent calls to <B>MapTransfer</B> for the current IRP.
+</LI>
+
+	<LI>A Boolean value (<I>WriteToDevice</I>), indicating the direction of the transfer operation (TRUE to transfer data from system memory to the device)</LI>
+</UL>
+
+<P><B>MapTransfer</B> returns a logical address. Drivers that use system DMA must ignore this value. 
+</LI>
+
+	<LI>The <I>AdapterControl</I> routine sets up the device for the DMA operation. </LI>
+
+	<LI>The <I>AdapterControl</I> routine returns <B>KeepObject</B>.</LI>
+</OL>
+
+<P>When the device indicates that its current DMA operation has completed, the driver should call <A HREF="kdma_9cxe.htm"><B>FlushAdapterBuffers</B></A>, usually from the driver's <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> routine.</P>
+
+<P>The <I>DpcForIsr</I> routine or another driver routine that completes a DMA operation calls <B>FlushAdapterBuffers</B> to ensure that any data cached in the system DMA controller is read into system memory or written out to the device. The same routine also must call <B>MapTransfer</B> again if it is necessary to reprogram the system DMA controller to transfer more data for the current IRP. Similarly, it must call <B>FlushAdapterBuffers</B> again following each transfer operation.</P>
+
+<P>If a driver must call <B>MapTransfer</B> more than once for the current IRP, it supplies the same adapter object pointer, <I>Mdl</I> pointer, <I>MapRegisterBase</I> handle, and transfer direction in every call. However, the driver must update the <I>CurrentVa</I> and <I>Length</I> parameters before it makes the second and any subsequent calls to <B>MapTransfer</B>. To calculate an updated value for each of these parameters, use the following formulas:
+
+<UL>
+	<LI><I>CurrentVa</I> = <I>CurrentVa</I> + (<I>Length</I> requested in the preceding call to <B>MapTransfer</B>)</LI>
+
+	<LI><I>Length</I> = Minimum (remaining<I> </I><B>Length</B> to be transferred, (PAGE_SIZE * <I>NumberOfMapRegisters</I> returned by <B>IoGetDmaAdapter</B>))</LI>
+</UL>
+
+<P>The context information each driver should maintain about its DMA transfers depends on the needs of its particular device. Typical context might include the current virtual address in the MDL (<I>CurrentVa</I>), the number of bytes transferred so far, the number of bytes remaining to transfer, possibly a pointer to the current IRP, and any other information the driver writer deems useful.</P>
+
+<P>When the requested transfer is complete, or if the driver must return an error status for the IRP, the driver should call <B>FreeAdapterChannel</B> promptly to release the system DMA controller for other drivers and this driver to use.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Setting%20Up%20the%20System%20DMA%20Controller%20for%20Packet-Based%20DMA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

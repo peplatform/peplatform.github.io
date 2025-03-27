@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IOCTL_WAIT_ON_DEVICE_EVENT</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IOCTL_WAIT_ON_DEVICE_EVENT">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ioctl_wait_on_device_event_si"></A>IOCTL_WAIT_ON_DEVICE_EVENT</H1>
+
+<P>Returns information about an event occurring on a USB interrupt pipe.</P>
+
+<H4>DeviceIoControl Parameters</H4>
+
+<DL>
+<DT><I>hDevice</I></DT>
+
+<DD>Device handle, obtained by calling <B>CreateFile</B>.</DD>
+
+<DT><I>dwIoControlCode</I></DT>
+
+<DD>IOCTL_WAIT_ON_DEVICE_EVENT</DD>
+
+<DT><I>lpInBuffer</I></DT>
+
+<DD>NULL</DD>
+
+<DT><I>nInBufferSize</I></DT>
+
+<DD>Zero.</DD>
+
+<DT><I>lpOutBuffer</I></DT>
+
+<DD>Pointer to a buffer that is large enough to receive the largest packet the device is capable of sending on the interrupt pipe.</DD>
+
+<DT><I>nOutBufferSize</I></DT>
+
+<DD>Size of the output buffer.</DD>
+
+<DT><I>lpBytesReturned</I></DT>
+
+<DD>Pointer to a location to receive the number of bytes returned.</DD>
+
+<DT><I>lpOverlapped</I></DT>
+
+<DD>Optional pointer to an OVERLAPPED structure (described in the Platform SDK documentation).
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>usbscan.h</I>. Include <I>usbscan.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>When the <B>DeviceloControl</B> function is called with the IOCTL_WAIT_ON_DEVICE_EVENT control code, the caller must specify a buffer pointer as the function's <I>lpOutBuffer</I> parameter. The buffer must be large enough to hold the largest packet the device can send on its interrupt pipe.</P>
+
+<P>The type and size of information returned are device-specific. For example, a still image device might issue an interrupt when a user presses one of its buttons, and the return packet might indicate which button was pressed.</P>
+
+<P>For more information, see <A HREF="wia_drv_basic_6pex.htm">Accessing Kernel-Mode Drivers for Still Image Devices</A>.</P>
+
+<H4>Code Example</H4>
+
+<PRE>HANDLE  IntDeviceHdle = INVALID_HANDLE_VALUE;
+DWORD   dwError;
+UINT    uStatus = 0;
+DWORD   dwByteCount;
+DWORD   dwIndex = 0;
+BOOL    bRet = TRUE;
+
+GetArrayInteruptEvent(ArrayHdleEvent, &amp;nbEventHdl);
+
+// Initialize interrupt register with the current value.
+while(TRUE)
+{
+  if (IntDeviceHdle != INVALID_HANDLE_VALUE)
+  {
+     bRet = DeviceIoControl( (HANDLE)IntDeviceHdle,
+       (DWORD) IOCTL_WAIT_ON_DEVICE_EVENT,
+        NULL,
+        0,
+        interInfo[dwIndex].byInterruptData,
+        sizeof(BYTE)*PACKET_SIZE,
+        &amp;dwError,
+        &amp;interInfo[dwIndex].overlapped);
+  }
+  if ((bRet) || (!bRet &amp;&amp; GetLastError()==ERROR_IO_PENDING))
+  {
+     dwIndex = WaitForMultipleObjects(nbEventHdl, 
+        ArrayHdleEvent, 
+        FALSE, 
+        INFINITE);
+     // the event came from a device
+     if ((dwIndex &gt;= 0) &amp; (dwIndex &lt; nbEventHdl-1))
+     {
+        IntDeviceHdle = GetInterruptDeviceHdle(ArrayHdleEvent[dwIndex]);
+        if (IntDeviceHdle != INVALID_HANDLE_VALUE)
+        {
+            GetOverlappedResult(IntDeviceHdle, &amp;interInfo[dwIndex].overlapped, &amp;dwByteCount, FALSE);
+            Debugs(temp, "We received an interrupt from 0x%lX", IntDeviceHdle);
+            ExecuteActionOnInterrupt(IntDeviceHdle, interInfo[dwIndex].byInterruptData);
+        }
+        else
+        {
+            Debugs(temp, "This Event does not have a valid device handle");
+            // we just update the event array
+            GetArrayInteruptEvent(ArrayHdleEvent, &amp;nbEventHdl);
+            bRet = TRUE;
+        }
+        // reset the device event
+        ResetEvent((HANDLE)ArrayHdleEvent[dwIndex]);
+     }
+     // the event come the stop event
+     else if (dwIndex - WAIT_OBJECT_0 == (nbEventHdl-1))
+     {
+        Debugs(temp, "The interrupt thread is stopped, we init a new scanner");
+        ResetEvent((HANDLE)ArrayHdleEvent[dwIndex]);
+        InitNewDeviceInterrupt(&amp;IntDeviceHdle, &amp;dwIndex);
+        bRet = TRUE;
+     }
+  }
+  else
+ {
+    dwError = GetLastError();
+    Debugs(fail, "FAIL, DeviceIoControl() Error code : 0x%X", dwError);
+    break;
+ }
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IOCTL_WAIT_ON_DEVICE_EVENT"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

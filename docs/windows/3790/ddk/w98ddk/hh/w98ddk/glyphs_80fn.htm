@@ -1,0 +1,83 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Sample Code for Printer Profiles</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_glyphs_sample_code_for_printer_profiles"></A>Sample Code for Printer Profiles</H2>
+
+<P>The following sample code searches for printer profiles and the corresponding four-bytes manufacturer ID and model IDs.</P>
+
+<PRE>void GetManuAndModelIDs( PTSTR pModelname,
+                         PTSTR pManu,
+                         PTSTR pModel )
+{
+  DWORD  dwCheckSum, dwSize;
+  int    i;
+  WORD wCRC16a[16]={
+     0000000,    0140301,    0140601,    0000500,
+     0141401,    0001700,    0001200,    0141101,
+     0143001,    0003300,    0003600,    0143501,
+     0002400,    0142701,    0142201,    0002100,
+  };
+  WORD wCRC16b[16]={
+     0000000,    0146001,    0154001,    0012000,
+     0170001,    0036000,    0024000,    0162001,
+     0120001,    0066000,    0074000,    0132001,
+     0050000,    0116001,    0104001,    0043000,
+  };
+  char  *pByte;
+  char   temp;
+  BYTE   bTmp;
+   
+  /*
+   * Define the manufacturer to be the first 4 characters of the
+   * device name. A space or a hyphen end the string, and the
+   * remaining part of the string is filled with spaces. 
+   */
+  pByte = pModelname;
+  for (i=0; i&lt;4; i++, pByte++)
+  {
+    if (*pByte == ' ' || *pByte == '-')
+    {
+       for (; i&lt;4; i++)
+       {
+          pManu[i] = ' ';
+       }
+    }
+    else
+    {
+       temp =  *pByte;
+       if (temp &gt;= 'a' &amp;&amp; temp &lt;= 'z')
+           temp = temp + 'A' - 'a';
+       pManu[i] = temp;
+    }
+  }
+  pManu[4] = '\0';
+
+  /*
+   * Define the model to be a CRC of the complete DriverDesc
+   * string. We use the same method that the PnP LPT
+   * enumerator uses to create unique ID's.
+   */
+  dwCheckSum = 0;
+  dwSize = lstrlen(pModelname);
+
+  for (pByte=pModelname; dwSize; dwSize--, pByte++)
+  {
+     // Xor CRC with new char
+     bTmp = (BYTE)(((WORD)*pByte)^((WORD)dwCheckSum)); 
+     dwCheckSum = (dwCheckSum &gt;&gt; 8) ^ wCRC16a[bTmp &amp; 0x0F] ^ wCRC16b[bTmp &gt;&gt; 4];
+  }
+  wsprintf(pModel, __TEXT("%X"), dwCheckSum);
+
+  return;
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Sample%20Code%20for%20Printer%20Profiles"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

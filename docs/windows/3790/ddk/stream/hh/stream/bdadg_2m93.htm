@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Configuring a BDA Filter</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Configuring a BDA Filter">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_configuring_a_bda_filter_ksg"></A>Configuring a BDA Filter</H2>
+
+<P>A BDA minidriver processes method requests of the <A HREF="bdaref_64hf.htm">KSMETHODSETID_BdaDeviceConfiguration</A> method set to configure a filter instance for the minidriver in the current filter graph. </P>
+
+<P>In the following code snippet, two of the methods of the KSMETHODSETID_BdaDeviceConfiguration method set are dispatched directly to the BDA support library and the remaining method is first intercepted by the BDA minidriver before dispatching to the BDA support library. </P>
+
+<PRE>//
+//  BDA Device Configuration Method Set
+//
+//  Defines the dispatch routines for the filter level
+//  topology configuration methods
+//
+DEFINE_KSMETHOD_TABLE(BdaDeviceConfigurationMethods)
+{
+    DEFINE_KSMETHOD_ITEM_BDA_CREATE_PIN_FACTORY(
+        BdaMethodCreatePin,
+        NULL
+        ),
+    DEFINE_KSMETHOD_ITEM_BDA_DELETE_PIN_FACTORY(
+        BdaMethodDeletePin,
+        NULL
+        ),
+    DEFINE_KSMETHOD_ITEM_BDA_CREATE_TOPOLOGY(
+        CFilter::CreateTopology,
+        NULL
+        )
+};
+/*
+** CreateTopology()
+**
+** Keeps track of topology association between input and output pins
+**
+*/
+NTSTATUS
+CFilter::
+CreateTopology(
+    IN PIRP         pIrp,
+    IN PKSMETHOD    pKSMethod,
+    PVOID           pvIgnored
+    )
+{
+    NTSTATUS            Status = STATUS_SUCCESS;
+    CFilter *           pFilter;
+    ULONG               ulPinType;
+    PKSFILTER           pKSFilter;
+
+    ASSERT( pIrp);
+    ASSERT( pKSMethod);
+
+    //  Obtain a "this" pointer for the method.
+    //
+    //  Because this function is called directly from the property 
+    //  dispatch table, get pointer to the underlying object.
+    //
+    pFilter = FilterFromIRP( pIrp);
+    ASSERT( pFilter);
+    if (!pFilter)
+    {
+        Status = STATUS_INVALID_PARAMETER;
+        goto errExit;
+    }
+
+    //  Let the BDA support library create the standard topology.
+    //  It will also validate the method, instance count, etc.
+    //
+    Status = BdaMethodCreateTopology( pIrp, pKSMethod, pvIgnored);
+    if (Status != STATUS_SUCCESS)
+    {
+        goto errExit;
+    }
+
+    //  This is where the filter can keep track of associated pins.
+    //
+errExit:
+    return Status;
+}</PRE>
+
+<P>The KSMETHOD_BDA_CREATE_TOPOLOGY method request calls the minidriver's CFilter::CreateTopology method. This method calls the BDA support library function <A HREF="bdaref_5twz.htm"><B>BdaMethodCreateTopology</B></A> to create a topology between filter pins. This function actually creates a topology structure in Ring 3, which reflects, for other property sets, the known connections of the filter. A BDA minidriver should intercept the KSMETHOD_BDA_CREATE_TOPOLOGY method request as shown in the preceding code snippet if that minidriver must send special instructions to the hardware when connecting particular pin types--for example, if the BDA device performs hardware demultiplexing and creates an arbitrary number of output pins fanned off from a single input pin. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Configuring%20a%20BDA%20Filter"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

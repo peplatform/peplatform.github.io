@@ -1,0 +1,34 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Time-Out Callback Procedures</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_1441"></A>Time-Out Callback Procedures</H3>
+
+<P>When the specified amount of time has elapsed for a time-out, the callback procedure is called. For asynchronous time-outs, the callback procedure is called at hardware interrupt time; for other time-outs, the callback procedure is called at unrestricted event time. At hardware interrupt time, only asynchronous services may be called. See <A HREF="kernel_8tdh.htm">Events</A> for restrictions on what can and cannot be done at event time. </P>
+
+<P>All time-out callback procedures receive a tardiness value in the ECX register. This value is the number of milliseconds by which the time-out is late. For example, if you scheduled a time-out for 100 milliseconds, but it does not get dispatched until 115 milliseconds have elapsed, the ECX register will contain the value 15. Time-outs are often delayed by 10 milliseconds or more, because the normal system timer runs at 20 milliseconds or slower. If a virtual device needs more accurate time-outs, it must increase the timer interrupt frequency using virtual timer device (VTD) services. </P>
+
+<P>Note that the value in ECX is accurate only to the last updated resolution. If you need the tardiness to millisecond resolution, you must first ensure that the virtual machine manager originally scheduled the time-out to millisecond resolution (see <I>Timing Query Services</I>), then use the following algorithm to convert the last-updated resolution to system-time resolution: </P>
+
+<PRE>; On entry, ECX = tardiness in milliseconds relative to 
+; Last_Updated_System_Time
+VMMCall  Get_Last_Updated_System_Time
+sub    ecx, eax      ;ECX = Remove Last_Updated_System_Time bias
+VMMCall  Get_System_Time
+add    ecx, eax      ; ECX = Apply System_Time bias
+                     ; ECX = true tardiness to millisecond resolution
+ </PRE>
+
+<P>Alternatively, you could record the system time when the time-out was scheduled, and subtract it from the current system time at the time the callback is made, rather than doing the above. </P>
+
+<P>If you need to convert the tardiness of a thread time-out or virtual machine time-out, you should use <B>_GetLastUpdatedThreadExecTime</B> and <B>_GetThreadExecTime</B>, or <B>Get_Last_Updated_VM_Exec_Time</B> and <B>Get_VM_Exec_Time</B>, respectively. Note that, since <B>_GetLastUpdatedThreadExecTime</B> and <B>_GetThreadExecTime</B> use the C calling convention, you need to preserve the EDX and ECX registers around the calls. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Time-Out%20Callback%20Procedures"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

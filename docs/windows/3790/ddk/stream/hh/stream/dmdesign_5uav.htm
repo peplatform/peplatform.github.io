@@ -1,0 +1,42 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Clock Synchronization</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Clock Synchronization">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_clock_synchronization_ksg"></A>Clock Synchronization</H4>
+
+<P>A critical task for the synth sink to do is to resolve time drift between the reference-clock and sample-clock crystals. It does this with the software equivalent of a phase-locked loop.</P>
+
+<P>The synth sink keeps track of what sample number in the buffer it can write to next. So even though it knows that it is on, for example, sample 20, the synth sink still needs to check the master clock to get a reference time. It has a thread that wakes up approximately every 20 milliseconds and asks the master clock for the current time. The master clock might report back that the current time (in milliseconds) is 420, for example.</P>
+
+<P>The synth sink also maintains a latency clock, which shows the offset between the current time according to the master clock and the sample time. It uses this information to calculate the expected master clock time and compares this with the actual master clock reading to see if the two clocks have drifted apart.</P>
+
+<P>The synth sink uses a phase-locked loop to adjust the sample time. When checking for drift, the synth sink does not adjust by the <I>whole</I> amount, because the readings contain some jitter. Instead, it moves the sample clock by some <I>fraction</I> of the distance toward the master clock. In this way, the synth sink smoothes out jitter errors while staying roughly in sync. It also takes this time and converts it to a latency clock time that is relative to the master clock. This is important because the application might need to know where the synthesizer is rendering at any point.</P>
+
+<P>The latency clock tells the application the earliest time at which a new note can be scheduled to play. The latency clock time is the master clock time plus an offset that represents the synthesizer's latency. This latency represents the minimum delay from the time that the application submits a new note to be played to the time that the synthesizer actually plays the note. At any instant, the application can schedule a note to be played at or later than—but no earlier than—the current latency clock time.</P>
+
+<P>For example, if the master clock is currently at time 420 and the application has a note that it wants to play as soon as possible, the latency clock tells it the earliest time that the note can be played. If the software synthesizer has a latency of 100 milliseconds, the next time it can play a note is at time 520.</P>
+
+<P>Suppose an event is marked to play at time 520 in reference time. The synthesizer does its work by rendering notes down into samples and performing all its calculations in sample time. Therefore, it needs to know what a reference time of 520 converts to in sample time. In user mode, the synth sink provides two functions that the synth uses:</P>
+
+<P class=indent1><A HREF="audmp-routines_0y43.htm"><B>IDirectMusicSynthSink::SampleToRefTime</B></A> </P>
+
+<P class=indent1><A HREF="audmp-routines_6ss3.htm"><B>IDirectMusicSynthSink::RefTimeToSample</B></A> </P>
+
+<P>To do the conversion in this case, the synth calls <B>IDirectMusicSynthSink::RefTimeToSample</B> on the synth sink.</P>
+
+<P>The synth sink then gives back a sample time (for example, 600). The note in question gets rendered at sample time 600. Then, when the synth gets called by the synth sink to <A HREF="audmp-routines_3y2b.htm"><B>Render</B></A> (for example, from sample time 600 to 800), the note is rendered into the buffer at sample time 600.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The sample time is kept as a 64-bit number to avoid rollover. (A DWORD value rolls over in 27 hours.)</P>
+
+<P>To summarize, the synth does all its internal math in sample time and the synth sink does the conversion to sample time from reference time and vice versa. The synth sink also manages synchronization with the master clock and provides latency information. Hiding this functionality in the synth sink makes writing the synth easier.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Clock%20Synchronization"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

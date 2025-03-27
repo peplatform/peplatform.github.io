@@ -1,0 +1,172 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>REQUEST_ASYNC_LOCK</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="REQUEST_ASYNC_LOCK">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_request_async_lock_kr"></A>REQUEST_ASYNC_LOCK</H1>
+
+<P>The REQUEST_ASYNC_LOCK request performs an asynchronous lock operation to the device specified. </P>
+
+<P>The relevant members of the IRB for this request are:</P>
+
+<PRE class=syntax>typedef struct _IRB {
+  ULONG FunctionNumber;
+    .
+    .
+    .
+  union {
+    struct {
+      IO_ADDRESS    DestinationAddress;
+      ULONG         nNumberOfArgBytes;
+      ULONG         nNumberOfDataBytes;
+      ULONG         fulTransactionType;
+      ULONG         fulFlags;
+      ULONG         Arguments[2];
+      ULONG         DataValues[2];
+      PVOID         pBuffer;
+      ULONG         ulGeneration;
+      UCHAR         chPriority;
+      UCHAR         nSpeed;
+      UCHAR         tCode;
+      ULONG         Reserved;
+    } AsyncLock;
+    .
+    .
+    .
+  } u;
+} IRB;</PRE>
+
+<H4>IRB Input</H4>
+
+<DL>
+<DT><B>FunctionNumber</B></DT>
+
+<DD>REQUEST_ASYNC_LOCK</DD>
+
+<DT><B>u.AsyncLock.DestinationAddress</B></DT>
+
+<DD>Specifies the 1394 64-bit destination address for this read operation. The driver only needs to fill in the <B>IA_Destination_Offset</B> member of <B>u.AsyncLock.DestinationAddress</B>; the bus driver fills in the <B>IA_Destination_ID</B> member. See <A HREF="1394stct_12cy.htm">IO_ADDRESS</A> for the structure description.</DD>
+
+<DT><B>u.AsyncLock.nNumberOfArgBytes</B></DT>
+
+<DD>Specifies the number of argument bytes used in performing this lock operation. May be zero, 4 or 8. See the <B>u.AsyncLock.fulTransactionType</B> member for details.</DD>
+
+<DT><B>u.AsyncLock.nNumberOfDataBytes</B></DT>
+
+<DD>Specifies the number of data bytes used in performing this lock operation. May be 4 or 8. See the <B>u.AsyncLock.fulTransactionType</B> member for details.</DD>
+
+<DT><B>u.AsyncLock.fulTransactionType</B></DT>
+
+<DD>Specifies which atomic transaction to execute on the 1394 node. The following function types are supported.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=63%>fulTransactionType</TH>
+<TH align=left width=37%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=63%>LOCK_TRANSACTION_MASK_SWAP</TD>
+<TD width=37%>For each bit in the original value and the matching argument, reset the bit to be the same as the corresponding bit in the data value. The <B>nNumberOfArgBytes</B> and <B>nNumberOfDataBytes</B> members of <B>u.AsyncLock</B> must be the same.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=63%>LOCK_TRANSACTION_COMPARE_SWAP</TD>
+<TD width=37%>If the original value and argument match, replace the original value with the data value. The <B>nNumberOfArgBytes</B> and <B>nNumberOfDataBytes</B> members of <B>u.AsyncLock</B> must be the same.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=63%>LOCK_TRANSACTION_FETCH_ADD</TD>
+<TD width=37%>Add the data value to the original value. Big-endian addition is performed. The argument value is not used and the <B>nNumberOfArgBytes</B> member of <B>u.AsyncLock</B> must be zero.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=63%>LOCK_TRANSACTION_LITTLE_ADD</TD>
+<TD width=37%>Add the data value to the original value. Little-endian addition is performed. The argument value is not used and the <B>nNumberOfArgBytes</B> member of <B>u.AsyncLock</B> must be zero.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=63%>LOCK_TRANSACTION_BOUNDED_ADD</TD>
+<TD width=37%>If the original value and the argument differ, add the data value to the original value. The <B>nNumberOfArgBytes</B> and <B>nNumberOfDataBytes</B> members of <B>u.AsyncLock</B> must be the same.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=63%>LOCK_TRANSACTION_WRAP_ADD</TD>
+<TD width=37%>If the original value and the argument differ, add the data value to original value. Otherwise, replace the original value with the data value. The <B>nNumberOfArgBytes</B> and <B>nNumberOfDataBytes</B> members of <B>u.AsyncLock</B> must be the same.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>u.AsyncLock.fulFlags</B></DT>
+
+<DD>Not currently used. Drivers should set this to zero.</DD>
+
+<DT><B>u.AsyncLock.Arguments</B></DT>
+
+<DD>Specifies the arguments used in this lock operation.</DD>
+
+<DT><B>u.AsyncLock.DataValues</B></DT>
+
+<DD>Specifies the data values used in this lock operation.</DD>
+
+<DT><B>u.AsyncLock.pBuffer</B></DT>
+
+<DD>Points to a buffer that receives lock data values returned from the node. The size of the buffer must be at least equal to the <B>u.AsyncLock.nNumberOfDataBytes</B> member.</DD>
+
+<DT><B>u.AsyncLock.ulGeneration</B></DT>
+
+<DD>Specifies the bus reset generation as known by the device driver who submitted this asynchronous request. If the generation count specified does not match the actual generation of the bus, then this request is returned with an error.</DD>
+
+<DT><B>u.AsyncLock.chPriority</B></DT>
+
+<DD>Reserved.</DD>
+
+<DT><B>u.AsyncLock.nSpeed</B></DT>
+
+<DD>Reserved.</DD>
+
+<DT><B>u.AsyncLock.tCode</B></DT>
+
+<DD>Reserved.</DD>
+
+<DT><B>u.AsyncLock.Reserved</B></DT>
+
+<DD>Reserved.
+</DD>
+</DL>
+
+<H4>IRB Output</H4>
+
+<DL>
+<DT><B>u.AsyncLock.pBuffer</B></DT>
+
+<DD>Points to a buffer that the bus driver has filled in with the lock data values returned from the node.</DD>
+</DL>
+
+<H4>I/O Status Block</H4>
+
+<P>If successful, the bus driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS. If <B>u.AsyncLock.ulGeneration</B> does not match the current bus reset generation count, the bus driver sets <B>Irp-&gt;IoStatus.Status</B> as STATUS_INVALID_GENERATION.</P>
+
+<H4>Operation</H4>
+
+<P>An asynchronous lock request performs an atomic operation in the node's address space. The value of the <B>u.AsyncLock.fulTransactionType</B> member determines the operation performed. The original value at the location given by the <B>u.AsyncLock.DestinationAddress</B> and the argument (in <B>u.AsyncLock.Arguments</B>) are compared, and depending on the outcome and the transaction type, the data value in <B>u.AsyncLock.DataValues</B> is used to update the original value. If the lock succeeds, the old value stored at the destination address is returned in the buffer pointed to by <B>u.AsyncLock.pBuffer</B>. If the lock fails, the new value is returned. </P>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>1394.h</I>. Include <I>1394.h</I>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="1394irp_06ya.htm">IOCTL_IEEE1394_API_REQUEST</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: REQUEST_ASYNC_LOCK"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

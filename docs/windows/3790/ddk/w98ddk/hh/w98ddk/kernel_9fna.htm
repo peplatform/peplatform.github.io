@@ -1,0 +1,37 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using the VID_IRET_Proc Callback</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_pss_1896"></A>Using the VID_IRET_Proc Callback</H2>
+
+<P>The <B>VID_IRET_Proc</B> procedure can be used to help prevent stack overflows when an interrupt routine in a virtual machine attempts to process too many simulated interrupts. Consider the following interrupt routine, a routine that is very common in actual terminal applications: </P>
+
+<PRE>push    ax              ; push AX, DX is the
+push    dx              ; minimum possible
+    .
+    .                   ; read a byte from the COM port
+    .
+mov     al, 20h         ; non-specific EOI
+out     20h, al         ; EOI the PIC
+sti                     ; enable interrupts
+    .
+    .                   ; do other stuff
+    .
+pop     dx
+pop     ax
+iret
+ </PRE>
+
+<P>In this routine, if an interrupt occurs after the <B>sti</B> but before the <B>iret</B> instruction, control re-enters the interrupt routine and the amount of data on the stack grows by 10 bytes (6 bytes for the return address and 4 bytes for the saved AX and DX registers). Since the virtual communications device (VCD) may queue hundreds of bytes of data before the virtual machine begins processing simulated interrupts, this interrupt routine can potentially be re-entered hundreds of times (requiring several kilobytes of stack space) unless the VCD delays its request for the next simulated interrupt until after the <B>iret</B> instruction is executed. Installing the <B>VID_IRET_Proc</B> procedure lets the VCD delay the request, preventing the interrupt routine from being re-entered. </P>
+
+<P>The virtual timer device uses similar logic to prevent sending too many timer interrupts to a virtual machine. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20the%20VID_IRET_Proc%20Callback"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

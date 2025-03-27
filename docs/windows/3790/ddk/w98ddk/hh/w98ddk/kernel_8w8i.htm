@@ -1,0 +1,123 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Install_IO_Handler</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_1202"></A>Install_IO_Handler</H1>
+
+<PRE>include vmm.inc
+
+mov     esi, IOCallback     ; points to callback procedure
+mov     edx, Port           ; I/O port number
+VMMCall Install_IO_Handler
+
+jc      not_installed       ; carry flag set if procedure not installed
+ </PRE>
+
+<P>Installs a callback procedure for I/O port trapping, and enables trapping for the specified port. Only one procedure may be installed for a given port. For Windows 95, this service can be called following initialization. Uses Flags. </P>
+
+<P>Returns with the carry flag clear if successful, set otherwise. 
+
+<DL>
+<DT><I>IOCallback</I></DT>
+
+<DD>Address of the callback procedure. For more information about the callback procedure, see below. </DD>
+
+<DT><I>Port</I></DT>
+
+<DD>Number of the I/O port trap. 
+</DD>
+</DL>
+
+<P>The service returns an error if a callback procedure is already installed for the specified port or the system limit for I/O callback procedures has been reached. </P>
+
+<P>The system calls the callback procedure whenever a program in a virtual machine attempts to access the specified I/O port, and I/O trapping is enabled. The system calls the procedure as follows: </P>
+
+<PRE>mov     ebx, VM             ; current VM handle
+mov     ecx, IOType         ; type of I/O
+mov     edx, Port           ; port number
+mov     ebp, OFFSET32 crs   ; points to a Client_Reg_Struc
+mov     eax, Data           ; output data (if I/O type is output)
+call    [IOCallback]
+
+mov     [Data], eax         ; input data (if I/O type is input)
+ </PRE>
+
+<P>The <I>VM</I> parameter specifies the current virtual machine, the <I>Port</I> parameter specifies the I/O port, and the <I>crs</I> parameter points to a <B>Client_Reg_Struc</B> structure containing the register contents for the current virtual machine. </P>
+
+<P>The <I>IOType</I> parameter specifies the type of input or output operation requested and determines whether the callback procedure receives data in the EAX register or must return data in the EAX register. The <I>IOType</I> parameter can be a combination of the following values: </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=19%>Value </TH>
+<TH align=left width=81%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=19%>Addr_32_IO </TD>
+<TD width=81%>Use 32-bit address offsets for input or output string operations. If this value is not given, the 16-bit offsets are used. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=19%>Byte_Input </TD>
+<TD width=81%>Input a single byte; place in AL if String_IO not given. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=19%>Byte_Output </TD>
+<TD width=81%>Output a single byte from AL if String_IO not given. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=19%>Dword_Input </TD>
+<TD width=81%>Input a double word; place in EAX if String_IO not given. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=19%>Dword_Output </TD>
+<TD width=81%>Output a double word from EAX if String_IO not given. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=19%>Rep_IO </TD>
+<TD width=81%>Repeat the input or output string operation the number of times specified by the <B>Client_CX</B> field in the <B>Client_Reg_Struc</B> structure. (The number of repetitions is stored in the <B>Client_ECX</B> field if Addr_32_IO is also set.) </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=19%>Reverse_IO </TD>
+<TD width=81%>Decrement string address on each input or output operation. If this value is not given, the string address is incremented on each operation. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=19%>String_IO </TD>
+<TD width=81%>Input or output a string. The high 16-bits specifies segment address of buffer containing the string to output or to receive the string input. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=19%>Word_Input </TD>
+<TD width=81%>Input a word; place in AX if String_IO not given. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=19%>Word_Output </TD>
+<TD width=81%>Output a word from AX if String_IO not given. </TD>
+</TR>
+</TABLE><BR>
+
+<P>The <I>Data</I> parameter is used only for when I/O type is for output. </P>
+
+<P>A virtual machine can disable trapping of a port for every or for specific virtual machines by using the <B>Disable_Global_Trapping</B> and <B>Disable_Local_Trapping</B> services. </P>
+
+<H4>See Also</H4>
+
+<P><B>Remove_IO_Handler</B>,<B> Disable_Global_Trapping</B>, <B>Disable_Local_Trapping</B>, <B>Install_Mult_IO_Handlers</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Install_IO_Handler"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

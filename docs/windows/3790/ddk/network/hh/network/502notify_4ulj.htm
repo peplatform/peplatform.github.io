@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Retrieving Network Configuration Interface Pointers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Retrieving Network Configuration Interface Pointers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_retrieving_network_configuration_interface_pointers_ng"></A>Retrieving Network Configuration Interface Pointers</H2>
+
+<P>When the network configuration subsystem initializes an instance of the notify object as described in <A HREF="502notify_9ffr.htm">Creating and Initializing an Instance of a Notify Object</A>, the object receives <A HREF="ntfrf_0ar6.htm"><B>INetCfgComponent</B></A> and <A HREF="ntfrf_61yq.htm"><B>INetCfg</B></A> interface pointers. <B>INetCfgComponent</B> points to the notify object's component interface that the object can use to access and control the component. <B>INetCfg</B> points to the root network configuration interface that the notify object can use to access all aspects of network configuration. The following code uses these <B>INetCfgComponent</B> and <B>INetCfg</B> interface pointers to retrieve other network configuration interfaces that the notify object might require. </P>
+
+<PRE>// Using the notify object's component interface that the notify 
+// object received:
+INetCfgComponent *pncfgcompThis, *pncfgcompUp, *pncfgcompLow;
+INetCfgComponentBindings *pncfgcompbind;
+IEnumNetCfgBindingPath *penumncfgbindpath;
+INetCfgBindingPath *pncfgbindpath;
+IEnumNetCfgBindingInterface *penumncfgbindintrfc;
+INetCfgBindingInterface *pncfgbindintrfc;
+HRESULT hr;
+DWORD dwFlags;  // EBP_ABOVE or EBP_BELOW
+ULONG celt, celtFetched; // Number of requested and returned elements
+
+// Retrieve a pointer to INetCfgComponentBindings to control and 
+// retrieve information about bindings for the component.
+hr = pncfgcompThis-&gt;QueryInterface(IID_INetCfgComponentBindings, 
+                                  (LPVOID*)&amp;pncfgcompbind);
+// Retrieve a pointer to IEnumNetCfgBindingPath to enumerate binding 
+// paths for the component.
+hr = pncfgcompbind-&gt;EnumBindingPaths(dwFlags, &amp;penumncfgbindpath);
+// Retrieve a pointer to INetCfgBindingPath that points to one or more 
+// binding paths for the component.
+hr = penumncfgbindpath-&gt;Next(celt, &amp;pncfgbindpath, &amp;celtFetched);
+// Retrieve a pointer to IEnumNetCfgBindingInterface to enumerate 
+// the collection of binding interfaces for the binding path.
+hr = pncfgbindpath-&gt;EnumBindingInterfaces(&amp;penumncfgbindintrfc);
+// Retrieve a pointer to INetCfgBindingInterface that points to one or 
+// more binding interfaces for the binding path.
+hr = penumncfgbindintrfc-&gt;Next(celt, &amp;pncfgbindintrfc, &amp;celtFetched);
+// Retrieve pointers to INetCfgComponent for network components 
+// above and below the binding interface.
+hr = pcfgbindintrfc-&gt;GetUpperComponent(&amp;pncfgcompUp);
+hr = pcfgbindintrfc-&gt;GetLowerComponent(&amp;pncfgcompLow);
+
+// Using the root network configuration interface that the notify 
+// object received:
+INetCfg *pnetcfg;
+INetCfgLock *pncfglock;
+INetCfgClass *pncfgclass;
+INetCfgComponent *pncfgcompOther, *pncfgcompInstall;
+INetCfgClassSetup *pncfgclsSetup
+GUID *pguidClass; // For example, set to GUID_DEVCLASS_NETTRANS
+IEnumNetCfgComponent *penumncfgcomp;
+HWND hwndParent; // Handle to Window for selecting.
+OBO_TOKEN *pOboToken; // Another component or the user installs.
+DWORD dwSetupFlags, dwUpgradeFromBuildNo;
+ 
+// Retrieve a pointer to INetCfgLock to obtain a lock on network 
+// configuration.
+hr = pnetcfg-&gt;QueryInterface(IID_INetCfgLock, (LPVOID*)&amp;pncfglock);
+// Retrieve a pointer to INetCfgComponent for a specific component.
+hr = pnetcfg-&gt;FindComponent(TEXT("MS_TCPIP"), &amp;pncfgcompOther);
+// Retrieve a pointer to IEnumNetCfgComponent to enumerate 
+// the collection of a particular type of component.
+hr = pnetcfg-&gt;EnumComponents(pguidClass, &amp;penumncfgcomp);
+// Retrieve a pointer to INetCfgClass for a specific class of 
+// component.
+hr = pnetcfg-&gt;QueryNetCfgClass(pguidClass, IID_INetCfgClass, 
+                              (LPVOID*)&amp;pncfgclass);
+// Retrieve a pointer to INetCfgComponent for a specific component.
+hr = pncfgclass-&gt;FindComponent(TEXT("MS_TCPIP"), &amp;pncfgcompOther);
+// Retrieve a pointer to IEnumNetCfgComponent to enumerate 
+// the collection of a particular type of component.
+hr = pncfgclass-&gt;EnumComponents(&amp;penumncfgcomp);
+// Retrieve a pointer to INetCfgComponent that points to one or 
+// more components for the particular type of component.
+hr = penumncfgcomp-&gt;Next(celt, &amp;pncfgcompOther, &amp;celtFetched);
+// Retrieve a pointer to INetCfgClassSetup that enables installation 
+// or removal of a particular type of component.
+hr = pncfgclass-&gt;QueryInterface(IID_INetCfgClassSetup, 
+                               (LPVOID*)&amp;pncfgclsSetup);
+// Retrieve a pointer to INetCfgComponent for an installed component.
+hr = pncfgclsSetup-&gt;SelectAndInstall(hwndParent, pOboToken,
+                                     &amp;pncfgcompInstall);
+// Retrieve a pointer to INetCfgComponent for an installed component.
+hr = pncfgclsSetup-&gt;Install(TEXT("MS_TCPIP"), pOboToken, dwSetupFlags, 
+                           dwUpgradeFromBuildNo, TEXT("AnswerFile"), 
+                    TEXT("AnswerFileSections"), &amp;pncfgcompInstall);
+</PRE>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Retrieving%20Network%20Configuration%20Interface%20Pointers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

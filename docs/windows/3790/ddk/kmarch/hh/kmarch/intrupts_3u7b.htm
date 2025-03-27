@@ -1,0 +1,46 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Registering and Queuing a DpcForIsr Routine</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Registering and Queuing a DpcForIsr Routine">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_registering_and_queuing_a_dpcforisr_routine_kg"></A>Registering and Queuing a <I>DpcForIsr</I> Routine</H2>
+
+<P>A driver registers a <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> routine for a device object by calling <A HREF="k104_6q0i.htm"><B>IoInitializeDpcRequest</B></A> after it has created the device object. The driver can make this call from its <A HREF="drvrrtns_4d6a.htm"><I>AddDevice</I></A> routine, or from <A HREF="drvrrtns_8uya.htm"><I>DispatchPnP</I></A> code that handles <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> requests. </P>
+
+<P>To queue the <I>DpcForIsr</I> routine for execution, the driver's ISR calls <A HREF="k104_3mb6.htm"><B>IoRequestDpc</B></A> just before it returns. The following figure illustrates calls to these routines.</P>
+
+<P><B><IMG SRC="images/3dpcisr.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Using a DPC Object for a DpcForIsr Routine</B></P>
+
+<P>As the previous figure shows, calling <B>IoInitializeDpcRequest</B> associates a DPC object with a driver-supplied <I>DpcForIsr</I> routine and a driver-created device object. The I/O Manager allocates memory for the DPC object and calls<A HREF="k105_9d0y.htm"> <B>KeInitializeDpc</B></A> on the driver's behalf.</P>
+
+<P>When the ISR is called to handle a device interrupt at DIRQL, it should return control to the system as soon as possible for better overall system and driver performance. Usually, an ISR merely clears the interrupt, gathers whatever context information the <I>DpcForIsr</I> routine needs to complete the operation that caused the interrupt, calls <A HREF="k104_3mb6.htm"><B>IoRequestDpc</B></A>, and returns.</P>
+
+<P>When the ISR calls <B>IoRequestDpc</B>, it passes a pointer to the device object, a pointer to the <I>DeviceObject</I><B>-&gt;CurrentIrp</B>, and a pointer to a driver-determined context. The I/O Manager calls <A HREF="k105_75iq.htm"><B>KeInsertQueueDpc</B></A> on the driver's behalf, which queues the DPC object. When IRQL falls below DISPATCH_LEVEL on a processor, the kernel dequeues the DPC object and runs the driver's <I>DpcForIsr</I> routine on that processor at IRQL DISPATCH_LEVEL.</P>
+
+<P>The <I>DpcForIsr</I> routine is responsible for doing whatever is necessary to complete the I/O requested in the current IRP. On entry, the routine receives a pointer to the DPC object, along with pointers to the device object, IRP, and context area, which were passed in the ISR's call to <B>IoRequestDpc</B>. The context area must be in resident memory, and is usually in the device extension. Alternatively, it can be in nonpaged pool allocated by the driver, or in a controller extension if the driver uses a <A HREF="iputoput_5xd3.htm">controller object</A>.</P>
+
+<P>Because ISR and <I>DpcForIsr</I> routines can run concurrently on SMP machines, you must follow these guidelines:
+
+<UL>
+	<LI>The ISR must call <B>IoRequestDpc</B> just before it returns control. Otherwise, the <I>DpcForIsr</I> routine might be run on another processor before the ISR has finished setting up the context area for the <I>DpcForIsr</I> routine.</LI>
+
+	<LI>The <I>DpcForIsr</I> routine and any other driver routine that shares a context area with the ISR must call <A HREF="k105_99rm.htm"><B>KeSynchronizeExecution</B></A>, specifying a driver-supplied <A HREF="drvrrtns_4m2a.htm"><I>SynchCritSection</I></A> routine that accesses the shared context area in a multiprocessor-safe manner.</LI>
+
+	<LI>If a driver uses the device extension to maintain context about its device I/O operations, the <I>DpcForIsr</I> routine should <I>never</I> call <A HREF="k104_7eb6.htm"><B>IoStartNextPacket</B></A> for the input device object<I> </I>(nor dequeue an IRP for the input device object, if the driver manages its own IRP queuing) until just before it calls <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>.
+<P>Otherwise, the driver's <I>StartIo</I> (or queue-management routines) might start another I/O operation that overwrites the shared context area before the <I>DpcForIsr</I> routine can complete the current operation. This is because the ISR can be called again if the device interrupts while or before the <I>DpcForIsr</I> routine executes (assuming interrupts are still enabled).
+</LI>
+</UL>
+
+<P>Even on a uniprocessor machine, the ISR could be called again if the device interrupts while or before the <I>DpcForIsr</I> routine is run. If this occurs, the <I>DpcForIsr</I> routine is run only once. In other words, there is no one-to-one correspondence between an ISR's calls to <B>IoRequestDpc</B> and instantiations of the <I>DpcForIsr</I> routine if a driver overlaps I/O operations for its target device objects.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Registering%20and%20Queuing%20a%20DpcForIsr%20Routine"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

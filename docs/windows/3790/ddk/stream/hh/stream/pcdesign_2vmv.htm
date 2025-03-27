@@ -1,0 +1,56 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DirectSound Node-Ordering Requirements</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DirectSound Node-Ordering Requirements">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_directsound_node_ordering_requirements_ksg"></A>DirectSound Node-Ordering Requirements</H3>
+
+<P>A DirectSound 2D or 3D mixer pin should have a node chain that contains the following sequence of nodes:
+
+<UL>
+	<LI>Volume node (See <A HREF="aud-prop_9eb7.htm">KSNODETYPE_VOLUME</A>.)</LI>
+
+	<LI>3D node (This node is optional. See <A HREF="aud-prop_8ugj.htm">KSNODETYPE_3D_EFFECTS</A>.)</LI>
+
+	<LI>Supermixer node (See <A HREF="aud-prop_1eib.htm">KSNODETYPE_SUPERMIX</A>.)</LI>
+
+	<LI>Volume node (for panning effects)</LI>
+
+	<LI>SRC node (See <A HREF="aud-prop_3jxv.htm">KSNODETYPE_SRC</A>.)</LI>
+
+	<LI>SUM node (See <A HREF="aud-prop_8isz.htm">KSNODETYPE_SUM</A>.)</LI>
+</UL>
+
+<P>The nodes in this list appear in the order in which they are encountered by data streaming into the pin. Other nodes can be interleaved between these nodes without causing problems, provided that the above ordering is preserved.</P>
+
+<P>A 2D pin requires all the nodes in the previous list, except for the 3D node, which is optional. A 3D pin requires all the nodes in the list, including the 3D node.</P>
+
+<P>The SRC (sample-rate conversion) node should precede the SUM node. The SRC and SUM nodes are typically adjacent, although this is not a requirement. The <B>IDirectSoundBuffer::SetFrequency</B> method (see Platform SDK documentation) perturbs the SRC node's resampling rate.</P>
+
+<P>A mixer that contains only SRC and SUM nodes is sufficient for mixing streams that are managed by system drivers such as SWMidi and Redbook (see <A HREF="aud-design_1kiv.htm#ddk_swmidi_system_driver_ksg">SWMidi system driver</A> and <A HREF="aud-design_1kiv.htm#ddk_redbook_system_driver_ksg">Redbook system driver</A>), but DirectSound additionally requires that two volume nodes and a supermixer node precede the SUM node. DirectSound sends volume changes resulting from <B>IDirectSoundBuffer::SetVolume</B> calls to the first volume node and sends panning effects from <B>IDirectSoundBuffer::SetPan</B> calls to the second volume node.</P>
+
+<P>DirectSound can produce 3D effects on a 2D pin by using the <B>SetVolume</B>, <B>SetPan</B>, and <B>SetFrequency</B> calls to control the volume and SRC nodes:
+
+<UL>
+	<LI><B>SetVolume</B> calls can simulate changes in the distance of a sound source from the listener.</LI>
+
+	<LI><B>SetPan</B> calls can simulate changes in orientation of a sound source relative to the listener.</LI>
+
+	<LI><B>SetFrequency</B> calls can simulate Doppler effects and HRTFs (head-related transfer functions).</LI>
+</UL>
+
+<P>The supermixer node is a crossbar matrix that connects M input channels to N output channels, where N should be equal to the number of channels in your device's final output stream.</P>
+
+<P>The optional 3D node is required to manage <I>hardware-accelerated </I>3D effects (see <A HREF="pcdesign_4ap3.htm">Supporting 3D DirectSound Acceleration in WDM Audio</A>), but is not needed for <I>software-emulated </I>3D processing. Most existing implementations place the 3D node before the SRC node and between the first volume node and the supermixer node, but other configurations are possible.</P>
+
+<P>The input stream to the 3D node typically contains a single channel. In DirectSound&nbsp;8.0 and later, only mono PCM buffers can be created with 3D effects. Earlier versions of DirectSound, however, support 3D nodes with both mono and stereo input streams, and drivers should support both to ensure compatibility with older applications.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DirectSound%20Node-Ordering%20Requirements"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

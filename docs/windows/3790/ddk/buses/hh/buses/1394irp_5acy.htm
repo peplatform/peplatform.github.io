@@ -1,0 +1,225 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>REQUEST_ISOCH_ALLOCATE_RESOURCES</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="REQUEST_ISOCH_ALLOCATE_RESOURCES">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_request_isoch_allocate_resources_kr"></A>REQUEST_ISOCH_ALLOCATE_RESOURCES</H1>
+
+<P>The REQUEST_ISOCH_ALLOCATE_RESOURCES request allocates a resource handle for transactions over a given isochronous channel. The device driver uses the resource handle to attach and detach data buffers for isochronous transactions on that channel.</P>
+
+<P>The relevant members of the IRB for this request are:</P>
+
+<PRE class=syntax>typedef struct _IRB {
+  ULONG FunctionNumber;
+    .
+    .
+    .
+  union {
+    struct {
+      ULONG    fulSpeed;
+      ULONG    fulFlags;
+      ULONG    nChannel;
+      ULONG    nMaxBytesPerFrame;
+      ULONG    nNumberOfBuffers;
+      ULONG    nMaxBufferSize;
+      ULONG    nQuadletsToStrip;
+      HANDLE    hResource;
+      ULARGE_INTEGER    ChannelMask
+    } IsochAllocateResources;
+    .
+    .
+    .
+  } u;
+} IRB;</PRE>
+
+<H4>IRB Input</H4>
+
+<DL>
+<DT><B>FunctionNumber</B></DT>
+
+<DD>REQUEST_ISOCH_ALLOCATE_RESOURCES</DD>
+
+<DT><B>u.IsochAllocateResources.fulSpeed</B></DT>
+
+<DD>Specifies the connection speed to use for communication on the channel. The possible speed values are SPEED_FLAGS_xxx, where xxx is the (approximate) transfer rate in megabits per second. Existing hardware supports transfer rates of 100, 200, and 400 Mb/sec.</DD>
+
+<DT></DT>
+
+<DD>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=57%>Transfer Rate</TH>
+<TH align=left width=43%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>SPEED_FLAGS_100</TD>
+<TD width=43%>100 Mb/s</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>SPEED_FLAGS_200</TD>
+<TD width=43%>200 Mb/s</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=57%>SPEED_FLAGS_400</TD>
+<TD width=43%>400 Mb/s</TD>
+</TR>
+</TABLE>
+</DD>
+
+<DT></DT>
+
+<DT><B>u.IsochAllocateResources.fulFlags</B></DT>
+
+<DD>Specifies how the bus driver should use any buffers attached to the resource handle. Many of the flags specify how the bus driver should configure the IEEE host controller for DMA from or to attached buffers.
+
+<P>
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=55%>Flag</TH>
+<TH align=left width=45%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=55%> RESOURCE_USED_IN_LISTENING </TD>
+<TD width=45%>Attached buffers are used to read data from an  isochronous channel. Set this if the resource handle will be used in a REQUEST_ISOCH_LISTEN request.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=55%>RESOURCE_USED_IN_TALKING </TD>
+<TD width=45%>Attached buffers are used to write data to an isochronous channel. Set this if the resource handle will be used in a REQUEST_ISOCH_TALK request.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=55%>RESOURCE_STRIP_ADDITIONAL_<BR>
+QUADLETS </TD>
+<TD width=45%>The bus driver configures the host controller to strip  additional quadlets from incoming isochronous packets. The number of quadlets to be stripped is specified in <B>nQuadletsToStrip</B>.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=55%>RESOURCE_SYNCH_ON_TIME</TD>
+<TD width=45%>The bus driver configures the host controller to synchronize the beginning of the isochronous transaction to the CYCLE_TIME specified in the StartTime member of the request's IRB. See REQUEST_ISOCH_LISTEN or REQUEST_ISOCH_TALK.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=55%>RESOURCE_USE_PACKET_BASED</TD>
+<TD width=45%>Used to switch to packet-based transfer, rather than the default. The default is stream-based transfer, unless the host controller only supports packet-based DMA.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=55%>RESOURCE_USE_MULTICHANNEL</TD>
+<TD width=45%>The driver owning this resource listens on multiple channels. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=55%>RESOURCE_VARIABLE_ISOCH_PAYLOAD</TD>
+<TD width=45%>The driver owning this resource transfers frames of variable size. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>u.IsochAllocateResources.nChannel</B></DT>
+
+<DD>Specifies the isochronous channel for all transactions involving the resource handle allocated by this request.</DD>
+
+<DT><B>u.IsochAllocateResources.nMaxBytesPerFrame</B></DT>
+
+<DD>Specifies the expected maximum isochronous frame size while transmitting and receiving on the channel.</DD>
+
+<DT><B>u.IsochAllocateResources.nNumberOfBuffers</B></DT>
+
+<DD>Specifies one more than the maximum expected number of buffers that are attached to the resource handle at any given time. </DD>
+
+<DT><B>u.IsochAllocateResources.nMaxBufferSize</B></DT>
+
+<DD>Specifies the maximum size of the buffers that are attached to the resource handle.</DD>
+
+<DT><B>u.IsochAllocateResources.nQuadletsToStrip</B></DT>
+
+<DD>Specifies the number of quadlets to strip from the beginning of every packet in an incoming isochronous stream. This parameter is ignored unless the device driver sets the  RESOURCE_STRIP_ADDITIONAL_QUADLETS flag in <B>u.IsochAllocateResources.fulFlags</B>.</DD>
+
+<DT><B>u.IsochAllocateResources.ChannelMask</B></DT>
+
+<DD>Specifies a set of isochronous channels, if RESOURCE_USE_MULTICHANNEL is set, that are used for all transactions involving the resource handle allocated by this request.</DD>
+</DL>
+
+<H4>IRB Output</H4>
+
+<DL>
+<DT><B>u.IsochAllocateResources.hResource</B></DT>
+
+<DD>Specifies the resource handle the device driver uses to attach or detach data buffers for isochronous transactions on the channel specified in <B>nChannel</B>.
+
+</DD>
+</DL>
+
+<H4>I/O Status Block</H4>
+
+<P>The bus driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS, if it processes the request successfully, or to the appropriate error code.</P>
+
+<H4>Operation</H4>
+
+<P>Not all RESOURCE_XXX flags are supported. Some require hardware support from the IEEE 1394 host controller. The device driver can use the REQUEST_GET_LOCAL_HOST_INFO request, with <B>nLevel</B> = GET_HOST_CAPABILITIES, to determine which RESOURCE_XXX flags are supported. The bus driver returns a pointer to a GET_LOCAL_HOST_INFO2 structure, whose <B>HostCapabilities</B> member contains flags that determine which flags the host controller supports. The following table lists which RESOURCE_XXX flags require hardware support, and the corresponding <B>HostCapabilities</B> flag the driver should check.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>RESOURCE_XXX flags</TH>
+<TH align=left width=52%>HostCapabilities flag </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>RESOURCE_STRIP<BR>
+_ADDITIONAL_QUADLETS</TD>
+<TD width=52%>HOST_INFO_SUPPORTS<BR>
+_ISOCH_STRIPPING</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>RESOURCE_SYNCH_ON_TIME</TD>
+<TD width=52%>HOST_INFO_SUPPORTS<BR>
+_START_ON_CYCLE</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>RESOURCE_USE_PACKET<BR>
+_BASED</TD>
+<TD width=52%>HOST_INFO_PACKET_BASED</TD>
+</TR>
+</TABLE><BR>
+
+<P>The default method of transmission for isochronous reads is stream-based: data is read until it fills the buffer, and then the bus driver begins filling the next buffer. If the RESOURCE_USE_PACKET_BASED flag is set, the bus driver uses a packet-based method of storing data: each packet is put in its own buffer and no attempt is made to fill each buffer. A particular host controller may only support packet-based or stream-based reads. Drivers should use the REQUEST_GET_LOCAL_HOST_INFO request to determine what the host controller supports.</P>
+
+<P>Not all host controllers automatically strip off the packet header. Use the REQUEST_GET_LOCAL_HOST_INFO request to determine if the host controller automatically strips the packet header. This request also determines if the host controller can be configured to strip quadlets from the beginning of each packet. Many host controllers can be configured to automatically strip off the packet header. Try setting the RESOURCE_STRIP_ADDITIONAL_QUADLETS flag and setting <B>nQuadletsToStrip</B> to 1. </P>
+
+<P>Set the RESOURCE_SYNCH_ON_TIME to synchronize the beginning of I/O to the <B>StartTime</B> member of the REQUEST_ISOCH_LISTEN  or REQUEST_ISOCH_TALK  request. Use the REQUEST_GET_LOCAL_HOST_INFO request to determine if the host controller supports synchronization on an isochronous cycle time. Additional synchronization options can be set with each buffer attached; see the ISOCH_DESCRIPTOR member of the <A HREF="1394irp_2182.htm">REQUEST_ISOCH_ATTACH_BUFFERS</A> for details.</P>
+
+<P>A multichannel resource must be stream-based and drivers can only use multichannel resources to read, not to write data. Therefore, if the RESOURCE_USE_MULTICHANNEL flag is set, the RESOURCE_USE_PACKET_BASED and RESOURCE_USED_IN_LISTENING flags must also be set. If the RESOURCE_USE_MULTICHANNEL flag is set, the bus driver ignores the <B>u.IsochAllocateResources.nChannel</B> member and assigns the channels defined in <B>u.IsochAllocateResources.ChannelMask</B> to the resource.</P>
+
+<P>Drivers that submit this request must be running at an IRQL of PASSIVE_LEVEL.</P>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>1394.h</I>. Include <I>1394.h</I>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="1394irp_06ya.htm">IOCTL_IEEE1394_API_REQUEST</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: REQUEST_ISOCH_ALLOCATE_RESOURCES"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

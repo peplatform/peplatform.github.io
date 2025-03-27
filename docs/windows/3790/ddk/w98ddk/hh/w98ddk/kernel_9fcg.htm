@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>VDMAD_Lock_DMA_Region</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_1830"></A>VDMAD_Lock_DMA_Region</H1>
+
+<PRE>include vdmad.inc
+
+mov esi, OFFSET32 DMA_Region
+mov ecx, RegionSize
+mov dl, Alignment
+VxDcall VDMAD_Lock_DMA_Region
+jc ErrorHandler
+ </PRE>
+
+<P>Attempts to lock a region of memory for a DMA transfer. Uses EAX, ECX, EDX, and flags 
+
+<UL>
+	<LI>Clears the carry flag and copies the DMA address into EDX if the function succeeds. Otherwise, sets the carry flag and copies the number of bytes that can be locked into ECX (starting from ESI); the AL registers contains one of the following error values: </LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=7%>1 </TD>
+<TD width=93%>DMA_Not_Contiguous: Region not contiguous. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=7%>2 </TD>
+<TD width=93%>DMA_Not_Aligned: Region crossed physical alignment boundary. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=7%>3 </TD>
+<TD width=93%>DMA_Lock_Failed: Unable to lock pages. </TD>
+</TR>
+</TABLE><BR>
+
+<DL>
+<DT><I>DMA_Region</I> </DT>
+
+<DD>Address of the DMA region. </DD>
+
+<DT><I>RegionSize</I> </DT>
+
+<DD>Number of bytes in the DMA region. </DD>
+
+<DT><I>Alignment</I> </DT>
+
+<DD>Region alignment. This parameter can be one of the following values: 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=7%>1 </TD>
+<TD width=93%>Region must be aligned on 64K page boundary. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=7%>2 </TD>
+<TD width=93%>Region must be aligned on 128K page boundary. </TD>
+</TR>
+</TABLE><BR>
+
+
+</DD>
+</DL>
+
+<P>The service first verifies that the region is mapped to contiguous pages of physical memory, then it determines whether the region results in a DMA bank (page) wrap. </P>
+
+<P>Typically, each channel has a base address register and a page address register. The base address register is incremented after each byte or word is transferred. If the increment of this 16-bit register results in the roll over from 0FFFFh to 0, then the transfer wraps to the start of the DMA bank because the page register is not updated. Normally MS-DOS watches for this condition and adjusts Interrupt 13h parameters to split transfers to avoid this wrap, but MS-DOS does not account for the difference between linear and physical addresses with Windows, so VDMAD checks again to prevent wrap from occurring. </P>
+
+<P>If these checks pass, the service calls the memory manager to lock the physical pages. </P>
+
+<P>This service does not check to see if the region is within some physical maximum constraint. If the region can be locked, then it locks the memory, and it is up to the caller to check to see if the physical region is acceptable. If the region is not acceptable, then the caller should unlock the region and perform a buffered DMA transfer. </P>
+
+<P>This service must be called before a DMA transfer is started, that is, before the physical state is set for a channel and before it is unmasked. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: VDMAD_Lock_DMA_Region"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

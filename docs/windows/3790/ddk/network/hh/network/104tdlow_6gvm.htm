@@ -1,0 +1,77 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NDIS Driver Lower-Edge Functions</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NDIS Driver Lower-Edge Functions">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_writing_a_driverentry_routine_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndis_driver_lower_edge_functions_nr"></A>NDIS Driver Lower-Edge Functions</H1>
+
+<P>This section describes, in alphabetic order, the system-defined functions implemented in NDIS drivers layered above an underlying NIC driver that exports a set of NDIS upper-edge (Miniport<I>Xxx</I>) functions. </P>
+
+<P>Five types of NDIS drivers have at least some of the functions described here:
+
+<OL>
+	<LI>NDIS transport protocols that export a set of the Protocol<I>Xxx</I> functions described here and communicate with their clients through the TDI interface described later in Part 3. </LI>
+
+	<LI>NDIS intermediate drivers that export the Protocol<I>Xxx</I> functions described here, along with a set of the Miniport<I>Xxx</I> functions, described earlier in <A HREF="101mini_4hgy.htm">NDIS Driver Upper Edge Functions</A>. 
+<P>Intermediate NDIS drivers appear to be miniport drivers to higher-level NDIS drivers that layered themselves above such an intermediate driver by establishing a binding. Intermediate NDIS drivers appear to be protocols to the NDIS drivers below them, including NIC drivers. To the NDIS library, such an intermediate driver appears to be both a protocol and a miniport driver. 
+</LI>
+
+	<LI>Connection-oriented clients that export some of the Protocol<I>Xxx</I> functions, along with the <B>ProtocolCo</B><I>Xxx</I> and <B>ProtocolCl</B><I>Xxx</I> functions, described here. Such a client protocol also might communicate with its own clients through the TDI interface described later in Part 3 or, as the lowest component in a transport stack, with its own client(s) through a transport protocol-specific interface. </LI>
+
+	<LI>Connection-oriented, stand-alone call managers that export some of the Protocol<I>Xxx</I> functions, along with the <B>ProtocolCo</B><I>Xxx</I> and <B>ProtocolCm</B><I>Xxx</I> functions, described here. </LI>
+
+	<LI>Drivers of connection-oriented NICs with integrated call-management support. Such a miniport driver, sometimes called<I> an MCM driver</I>, exports the <B>ProtocolCm</B><I>Xxx</I> functions described here, along with a set of the Miniport<I>Xxx</I> and <B>MiniportCo</B><I>Xxx</I> functions, described earlier in <A HREF="101mini_4hgy.htm">NDIS Driver Upper Edge Functions</A>. </LI>
+</OL>
+
+<H4>Driver Function Names</H4>
+
+<P>All NDIS driver functions with the prefix "Protocol" have been given metanames describing their respective basic functionality in the references that follow. </P>
+
+<P>Except for the <B>DriverEntry</B> function, NDIS-defined driver functions can have any name the driver writer chooses. For easy debugging, most system-supplied protocols simply substitute a driver-specific prefix for the Protocol prefix used in this documentation.</P>
+
+<P>The initial entry point of any kernel-mode driver has the explicit name <B>DriverEntry</B> in order to be loaded automatically by the system. For more information about the general requirements for and functionality of <B>DriverEntry</B> routines, see <A HREF="JavaScript:hhobj_1.Click()">Writing a DriverEntry Routine</A>. </P>
+
+<H4>Calling Ndis<I>Xxx</I> Functions at Appropriate IRQLs</H4>
+
+<P>NDIS lower-edge driver functions run within the following range of IRQLs, shown in order of increasing priority:</P>
+
+<P class=indent1>PASSIVE_LEVEL &lt; DISPATCH_LEVEL.</P>
+
+<P>Any driver function running at IRQL = PASSIVE_LEVEL can be preempted by a thread of execution running at a higher priority IRQL. That is, every Protocol<I>Xxx</I> function can be preempted by device drivers’ ISRs that run at DIRQL when interrupts occur or by a system clock interrupt. </P>
+
+<P>Each of the following <B>DriverEntry</B> and Protocol<I>Xxx</I> descriptions contains information about the possible range of IRQLs at which that function runs. For certain Protocol<I>Xxx</I> functions, the IRQL range effectively restrict the set of <B>Ndis</B><I>Xxx</I> functions that these Protocol<I>Xxx</I> can call. For example, a call to <A HREF="103ndisx_1n5e.htm"><B>NdisCopyBuffer</B></A> from a Protocol<I>Xxx</I> function running at IRQL = DISPATCH_LEVEL or while the Protocol<I>Xxx</I> is holding a spin lock can cause a fatal page fault.  </P>
+
+<H4>Initialization-Only and Pageable Driver Code</H4>
+
+<P>NDIS protocols mark their <B>DriverEntry</B> functions as initialization-only code, using the <A HREF="103ndisx_1qia.htm">NDIS_INIT_FUNCTION</A> macro.</P>
+
+<P>Other driver functions can be marked as pageable code, using the <A HREF="103ndisx_5svm.htm">NDIS_PAGEABLE_FUNCTION</A> macro. However, a driver function can be pageable code if and only if it <I>never</I> runs at IRQL &gt;= DISPATCH_LEVEL. This restriction implies the following:
+
+<UL>
+	<LI>A function marked pageable cannot acquire any spin lock and should not call other functions that do.</LI>
+
+	<LI>A function marked pageable cannot be called by any function that is holding a spin lock when the call occurs. </LI>
+
+	<LI>A function marked pageable must run exclusively at IRQL &lt; DISPATCH_LEVEL. </LI>
+</UL>
+
+<P>Most of the Protocol<I>Xxx</I> functions described here except <A HREF="104tdlow_2bqq.htm"><I>ProtocolBindAdapter</I></A>, <A HREF="104tdlow_9xbm.htm"><I>ProtocolOpenAdapterComplete</I></A>, <A HREF="104tdlow_1l6a.htm"><I>ProtocolUnbindAdapter</I></A>, <I>ProtocolCoAfRegisterNotify</I>, and <A HREF="104tdlow_3v5e.htm"><I>ProtocolCloseAdapterComplete</I></A> can be called by NDIS at IRQL = DISPATCH_LEVEL. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NDIS%20Driver%20Lower-Edge%20Functions"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

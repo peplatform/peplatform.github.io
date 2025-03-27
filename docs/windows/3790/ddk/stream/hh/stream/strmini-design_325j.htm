@@ -1,0 +1,42 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Minidriver Flow of Control</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Minidriver Flow of Control">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_minidriver_flow_of_control_ksg"></A>Minidriver Flow of Control</H1>
+
+<P>The following set of steps is typically followed in initializing, using, and uninitializing streaming minidrivers. The following referenced commands and structures are described elsewhere in this documentation.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>The steps followed in initializing, using, and uninitializing streaming minidrivers are</B>
+
+<OL>
+	<LI>The hardware adapter supported by the minidriver is detected by the Plug and Play enumerator. The enumerator checks the registry to resolve any symbolic references and passes the request to the I/O subsystem.</LI>
+
+	<LI>The I/O subsystem loads the minidriver and calls the minidriver’s <B>DriverEntry</B> routine (see <A HREF="strmini-design_0nmv.htm">DriverEntry for Stream Class Minidrivers</A>) where a <A HREF="strclass-struct_4ks3.htm">HW_INITIALIZATION_DATA</A> structure is allocated and initialized. A file object is created from the information in the <B>DriverEntry</B> routine.</LI>
+
+	<LI>The minidriver's <B>DriverEntry</B> routine then calls the stream class driver’s <A HREF="strclass-routines_8bw3.htm"><B>StreamClassRegisterMinidriver</B></A> function and passes the <A HREF="strclass-struct_4ks3.htm">HW_INITIALIZATION_DATA</A> structure as a parameter. The HW_INITIALIZATION_DATA structure includes the addresses of minidriver functions that handle SRBs. This allows the minidriver to respond to SRBs sent by the class driver.</LI>
+
+	<LI>During initialization, the stream class driver calls the function specified in the <A HREF="strclass-struct_4ks3.htm">HW_INITIALIZATION_DATA</A> structure’s <B>HwReceivePacket</B> member (see <A HREF="strmini-routines_5dbn.htm"><B>StrMiniReceiveDevicePacket</B></A>) with and SRB with the <B>Command</B> member set to SRB_INITIALIZE_DEVICE. The minidriver then initializes the hardware adapter.</LI>
+
+	<LI>The stream class driver calls the function specified in the <A HREF="strclass-struct_4ks3.htm">HW_INITIALIZATION_DATA</A> structure’s <B>HwReceivePacket</B> member with SRB_GET_STREAM_INFO. The minidriver then returns information on the streams it supports.</LI>
+
+	<LI>The stream class driver calls the function specified in the <B>HW_INITIALIZATION_DATA</B> structure’s <B>HwReceivePacket</B> member with SRB_OPEN_STREAM, with a <A HREF="strclass-struct_4wc3.htm">HW_STREAM_OBJECT</A> structure. The minidriver performs the necessary hardware action to open the specified stream.</LI>
+
+	<LI>The stream class driver sends or requests data from the stream by passing a SRB_READ_DATA or SRB_WRITE_DATA command to the function specified in the <B>ReceiveDataPacket</B> member of the HW_STREAM_OBJECT structure for the stream. </LI>
+
+	<LI>The stream class driver gets and sets properties and other control information for the stream by passing the appropriate stream request block (<A HREF="strclass-struct_2jeb.htm">HW_STREAM_REQUEST_BLOCK</A>) to the function specified in the <B>ReceiveControlPacket</B> member of the HW_STREAM_OBJECT structure for the stream.</LI>
+
+	<LI>When the system is through using a stream, the stream class driver calls the function specified in the <A HREF="strclass-struct_4ks3.htm">HW_INITIALIZATION_DATA</A> structure’s <B>HwReceivePacket</B> member with SRB_CLOSE_STREAM. The minidriver then closes the specified stream.</LI>
+
+	<LI>When it is time to uninitialize the adapter, the stream class driver calls the function specified in the <A HREF="strclass-struct_4ks3.htm">HW_INITIALIZATION_DATA</A> structure’s <B>HwReceivePacket</B> member with SRB_UNINITIALIZE_DEVICE. The minidriver then uninitializes the device.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Minidriver%20Flow%20of%20Control"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

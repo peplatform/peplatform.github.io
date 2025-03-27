@@ -1,0 +1,54 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Setting Up and Using Interlocked Queues</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Setting Up and Using Interlocked Queues">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_setting_up_and_using_interlocked_queues_kg"></A>Setting Up and Using Interlocked Queues</H3>
+
+<P><I>New drivers should use the <A HREF="irps_4sdj.htm">cancel-safe IRP queue</A> framework in preference to the methods outlined in this section.</I></P>
+
+<P>Drivers with device-dedicated threads or drivers that use executive worker threads, such as most system FSDs, are the most likely types of drivers to manage their own run-time internal queuing of IRPs in an interlocked queue. All PnP drivers, including WDM drivers, also must queue certain IRPs internally while making PnP and power state transitions.</P>
+
+<P>Usually, these drivers set up a doubly linked interlocked queue; every IRP contains a member of type LIST_ENTRY, which a driver can use to doubly link IRPs that it is currently holding. A driver cannot requeue IRPs for retries if it sets up a singly linked interlocked queue.</P>
+
+<P>A driver must set up its interlocked queue at device initialization. The following figure illustrates a doubly linked interlocked queue, the support routines a driver must call to set up such a queue, and a set of <B>ExInterlocked</B><I>Xxx</I> routines a driver can call to insert IRPs into and remove IRPs from the queue.</P>
+
+<P><B><IMG SRC="images/3intlokq.gif" ALT="" BORDER=0></B></P>
+
+<P><B>Using an Interlocked Queue</B></P>
+
+<P>As the previous figure shows, a driver must provide the storage for the queue itself and for the following in order to set up a doubly linked interlocked queue:
+
+<UL>
+	<LI>An executive spin lock, which the driver must call <A HREF="k105_60xe.htm"><B>KeInitializeSpinLock</B></A> to initialize. Usually, a driver initializes the spin lock when it sets up the device extension(s) for its device object(s) in its AddDevice routine. </LI>
+
+	<LI>The list head for the queue, which the driver must initialize by calling <A HREF="k109_7zua.htm"><B>InitializeListHead</B></A>.</LI>
+</UL>
+
+<P>Most drivers that use doubly linked interlocked queues provide the necessary storage in the device extension of a driver-created device object. The queue and executive spin lock can instead be in a controller extension if the driver uses a <A HREF="iputoput_5xd3.htm">controller object</A>) or in nonpaged pool allocated by the driver.</P>
+
+<P>While the driver is accepting I/O requests, it can insert an IRP into its queue by calling either of the following support routines if the <I>ListHead</I> is of type LIST_ENTRY, as shown in the previous figure:</P>
+
+<P class=indent1><A HREF="k102_5xv6.htm"><B>ExInterlockedInsertTailList</B></A> to place the IRP at the end of the queue</P>
+
+<P class=indent1><A HREF="k102_84oi.htm"><B>ExInterlockedInsertHeadList</B></A> to place the IRP at the front of the queue. Drivers usually call this routine only when they must retry a particular request.</P>
+
+<P>The driver must pass pointers to the IRP (<I>ListEntry</I>), as well the <I>ListHead</I> and executive spin lock (<I>Lock</I>) pointers that it previously initialized, to each of these <B>ExInterlockedInsert..List</B> routines. Only pointers to the <I>ListHead</I> and <I>Lock</I> are required when the driver dequeues an IRP by calling <A HREF="k102_8h82.htm"><B>ExInterlockedRemoveHeadList</B></A>. To prevent deadlocks, the driver <I>must not</I> be holding an ExecutiveSpinLock that it passes to any <B>ExInterlocked</B><I>Xxx</I> routine.</P>
+
+<P>Because an interlocked queue is protected by the executive spin lock, the driver can insert IRPs into its doubly linked queue and remove them in a multiprocessor-safe manner from any driver routine running at less than or equal to IRQL&nbsp;= DISPATCH_LEVEL.</P>
+
+<P>A queue with a ListHead of type LIST_ENTRY, as shown in the previous figure, is a doubly linked list. One with a ListHead of type SLIST_HEADER is a sequenced, singly linked list. A driver initializes the ListHead for a sequenced singly linked interlocked queue by calling <A HREF="k102_94fm.htm"><B>ExInitializeSListHead</B></A>.</P>
+
+<P>A driver that never retries I/O operations can use <A HREF="k102_7pyq.htm"><B>ExInterlockedPushEntrySList</B></A> and <A HREF="k102_90du.htm"><B>ExInterlockedPopEntrySList</B></A> to manage its queuing of IRPs internally in a sequenced, singly linked interlocked queue. Any driver that uses this type of interlocked queue also must provide resident storage for a ListHead of type SLIST_HEADER and for an ExecutiveSpinLock, as shown in the previous figure. It must initialize the spin lock and set up its queue before calling <B>ExInterlockedPushEntrySList</B> to insert the initial entry into its queue.</P>
+
+<P>For more information, see <A HREF="intrupts_0kh3.htm">Managing Hardware Priorities</A> and <A HREF="synchro_8unb.htm">Spin Locks</A>. For IRQL requirements for a specific support routine, see the routine's reference page.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Setting%20Up%20and%20Using%20Interlocked%20Queues"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

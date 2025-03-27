@@ -1,0 +1,42 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Common WIA Security Problems</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Common WIA Security Problems">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_common_wia_security_problems_si"></A>Common WIA Security Problems</H2>
+
+<P>There are several common problems that could prevent an existing WIA driver (which ran fine under <B>LocalSystem</B>) from running successfully under the <B>LocalService</B> account.</P>
+
+<P>The most common problems occur with:
+
+<UL>
+	<LI>File system access
+<P>The <B>LocalService</B> account has severely restricted file access. For example, drivers can no longer write to the %<I>windir</I>% directory.
+</LI>
+
+	<LI>Registry access
+<P>Many registry keys that were open to <B>LocalSystem</B> accounts are read-only to <B>LocalService</B>. For example, drivers are no longer able to write to registry keys under the HKLM subtree.
+</LI>
+
+	<LI>Named kernel objects
+<P>Make sure that named objects (for example, events and mutexes) accessed by both the WIA driver and external components, such as bundled applications, have the appropriate ACLs. If an application creates a named event object, but does not specifically grant access to a <B>LocalService</B> account, the driver will not be able to use it. Similarly, if a minidriver creates a named event object it must grant the same access or the application will not be able to use the event object.
+</LI>
+
+	<LI>Out-of-process COM objects
+<P>Any attempt to either create or use an out-of-process COM interface will fail unless that component explicitly grants the appropriate permissions to a <B>LocalService</B> account. For example, calls to <B>CoCreateInstance</B> or <B>CoCreateInstanceEx</B> (both are described in the Platform SDK documentation) with the CLSCTX_LOCAL_SERVER flag set can fail if the component does not grant permission to a <B>LocalService</B> account. Similarly, an attempt by the driver to use a pointer to a COM interface that is not in-process to the driver can fail. This can occur if a component calls the driver and hands it a pointer to an interface by which the driver can call back to the interface.
+</LI>
+
+	<LI>Creating and opening processes
+<P>WIA drivers should not manually start other processes (for example, by calling <B>CreateProcess</B> or <B>CreateProcessAsUser</B>). Although this behavior would have succeeded for drivers under <B>LocalSystem</B> accounts, it is no longer possible for drivers to do so under the new <B>LocalService</B> account. For more information on <B>CreateProcess</B> and <B>CreateProcessAsUser</B>, see the Platform SDK documentation.
+</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Common%20WIA%20Security%20Problems"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DrmForwardContentToDeviceObject</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DrmForwardContentToDeviceObject">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iocalldriver_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iocalldriver_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_drmforwardcontenttodeviceobject_ks"></A>DrmForwardContentToDeviceObject</H1>
+
+<P>The <B>DrmForwardContentToDeviceObject</B> function accepts a device object representing a device to which the caller intends to forward protected content. The function authenticates the device and sends it the content ID and DRM rights that the system has assigned to the protected content.</P>
+
+<PRE class=syntax><B>NTSTATUS
+</B>  <B>DrmForwardContentToDeviceObject(</B>
+    <B>IN</B> <B>ULONG</B>  <I>ContentId</I><B>,</B>
+    <B>IN</B> <B>PVOID</B>  <I>Reserved</I><B>,</B>
+    <B>IN</B> <B>PCDRMFORWARD</B>  <I>DrmForward</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>ContentId</I></DT>
+
+<DD>Specifies the DRM content ID. This parameter identifies a protected KS audio stream.</DD>
+
+<DT><I>Reserved</I></DT>
+
+<DD>Reserved for future use. Set to NULL.</DD>
+
+<DT><I>DrmForward</I></DT>
+
+<DD>Pointer to a <A HREF="aud-prop_7okz.htm">DRMFORWARD</A> structure specifying a device object and file object that identify the target device and a KS audio pin on that device, respectively. The structure also contains the context value that the <A HREF="aud-prop_01bn.htm">KSPROPERTY_DRMAUDIOSTREAM_CONTENTID</A> <I>set</I>-property request passes to the device.</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>DrmForwardContentToDeviceObject</B> returns STATUS_SUCCESS if the call was successful. Otherwise, it returns an appropriate error code.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>drmk.h</I>. Include <I>drmk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Before allowing protected content to flow through a data path, the system verifies that the data path is secure. To do so, the system authenticates each module in the data path beginning at the upstream end of the data path and moving downstream. As each module is authenticated, that module gives the system information about the next module in the data path so that it can also be authenticated. To be successfully authenticated, a module's binary file must be signed as DRM-compliant.</P>
+
+<P>Two adjacent modules in the data path can communicate with each other in one of several ways. If the upstream module calls the downstream module through <A HREF="JavaScript:hhobj_1.Click()"><B>IoCallDriver</B></A>, the downstream module is part of a WDM driver. In this case, the upstream module calls the <B>DrmForwardContentToDeviceObject</B> function to provide the system with the device object representing the downstream module. (If the two modules communicate through the downstream module's COM interface or content handlers, the upstream module calls <A HREF="aud-prop_4p0z.htm"><B>DrmForwardContentToInterface</B></A> or <A HREF="aud-prop_6ecz.htm"><B>DrmAddContentHandlers</B></A> instead.)</P>
+
+<P>The caller fills in the <B>DeviceObject</B>, <B>FileObject</B>, and <B>Context</B> members of the <A HREF="aud-prop_7okz.htm">DRMFORWARD</A> structure that parameter <I>DrmForward</I> points to. <B>DrmForwardContentToDeviceObject</B> uses these values as follows:
+
+<UL>
+	<LI><B>DeviceObject</B> specifies the device object that represents the driver (the downstream module). <B>DrmForwardContentToDeviceObject</B> uses the device object to authenticate the driver. If successful, the function sets the <A HREF="aud-prop_01bn.htm">KSPROPERTY_DRMAUDIOSTREAM_CONTENTID</A> property on the device by sending a <I>set</I>-property request to a KS pin on the device.</LI>
+
+	<LI><B>FileObject</B> specifies the KS pin to which <B>DrmForwardContentToDeviceObject</B> sends the property request.</LI>
+
+	<LI><B>Context</B> specifies a context value that the caller passes to the driver through the property request. <B>DrmForwardContentToDeviceObject</B> copies the context value into the request's property descriptor. The context value is typically a pointer to a buffer containing data in some custom format that both the caller and driver understand.</LI>
+</UL>
+
+<P>The property request also contains the DRM content ID from parameter <I>ContentId</I> and the DRM content rights belonging to that content ID. <B>DrmForwardContentToDeviceObject</B> copies these values into the request's property value. <B>DrmForwardContentToDeviceObject</B> makes no further use of the device object after returning.</P>
+
+<P><B>DrmForwardContentToDeviceObject</B> performs the same function as <A HREF="audpc-routines_42sz.htm"><B>PcForwardContentToDeviceObject</B></A> and <A HREF="audmp-routines_81pv.htm"><B>IDrmPort2::ForwardContentToDeviceObject</B></A>. For more information, see <A HREF="aud-prop_9f77.htm">DRM Functions</A>.</P>
+
+<P><B>DrmForwardContentToDeviceObject</B> runs in the context of the caller at IRQL PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="aud-prop_7okz.htm">DRMFORWARD</A>, <A HREF="JavaScript:hhobj_2.Click()"><B>IoCallDriver</B></A>, <A HREF="aud-prop_4p0z.htm"><B>DrmForwardContentToInterface</B></A>, <A HREF="aud-prop_6ecz.htm"><B>DrmAddContentHandlers</B></A>, <A HREF="aud-prop_01bn.htm">KSPROPERTY_DRMAUDIOSTREAM_CONTENTID</A>, <A HREF="audpc-routines_42sz.htm"><B>PcForwardContentToDeviceObject</B></A>, <A HREF="audmp-routines_81pv.htm"><B>IDrmPort2::ForwardContentToDeviceObject</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DrmForwardContentToDeviceObject"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

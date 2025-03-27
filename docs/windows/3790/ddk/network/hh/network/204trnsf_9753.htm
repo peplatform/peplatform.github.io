@@ -1,0 +1,28 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Multipacket Sends from Deserialized Miniport Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Multipacket Sends from Deserialized Miniport Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_multipacket_sends_from_deserialized_miniport_drivers_ng"></A>Multipacket Sends from Deserialized Miniport Drivers</H3>
+
+<P>Each packet descriptor has associated out-of-band (OOB) data, as described in <A HREF="204trnsf_46w7.htm">Packet Out-of-Band Data</A>. The OOB block lets a protocol driver specify a time-to-send (<B>TimeToSend</B>) to a cooperating miniport driver that supports priority sends. Although a deserialized miniport driver can set the <B>Status</B> member of the OOB block before returning from <I>MiniportCoSendPackets</I>, this member is ignored by NDIS. The other members of the NDIS_PACKET_OOB_DATA block are read-only to a miniport driver.</P>
+
+<P>The NDIS library ignores the OOB block in all packet descriptors it submits to the <I>MiniportSendPackets</I> functions of deserialized drivers. NDIS assumes that a deserialized miniport driver will complete each packet descriptor input to its <I>MiniportSendPackets</I> function asynchronously with <B>NdisMSendComplete</B>. Consequently, a deserialized driver's <I>MiniportSendPackets</I> function usually ignores the <B>Status</B> member of the NDIS_PACKET_OOB_DATA block, but it can set this member to the same status that it subsequently passes to <B>NdisMSendComplete</B>. </P>
+
+<P>Rather than relying on NDIS to queue and resubmit send packets whenever <I>MiniportSendPackets</I> lacks sufficient resources for transmitting the packets, a deserialized miniport driver manages its own internal packet queuing. The driver is responsible for holding incoming send packets in its internal queue until they can be transmitted over the network. The driver is also responsible for preserving the protocol-determined ordering of packet descriptors passed to its <I>MiniportSendPackets</I> function. A deserialized miniport driver must complete each incoming send packet with <B>NdisMSendComplete</B> (see the following figure). A deserialized miniport driver cannot call <B>NdisMSendResourcesAvailable</B>.</P>
+
+<P><IMG SRC="images/fig4_3.gif" ALT="" BORDER=0></P>
+
+<P><B>Multipacket Send From a Deserialized Miniport Driver</B></P>
+
+<P>A deserialized miniport driver should never pass NDIS_STATUS_RESOURCES to <B>NdisMSendComplete</B> with a protocol-allocated packet descriptor that was originally submitted to its <I>MiniportSendPackets</I> function. The return of such a status would effectively fail the send operation requested by the protocol, resulting in NDIS returning the packet descriptor and all associated resources to the protocol that originally allocated it.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Multipacket%20Sends%20from%20Deserialized%20Miniport%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

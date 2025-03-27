@@ -1,0 +1,43 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DirectX Compressed VolumeTexture Formats</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DirectX Compressed VolumeTexture Formats">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_directx_compressed_volumetexture_formats_gg"></A>DirectX Compressed VolumeTexture Formats</H2>
+
+<P>Volume textures maps are digitized images that are generated periodically through a true 3D region of space. For example, a ball of fire may be sampled and the “amount” of flame within a slice can be accounted for. In this sense, the amount of flame represents a set of values for the alpha, red, green and blue components at each pixel in the image. The entire flame is represented by a series of these slices. </P>
+
+<P>Before going into details of DirectX volume rendering, it is important to clarify some terminology. There are two common methods used in computer graphics to represent volume data sets. One is to sample the image at each location and store the appropriate ARGB values. For example, data for the flame could be stored as a 256 X 256 X 256 three-dimensional array. This requires about 64MB to store a 32-bit value at each location in the array. (Some applications, such as medical imaging, may require this amount of data.) However, “slicing” the flame into 4 or 8 slabs can make a very good approximation. Each slab stores 256 X 256 elements, where each element represents a region of data within the slab. </P>
+
+<P>If we assume an array of size 256 X 256 X 4 is reasonable, then storing a 32-bit value at each location requires only 1MB of storage (less if the data is compressed). The reason to talk about these two different methods is that if you want anything in your image that is behind the flame to be hidden, then the data value stored at each location is different. In the full 256 X 256 X 256 data set, any one element may contribute about 1/256 of the final alpha and color. In the slicing method, an element could contribute anywhere from 0 up to the final alpha and color used for that pixel. The problem is that sometimes the term “voxel” is used to describe both types of sampling. Starting with DirectX 8, the slicing method (often called “Volume Texturing”) is the only method supported. The idea is to reduce the volume data set to a reasonable size. With some minor modifications to the texturing hardware, the DirectX graphics API can expose high-performance volumetric rendering. </P>
+
+<P>Up to this point, most of this section has focused on DXT<I>N</I> compressed surface formats. These formats work well for 2D textures. They are inefficient, however, when you are working with a volume data set because volume data sets are stored in separate surfaces that require extra hardware cycles to access. To address this issue, DirectX 8 supports a set of volume surface formats. </P>
+
+<P>The idea is to take the volume slices and compress them using DXT<I>N</I>. Then, instead of storing the completed surfaces sequentially in memory, the DXT<I>N</I> data blocks are reordered. The reordering is done so that the small 4X4 texel blocks form data cubes. They can be 4X4X1, 4X4X2, 4X4X3, or 4X4X4. Note that the 4X4X1 ordering is exactly the same as that used in DXT1 through DXT5. The important point is:</P>
+
+<P>Volume surfaces are slices of data that are compressed using DXT<I>N</I> and then reordered to account for the 3D locality of data. These reordered data structures are referred to by the FOURCCs of DXV1,..., DXV5 (or just DXV<I>N</I> to describe the general case). Note that a DXV1 data structure would hold a set of reordered DXT1 surfaces, DXV2 would hold a set of DXT2 surfaces, and so on.</P>
+
+<H4>DXV<I>N</I> Details</H4>
+
+<P>A DXV<I>N</I> surface stored in the 1-deep arrangement contains one set of 4x4 DXT<I>N</I> subblocks (in effect it is just a DXT<I>N</I> surface). The DXV<I>N</I> 4x4x2 block format structure contains two 4x4 DXT<I>N</I> subblocks, one taken from each of two adjacent data slices. Using this method, a DXV<I>N</I> 4x4x4 block format structure contains four 4x4 DXT<I>N</I> subblocks taken from 4 data slices. In all cases the <I>N</I> in DXV<I>N</I> is used to match it to the corresponding DXT<I>N</I> type used for compression. DXT<I>N</I> blocks can be stored as 64 bits (color and 1-bit alpha, or 128 bits with additional alpha information). So the DXV<I>N</I> subblocks have the same possible sizes based on the type <I>N</I>. That is, DXT1 and DXV1 use 64 bit subblocks, while DXT2,..,DXT5 and DXV2,..,DXV5 use 128 bit subblocks.</P>
+
+<P>Given a texel coordinate <I>(u, v, p)</I> where <I>u</I>  {0,1,…,<I>width</I>-1}, <I>v</I>  {0, 1, …, <I>height</I>-1}, and <I>p</I>  {0, 1, …, <I>depth</I>-1}, the following can be used to compute the corresponding address of the compressed block and subblock in memory containing that texel. As mentioned above, the subblock format matches the existing DXT<I>N</I> format: </P>
+
+<PRE>subblock_size = 8 (for DXT1)
+subblock_size = 16 (for DXT2,...,DXT5)
+block_size = MIN(p, 4) * subblock_size
+horiz_stride = (width + 3) &gt;&gt; 2
+planar_stride = ( (height + 3) &gt;&gt; 2) * horiz_stride
+block_byte_address = block_size *
+    ( (p &gt;&gt; 2) * planar_stride + (v &gt;&gt; 2) * horiz_stride + (u &gt;&gt; 2) )
+subblock_byte_address = block_byte_address + ((p &amp; 3) * subblock_size)</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DirectX%20Compressed%20VolumeTexture%20Formats"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

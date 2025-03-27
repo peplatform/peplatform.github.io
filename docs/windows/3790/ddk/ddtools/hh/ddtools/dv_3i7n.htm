@@ -1,0 +1,76 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Special Memory Pool</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Driver Verifier options, Special Memory Pool">
+<META NAME="MS-HKWD" CONTENT="Special Memory Pool">
+<META NAME="MS-HKWD" CONTENT="Special Pool">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Driver&nbsp;Development&nbsp;Tools:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_special_memory_pool_tools"></A>Special Memory Pool</H3>
+
+<P>Memory corruption is a common driver problem. Driver errors can result in crashes long after the errors are made. The most common of these errors is accessing memory that has already been freed, and allocating <I>n</I> bytes and then accessing <I>n</I>+1 bytes.</P>
+
+<P>To detect memory corruption, Driver Verifier can allocate driver memory from a special pool and monitor that pool for incorrect access.</P>
+
+<P>Two alignments of the special pool are available. The <B>Verify End</B> alignment is better at detecting access overruns, and the <B>Verify Start</B> alignment is better at detecting access underruns. (Note that the vast majority of memory corruptions are due to overruns, not underruns.)</P>
+
+<P>When Special Memory Pool is active and <B>Verify End</B> has been selected, each memory allocation requested by the driver is placed on a separate page. The highest possible address that allows the allocation to fit on the page is returned, so that the memory is aligned with the end of the page. The previous portion of the page is written with special patterns. The previous page and the next page are marked inaccessible.</P>
+
+<P>If the driver attempts to access memory after the end of the allocation, Driver Verifier will detect this immediately, and will issue bug check 0xCD. If the driver writes in the memory prior to the beginning of the buffer, this will (presumably) alter the patterns. When the buffer is freed, Driver Verifier will detect the alteration and issue bug check 0xC1.</P>
+
+<P>If the driver reads or writes to the buffer after freeing it, Driver Verifier will issue bug check 0xCC.</P>
+
+<P>When <B>Verify Start</B> is selected, the memory buffer is aligned with the beginning of the page. With this setting, underruns cause an immediate bug check and overruns cause a bug check when the memory is freed. This option is otherwise identical to the <B>Verify End</B> option.</P>
+
+<P><B>Verify End</B><I> </I>is the default alignment, as overrun errors are much more common in drivers than underrun errors.</P>
+
+<P>An individual memory allocation can override these settings and choose its alignment by calling <B>ExAllocatePoolWithTagPriority</B> with the <I>Priority</I> parameter set to XxxSpecialPoolOverrun or XxxSpecialPoolUnderrun. (This routine cannot activate or deactivate the special pool, or request the special pool for a memory allocation, which would otherwise be allocated from normal pool. Only the alignment can be controlled from this routine.)</P>
+
+<H4>Special Pool by Pool Tag or Allocation Size</H4>
+
+<P>There are two other ways to use the special pool: it can be used for all allocations that are marked with a specific pool tag, or for all allocations whose size is within a specific size range. These uses of special pool are controlled through the Global Flags utility, not Driver Verifier. For details, see <A HREF="dv_3mcz.htm">Using the Global Flags Utility</A>.</P>
+
+<P>It is permissible to request special pools though Driver Verifier and the Global Flags utility at the same time. In this case, Windows will attempt to use the special pool for all allocations indicated by Driver Verifier <I>and</I> all allocations indicated by the Global Flags utility.</P>
+
+<H4>Special Pool Efficiency</H4>
+
+<P>Each allocation from the special pool uses one page of nonpageable memory and two pages of virtual address space. If the pool is exhausted, memory is allocated in the standard way until the special pool becomes available again. Thus, it is not recommended that multiple drivers be verified at the same time if Special Memory Pool is in effect.</P>
+
+<P>A single driver that makes a large number of small memory requests can also deplete this pool. If this is occurring, it may be preferable to assign pool tags to the driver's memory allocations and dedicate the special pool to one pool tag at a time.</P>
+
+<P>The size of the special pool increases with the amount of physical memory on the system; ideally this should be at least 1 Gigabyte (GB). On x86 machines, booting without the <B>/3GB</B> switch is also preferred, as virtual (in addition to physical) space is consumed. Increasing the pagefile minimum/maximum quantities (by a factor of two or three) is also a good idea.</P>
+
+<P>To be sure that all of a driver's allocations are being tested, stressing the driver over long periods of time is recommended.</P>
+
+<H4>Monitoring the Special Pool</H4>
+
+<P>Statistics relating to pool allocations can be monitored. These can be displayed by the Driver Verifier Manager graphical interface, the <I>verifier.exe</I> command line, or in a log file. See <A HREF="dv_9ib7.htm">Monitoring Global Counters</A> for details.</P>
+
+<P>If the <I>Pool Allocations Succeeded in Special Pool</I> counter is equal to the <I>Pool Allocations Succeeded</I> counter, then the special pool has been sufficient to cover all memory allocations. If the former counter is lower than the latter, then the special pool has been exhausted at least once.</P>
+
+<P>These counters do not track allocations whose size is one page or larger, since the special pool is not applicable to them.</P>
+
+<P>If Special Memory Pool is enabled, but less than 95% of all pool allocations have been assigned from the special pool, a warning will appear in the Driver Verifier Manager graphical interface. In Windows&nbsp;2000, this warning will appear on the <B>Driver Status</B> screen. In Windows XP and later, this warning will appear on the <B>Global Counters</B> screen. If this occurs, you should verify a shorter list of drivers, verify individual pools by pool tag, or add more physical memory to your system.</P>
+
+<P>The kernel debugger extension <B>!verifier</B> can also be used to monitor special pool use. It presents similar information to that of Driver Verifier Manager. For information about debugger extensions, see <A HREF="dbgblurb_25bn.htm">Debugging Tools for NT-Based Operating Systems</A>.</P>
+
+<H4>Activating This Option</H4>
+
+<P>The Special Memory Pool option can be activated for one or more drivers by using the Driver Verifier Manager graphical interface or the <I>verifier.exe</I> command line. This activation will take effect after the next boot. See <A HREF="dv_5q43.htm">Selecting Driver Verifier Options</A> for details.</P>
+
+<P>This option can also be turned on and off without an intervening reboot. See <A HREF="dv_0a9f.htm">Using Volatile Settings</A> for details.</P>
+
+<P>Activating the Special Memory Pool by pool tag or allocation size is done by <A HREF="dv_3mcz.htm">using the Global Flags utility</A>. This utility is also used to set the <B>Verify Start</B> and <B>Verify End</B> alignments —  these alignment settings apply to <I>all</I> special pool allocations.</P>
+
+<H4>Graphics Drivers</H4>
+
+<P>See <A HREF="dv_2d4j.htm">Special Memory Pool for Graphics Drivers</A> for details on how this option affects display drivers and kernel-mode printer drivers.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Special%20Memory%20Pool"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

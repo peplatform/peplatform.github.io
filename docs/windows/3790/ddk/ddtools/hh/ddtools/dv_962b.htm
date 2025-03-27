@@ -1,0 +1,117 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>I/O Verification</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Driver Verifier options, I/O Verification">
+<META NAME="MS-HKWD" CONTENT="I/O Verification">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Driver&nbsp;Development&nbsp;Tools:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_i_o_verification_tools"></A>I/O Verification</H3>
+
+<P>Driver Verifier has three levels of I/O Verification:
+
+<UL>
+	<LI><I>Level&nbsp;1 I/O Verification</I> is always active whenever I/O Verification is selected.</LI>
+
+	<LI><I>Level&nbsp;2 I/O Verification</I> is always active whenever I/O Verification is selected in Windows XP and later. In Windows&nbsp;2000, I/O Verification can be configured to include both levels, or just the Level&nbsp;1 tests.</LI>
+
+	<LI><I>Enhanced I/O Verification</I> can be activated separately from the basic two I/O Verification levels in Windows XP and later. It is not available in Windows&nbsp;2000.</LI>
+</UL>
+
+<P>The effects of each level will be described separately.</P>
+
+<H4>Level&nbsp;1 I/O Verification</H4>
+
+<P>When Level&nbsp;1<I> </I>I/O Verification is enabled, all IRPs obtained through <B>IoAllocateIrp</B> are allocated from a special pool and their use is tracked.</P>
+
+<P>Additionally, Driver Verifier checks for invalid I/O calls, including:
+
+<UL>
+	<LI>Attempts to free an IRP whose type is not IO_TYPE_IRP</LI>
+
+	<LI>Passes of invalid device objects to <B>IoCallDriver</B></LI>
+
+	<LI>Passes of an IRP to <B>IoCompleteRequest</B> that contains invalid status or that still has a cancel routine set</LI>
+
+	<LI>Changes to the IRQL across a call to the driver dispatch routine</LI>
+
+	<LI>Attempts to free an IRP that remains associated with a thread  </LI>
+
+	<LI>Passes of a device object to <B>IoInitializeTimer</B> that already contains an initialized timer</LI>
+
+	<LI>Passes of an invalid buffer to <B>IoBuildAsynchronousFsdRequest</B> or <B>IoBuildDeviceIoControlRequest</B></LI>
+
+	<LI>Passes of an I/O status block to an IRP, when this I/O status block is allocated on a stack that has unwound too far</LI>
+
+	<LI>Passes of an event object to an IRP, when this event object is allocated on a stack that has unwound too far</LI>
+</UL>
+
+<P>Because the special IRP pool is of limited size, I/O Verification is most effective when it is only used on one driver at a time.</P>
+
+<P>I/O Verification<I> </I>Level&nbsp;1 failures cause bug check 0xC9 to be issued. The first parameter of this bug check indicates what violation has occurred. See <A HREF="bccodes_5pyf.htm">Bug Check 0xC9</A>  (DRIVER_VERIFIER_IOMANAGER_VIOLATION) for a full parameter listing<I>.</I></P>
+
+<H4>Level&nbsp;2 I/O Verification</H4>
+
+<P>I/O Verification<I> </I>Level&nbsp;2 errors are displayed in different ways: on the blue screen, in a crash dump file, and in a kernel debugger.</P>
+
+<P>On the blue screen, these errors are noted by the message <B>IO&nbsp;SYSTEM&nbsp;VERIFICATION&nbsp;ERROR</B> and the string <B>WDM&nbsp;DRIVER&nbsp;ERROR&nbsp;</B><I>XXX</I>, where <I>XXX</I> is an I/O error code.</P>
+
+<P>In a crash dump file, these errors are noted by the message <B>BugCheck 0xC9 (DRIVER_VERIFIER_IOMANAGER_VIOLATION)</B>, along with the I/O error code. In this case, the I/O error code appears as the first parameter of the bug check 0xC9.</P>
+
+<P>In a kernel debugger (KD or WinDbg), these errors are noted by the message <B>WDM&nbsp;DRIVER&nbsp;ERROR</B> and a descriptive text string. When the kernel debugger is active, it is possible to ignore the Level&nbsp;2<I> </I>errors and resume system operation. (This is not possible with any other bug checks.)</P>
+
+<P>The blue screen, the crash dump file, and the kernel debugger each display additional information as well. For a full description of all I/O Verification<I> </I>Level&nbsp;2 error messages, see <A HREF="bccodes_5pyf.htm">Bug Check 0xC9</A><I>.</I></P>
+
+<H4>Enhanced I/O Verification</H4>
+
+<P><I>This option is only available in Windows XP and later.</I></P>
+
+<P>The Enhanced I/O Verification option includes some new parameter verifications, as well as some new stresses and tests.</P>
+
+<P>New parameter verifications include:
+
+<UL>
+	<LI>Monitoring all IRPs for correct use of <B>IoMarkPending</B>. (Drivers should return STATUS_PENDING if and only if they have called <B>IoMarkPending</B>.)</LI>
+
+	<LI>Monitoring the use of <B>IoDeleteDevice</B>, to catch double-deletions and inappropriate detaching and deleting of device objects.</LI>
+
+	<LI>Unwinding all <B>IoSkipCurrentIrpStackLocation</B> calls.</LI>
+</UL>
+
+<P>New stresses and tests include:
+
+<UL>
+	<LI>Scrambling the order of enumerated devices, to ensure that Plug and Play (PnP) drivers don't make assumptions about the device start order.</LI>
+
+	<LI>Adjusting the status of PnP and Power IRPs when they complete, to catch drivers that return an incorrect status from their dispatch routines.</LI>
+
+	<LI>Sending fake Power IRPs to test for driver code path bugs.</LI>
+
+	<LI>Sending fake WMI IRPs to test for driver code path bugs. </LI>
+
+	<LI>Inserting a fake filter into every WDM stack.</LI>
+</UL>
+
+<P>Driver errors caught by Enhanced I/O Verification are displayed in the same manner as those caught by Level&nbsp;2<B> </B>I/O Verification.</P>
+
+<H4>Activating This Option</H4>
+
+<P>The I/O Verification option can be activated by using the Driver Verifier Manager graphical interface or the <I>verifier.exe</I> command line. This activation will take effect after the next boot.</P>
+
+<P>When you activate I/O Verification in Windows&nbsp;2000, you can choose between Level&nbsp;1 and Level&nbsp;2; if you choose the latter, both levels of tests are activated.</P>
+
+<P>In Windows XP and later, choosing I/O Verification enables both Level&nbsp;1 and Level&nbsp;2 tests. You can activate Enhanced I/O Verification in addition to (or instead of) the standard I/O Verification.</P>
+
+<P>See <A HREF="dv_5q43.htm">Selecting Driver Verifier Options</A> for details.</P>
+
+<H4>Graphics Drivers</H4>
+
+<P>The I/O Verification<I> </I>option is not used for graphics drivers. If selected, it has no effect.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: I%2FO%20Verification"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

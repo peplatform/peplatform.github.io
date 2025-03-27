@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Profile Selection for Drivers That Do Support the New DeviceCapabilities Indices</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_4025"></A>Profile Selection for Drivers That Do Support the New DeviceCapabilities Indices</H3>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>If the driver does return the manufacturer and model to the DeviceCapabilities call, GDI simply takes those values and then proceeds, following these steps</B>
+
+<OL>
+	<LI>Selecting the Manufacturer and Model registry keys to use. 
+<P>Using the manufacturer and model identifiers for the driver, GDI attempts to open the manufacturer key and then the model key as a subkey of the manufacturer key. If these keys do not exist, the substitution lists described in the following section are searched next. If there are no substitutions for the manufacturer/model pair, there is no match and GDI fails to find the color profile required to perform image color matching. 
+</LI>
+
+	<LI>Selecting the best profile defined for the current printer driver settings and the selected Manufacturer and Model registry keys. 
+<P>GDI looks in the current DEVMODE structure for the hDC and uses the dmMediaType member value to open the associated key as a subkey of the model key. If the key does not exist, GDI calls the RegEnumKey function to find any media type and opens the first key enumerated. Note that in this scenario, where insufficient information is given to provide the optimally desired match, the decision to arbitrarily choose the first media type listed (which is purely installation-order dependent) is the only available option given the lack of any "gracefully failing" mapping schemes. 
+
+<P>GDI looks in the DEVMODE structure next for the dmDitherType member and tries to open the associated key as a subkey of the media key. If the key does not exist, GDI calls the RegEnumKey function to find any dither type and opens the first key enumerated. GDI then looks in the DEVMODE structure for the dmPrintQuality and dmYResolution members and tries to open the associated key as a subkey of the dither key. If the key does not exist, GDI calls the RegEnumKey function to find any resolution and opens the first key enumerated. At this point, GDI is at the level of the registry hierarchy where profiles names are stored. GDI first looks for the "default" value; if that value does not exist, it starts looking for values of the form profile00 to profile99. GDI uses the first profile it finds. 
+</LI>
+</OL>
+
+<P>The logic of the two steps previously described is shown with the following pseudocode. </P>
+
+<PRE>// search for appropriate manufacturer/model key in registry from which to get
+// identity of color profile to use
+ 
+if driver doesn't provides identifiers from new DeviceCapabilities call then
+      get identifiers via checksum algorithm
+if manufacturer/model registry key and driver manufacturer/model match then
+   break;
+   if GDI substitution list match found then
+      locate manufacturer/model key for substitute driver
+      break;
+      if registry substitution list match found then
+         locate manufacturer/model key for substitute driver
+         break;
+         end;      // no ICM possible because no appropriate 
+                   // manufacturer/model key found
+      end if
+   end if
+end if
+ 
+// use hDC to read current configuration values from DEVMODE structure for the 
+// printer driver and search prtr subkey branch of the found manufacturer/model // key for color profile that matches that current configuration. 
+// example prtr subkey branch looks like this:
+// \prtr\EPSO\788D\107\ErrorDiffusion\00360x00360\profile00=epsonsty.icm
+        \HP  \7645\MediaUnknown\DitherUnknown\ResolutionUnknown\profile00=hp.icm
+ 
+if DEVMODE.dmMediaType value matches a value in a media subkey then
+   look at dither subkeys on that branch
+else 
+   call EnumRegType to enumerate media types and look at dither subkeys on
+   branch of first media type found   
+end if
+if DEVMODE.dmDitherType value matches a value in a dither subkey then
+   look at the resolution subkeys in that branch
+else
+   call EnumRegType to enumerate dither types and look at resolution subkeys on
+   branch of first dither type found 
+end if
+if DEVMODE.dmPrintQuality and DEVNODE.dmYResolution values match a subkey then
+   look at color profile identifier subkeys in that branch
+else
+   call EnumRegType to enumerate resolution types and look at color profile 
+   identifier subkeys on branch of first resolution found
+end if
+ 
+// at this point, one or more color profile identifier keys are being looked at
+if key is DEFAULT then
+   use value of that key as the color profile identifier
+else     // keys are of form PROFILEnn, where nn = 00, 01, ... 99 
+   use value of key with smallest "nn" (use 00 in preference to 01, etc.) as the
+   color profile identifier
+end if
+ </PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Profile%20Selection%20for%20Drivers%20That%20Do%20Support%20the%20New%20DeviceCapabilities%20Indices"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

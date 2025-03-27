@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ZwReadFile</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ZwReadFile">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_zwreadfile_kr"></A>ZwReadFile</H1>
+
+<P>The <B>ZwReadFile</B> routine reads data from an open file.</P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>ZwReadFile(</B>
+    <B>IN HANDLE</B>  <I>FileHandle</I><B>,</B>
+    <B>IN HANDLE</B>  <I>Event</I>  <B>OPTIONAL,</B>
+    <B>IN PIO_APC_ROUTINE</B><I>  ApcRoutine</I>  <B>OPTIONAL,</B>
+    <B>IN PVOID</B>  <I>ApcContext</I>  <B>OPTIONAL,</B>
+    <B>OUT PIO_STATUS_BLOCK</B>  <I>IoStatusBlock</I><B>,</B>
+    <B>OUT PVOID</B>  <I>Buffer</I><B>,</B>
+    <B>IN ULONG</B>  <I>Length</I><B>,</B>
+    <B>IN PLARGE_INTEGER</B>  <I>ByteOffset</I>  <B>OPTIONAL,</B>
+    <B>IN PULONG</B>  <I>Key</I>  <B>OPTIONAL</B>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>FileHandle</I></DT>
+
+<DD>Handle to a file object.  The handle is created by a successful call to <A HREF="k111_9dte.htm"><B>ZwCreateFile</B></A> or <A HREF="k111_9rci.htm"><B>ZwOpenFile</B></A>.</DD>
+
+<DT><I>Event</I></DT>
+
+<DD>Optional.  Handle to an event object that is set to the signaled state after the read operation completes. Device and intermediate drivers should set this parameter to NULL.</DD>
+
+<DT><I>ApcRoutine</I></DT>
+
+<DD>Reserved.  Device and intermediate drivers should set this pointer to NULL.</DD>
+
+<DT><I>ApcContext</I></DT>
+
+<DD>Reserved.  Device and intermediate drivers should set this pointer to NULL.</DD>
+
+<DT><I>IoStatusBlock</I></DT>
+
+<DD>Pointer to an <A HREF="k112_08qa.htm">IO_STATUS_BLOCK</A> structure that receives the final completion status and information about the requested read operation.</DD>
+
+<DT><I>Buffer</I></DT>
+
+<DD>Pointer to a caller-allocated buffer that receives the data read from the file.</DD>
+
+<DT><I>Length</I></DT>
+
+<DD>Specifies the size in bytes of the given <I>Buffer</I>. A successful call to <B>ZwReadFile</B> returns the given number of bytes from the file, unless this routine reaches the end of file first.</DD>
+
+<DT><I>ByteOffset</I></DT>
+
+<DD>Pointer to a variable that specifies the starting byte offset in the file where the read operation will begin. If an attempt is made to read beyond the end of the file, <B>ZwReadFile</B> returns an error.
+
+<P>If the call to <A HREF="k111_9dte.htm"><B>ZwCreateFile</B></A> set either of the <I>CreateOptions</I> flags FILE_SYNCHRONOUS_IO_ALERT or FILE_SYNCHRONOUS_IO_NONALERT, the I/O Manager maintains the current file position. If so, the caller of <B>ZwReadFile</B> can specify that the current file position offset be used instead of an explicit <I>ByteOffset</I> value. This specification can be made by using one of the following methods:
+
+
+<UL>
+	<LI>Specify a pointer to a LARGE_INTEGER value with the <B>HighPart</B> member set to -1 and the <B>LowPart</B> member set to the system-defined value FILE_USE_FILE_POINTER_POSITION.</LI>
+
+	<LI>Pass a NULL pointer for <I>ByteOffset</I>.</LI>
+</UL>
+
+
+<P><B>ZwReadFile</B> updates the current file position by adding the number of bytes read when it completes the read operation, if it is using the current file position maintained by the I/O Manager.
+
+
+<P>Even when the I/O Manager is maintaining the current file position, the caller can reset this position by passing an explicit <I>ByteOffset</I> value to <B>ZwReadFile</B>. Doing this automatically changes the current file position to that <I>ByteOffset</I> value, performs the read operation, and then updates the position according to the number of bytes actually read. This technique gives the caller atomic seek-and-read service.
+</DD>
+
+<DT><I>Key</I></DT>
+
+<DD>Device and intermediate drivers should set this pointer to NULL.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>. </P>
+
+<H4>Return Value</H4>
+
+<P><B>ZwReadFile</B> either returns STATUS_SUCCESS or the appropriate error status. The number of bytes actually read from the file is returned in the <B>Information</B><I> </I>member of the <I>IoStatusBlock</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Callers of <B>ZwReadFile</B> must have already called <A HREF="k111_9dte.htm"><B>ZwCreateFile</B></A> with the <I>DesiredAccess</I> flag FILE_READ_DATA set, either explicitly or by setting this flag using GENERIC_READ.</P>
+
+<P>If the preceding call to <B>ZwCreateFile</B> set the <I>CreateOptions</I> flag FILE_NO_INTERMEDIATE_BUFFERING, the <I>Length</I> and <I>ByteOffset</I> parameters to <B>ZwReadFile</B> must be an integral of the sector size. For more information, see <A HREF="k111_9dte.htm"><B>ZwCreateFile</B></A>.</P>
+
+<P><B>ZwReadFile</B> begins reading from the given <I>ByteOffset</I> or the current file position into the given <I>Buffer</I>. It terminates the read operation under one of the following conditions:
+
+<UL>
+	<LI>The buffer is full because the number of bytes specified by the <I>Length</I> parameter has been read. Therefore, no more data can be placed into the buffer without an overflow.</LI>
+
+	<LI>The end of file is reached during the read operation, so there is no more data in the file to be transferred into the buffer.</LI>
+</UL>
+
+<P>If the caller opened the file with the <I>DesiredAccess</I> SYNCHRONIZE flag set, the caller can wait for this routine to set the given <I>FileHandle</I> to the signaled state.</P>
+
+<P>Drivers should call <B>ZwReadFile</B> in the context of the system process in three cases:
+
+<OL>
+	<LI>The driver creates the file handle that it passes to <B>ZwReadFile</B>.</LI>
+
+	<LI><B>ZwReadFile</B> notifies the driver of I/O completion by means of an event created by the driver.</LI>
+
+	<LI><B>ZwReadFile</B> notifies the driver of I/O completion by means of  an APC callback routine that the driver passes to <B>ZwReadFile</B>.</LI>
+</OL>
+
+<P>File and event handles are only valid in the process context where the handles are created. Therefore, to avoid security holes, the driver should create any file or event handle that it passes to <B>ZwReadFile</B> in the context of the system process instead of the process context that the driver is in.</P>
+
+<P>Likewise, <B>ZwReadFile</B> should be called in the context of the system process if it notifies the driver of I/O completion by means of an APC, because APCs are always fired in the context of the thread issuing the I/O request. If the driver calls <B>ZwReadFile</B> in the context of a process other than the system process, the APC could be delayed indefinitely, or it might not fire at all.</P>
+
+<P>Callers of <B>ZwReadFile</B> must be running at IRQL&nbsp;= PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k105_8jaq.htm"><B>KeInitializeEvent</B></A>, <A HREF="k111_9dte.htm"><B>ZwCreateFile</B></A>, <A HREF="k111_9pyq.htm"><B>ZwQueryInformationFile</B></A>, <A HREF="k111_7xyq.htm"><B>ZwSetInformationFile</B></A>, <A HREF="k111_68fm.htm"><B>ZwWriteFile</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ZwReadFile"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

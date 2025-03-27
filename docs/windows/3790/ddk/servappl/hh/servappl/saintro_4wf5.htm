@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Transferring Local Display Information</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Transferring Local Display Information">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ioallocateworkitem_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ioqueueworkitem_kr">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_rtlzeromemory_kr">
+</OBJECT>
+<OBJECT ID="hhobj_4" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_rtlcopymemory_kr">
+</OBJECT>
+<OBJECT ID="hhobj_5" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iofreeworkitem_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Server&nbsp;Appliance&nbsp;High&nbsp;Availability&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_transferring_local_display_information_sa"></A>Transferring Local Display Information</H2>
+
+<P>The local display miniport driver writes display information to the local display device. The following figure shows an overview of how the miniport driver can write display information received from an application. </P>
+
+<P><IMG SRC="images/dsplxfer.gif" ALT="" BORDER=0></P>
+
+<P><B>Server availability display data transfer</B></P>
+
+<P>The following sequence of steps describe the actions in the preceding figure:
+
+<OL>
+	<LI>An application makes a write request. </LI>
+
+	<LI>The SA port driver calls the miniport driver's <A HREF="samini_8za9.htm"><I>SaWrite</I></A> function. In this call, the port driver passes an external buffer that contains the data to be displayed. The application sends this data in the form of an <A HREF="sastruct_7odd.htm">SA_DISPLAY_SHOW_MESSAGE</A> structure. Therefore, the miniport driver must cast the external buffer to a pointer to SA_DISPLAY_SHOW_MESSAGE and determine if the data is valid. If the data is invalid, the driver must return STATUS_INVALID_PARAMETER.</LI>
+
+	<LI>The miniport driver's <A HREF="samini_8za9.htm"><I>SaWrite</I></A> function can call the <A HREF="saport_14ip.htm"><B>SaPortAllocatePool</B></A> function to allocate memory for a work-item context and the <A HREF="JavaScript:hhobj_1.Click()"><B>IoAllocateWorkItem</B></A> and <A HREF="JavaScript:hhobj_2.Click()"><B>IoQueueWorkItem</B></A> functions to allocate and queue the work item. A system worker thread subsequently removes the item and gives control to the callback function that is specified in the <I>Routine</I> parameter of <B>IoQueueWorkItem</B>. This callback function processes the write operation at a lower IRQL level. In the <B>IoQueueWorkItem</B> call, the miniport driver also passes the context, which is passed through to the callback function. This context is a pointer to a structure that includes the following members:
+<UL>
+	<LI>Pointer to the device extension</LI>
+
+	<LI>Pointer to the allocated work item</LI>
+
+	<LI>Pointer to the display data</LI>
+</UL>
+
+<P>The miniport driver's <I>SaWrite</I> function then returns STATUS_PENDING to indicate that the request is pending until the driver begins to write display data to the device. 
+</LI>
+
+	<LI>Before accessing members of the <A HREF="saintro_5fkx.htm">device extension</A> structure, the work item's callback function acquires the device extension's synchronization object to prevent other threads from accessing these members at the same time. The miniport driver calls the <A HREF="JavaScript:hhobj_3.Click()"><B>RtlZeroMemory</B></A> function to fill the memory of the device extension's internal buffer with zeros. The miniport driver then calls the <A HREF="JavaScript:hhobj_4.Click()"><B>RtlCopyMemory</B></A> function to copy the display data into the device extension's internal buffer. For a display that uses a bank of light emitting diode (LED) indicators, the miniport driver copies message codes from the <B>MsgCode</B> member of SA_DISPLAY_SHOW_MESSAGE. For a bit-mapped liquid crystal display (LCD), the miniport driver copies a bitmap from the <B>Bits</B> member of SA_DISPLAY_SHOW_MESSAGE. The miniport driver then releases the synchronization object. </LI>
+
+	<LI>The miniport driver sends the initial block of data to the display device.</LI>
+
+	<LI>The miniport driver calls the <A HREF="JavaScript:hhobj_5.Click()"><B>IoFreeWorkItem</B></A> and <A HREF="saport_21lt.htm"><B>SaPortFreePool</B></A> functions to release the work item and memory for the work-item context respectively. The miniport driver then calls the <A HREF="saport_4ntt.htm"><B>SaPortCompleteRequest</B></A> function to complete this write I/O request.</LI>
+
+	<LI>The requesting application receives notice that the write operation is complete.</LI>
+
+	<LI>If the display data is too large to be transferred in one transmission, the local display device issues an interrupt when it is ready for more data.</LI>
+
+	<LI>The miniport driver's <A HREF="samini_9vkx.htm"><I>SaInterruptServiceRoutine</I></A> function must handle this interrupt. </LI>
+
+	<LI>To quickly service this interrupt and complete the I/O processing at a lower IRQL, <I>SaInterruptServiceRoutine</I> calls the <A HREF="saport_1m75.htm"><B>SaPortRequestDpc</B></A> function, which queues the miniport driver's <A HREF="samini_3jfl.htm"><I>SaIsrForDpcRoutine</I></A> function. </LI>
+
+	<LI>When the SA port driver calls <I>SaIsrForDpcRoutine</I>, the miniport driver sends another block of data to the display device. </LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Transferring%20Local%20Display%20Information"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

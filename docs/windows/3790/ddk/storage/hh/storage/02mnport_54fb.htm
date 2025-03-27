@@ -1,0 +1,47 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Deferring Interrupt-Driven I/O from HwScsiInterrupt</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Deferring Interrupt-Driven I/O from HwScsiInterrupt">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_dpc_objects_and_dpcs_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_deferring_interrupt_driven_i_o_from_hwscsiinterrupt_kg"></A>Deferring Interrupt-Driven I/O from HwScsiInterrupt</H2>
+
+<P>If interrupt-driven I/O operations take a long time to complete, a miniport driver should have a pair of <I>HwScsiEnableInterruptsCallback</I> and <I>HwScsiDisableInterruptsCallback</I> routines. </P>
+
+<P>For example, if a miniport must stall for longer than 50 microseconds doing PIO, its <I>HwScsiInterrupt</I> routine should <I>not</I> retain control of the CPU for the full polling interval in order to complete a requested operation. Instead, its <I>HwScsiInterrupt</I> routine should do the following: 
+
+<OL>
+	<LI>Disable interrupts from the HBA. </LI>
+
+	<LI>Set up the device extension with any context necessary to complete the operation. </LI>
+
+	<LI>Call <B>ScsiPortNotification</B> with a pointer to the device extension, the <I>NotificationType</I> <B>CallEnableInterrupts</B>, and the miniport’s <I>HwScsiEnableInterruptsCallback</I> routine, described in <A HREF="02mnport_35t3.htm">SCSI Miniport Driver's HwScsiEnableInterruptsCallback Routine</A>. </LI>
+
+	<LI>Return control. </LI>
+</OL>
+
+<P>The <B>ScsiPortNotification</B> routine calls the <I>HwScsiEnableInterruptsCallback</I> routine as a DPC routine. For more information about DPCs, see <A HREF="JavaScript:hhobj_1.Click()">DPC Objects and DPCs</A>. </P>
+
+<P>If a miniport’s <I>HwScsiInterrupt</I> routine cannot disable interrupts on the HBA but its interrupt-driven transfers can take more than 50 microseconds in the <I>HwScsiInterrupt</I> routine, the driver writer should tune the miniport by limiting the size of the transfers that it accepts. Otherwise, the mouse pointer will appear “jumpy” and/or serial and parallel throughput will degrade noticeably every time the miniport is transferring data concurrently. </P>
+
+<P>Such a miniport’s <I>HwScsiFindAdapter</I> routine should reset the <B>MaximumTransferLength</B> value in the PORT_CONFIGURATION_INFORMATION to a value that allows the miniport to carry out interrupt-driven transfers without noticeably affecting the performance of other system drivers. </P>
+
+<P>Such a miniport driver also might call <B>ScsiPortNotification</B> with a miniport-supplied <I>HwScsiTimer</I> routine. For more information about <I>HwScsiTimer</I> routines, which are synchronized with <I>HwScsiInterrupt</I> routines, see <A HREF="02mnport_9ew7.htm">SCSI Miniport Driver's HwScsiTimer Routine</A>. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Deferring%20Interrupt-Driven%20I%2FO%20from%20HwScsiInterrupt"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

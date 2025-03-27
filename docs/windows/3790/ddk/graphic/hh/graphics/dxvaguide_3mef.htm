@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Interaction Between OBMC and INTER4V in H.263</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_obmc_kg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_interaction_between_obmc_and_inter4v_in_h.263_gg"></A>Interaction Between OBMC and INTER4V in H.263</H4>
+
+<P>Some details about the interactions between H.263's <A HREF="JavaScript:hhobj_1.Click()"><I>OBMC</I></A>, <I>INTER4V</I>, <I>B</I>, <I>EP</I>, and B in PB frames may be helpful:
+
+<UL>
+	<LI>No current configuration of the H.263 standard will exercise the case in which <B>bPicOBMC</B> is equal to 1, <I>Motion4MV</I> is equal to 1, and <I>MotionBackward</I> is equal to 1.</LI>
+
+	<LI>OBMC cannot be used in a H.263 B or EP picture.</LI>
+
+	<LI>OBMC cannot be used in the B part of a H.263 PB picture.</LI>
+
+	<LI>INTER4V cannot be used in a H.263 B or EP picture.</LI>
+
+	<LI>If INTER4V is used in the macroblock of a H.263 P picture and this macroblock is later used as the reference macroblock for "direct" prediction in a H.263 B picture, OBMC is not used in the direct prediction. This is because four motion vectors are used according to H.263 Annex M, which uses them like H.263 Annex G, which does not apply the OBMC. H.263 never requires both OBMC and backward prediction at the same time, and never uses INTER4V in a backward direction.</LI>
+</UL>
+
+<H4>dwMB_SNL</H4>
+
+<P>The <B>dwMB_SNL</B> structure member specifies the number of skipped macroblocks to be generated following the current macroblock, and indicates the location of the residual difference data for the blocks of the current macroblock. This member contains two variables: <I>MBskipsFollowing</I> in the most significant 8 bits and <I>MBdataLocation</I> in the least significant 24 bits. <I>MBskipsFollowing</I> indicates the number of skipped macroblocks to be generated following the current macroblock. <I>MBdataLocation</I> is an index into the residual difference block data buffer. This index indicates the location of the residual difference data for the blocks of the current macroblock, expressed as a multiple of 32 bits.</P>
+
+<P>Each skipped macroblock indicated by <I>MBskipsFollowing</I> must be generated in a manner mathematically equivalent to incrementing the value of <B>wMBaddress</B> and then repeating the same macroblock control command.</P>
+
+<P>Any macroblock control command with a nonzero value for <I>MBskipsFollowing</I> specifies how motion-compensated prediction is performed for each macroblock to be skipped, and is equivalent (except for the value of <I>MBskipsFollowing</I>) to an explicit nonskip specification of the generation of the first of the series of skipped macroblocks. Thus, whenever <I>MBskipsFollowing</I> is not zero, the following structure members and variables must all be equal to zero: <I>Motion4MV IntraMacroblock </I><B>wPatternCode</B><I> and </I><B>wPCOverflow</B>.</P>
+
+<P>The <I>MBdataLocation</I> variable must be zero for the first macroblock in the macroblock control command buffer. <I>MBdataLocation</I> may contain any value if <B>wPatternCode</B> is zero. When <B>wPatternCode</B> is zero, decoders are recommended but not required to set this value either to zero or to the same value as in the next macroblock control command. </P>
+
+<P>For more information on generating skipped macroblocks, see <A HREF="dxvaguide_17l3.htm">Generating Skipped Macroblocks</A>.</P>
+
+<H4>wPatternCode</H4>
+
+<P>The <B>wPatternCode</B> structure member indicates whether residual difference data is sent for each block in the macroblock. </P>
+
+<P>Bit (11– <I>i</I>) of <B>wPatternCode</B> (where bit zero is the least significant bit) indicates whether residual difference data is sent for block <I>i</I>, where <I>i</I> is the index of the block within the macroblock as specified in MPEG-2 video figures 6-10, 6-11, and 6-12 (raster-scan order for Y, followed by 4:2:0 blocks of Cb in raster-scan order, followed by 4:2:0 blocks of Cr, followed by 4:2:2 blocks of Cb, followed by 4:2:2 blocks of Cr, followed by 4:4:4 blocks of Cb, followed by 4:4:4 blocks of Cr). The data for the coded blocks (those blocks having bit 11-<I>i</I> equal to 1) is found in the residual coding buffer in the same indexing order (increasing <I>i</I>). For 4:2:0 MPEG-2 data, the value of <B>wPatternCode</B> corresponds to shifting the decoded value of CBP (Coded Block Pattern) to the left by six bit positions (those lower bit positions being used for 4:2:2 and 4:4:4 chroma formats).</P>
+
+<P>If the <B>bConfigSpatialResidInterleaved </B>member of <A HREF="dxvaref_3vdz.htm">DXVA_ConfigPictureDecode</A><B> </B>is 1, host-based residual differences are sent in a chroma-interleaved form matching that of the YUV pixel format in use. In this case, each Cb and spatially corresponding Cr pair of blocks is treated as a single residual difference structure unit. This does not alter the value or meaning of <B>wPatternCode</B>, but it implies that both members of each pair of Cb and Cr data blocks are sent whenever either of these data blocks has the corresponding bit (bit 7 or bit 6) set in <B>wPatternCode</B>. If the bit in <B>wPatternCode</B> for a particular data block is zero, the corresponding residual difference data values must be sent as zero whenever the pairing of the Cb and Cr blocks necessitates sending a residual difference data block for a block with a <B>wPatternCode</B> bit equal to zero.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Interaction%20Between%20OBMC%20and%20INTER4V%20in%20H.263"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

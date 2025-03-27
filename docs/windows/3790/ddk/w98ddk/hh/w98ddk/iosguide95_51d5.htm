@@ -1,0 +1,32 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Recommended MaximumTransferLength</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Recommended MaximumTransferLength">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_recommended_maximumtransferlength_si"></A>Recommended MaximumTransferLength</H2>
+
+<P>If an IOS request's block size is greater than the SCSI miniport driver’s MaximumTransferLength,  IOS will “double buffer” to accommodate your limits (“IOSSERV: request too big, so double buffering”). This is normal. However, when it double buffers, it breaks the requests down into 4K pieces, which results in some performance degradation. If you set MaximumTransferLength to 64K or larger, and a request is bigger than that, IOS will attempt to break the request into 64K chunks (instead of 4K). So for performance reasons you should consider using a 64K (or larger) maximum transfer length.</P>
+
+<P>A small maximum transfer size causes IOS to massively double-buffer I/O requests. Under rare circumstances this can lead to an attempt to reenter VMM's memory manager, which causes a deadlock. The recommended corrective action is to set MaximumTransferLength to 64K or larger.</P>
+
+<P>The function that determines whether to double buffer is <B>ILB_int_io_criteria_rtn</B> (the latest information is found in the Windows 98 DDK documentation) This routine is called in SCSIPORT just prior to SCSIPORT calling the IOS_Send_Command function. ILB_int_io_criteria_rtn returns with error if any of the various required criteria fail. It returns an error if any of the following are true:
+
+<UL>
+	<LI>The original request length is greater than the maximum transfer length supported by your miniport driver’s DCB_max_xfer_len (which is ConfigInfo-&gt;MaximumTransferLength). </LI>
+
+	<LI>The buffer address OR buffer length fails address alignment criteria.</LI>
+
+	<LI>IOS is unable to generate physical SGDs (if so requested) given the setting for the maximum number of physical breaks.</LI>
+</UL>
+
+<P>SCSIPORT performs the above criteria call on behalf of your miniport driver. If SCSIPORT sees that the criteria routine fails, its sets the following flag: IORF_DOUBLE_BUFFER. SCSIPORT then calls IOS_Send_Command. This flag is looked at and eventually cleared in IOS_Send_Command. If it is set, IOS_Send_Command will double buffer the call (break the buffer into smaller pieces and ensure that they are properly aligned). This can happen even if the transfer length is short, in the case of alignment criteria failure.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Recommended%20MaximumTransferLength"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

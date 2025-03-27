@@ -1,0 +1,67 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Implementing Custom WMI Blocks</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Implementing Custom WMI Blocks">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_creating_secure_device_installations_dg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_implementing_custom_wmi_blocks_kg"></A>Implementing Custom WMI Blocks</H2>
+
+<P>A driver can implement <I>custom blocks</I> that expose device-specific instrumentation. For example, a driver for a disk drive that can report temperature might implement a custom event block that notifies WMI clients when the drive's temperature increases beyond a safe threshold.</P>
+
+<P>To implement a custom block, a driver:
+
+<UL>
+	<LI>Defines a class in its MOF file, compiles the MOF file into a resource, and includes the resource in the driver, as described in <A HREF="wmi_18dj.htm">Publishing a WMI Schema</A>.</LI>
+
+	<LI>Registers the block with WMI along with the other standard and custom blocks supported by the driver, as described in  <A HREF="wmi_1hd3.htm">Registering as a WMI Data Provider</A>.</LI>
+
+	<LI>Handles all WMI requests that specify the driver's device object pointer at <B>Parameters.WMI.ProviderId</B> and the GUID of the standard block at <B>Parameters.WMI.DataPath</B>, as described in <A HREF="wmi_9d47.htm">Handling WMI Requests</A>.</LI>
+</UL>
+
+<P>Drivers cannot control the order in which binary MOF files are loaded.  The only guarantee is that <I>wmicore.mof</I> is loaded before any driver-specific MOF file.  Therefore, custom WMI classes must only inherit from either classes in the same MOF file, or in <I>wmicore.mof</I>.</P>
+
+<P>To improve performance and ease of use of custom WMI data blocks, consider the following guidelines:
+
+<UL>
+	<LI>Put data items that are operationally grouped together in the same data block. 
+<P>For example, an i8042 port controller might maintain state information about both the keyboard and mouse ports. Rather than a single large data block containing all mouse and keyboard information, a driver might define one data block for the mouse port and another data block for the keyboard port.
+</LI>
+
+	<LI>Put frequently used data items in separate data blocks, particularly if they would otherwise be grouped with items that are infrequently used. 
+<P>For example, a driver might expose CPU utilization in a data block with a single item, so a WMI client could track CPU utilization without incurring the overhead of retrieving additional data items in the block. A WMI client cannot query for a single data item, so to obtain one item it must query for an entire instance of a data block. 
+</LI>
+
+	<LI>Use event blocks to notify WMI clients of exceptional events, not as an alternative to error logging. 
+<P>Only a limited number of events can be queued at one time, and if the queue is full events will be lost. Also, the timing of delivery of events to WMI clients cannot be guaranteed. 
+</LI>
+
+	<LI>Limit event blocks to a maximum size of 1K bytes.
+<P>Event items should be defined as small data types, because there is a registry-defined size limit (initially, 1K) for the entire <A HREF="k112_45de.htm">WNODE_EVENT_ITEM</A> structure that contains the generated event. For large notifications, a driver can send a <A HREF="k112_17zm.htm">WNODE_EVENT_REFERENCE</A> structure that specifies a single instance of a data block, which WMI then queries to obtain the actual event. However, this increases the time lag between the occurrence of the event and the notification. 
+</LI>
+
+	<LI>Place fixed-size data items at the beginning of a data block, followed by any variable-size data items. 
+<P>For example, a data block that has three DWORD data items and one variable-length string should put the three DWORDs first, followed by the string. Placing fixed-size data items at the beginning of a block permits WMI clients to extract them more easily. 
+</LI>
+
+	<LI>Consider which types of system users you'd like to access your driver's data blocks. The system provides a default security descriptor for all WMI class GUIDs. If necessary, you can provide alternate security descriptors within the device's INF file. For more information, see <A HREF="JavaScript:hhobj_1.Click()">Creating Secure Device Installations</A>.</LI>
+</UL>
+
+<P>WMI does not support versioning, so a driver writer must define a new MOF class and generate a new GUID to revise an existing custom block. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Implementing%20Custom%20WMI%20Blocks"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

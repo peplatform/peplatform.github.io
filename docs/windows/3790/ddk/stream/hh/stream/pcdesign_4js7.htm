@@ -1,0 +1,136 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Extended Capabilities from a WDM Audio Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Extended Capabilities from a WDM Audio Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_extended_capabilities_from_a_wdm_audio_driver_ksg"></A>Extended Capabilities from a WDM Audio Driver</H3>
+
+<P>By handling the <A HREF="ks-prop_1twz.htm">KSPROPERTY_GENERAL_COMPONENTID</A> property, an audio filter can provide hardware-specific information that applications can use to uniquely identify the underlying device. Microsoft® Windows®&nbsp;XP is the first version of Windows to support this feature; this feature is not available for earlier versions.</P>
+
+<P>The filter provides the hardware-specific information in the form of a <A HREF="ks-struct_6h4j.htm">KSCOMPONENTID</A> structure that contains the following:
+
+<UL>
+	<LI>Manufacturer GUID</LI>
+
+	<LI>Product GUID</LI>
+
+	<LI>Component GUID</LI>
+
+	<LI>Name GUID</LI>
+
+	<LI>Hardware version number</LI>
+
+	<LI>Hardware revision number</LI>
+</UL>
+
+<P>To provide access to this information, a WDM audio driver specifies a property handler for KSPROPERTY_GENERAL_COMPONENTID in the filter automation table.</P>
+
+<P>An application can access the data from the driver's KSCOMPONENTID structure through the following legacy Windows multimedia APIs: <B>aux</B>, <B>midiIn</B>, <B>midiOut</B>, <B>mixer</B>, <B>waveIn</B>, and <B>waveOut</B>. A client queries the driver for this information by calling one of the multimedia functions in the following table and passing in an extended-capabilities structure as the second argument:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Multimedia Function</TH>
+<TH align=left width=52%>Extended-Capabilities Structure</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>auxGetDevCaps</TD>
+<TD width=52%>AUXCAPS2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>midiInGetDevCaps</TD>
+<TD width=52%>MIDIINCAPS2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>midiOutGetDevCaps</TD>
+<TD width=52%>MINIOUTCAPS2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>mixerGetDevCaps</TD>
+<TD width=52%>MIXERCAPS2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>waveInGetDevCaps</TD>
+<TD width=52%>WAVEINCAPS2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>waveOutGetDevCaps</TD>
+<TD width=52%>WAVEOUTCAPS2</TD>
+</TR>
+</TABLE><BR>
+
+<P>After receiving the KSCOMPONENTID structure from the filter's property handler, the WDMAud system driver (<I>wdmaud.sys</I>) converts the data from this structure to the <I>XXX</I>CAPS2 format that the <B><I>xxx</I>GetDevCaps</B> functions use.</P>
+
+<P>After verifying that the capabilities structure passed to the function is large enough to contain the manufacturer, product, and name GUIDs, the <B><I>xxx</I>GetDevCaps</B> function copies this information into the extended structure before returning. (The component GUID from KSCOMPONENTID currently is not used.)</P>
+
+<P>WDMAud concatenates the <B>Version</B> and <B>Revision</B> members from KSCOMPONENTID to form the 16-bit revision number that the <B><I>xxx</I>GetDevCaps</B> function copies into the <B>vDriverVersion</B> member of the capabilities structure:</P>
+
+<P class=indent1><B>vDriverVersion</B> = (<B>Version</B>&nbsp;&lt;&lt;&nbsp;8) | (<B>Revision</B>&nbsp;&amp;&nbsp;0xFF)</P>
+
+<P>Microsoft previously required vendors to register manufacturer IDs and product IDs for their audio devices. These IDs were then released in the header file <I>mmreg.h</I>.</P>
+
+<P>In Windows&nbsp;XP and later, registered IDs are no longer necessary; they are replaced by the manufacturer and product GUIDs that are provided through the KSPROPERTY_GENERAL_COMPONENTID property. The GUIDs are more convenient for vendors to use than registered IDs because GUIDs are inherently unique, are easily generated, and require no registration.</P>
+
+<P>However, if you have already registered product and manufacturer IDs with Microsoft (and they are in <I>mmreg.h</I>), you can use the macros INIT_MMREG_PID and INIT_MMREG_MID in <I>ksmedia.h </I>to convert your product and manufacturer IDs into GUIDs. If you use these macros to generate the GUIDs, WDMAud is able to recover the original product and manufacturer IDs from the GUIDs and copy these IDs into the <B>wPid</B> and <B>wMid</B> members of the capabilities structure that is filled in by the <B><I>xxx</I>GetDevCaps</B> call.</P>
+
+<P>Otherwise, if you do not have registered manufacturer and product IDs, simply use the GUIDGEN utility to generate the manufacturer and product GUIDs. When a driver's GUIDs are of this type, WDMAud loads default constants MM_UNMAPPED and MM_PID_UNMAPPED into the <B>wMid</B> and <B>wPid</B> members, respectively, of the capabilities structure that is filled in by the <B><I>xxx</I>GetDevCaps</B> call.</P>
+
+<P>WDMAud uses the <B>Name</B> GUID in the KSCOMPONENTID structure to look up a "Name" key in the registry. This key is located under the registry path name HKLM\System\CurrentControlSet\Control\MediaCategories. The "Name" key for a device has an associated string value that contains the device name. The <B><I>xxx</I>GetDevCaps</B> function copies the first 31 characters of this name string into the <B>szPname</B> member of the capabilities structure. For device names longer than 31 characters, a client application can open the registry key and directly read the entire string. A driver can populate this registry entry in one of two ways:
+
+<UL>
+	<LI>The driver can specify the entry in the device's INF file at install time.</LI>
+
+	<LI>The driver can load the entry during execution of its filter-initialization routine.</LI>
+</UL>
+
+<P>The name GUID is optional. If the driver sets the <B>Name</B> member in the KSCOMPONENTID to the GUID_NULL value, WDMAud provides the device's friendly name to the <B><I>xxx</I>GetDevCaps</B> function, which copies this name into the <B>szPname</B> member of the capabilities structure.</P>
+
+<P>If the filter exposes no handler for the KSPROPERTY_GENERAL_COMPONENTID property, WDMAud uses default values in place of the data from the KSCOMPONENTID structure. The default values for the legacy portion of the capabilities structure are as follows:
+
+<UL>
+	<LI><B>wMid</B> = MM_MICROSOFT</LI>
+
+	<LI><B>wPid</B> = a device class from the following list:
+<P class=indent1>MM_MSFT_WDMAUDIO_WAVEOUT</P>
+
+<P class=indent1>MM_MSFT_WDMAUDIO_WAVEIN</P>
+
+<P class=indent1>MM_MSFT_WDMAUDIO_MIDIOUT</P>
+
+<P class=indent1>MM_MSFT_WDMAUDIO_MIDIIN</P>
+
+<P class=indent1>MM_MSFT_WDMAUDIO_MIXER</P>
+
+<P class=indent1>MM_MSFT_WDMAUDIO_AUX</P>
+</LI>
+
+	<LI><B>vDriverVersion</B> = 0x050a (for Windows&nbsp;XP) or 0x0500 (pre-Windows&nbsp;XP)</LI>
+</UL>
+
+<P>On Windows releases earlier than  Windows&nbsp;XP, the legacy members of the capabilities structure are always set to the defaults above. On Windows&nbsp;XP and later, the default values for the extended capabilities are as follows:
+
+<UL>
+	<LI><B>NameGuid</B> = GUID_NULL</LI>
+
+	<LI>INIT_MMREG_MID(&amp;<B>ManufacturerGuid</B>, <B>wMid</B>)</LI>
+
+	<LI>INIT_MMREG_PID(&amp;<B>ProductGuid</B>, <B>wPid</B>)</LI>
+</UL>
+
+<P>The INIT_MMREG_MID and INIT_MMREG_PID macros above are defined in <I>ksmedia.h</I>. These macros are used to convert the manufacturer and product IDs in the <B>wMid</B> and <B>wPid</B> members to GUIDs that are loaded into the <B>ManufacturerGuid</B> and <B>ProductGuid</B> members.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Extended%20Capabilities%20from%20a%20WDM%20Audio%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,97 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TDI_EVENT_RECEIVE</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TDI_EVENT_RECEIVE">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_vxdtdi_tdi_event_receive"></A>TDI_EVENT_RECEIVE</H1>
+
+<P>The <B>TDI_EVENT_RECEIVE</B> event handler is called when incoming data arrives for a connection. The called client may take all, some, or none of the indicated data during the call to the handler, and may also optionally pass back a pointer to a buffer to receive remaining or newly arrived data. There are some intricacies relating to when a receive event handler will be called if it has recently been called or there is a receive buffer outstanding. For more information, refer to the Windows NT/Windows 2000 TDI documentation. </P>
+
+<P>Since TCP is a stream-oriented protocol, there is no restriction on the minimum number of bytes that will be indicated in a receive event call. </P>
+
+<PRE class=syntax><B>TDI_STATUS
+  RcvEvent(
+    PVOID  </B><I>EventContext</I><B>, </B>
+<B>    PVOID  </B><I>ConnectionContext</I><B>,  </B>
+<B>    ulong  </B><I>Flags</I><B>, </B>
+<B>    uint  </B><I>Indicated</I><B>, </B>
+<B>    uint  </B><I>Available</I><B>, </B>
+<B>    uint  *</B><I>Taken</I><B>, </B>
+<B>    uchar  *</B><I>Data</I><B>, </B>
+<B>    EventRcvBuffer  *</B><I>Buffer</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>EventContext</I> </DT>
+
+<DD>Context value supplied on the <B>TdiSetEvent</B> call.</DD>
+
+<DT><I>ConnectionContext</I> </DT>
+
+<DD>Context for the connection object receiving the data. This context was supplied by the client as a parameter to the <B>TdiOpenConnection</B> call that opened the connection.</DD>
+
+<DT><I>Flags</I> </DT>
+
+<DD>Supplies information about the receive indication. The most interesting flag is TDI_RECEIVE_ENTIRE_MESSAGE. If this flag is set, the PUSH bit was set on the segment containing the data being delivered. See the Windows NT/Windows 2000 TDI documentation for more details on the flags.</DD>
+
+<DT><I>Indicated</I> </DT>
+
+<DD>Count of the number of bytes of data being indicated (for example, the number of bytes in the buffer pointed to by <I>Data</I>). </DD>
+
+<DT><I>Available</I> </DT>
+
+<DD>Count of the total number of bytes of data available in the transport. This value will always be greater than or equal to <I>Indicated</I>. If <I>Available</I> is greater than <I>Indicated,</I> then there is data available that is not being passed up in the event handler, and the called client will need to supply a receive buffer to retrieve it. The receive buffer may be supplied either by returning a pointer in the <B>EventRcvBuffer</B> structure or by calling <B>TdiReceive</B>.</DD>
+
+<DT><I>Taken </I></DT>
+
+<DD>Pointer to a location where the client may fill in the total number of bytes taken on the indication. The client may set <I>Taken</I> to zero if no data was consumed. The maximum value to which <I>Taken</I> may be set is <I>Available</I>. Note that this may be greater than indicated, which allows the client to skip data that has arrived but not been indicated if it needs. <I>Taken</I> is only examined if TDI_MORE_PROCESSING or TDI_SUCCESS is returned. In these cases, the transport assumes that the first <I>Taken</I> bytes of data were consumed by the client and will not copy this data into a client buffer.</DD>
+
+<DT><I>Data</I> </DT>
+
+<DD>Pointer to a buffer of received data. The length of the buffer is given by <I>Indicated</I>.</DD>
+
+<DT><I>Buffer</I> </DT>
+
+<DD>Pointer to an <B>EventRcvBuffer</B> structure. The client may fill in this structure to give the transport a buffer into which to place data. This structure is only examined if the status TDI_MORE_PROCESSING is returned. The buffer returned by the client may be larger than the size indicated by <I>Available</I>. In this case, the buffer will be retained for more arriving data.</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>There are three relevant status codes that the client can return from the call to the event handler.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=41%>Status Code</TH>
+<TH align=left width=59%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>TDI_MORE_PROCESSING</TD>
+<TD width=59%>Indicates  that the client has taken some or all of the data and has returned a buffer for more data through the <B>EventRcvBuffer</B> structure.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>TDI_NOT_ACCEPTED</TD>
+<TD width=59%>Indicates that the client has taken none of the data and has not returned a receive buffer.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=41%>TDI_SUCCESS</TD>
+<TD width=59%>Indicates that the client has taken some or all of the data, but has not returned a receive buffer.</TD>
+</TR>
+</TABLE><BR>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;If TDI_MORE_PROCESSING or TDI_SUCCESS is returned, the client must set <I>Taken</I> to be the count of the number of bytes consumed. If there is data that the client does not consume and there is no receive buffer provided, the VxD transport will make a best effort attempt to buffer the data for later consumption. However, if the transport is unable to allocate memory, the data is dropped and will need to be retransmitted.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TDI_EVENT_RECEIVE"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

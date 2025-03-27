@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DSSPEAKER_SURROUND Speaker Configuration</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DSSPEAKER_SURROUND Speaker Configuration">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_dsspeaker_surround_speaker_configuration_ksg"></A>DSSPEAKER_SURROUND Speaker Configuration</H3>
+
+<P>An application program can change the DirectSound speaker configuration to surround mode by calling the <B>IDirectSound::SetSpeakerConfig</B> method with the speaker-configuration parameter set to DSSPEAKER_SURROUND. This specifies a four-channel PCM format in which the channels are mapped to left, right, center, and back speakers.</P>
+
+<P>Once it takes effect, the DSSPEAKER_SURROUND speaker-configuration setting is global and affects the audio device as a whole. All audio applications that subsequently run are subject to the new setting until DirectSound changes the setting again.</P>
+
+<P>DirectSound uses the following algorithm to configure the audio system for surround mode:
+
+<OL>
+	<LI>DirectSound first asks the driver to go into the surround speaker mode by sending a <A HREF="aud-prop_4aib.htm">KSPROPERTY_AUDIO_CHANNEL_CONFIG</A> <I>set</I>-property request to the driver's DAC node (or 3D node if it has no DAC node). (See <A HREF="aud-prop_090z.htm">KSNODETYPE_DAC</A> and <A HREF="aud-prop_8ugj.htm">KSNODETYPE_3D_EFFECTS</A>.) The <A HREF="aud-prop_8b3n.htm">KSAUDIO_CHANNEL_CONFIG</A> structure that accompanies this property request specifies the KSAUDIO_SPEAKER_SURROUND speaker configuration. If the request succeeds, the audio device routes the four channels to four analog outputs that are connected directly to left, right, center, and back speakers. </LI>
+
+	<LI>If that fails, DirectSound asks the driver to configure the device in stereo speaker mode and to enable its <A HREF="aud-prop_0u2b.htm">KSNODETYPE_PROLOGIC_ENCODER</A> node, if it has one. If this succeeds, the device converts the four-channel stream from the application to a surround-encoded stereo signal that it outputs in either digital or analog form. (The hardware should do the encoding <I>after</I> mixing the streams that flow into the device's various mixer pins.) The user can connect the device's stereo outputs to an external decoder that converts the encoded signal into four channels that are output to left, right, center, and back speakers.</LI>
+
+	<LI>If that fails, DirectSound enables the KSNODETYPE_PROLOGIC_ENCODER node in KMixer. (The device is already in stereo mode from the previous step.) Again, the stereo signal that is output by the device can be fed to an external decoder.</LI>
+</OL>
+
+<P>If this algorithm succeeds, the application can create and play four-channel PCM buffers. In cases 1 and 2 above, the hardware buffers that the device reads from use four channels, but in case 3 the hardware buffers use a stereo format. The application can write directly to the hardware buffers in cases 1 and 2, but in case 3 it should write to a software buffer and allow KMixer to convert the application's four-channel stream to the surround-encoded stereo format needed for the hardware buffer.</P>
+
+<P>In case (3) above, the application should avoid using hardware buffers for any of its output streams. Note that KMixer mixes all its input streams before encoding the mix to produce the surround stereo stream. However, any stream that enters a hardware mixer pin is mixed in hardware with the encoded stereo from KMixer, which degrades the quality of the surround audio when it is decoded. The application can prevent this by using only software buffers.</P>
+
+<P>A stereo stream that has been surround-encoded by a KSNODETYPE_PROLOGIC_ENCODER node can be decoded into four channels (left, right, center, and back) by a <A HREF="aud-prop_98oj.htm">KSNODETYPE_PROLOGIC_DECODER</A> node.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DSSPEAKER_SURROUND%20Speaker%20Configuration"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

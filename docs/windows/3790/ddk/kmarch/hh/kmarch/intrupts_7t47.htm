@@ -1,0 +1,60 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Writing DPC Routines</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Writing DPC Routines">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_writing_dpc_routines_kg"></A>Writing DPC Routines</H2>
+
+<P>The primary responsibilities of <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> and <A HREF="drvrrtns_3tbm.htm"><I>CustomDpc</I></A> routines are ensuring that the next device I/O operation is started promptly and completing the current IRP.</P>
+
+<P>Additional work done by any <I>DpcForIsr</I> or <I>CustomDpc</I> routine depends on the driver’s design and the nature of the device. For example, a <I>DpcForIsr</I> or <I>CustomDpc</I> routine also can do any of the following:
+
+<UL>
+	<LI>Retry an operation that has timed out or failed. </LI>
+
+	<LI>Call <A HREF="k104_0m9e.htm"><B>IoAllocateErrorLogEntry</B></A>, set up an error log packet to report a device I/O error, and call <A HREF="k104_0p82.htm"><B>IoWriteErrorLogEntry</B></A>. 
+<P>For more information about handling I/O errors, see <A HREF="other_92jr.htm">Logging Errors</A>.
+</LI>
+
+	<LI>If the driver uses <A HREF="iputoput_3m07.htm#ddk_buffered_i_o_kg">buffered I/O</A>, or if the IRP specifies a device control operation, transfer data read in from the device to the system buffer at <B>Irp-&gt;AssociatedIrp.SystemBuffer</B> before completing the IRP. </LI>
+
+	<LI>If the driver uses <A HREF="iputoput_3m07.htm#ddk_direct_i_o_kg">direct I/O</A> and must break large transfers into smaller pieces, save state about each just-completed partial-transfer operation, calculate the next partial-transfer range, and use a driver-supplied <A HREF="drvrrtns_4m2a.htm"><I>SynchCritSection</I></A> routine to program the device for the next partial-transfer operation. 
+<P>Even a driver that uses buffered I/O might have to split up a transfer request if its device has limited transfer capabilities.
+</LI>
+
+	<LI>If the driver uses packet-based DMA, call <A HREF="kdma_9cxe.htm"><B>FlushAdapterBuffers</B></A> after each device transfer operation, and call <A HREF="kdma_3bua.htm"><B>FreeAdapterChannel</B></A> or <A HREF="kdma_5rqq.htm"><B>FreeMapRegisters</B></A> when a sequence of partial transfers is done and the full transfer request is satisfied. 
+<P>If a requested transfer is only partly satisfied by a single DMA operation, the <I>DpcForIsr</I> or <I>CustomDpc</I> routine is usually responsible for setting up one or more DMA operations until the IRP’s specified number of bytes have been fully transferred. 
+
+<P>For more information about using DMA, see <A HREF="iputoput_2wtj.htm">Adapter Objects and DMA</A>.
+</LI>
+
+	<LI>If the driver uses programmed I/O (PIO), call <A HREF="k105_6asy.htm"><B>KeFlushIoBuffers</B></A> at the end of each transfer operation if the current IRP requests a read. 
+<P>If a requested transfer is only partly satisfied by a single PIO operation, the <I>DpcForIsr</I> or <I>CustomDpc</I> routine is usually responsible for setting up one or more transfer operations until the IRP’s specified number of bytes have been fully transferred. 
+
+<P>For more information about using PIO, see <A HREF="iputoput_46xz.htm">Using Direct I/O</A>. 
+</LI>
+
+	<LI>If a non-WDM driver has a <A HREF="drvrrtns_2ype.htm"><I>ControllerControl</I></A> routine, call <A HREF="k104_8hte.htm"><B>IoFreeController</B></A> when a requested operation is complete. </LI>
+</UL>
+
+<P>Note that a <I>DpcForIsr</I> or <I>CustomDpc</I> routine usually does most of the driver’s device I/O processing to satisfy IRPs. These routines also share some of the responsibility for queuing IRPs to the device with the driver’s dispatch routines. </P>
+
+<P>Consider the following a general design guidelines.
+
+<UL>
+	<LI>Any <I>DpcForIsr</I> or <I>CustomDpc</I> routine should call <A HREF="k104_7eb6.htm"><B>IoStartNextPacket</B></A> as soon as it can safely make this call: that is, without possibly causing a resource conflict or race condition with the driver’s <I>StartIo</I> routine or with any other routine the <I>StartIo</I> routine causes to run. </LI>
+
+	<LI>If a driver manages its own queuing of IRPs, its <I>DpcForIsr</I> or <I>CustomDpc</I> routine should notify the driver as soon as it is safe to dequeue the next IRP and to set up the device for the next request. </LI>
+</UL>
+
+<P>A <I>DpcForIsr</I> or <I>CustomDpc</I> routine must call <B>IoStartNextPacket</B>, or otherwise notify the appropriate driver routine when device I/O processing for the next request can be started. Depending on the driver and its device, this can occur well before the <I>DpcForIsr</I> or <I>CustomDpc</I> routine completes the current IRP with <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>, or it can occur immediately before this routine completes the current IRP and returns control. <B> </B></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Writing%20DPC%20Routines"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

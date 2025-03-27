@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TdiBuildSetInformation</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TdiBuildSetInformation">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdibuildsetinformation_nr"></A>TdiBuildSetInformation</H1>
+
+<P><B>TdiBuildSetInformation</B> sets up an internal device control IRP for a TDI_SET_INFORMATION request to the underlying transport in which the local-node client has already opened a file object representing an address, connection endpoint, or control channel.</P>
+
+<PRE class=syntax><B>VOID 
+</B>  <B>TdiBuildSetInformation(
+</B>    <B>IN PIRP</B>  <I>Irp</I><B>,
+</B>    <B>IN PDEVICE_OBJECT</B>  <I>DevObj</I><B>,
+</B>    <B>IN PFILE_OBJECT</B>  <I>FileObj</I><B>,
+</B>    <B>IN PVOID</B>  <I>CompRoutine</I><B>,
+</B>    <B>IN PVOID</B>  <I>Contxt</I><B>,
+</B>    <B>IN UINT</B>  <I>SType</I><B>,
+</B>    <B>IN PMDL</B>  <I>MdlAddr
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Irp</I></DT>
+
+<DD>Pointer to a client-supplied IRP, usually one allocated with <B>TdiBuildInternalDeviceControlIrp</B>. </DD>
+
+<DT><I>DevObj</I></DT>
+
+<DD>Pointer to the device object created by the underlying TDI transport driver.</DD>
+
+<DT><I>FileObj</I></DT>
+
+<DD>Pointer to a file object representing an address, connection endpoint, or control channel. This file object must be appropriate to the given <I>SType</I>. </DD>
+
+<DT><I>CompRoutine</I></DT>
+
+<DD>Specifies the entry point of a client-supplied IoCompletion routine or NULL. The I/O Manager calls this routine when the given IRP is completed, unless the client sets this parameter to NULL. </DD>
+
+<DT><I>Contxt</I></DT>
+
+<DD>Pointer to a client-determined context. This client-supplied pointer is passed in to the IoCompletion routine when it is called with the completed IRP. <I>Contxt</I> is NULL if <I>CompRoutine</I> is NULL.</DD>
+
+<DT><I>SType</I></DT>
+
+<DD>Specifies the type of information the client wants to be set. This parameter can be transport-defined or one of the following system-defined values:
+
+<DL>
+<DT>TDI_QUERY_ADDRESS_INFO</DT>
+
+<DD>Set the supplied information for an address. The buffer mapped at <I>MdlAddr</I> is formatted as a TDI_ADDRESS_INFO structure. </DD>
+
+<DT>TDI_QUERY_CONNECTION_INFO</DT>
+
+<DD>Set the supplied information for a connection endpoint. The buffer mapped at <I>MdlAddr</I> is formatted as a TDI_CONNECTION_INFO structure. </DD>
+
+<DT>TDI_QUERY_PROVIDER_INFO</DT>
+
+<DD>Set the supplied information for a control channel. The buffer mapped at <I>MdlAddr</I> is formatted as a TDI_PROVIDER_INFO structure. However, a client cannot reset a transport's provider information to anything that is not actually supported by the transport. </DD>
+
+<DT>TDI_QUERY_PROVIDER_STATISTICS</DT>
+
+<DD>Set the supplied information for a control channel. The buffer mapped at <I>MdlAddr</I> is formatted as a TDI_PROVIDER_STATISTICS structure. However, a client cannot reset a transport's statistics, which is global state rather than per-client state, to anything that is not actually maintained by the transport. </DD>
+</DL>
+
+
+<P>The underlying transport can support additional types of set-information requests at the discretion of the driver writer. Such a transport must define TDI_QUERY_<I>XXX</I> codes in which the most significant bit is set. 
+</DD>
+
+<DT><I>MdlAddr</I></DT>
+
+<DD>Pointer to an MDL mapping the client-supplied buffer containing the data to be set. The format and contents of this buffer depend on the given <I>SType</I>. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>TdiKrnl.h</I>. Include <I>TdiKrnl.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>TdiBuildSetInformation </B>sets IRP_MJ_INTERNAL_DEVICE_CONTROL as the <B>MajorFunction</B> and TDI_SET_INFORMATION as the <B>MinorFunction</B> codes in the transport's I/O stack location of the given IRP.</P>
+
+<P>A client can set information about an address, a connection, or a control channel, depending on the <I>SType</I> it passes to <B>TdiBuildSetInformation</B>. The given file object must be appropriate to the given <I>SType</I> or the transport will fail the request. </P>
+
+<P>The underlying transport also can refuse to reset anything for which the client supplies an inappropriate value in the buffer at <I>MdlAddr</I>. For example, a client cannot force the underlying transport to extend its <B>MaxSendSize</B> or <B>MaxDatagramSize</B> beyond the transport-determined limit by issuing a set-information request that attempts to reset these members of the TDI_PROVIDER_INFO structure returned by the transport in a preceding query-information request. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="36tdstrc_0hyq.htm"><B>TDI_ADDRESS_INFO</B></A>, <A HREF="34bldmac_8df6.htm"><B>TdiBuildInternalDeviceControlIrp</B></A>, <A HREF="34bldmac_3f5e.htm"><B>TdiBuildQueryInformation</B></A>, <A HREF="36tdstrc_4mpe.htm"><B>TDI_CONNECTION_INFO</B></A>, <A HREF="36tdstrc_4bn6.htm"><B>TDI_PROVIDER_INFO</B></A>, <A HREF="36tdstrc_7ng2.htm"><B>TDI_PROVIDER_STATISTICS</B></A>, <A HREF="32ioctl_23ci.htm"><B>TDI_SET_INFORMATION</B></A> </P>
+
+<P></P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TdiBuildSetInformation"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

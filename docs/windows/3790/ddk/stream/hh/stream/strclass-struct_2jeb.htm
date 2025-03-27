@@ -1,0 +1,270 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>HW_STREAM_REQUEST_BLOCK</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="HW_STREAM_REQUEST_BLOCK">
+<META NAME="MS-HKWD" CONTENT="KSSCATTER_GATHER">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_hw_stream_request_block_ks"></A>HW_STREAM_REQUEST_BLOCK</H1>
+
+<P>The stream class driver uses the HW_STREAM_REQUEST_BLOCK structure to pass information to and from the minidriver, using minidriver provided callbacks.</P>
+
+<PRE class=syntax>typedef struct _HW_STREAM_REQUEST_BLOCK {
+    ULONG              SizeOfThisPacket;
+    SRB_COMMAND        Command;
+    NTSTATUS           Status;
+    PHW_STREAM_OBJECT  StreamObject;
+    PVOID              HwDeviceExtension;
+    PVOID              SRBExtension;
+ 
+    union _CommandData {
+        PKSSTREAM_HEADER              DataBufferArray;
+        PHW_STREAM_DESCRIPTOR         StreamBuffer;
+        KSSTATE                       StreamState;
+        PSTREAM_PROPERTY_DESCRIPTOR   PropertyInfo;
+        PKSDATAFORMAT                 OpenFormat;
+        struct _PORT_CONFIGURATION_INFORMATION  *ConfigInfo;
+        HANDLE                        MasterClockHandle;
+        DEVICE_POWER_STATE            DeviceState;
+        PSTREAM_DATA_INTERSECT_INFO   IntersectInfo;
+    } CommandData;
+ 
+    ULONG            NumberOfBuffers;
+    ULONG            TimeoutCounter;
+    ULONG            TimeoutOriginal;
+    struct _HW_STREAM_REQUEST_BLOCK   *NextSRB;
+    PIRP             Irp;
+    ULONG            Flags;
+    PVOID            HwInstanceExtension;
+ 
+    union {
+        ULONG   NumberOfBytesToTransfer;
+        ULONG   ActualBytesTransferred;
+    };
+ 
+    PKSSCATTER_GATHER   ScatterGatherBuffer
+    ULONG               NumberOfPhysicalPages;
+    ULONG               Reserved[2];
+} HW_STREAM_REQUEST_BLOCK, *PHW_STREAM_REQUEST_BLOCK;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>SizeOfThisPacket</B></DT>
+
+<DD>Specifies the size, in bytes, of this structure.</DD>
+
+<DT><B>Command</B></DT>
+
+<DD>Specifies the operation to be performed by the minidriver's callback. The class driver passes SRB_XXX command codes to minidriver callbacks.</DD>
+
+<DT><B>Status</B></DT>
+
+<DD>When the minidriver completes a stream request, it fills this member with the status code of the request. See the documentation for the appropriate <B>StrMini</B><I>Xxx</I><B>Request</B> routine for the status codes minidrivers are expected to use.</DD>
+
+<DT><B>StreamObject</B></DT>
+
+<DD>For stream oriented requests, the class driver sets this to point to the <A HREF="strclass-struct_4wc3.htm">HW_STREAM_OBJECT</A> structure that specifies the stream the class driver is making a request on.</DD>
+
+<DT><B>HwDeviceExtension</B></DT>
+
+<DD>Pointer to the minidriver's device extension. The minidriver may use this buffer to record private information. The minidriver sets the size of this buffer in the <A HREF="strclass-struct_4ks3.htm">HW_INITIALIZATION_DATA</A> structure it passes when it registers itself via <A HREF="strclass-routines_8bw3.htm"><B>StreamClassRegisterMinidriver</B></A>. The class driver also passes pointers to this buffer in the <B>HwDeviceExtension</B> member of the <A HREF="strclass-struct_4wc3.htm">HW_STREAM_OBJECT</A>, <A HREF="strclass-struct_2kvn.htm">HW_TIME_CONTEXT</A>, and <A HREF="strclass-struct_2h4j.htm">PORT_CONFIGURATION_INFORMATION</A> structures it passes to the minidriver.</DD>
+
+<DT><B>SRBExtension</B></DT>
+
+<DD>Points to an uninitialized buffer the class driver allocates for the minidriver to use while processing this stream request block. This buffer is deallocated once the minidriver completes its handling of the block (see <A HREF="strclass-routines_85yr.htm"><B>StreamClassDeviceNotification</B></A> or <A HREF="strclass-routines_5ygj.htm"><B>StreamClassStreamNotification</B></A> for details).</DD>
+
+<DT><B>CommandData</B></DT>
+
+<DD><B>CommandData</B> is a union of members provided for command-code-specific data. The following demonstrates the correspondence between members and command codes.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=21%>Member</TH>
+<TH align=left width=33%>Command code</TH>
+<TH align=left width=46%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%><B>DataBufferArray</B> </TD>
+<TD width=33%><A HREF="strclass-srbs_469f.htm">SRB_READ_DATA</A>
+<P><A HREF="strclass-srbs_2bzn.htm">SRB_WRITE_DATA</A></P>
+</TD>
+<TD width=46%>Pointer to an array of <A HREF="ks-struct_7l4j.htm">KSSTREAM_HEADER</A> structures. The number of entries in this array is specified in <B>NumberOfBuffers</B>. Each KSSTREAM_HEADER describes one block of data.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%><B>StreamBuffer</B> </TD>
+<TD width=33%><A HREF="strclass-srbs_531v.htm">SRB_GET_STREAM_INFO</A></TD>
+<TD width=46%>Points to the <A HREF="strclass-struct_1yur.htm">HW_STREAM_DESCRIPTOR</A> structure the minidriver fills in with a description of the kernel streaming semantics it supports.
+<P>The minidriver specifies the size of this buffer in the <B>StreamDescriptorSize</B> member of its <A HREF="strclass-struct_2h4j.htm">PORT_CONFIGURATION_INFORMATION</A> structure.</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%><B>StreamState </B></TD>
+<TD width=33%><A HREF="strclass-srbs_93xv.htm">SRB_GET_STREAM_STATE</A>
+<P><A HREF="strclass-srbs_6377.htm">SRB_SET_STREAM_STATE</A></P>
+</TD>
+<TD width=46%>The stream state. See <A HREF="ks-prop_7vhv.htm">KSPROPERTY_CONNECTION_STATE</A> for details.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%><B>PropertyInfo </B></TD>
+<TD width=33%><A HREF="strclass-srbs_77oz.htm">SRB_GET_DEVICE_PROPERTY</A>
+<P><A HREF="strclass-srbs_1ayb.htm">SRB_SET_DEVICE_PROPERTY</A></P>
+
+<P><A HREF="strclass-srbs_92ur.htm">SRB_GET_STREAM_PROPERTY</A></P>
+
+<P><A HREF="strclass-srbs_3643.htm">SRB_SET_STREAM_PROPERTY</A></P>
+</TD>
+<TD width=46%>Points to the <A HREF="strclass-struct_9d83.htm">STREAM_PROPERTY_DESCRIPTOR</A> structure that specifies the parameters for the property get or set operation.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%><B>OpenFormat</B></TD>
+<TD width=33%><A HREF="strclass-srbs_4omr.htm">SRB_OPEN_STREAM</A>
+<P><A HREF="strclass-srbs_48j7.htm">SRB_PROPOSE_DATA_FORMAT</A></P>
+</TD>
+<TD width=46%>Pointer to the <A HREF="ks-struct_0fub.htm">KSDATAFORMAT</A> structure that specifies the format.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%><B>ConfigInfo</B></TD>
+<TD width=33%><A HREF="strclass-srbs_4qer.htm">SRB_INITIALIZE_DEVICE</A></TD>
+<TD width=46%>Pointer to the <A HREF="strclass-struct_2h4j.htm">PORT_CONFIGURATION_INFORMATION</A> structure used to initialize the device </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%><B>MasterClockHandle</B></TD>
+<TD width=33%><A HREF="strclass-srbs_1f77.htm">SRB_OPEN_MASTER_CLOCK</A>
+<P><A HREF="strclass-srbs_50oj.htm">SRB_INDICATE_MASTER_CLOCK</A></P>
+</TD>
+<TD width=46%>Handle for the clock object that now serves as the master clock.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%><B>DeviceState</B></TD>
+<TD width=33%><A HREF="strclass-srbs_1xrn.htm">SRB_CHANGE_POWER_STATE</A></TD>
+<TD width=46%>Specifies the new power state.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%><B>IntersectInfo</B></TD>
+<TD width=33%><A HREF="strclass-srbs_5hv7.htm">SRB_GET_DATA_INTERSECTION</A></TD>
+<TD width=46%>Pointer to a <A HREF="strclass-struct_23lf.htm">STREAM_DATA_INTERSECT_INFO</A> structure that describes the parameters of this operation.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><B>NumberOfBuffers</B></DT>
+
+<DD>If Command is either <A HREF="strclass-srbs_469f.htm">SRB_READ_DATA</A> or <A HREF="strclass-srbs_2bzn.htm">SRB_WRITE_DATA</A>, then this specifies the number of entries in the array of <A HREF="ks-struct_7l4j.htm">KSSTREAM_HEADER</A> structures that begins at the address pointed to by <B>CommandData.DataBufferArray</B>. Otherwise this parameter is unused.</DD>
+
+<DT><B>TimeoutCounter</B></DT>
+
+<DD>The number of seconds before this request times out. The class driver decrements this once per second. If the class driver decrements <B>TimeoutCounter</B> to zero before the minidriver completes this request, it will call the minidriver's <A HREF="strmini-routines_2j03.htm"><B>StrMiniRequestTimeout</B></A> routine. If the minidriver sets this to zero, the request does not time out.</DD>
+
+<DT><B>TimeoutOriginal</B></DT>
+
+<DD>The class driver sets this to the original value of <B>TimeoutCounter</B> upon the creation of the SRB.</DD>
+
+<DT><B>NextSRB</B></DT>
+
+<DD>Points to another stream request block. The minidriver can use this member to queue stream request blocks.</DD>
+
+<DT><B>Irp</B></DT>
+
+<DD>Pointer to the IRP for the request. Most minidrivers do not need to use this member.</DD>
+
+<DT><B>Flags</B></DT>
+
+<DD>Specifies the type of request. The class driver and the minidriver can use this member to determine which callback the class driver passed this stream request block to.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=47%>Value</TH>
+<TH align=left width=53%>Callback used</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%>None</TD>
+<TD width=53%><A HREF="strmini-routines_5dbn.htm"><B>StrMiniReceiveDevicePacket</B></A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%>SRB_HW_FLAGS_STREAM_REQUEST</TD>
+<TD width=53%><A HREF="strmini-routines_894j.htm"><B>StrMiniReceiveStreamControlPacket</B></A></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%>SRB_HW_FLAGS_DATA_TRANSFER | SRB_HW_FLAGS_STREAM_REQUEST</TD>
+<TD width=53%><A HREF="strmini-routines_4qib.htm"><B>StrMiniReceiveStreamDataPacket</B></A></TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>SRB_HW_FLAGS_STREAM_REQUEST bit is set for stream-specific requests (which are passed to the minidriver's <B>StrMiniReceiveStream</B><I>Xxx</I><B>Packet</B> routines). The SRB_HW_FLAGS_DATA_TRANSFER bit is set for data transfer requests (which are passed to the minidriver's 
+</DD>
+
+<DT><B>HwInstanceExtension</B></DT>
+
+<DD>Pointer to the minidriver's instance extension. The minidriver may use this buffer to record private information global to this instance of the minidriver. The minidriver sets the size of this buffer in the <A HREF="strclass-struct_4ks3.htm">HW_INITIALIZATION_DATA</A> structure it passes when it registers itself via <A HREF="strclass-routines_8bw3.htm"><B>StreamClassRegisterMinidriver</B></A>.</DD>
+
+<DT><B>NumberOfBytesToTransfer</B></DT>
+
+<DD>For a SRB_READ_DATA or SRB_WRITE_DATA request, the number of bytes to be transferred.</DD>
+
+<DT><B>ActualBytesTransferred</B></DT>
+
+<DD>For control requests, the number of bytes actually transferred. </DD>
+
+<DT><B>ScatterGatherBuffer</B></DT>
+
+<DD>Points to an array of <A NAME="ddk_ksscatter_gather_ks"></A>KSSCATTER_GATHER structures, of the form:
+
+<PRE>typedef struct {
+    PHYSICAL_ADDRESS PhysicalAddress;
+    ULONG Length;
+} KSSCATTER_GATHER, *PKSSCATTER_GATHER;</PRE>
+
+
+<P>The array describes a scatter/gather list that can be used by the minidriver to do DMA. The memory does not need to be probed, locked, mapped, or flushed — the stream class driver performs these for the minidriver.
+</DD>
+
+<DT><B>NumberOfPhysicalPages</B></DT>
+
+<DD>Specifies the size of the array passed in the <B>ScatterGatherBuffer</B> member.</DD>
+
+<DT><B>Reserved[2]</B></DT>
+
+<DD>Reserved for system use. Do not use.
+</DD>
+</DL>
+
+
+
+<H4>Headers</H4>
+
+<P>Declared in <I>strmini.h</I>. Include <I>strmini.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The stream class driver passes pointers to HW_STREAM_REQUEST_BLOCK structures to the minidriver's <A HREF="strmini-routines_4qib.htm"><B>StrMiniReceiveStreamDataPacket</B></A>, <A HREF="strmini-routines_894j.htm"><B>StrMiniReceiveStreamControlPacket</B></A>, and <A HREF="strmini-routines_5dbn.htm"><B>StrMiniReceiveDevicePacket</B></A> routines.</P>
+
+<P>The minidriver owns this stream request block until the request times out or it completes the request. The minidriver signals to the class driver that it has completed the request by calling <A HREF="strclass-routines_85yr.htm"><B>StreamClassDeviceNotification</B></A>(DeviceRequestComplete, pSrb-&gt;HwDeviceExtension, pSRB) for device-specific requests, or calling <A HREF="strclass-routines_5ygj.htm"><B>StreamClassStreamNotification</B></A>(StreamRequestComplete, pSrb-&gt;StreamObject, pSrb) for stream-specific requests. (The minidriver can also complete a request by calling <A HREF="strclass-routines_7uer.htm"><B>StreamClassCompleteRequestAndMarkQueueReady</B></A>(pSrb). See that routine for details.)</P>
+
+<P>If the class driver times out the request, it will call the minidriver's <A HREF="strmini-routines_2j03.htm"><B>StrMiniRequestTimeout</B></A> routine, which has the responsibility of terminating processing of the request. If the minidriver queues a request for later processing, it should set the <B>TimeoutCounter</B> member to zero, which will prevent the class driver from timing out the request. Once the minidriver is ready to resume processing the request, it should reset the <B>TimeoutCounter</B> member to the value of <B>TimeoutOriginal</B>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: HW_STREAM_REQUEST_BLOCK"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

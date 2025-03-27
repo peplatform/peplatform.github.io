@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProtocolSendComplete</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProtocolSendComplete">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_protocolsendcomplete_nr"></A>ProtocolSendComplete</H1>
+
+<P>The <I>ProtocolSendComplete </I>function is a required driver function. This function completes the processing of a protocol-initiated send previously passed to <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A> or <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A>, which returned NDIS_STATUS_PENDING. </P>
+
+<PRE class=syntax><B>VOID
+</B>  <B>ProtocolSendComplete(</B>
+    <B>IN NDIS_HANDLE</B>  <I>ProtocolBindingContext</I><B>,
+</B>    <B>IN PNDIS_PACKET</B>  <I>Packet</I><B>,
+</B>    <B>IN NDIS_STATUS</B> <I>Status</I>
+    <B>);</B></PRE>
+
+<P>A connection-oriented protocol that calls <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A> but never <B>NdisSendPackets</B> (nor <B>NdisSend</B>) must have a fully functional <I>ProtocolCoSendComplete</I> function, rather than a <I>ProtocolSendComplete</I> function.</P>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>ProtocolBindingContext</I></DT>
+
+<DD>Specifies the handle to a protocol-allocated context area in which the protocol driver maintains per-binding run-time state. The driver supplied this handle when it called <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A>.  </DD>
+
+<DT><I>Packet</I></DT>
+
+<DD>Pointer to the protocol-supplied packet descriptor for the completed send. </DD>
+
+<DT><I>Status</I></DT>
+
+<DD>Specifies the final status of the send operation. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><I>ProtocolSendComplete</I> performs whatever postprocessing is necessary for a completed transmit operation, such as notifying the client that originally requested the protocol to send data over the network. </P>
+
+<P>Completion of a send operation usually implies that the underlying NIC driver actually has transmitted the given packet over the network. However, the driver of a so-called intelligent NIC can consider a send complete as soon as it downloads the net packet to its NIC. The underlying driver’s call to <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A> or <A HREF="103ndisx_7x0y.htm"><B>NdisMWanSendComplete</B></A> causes NDIS to call the <I>ProtocolSendComplete</I> function. </P>
+
+<P>When <I>ProtocolSendComplete</I> is called, the driver regains ownership of the following protocol-allocated resources:
+
+<UL>
+	<LI>The packet descriptor at <I>Packet</I> </LI>
+
+	<LI>All buffer descriptors chained to the packet descriptor that map buffers containing the net packet data and any protocol-allocated buffers mapped by these descriptors</LI>
+
+	<LI>Any out-of-band block associated with the packet descriptor</LI>
+
+	<LI>Any protocol-allocated buffer specified in the out-of-band block at <B>MediaSpecificInformation</B> </LI>
+</UL>
+
+<P>Consequently, <I>ProtocolSendComplete</I> can either release these resources or prepare them for reuse in a subsequent call to <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A> or <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A>. As a general rule, reusing such resources yields better performance than releasing them except, possibly, in periods of low network traffic if the protocol previously allocated a surplus of these resources to handle a period of heavy I/O demand. </P>
+
+<P>To prepare the buffer and packet descriptors for reuse, <I>ProtocolSendComplete</I> should follow these guidelines:
+
+<UL>
+	<LI><I>Always</I> call an <B>NdisUnchainBufferAt</B><I>Xxx</I> function as many times as necessary to save the buffer descriptor pointers before <I>ProtocolSendComplete</I> calls <A HREF="103ndisx_87hu.htm"><B>NdisReinitializePacket</B></A> with the descriptor at <I>Packet</I>. 
+<P>Otherwise, <B>NdisReinitializePacket</B> sets the head of the buffer chain to NULL so the protocol cannot recover pointers to the buffer descriptors chained to the packet descriptor. Either the protocol loses MDL(s) mapping client-supplied buffer(s) or it loses a set of buffer descriptors the protocol allocated with <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A>. 
+</LI>
+
+	<LI><I>Always</I> pass the pointer returned by NDIS_OOB_DATA_FROM_PACKET to <A HREF="103ndisx_1ype.htm"><B>NdisZeroMemory</B></A> to clear an associated out-of-band data block, <I>never</I> the <I>Packet</I> pointer. 
+<P>Otherwise, <B>NdisZeroMemory</B> destroys the packet descriptor the protocol allocated with <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, rendering it unusable for specifying subsequent sends. 
+
+<P>As an alternative to clearing the out-of-band block, the protocol can reinitialize only those members that the protocol normally sets up for sends with the appropriate NDIS_SET_PACKET_<I>XXX</I> macros. 
+</LI>
+</UL>
+
+<P>Until <I>ProtocolSendComplete </I>is called, the current status of a protocol-initiated send is volatile. A protocol temporarily releases ownership of all resources it allocated for a send when it calls <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A> or <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A>, even if the protocol supplies out-of-band information with the packet descriptors it allocates for sends. In particular, a protocol should <I>never</I> attempt to examine the <B>Status</B> member of the associated out-of-band data block when <B>NdisSendPackets</B> or <B>NdisSend</B> returns control. </P>
+
+<P>Although NDIS always submits protocol-supplied packet arrays to the underlying miniport driver in the protocol-determined order passed in calls to <B>NdisSendPackets</B>, the underlying driver can complete the given packets in random order. That is, every bound protocol can rely on NDIS to submit the packets the protocol passes to <B>NdisSendPackets</B> or <B>NdisSend</B> in FIFO order to the underlying driver, but no protocol can rely on that underlying driver to call <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A> with those packets in the same order.  </P>
+
+<P><I>ProtocolSendComplete</I> runs at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_7svm.htm"><I>MiniportSend</I></A>, <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A>, <A HREF="101mini_7oj6.htm"><I>MiniportWanSend</I></A>, <A HREF="103ndisx_39pu.htm"><B>NdisAllocateBuffer</B></A>, <A HREF="103ndisx_7d6a.htm"><B>NdisAllocatePacket</B></A>, <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>, <A HREF="103ndisx_044y.htm"><B>NdisFreeBuffer</B></A>, <A HREF="103ndisx_47le.htm"><B>NdisFreePacket</B></A>, <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A>, <A HREF="103ndisx_43qq.htm">NDIS_OOB_DATA_FROM_PACKET</A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="103ndisx_87hu.htm"><B>NdisReinitializePacket</B></A>, <A HREF="103ndisx_6rxu.htm">NDIS_SET_PACKET_MEDIA_SPECIFIC_INFO</A>, <A HREF="103ndisx_9fg2.htm">NDIS_SET_PACKET_TIME_TO_SEND</A>, <A HREF="103ndisx_9vci.htm"><B>NdisUnchainBufferAtBack</B></A>, <A HREF="103ndisx_30mq.htm"><B>NdisUnchainBufferAtFront</B></A>, <A HREF="103ndisx_1ype.htm"><B>NdisZeroMemory</B></A>, <A HREF="104tdlow_2t4i.htm"><I>ProtocolCoSendComplete</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProtocolSendComplete"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

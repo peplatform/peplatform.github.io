@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>One-to-Many ID Mapping</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="One-to-Many ID Mapping">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_one_to_many_id_mapping_ng"></A>One-to-Many ID Mapping</H3>
+
+<P><B>Note:</B> vendor-supplied network upgrades are not supported in Windows XP (SP1 and later), Windows Server 2003, and later operating systems.</P>
+
+<P>A one-to-many ID mapping maps a single preupgrade ID that represents more than one network adapter. The only way to differentiate the adapters associated with a single preupgrade ID is to inspect the values under the registry key that contains the parameter values for the network adapter instance.</P>
+
+<P>An entry in an <B>OemAdapters</B> or <B>OemAsyncAdapters </B>section that specifies a one-to-many ID mapping has the following format:</P>
+
+<P class=indent1><I>preupgrade-ID</I>=<I>mapping-method-number</I>,<I>section-name</I></P>
+
+<P class=indent1>where:</P>
+
+<P class=indent1><I>mapping-method-number</I> must be 0</P>
+
+<P class=indent1><I>section-name </I>specifies a section in the <I>netmap.inf</I> file that contains the mapping information</P>
+
+<P>The <I>netmap.inf</I> file section specified by <I>section-name </I>contains the following entries:</P>
+
+<P class=indent1><B>ValueName<I>=</I></B>“<I>Name</I>"</P>
+
+<P class=indent1>Specifies the value that NetSetup reads under the registry key that contains the parameter values for the network adapter instance. <I>Name</I> identifies a particular network adapter.</P>
+
+<P class=indent1><B>ValueType<I>=</I></B><I>Type</I></P>
+
+<P class=indent1>Specifies the registry value type for <I>ValueName</I>. <I>Type</I> is an integer that corresponds to a specific registry type.</P>
+
+<P class=indent1><I>ValueName</I>=<I>postupgrade-ID</I></P>
+
+<P class=indent1><I>ValueName</I> is the value that NetSetup reads under the registry key that contains the parameter values for the network adapter instance. <I>postupgrade-ID</I> is the Windows&nbsp;2000 or later device ID for the adapter. One <I>ValueName</I> entry should be provided for each adapter type that will be upgraded. If <I>ValueName</I> is set to the keyword <B>ValueNotPresent</B> and if NetSetup finds no parameters values for the adapter instance, NetSetup uses the <I>postuprgrade-ID</I> associated with <B>ValueNotPresent</B> for the adapter.</P>
+
+<P>The following example shows a one-to-many device ID mapping:</P>
+
+<PRE>[OemAdapters]
+DATAFIREU=0, DATAFIREU
+
+[DATAFIREU]
+ValueName            = "BoardType"
+ValueType            = 1
+DataFireIsaU        = "DATAFIRE - ISA1U"
+DataFireIsa1ST    = "DATAFIRE - ISA1ST"
+DataFireIsa4ST    = "DATAFIRE - ISA4ST"
+DataFireIsaGeneric = "ValueNotPresent"</PRE>
+
+<P>The <B>OemAdapters</B> section in the above example contains a single entry that identifies the preupgrade device ID of the network adapter as DATAFIREU and specifies that the <B>DATAFIREU</B> section of the <I>netmap.inf</I> file contains the mapping information for this adapter.</P>
+
+<P>The <B>DATAFIREU</B> section contains the following information:
+
+<UL>
+	<LI>The <B>ValueName</B> entry directs NetSetup to look for the <B>BoardType</B> value under the <B>Parameters</B> key of the network adapter instance.</LI>
+
+	<LI>The <B>ValueType</B> entry, which is set to 1, specifies that the <B>BoardType</B> value is a DWORD.</LI>
+
+	<LI>Each remaining value specifies a preupgrade device ID and a corresponding Windows&nbsp;2000 or later ID. For example, the ID for the DataFireIsaU board type is <B>DATAFIRE - ISA1U</B>. The <B>ValueNotPresent</B> keyword can be specified instead of a preupgrade ID.</LI>
+</UL>
+
+<P>NetSetup performs a one-to-many ID mapping as follows:
+
+<OL>
+	<LI>NetSetup reads the specified ValueName under the registry key that contains the parameter values for the network adapter instance. </LI>
+
+	<LI>NetSetup attempts to match the ValueName with one of the ValueNames listed in the specified section of the netmap.inf file. If no ValueName is listed under the registry key, NetSetup attempts to find the ValueNotPresent keyword in the specified section of the netmap.inf file.</LI>
+
+	<LI>If NetSetup finds a match, it installs the network adapter, using the INF file that has the same name as the mapped Windows&nbsp;2000 or later ID.</LI>
+</OL>
+
+<P>If the registry keys or values for an adapter instance are identical for different adapter types, it is not possible to map a single preupgrade device ID to more than one Windows&nbsp;2000 or later device ID without first modifying these registry keys or values. </P>
+
+<P>The most effective way of handling this situation is as follows:
+
+<OL>
+	<LI>The network migration DLL's <A HREF="upgrade_3jzm.htm"><B>PreUpgradeInitialize</B></A> function modifies the registry so that the registry contains unique values for each instance of the network adapter. These unique values should indicate the adapter type.</LI>
+
+	<LI>The <B>PreUpgradeInitialize</B> function sets the NUA_REQUEST_ABORT_UPGRADE flag, which causes NetSetup to display a message that prompts the user to restart winnt32.exe and abort the upgrade.</LI>
+
+	<LI>The user aborts the upgrade and then restarts winnt32.exe. The network migration DLL can now use the unique values to map the single preupgrade device ID to more than one Windows&nbsp;2000 or later device ID.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: One-to-Many%20ID%20Mapping"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

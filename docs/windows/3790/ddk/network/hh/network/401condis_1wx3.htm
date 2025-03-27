@@ -1,0 +1,40 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Activating a VC</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Activating a VC">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_activating_a_vc_ng"></A>Activating a VC</H3>
+
+<P>After a virtual connection (VC) has been created (see <A HREF="401condis_0t47.htm">Creating a VC</A>), it must be activated before data can be transmitted and/or received on it. A call manager initiates the activation of a VC by calling <A HREF="103ndisx_3zzm.htm"><B>NdisCmActivateVc</B></A> (see the following figure). </P>
+
+<P><IMG SRC="images/cm_07.gif" ALT="" BORDER=0></P>
+
+<P><B>Call Manager Initiates VC Activation</B></P>
+
+<P>An MCM driver initiates the activation of a VC by calling <A HREF="103ndisx_2xde.htm"><B>NdisMCmActivateVC</B></A> (see the following figure).</P>
+
+<P><IMG SRC="images/fig1_07.gif" ALT="" BORDER=0></P>
+
+<P><B>MCM Driver Initiates VC Activation</B></P>
+
+<P>A call manager or MCM driver could initiate reactivation of an active VC if the local client or a remote party successfully negotiates a change in call parameters on that VC (see <A HREF="401condis_1j6v.htm">Client-Initiated Request to Close a Call</A> and <A HREF="401condis_16qv.htm">Incoming Request to Change Call Parameters</A>). The call manager or MCM driver can call <B>Ndis(M)CmActivateVc</B> many times for a single VC to change the call parameters for an already active call.</P>
+
+<P>For a client-initiated outgoing call, a call manager or an MCM driver usually calls <B>Ndis(M)CmActivateVc</B> immediately following the packet exchange confirming a negotiated agreement with the remote target of the call or successful call-setup at the switch. The call manager or MCM driver calls <B>Ndis(M)CmActivateVc</B> before it notifies NDIS (and the client) of outgoing call completion with <B>Ndis(M)CmMakeCallComplete</B> (see <A HREF="401condis_69yf.htm">Making a Call</A>). For an incoming call, a call manager or MCM driver usually calls <B>Ndis(M)CmActivateVc</B> after it has called <B>NdisCo(MCm)CreateVc</B> successfully and before it calls <B>Ndis(M)CmDispatchIncomingCall</B> (see <A HREF="401condis_3tyf.htm">Indicating an Incoming Call</A>).</P>
+
+<P>A call manager's call to <B>NdisCmActivateVc</B> causes NDIS to call the <A HREF="101mini_7piq.htm"><I>MiniportCoActivateVc</I></A> function of the underlying miniport driver. <I>MiniportCoActivateVc</I> must validate the call parameters for this VC to verify that the adapter can support the requested call. If the call parameters are acceptable, <I>MiniportCoActivateVc</I> communicates with its adapter as necessary to prepare the adapter to receive or transmit data across the virtual connection (for example, programming receive buffers). If the requested call parameters cannot be supported, the miniport driver fails the request.</P>
+
+<P><I>MiniportCoActivateVc</I> can complete synchronously or asynchronously. The call to <A HREF="103ndisx_5g8i.htm"><B>NdisMCoActivateVcComplete</B></A>. causes NDIS to call the call manager's <A HREF="104tdlow_5aeq.htm"><I>ProtocolCmActivateVcComplete</I></A> function. <I>ProtocolCmActivateVcComplete</I> must check the status returned by <B>NdisMCoActivateVcComplete</B> to ensure that the virtual connection has been activated successfully. If the miniport driver did not successfully activate the VC, the call manager <I>must not</I> attempt to communicate over the VC. <I>ProtocolCmActivateVcComplete</I> must also complete any processing required by the network media to ensure that the virtual connection is ready for data transmission before returning control to NDIS.</P>
+
+<P>An MCM driver's call to <B>NdisMCmActivateVc</B> informs NDIS that it has set up call and media parameters on a newly created VC or changed the call parameters on an established VC. This notifies NDIS that the MCM driver has made its NIC ready for transfers on the VC. NDIS completes the activation sequence by calling the MCM driver's <I>ProtocolCmActivateVcComplete</I> function.</P>
+
+<P>An MCM driver calls <B>NdisMCmActivateVc</B> to activate only VCs used for transmitting and/or receiving client data, but not to activate VCs used for exchanging signaling messages between the MCM driver and network components such as a switch. An MCM driver activates a signaling VC internally without calling any <B>Ndis</B><I>Xxx </I>function. Any VC that an MCM driver sets up for its own signaling purposes is therefore opaque to NDIS.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Activating%20a%20VC"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

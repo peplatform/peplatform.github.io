@@ -1,0 +1,147 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling Socket Options and Control Codes for a SAN</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling Socket Options and Control Codes for a SAN">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_handling_socket_options_and_control_codes_for_a_san_ng"></A>Handling Socket Options and Control Codes for a SAN</H2>
+
+<P>The Windows Sockets switch, in conjunction with the TCP/IP provider, handles most <B>WSPGetSockOpt</B><I>, </I><B>WSPSetSockOpt</B>, and<I> </I><B>WSPIoctl</B> calls initiated by applications. These requests are generally to set and retrieve options and operating parameters associated with an application's socket. The switch does not generally forward these calls to a SAN service provider except as described in the following sections. </P>
+
+<H4>Retrieving SAN socket options</H4>
+
+<P>The Windows Sockets switch calls a SAN service provider's <A HREF="wsdpref_1o4y.htm"><B>WSPGetSockOpt</B></A> function and passes one of the following socket options to retrieve the current value of that option, if the SAN service provider supports that option: 
+
+<DL>
+<DT>SO_DEBUG</DT>
+
+<DD>SAN service providers are not required to support this option. They are encouraged, but not required, to supply output debug information if applications set the SO_DEBUG option. </DD>
+
+<DT>SO_MAX_MSG_SIZE</DT>
+
+<DD>A SAN service provider must support this option if the underlying SAN transport is message-oriented and the transport limits the amount of data that the switch can send in a call to the SAN service provider's <A HREF="wsdpref_6rqq.htm"><B>WSPSend</B></A> function. The switch does not subsequently pass send requests to the SAN service provider that exceed the size that the SAN service provider returns for the value of this option. </DD>
+
+<DT>SO_MAX_RDMA_SIZE</DT>
+
+<DD>A SAN service provider must support this option if the underlying SAN transport limits the amount of data that the switch can transfer in calls to either the SAN service provider's <A HREF="wsdpref_7soi.htm"><B>WSPRdmaRead</B></A> or <A HREF="wsdpref_7c6q.htm"><B>WSPRdmaWrite</B></A> function. The switch does not subsequently pass RDMA transfer requests to the SAN service provider that exceed the size that the SAN service provider returns for the value of this option. </DD>
+
+<DT>SO_RDMA_THRESHOLD_SIZE</DT>
+
+<DD>A SAN service provider supports this option to indicate its preference for the minimum amount of data that the switch can transfer in calls to either the SAN service provider's <B>WSPRdmaRead</B> or <B>WSPRdmaWrite</B> function. However, the switch can set the actual threshold to a value different from the value returned by the SAN service provider. The switch subsequently calls the <B>WSPRdmaRead</B> or <B>WSPRdmaWrite</B> function to transfer data blocks (RDMA transfers) that exceed the size of this threshold and the <B>WSPSend</B> or <B>WSPRecv</B> function to transfer data blocks (message-oriented transfers) that are less than or equal to the size of this threshold. </DD>
+
+<DT>SO_GROUP_ID, SO_GROUP_PRIORITY</DT>
+
+<DD>A SAN service provider must support these options if it supports quality of service (QOS). Otherwise, the switch forwards these options to the TCP/IP provider, which maintains default values. A SAN service provider indicates that it supports QOS by setting the XP1_QOS_SUPPORTED bit in the <B>dwServiceFlags</B> member of the WSAPROTOCOL_INFO structure. 
+</DD>
+</DL>
+
+<H4>Setting SAN socket options</H4>
+
+<P>The Windows Sockets switch calls a SAN service provider's <A HREF="wsdpref_6fea.htm"><B>WSPSetSockOpt</B></A> function and passes one of the following socket options to set a value for that option, if the SAN service provider supports that option: 
+
+<DL>
+<DT>SO_DEBUG</DT>
+
+<DD>For a description of this socket option, see the preceding list. </DD>
+
+<DT>SO_GROUP_PRIORITY</DT>
+
+<DD>For a description of this socket option, see the preceding list. 
+</DD>
+</DL>
+
+<H4>Accessing SAN socket information</H4>
+
+<P>The Windows Sockets switch calls a SAN service provider's <A HREF="wsdpref_1b3m.htm"><B>WSPIoctl</B></A> function and passes one of the following control codes to set or retrieve information for that SAN service provider, if the SAN service provider supports that control code: 
+
+<DL>
+<DT>SIO_GET_EXTENSION_FUNCTION_POINTER</DT>
+
+<DD>Retrieves a pointer to an extension function that a SAN service provider must support. For more information on extension functions, see <A HREF="wsdp_4acn.htm">Windows Sockets SPI Extensions for SANs</A>. The input buffer of the <B>WSPIoctl</B> call contains the GUID whose value identifies the specified extension function. The SAN service provider returns the pointer to the requested function in <B>WSPIoctl</B>'s output buffer. The following table contains GUIDs for extension functions that a SAN service provider can support:
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=59%>Extension function</TH>
+<TH align=left width=41%>GUID</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=59%><A HREF="wsdpref_62gi.htm"><B>WSPRegisterMemory</B></A></TD>
+<TD width=41%>{C0B422F5-F58C-11d1-AD6C-00C04FA34A2D}</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=59%><A HREF="wsdpref_4b1u.htm"><B>WSPDeregisterMemory</B></A></TD>
+<TD width=41%>{C0B422F6-F58C-11d1-AD6C-00C04FA34A2D}</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=59%><A HREF="wsdpref_0sj6.htm"><B>WSPRegisterRdmaMemory</B></A></TD>
+<TD width=41%>{C0B422F7-F58C-11d1-AD6C-00C04FA34A2D}</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=59%><A HREF="wsdpref_76gi.htm"><B>WSPDeregisterRdmaMemory</B></A></TD>
+<TD width=41%>{C0B422F8-F58C-11d1-AD6C-00C04FA34A2D}</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=59%><A HREF="wsdpref_7c6q.htm"><B>WSPRdmaWrite</B></A></TD>
+<TD width=41%>{C0B422F9-F58C-11d1-AD6C-00C04FA34A2D}</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=59%><A HREF="wsdpref_7soi.htm"><B>WSPRdmaRead</B></A></TD>
+<TD width=41%>{C0B422FA-F58C-11d1-AD6C-00C04FA34A2D}</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=59%><A HREF="wsdpref_1v5e.htm"><B>WSPMemoryRegistrationCacheCallback</B></A></TD>
+<TD width=41%>{E5DA4AF8-D824-48CD-A799-6337A98ED2AF}</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT>SIO_GET_QOS, SIO_GET_GROUP_QOS, SIO_SET_QOS, SIO_SET_GROUP_QOS</DT>
+
+<DD>A SAN service provider must support these control codes if it supports QOS. Otherwise, the switch forwards these options to the TCP/IP provider, which maintains default values. A provider indicates that it supports QOS by setting the XP1_QOS_SUPPORTED bit in the <B>dwServiceFlags</B> member of the WSAPROTOCOL_INFO structure. </DD>
+
+<DT>SIO_ADDRESS_LIST_QUERY</DT>
+
+<DD>Retrieves the list of local IP addresses that are assigned to the network interface cards (NICs) that the SAN service provider controls. The SAN service provider uses a SOCKET_ADDRESS_LIST structure, defined as follows, to return the list in <B>WSPIoctl</B>'s output buffer: 
+
+<PRE>typedef struct _SOCKET_ADDRESS_LIST {
+    INT             iAddressCount; 
+    SOCKET_ADDRESS  Address[1]; 
+} SOCKET_ADDRESS_LIST, FAR * LPSOCKET_ADDRESS_LIST;</PRE>
+
+
+<P>The members of this structure contain the following information: 
+
+
+<DL>
+<DT><B>iAddressCount</B></DT>
+
+<DD>Specifies the number of address structures in the list. </DD>
+
+<DT><B>Address</B></DT>
+
+<DD>Array of IP address structures. </DD>
+</DL>
+
+
+<P>The switch uses this IOCTL code internally to decide whether to use a given SAN service provider to execute an application’s requests to make connections or to listen for incoming connections. The switch forwards actual application requests for the list of local IP addresses to the TCP/IP provider. The switch also uses the TCP/IP provider to detect changes in address lists that all SAN service providers service. After TCP/IP reports a change, the switch queries all SAN service providers to refresh their lists. 
+
+</DD>
+</DL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20Socket%20Options%20and%20Control%20Codes%20for%20a%20SAN"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,79 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Allocating the Bus-Master Adapter Object</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_allocating_the_bus_master_adapter_object_kg"></A>Allocating the Bus-Master Adapter Object</H4>
+
+<P>To prepare for packet-based, bus-master DMA, a driver calls <A HREF="k105_6asy.htm"><B>KeFlushIoBuffers</B></A> and <A HREF="kdma_92r6.htm"><B>AllocateAdapterChannel</B></A> after receiving an IRP_MJ_READ or IRP_MJ_WRITE. Before the driver calls these routines, its dispatch routine should check the validity of the IRP's parameters. It might also queue the IRP to another driver routine for further processing. The transfer request is the current IRP requiring a device I/O operation. </P>
+
+<P>The driver routine that calls <B>AllocateAdapterChannel</B> must be executing at IRQL DISPATCH_LEVEL. Along with a pointer to the adapter object returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A>, a driver must supply the following when it calls <B>AllocateAdapterChannel</B>:
+
+<UL>
+	<LI>A pointer to the target device object for the current IRP</LI>
+
+	<LI>The entry point for its <I>AdapterControl</I> routine</LI>
+
+	<LI>A pointer to any driver-determined context information the <I>AdapterControl</I> routine will use</LI>
+</UL>
+
+<P><B>AllocateAdapterChannel</B> queues the driver's <I>AdapterControl</I> routine, which runs when the adapter object is free and a set of <A HREF="memmgmt_5ag7.htm">map registers</A> has been allocated for the driver's DMA operations to or from the target device.</P>
+
+<P>On entry, an <I>AdapterControl</I> routine is given the <I>DeviceObject</I> and <I>Context</I> pointers passed in the call to <B>AllocateAdapterChannel</B>, as well as a handle (<I>MapRegisterBase</I>) for the allocated map registers. </P>
+
+<P>The <I>AdapterControl</I> routine also is given a pointer to the <B>DeviceObject-&gt;CurrentIrp</B> if the driver has a <I>StartIo</I> routine. If the driver manages its own queuing of IRPs instead of having a <I>StartIo</I> routine, the driver should include a pointer to the current IRP as part of the context it passes when it calls <B>AllocateAdapterChannel</B>.</P>
+
+<P>For the driver of a bus-master DMA device <I>without</I> scatter/gather capabilities, the <I>AdapterControl</I> routine usually does the following:
+
+<OL>
+	<LI>Saves or initializes whatever context the driver maintains about DMA operations. The context might include the input <I>MapRegisterBase</I> handle the driver must pass to <A HREF="kdma_1hv6.htm"><B>MapTransfer</B></A> and <A HREF="kdma_9cxe.htm"><B>FlushAdapterBuffers</B></A>, the <B>Length</B> in bytes of the requested transfer from its I/O stack location in the IRP, and so forth</LI>
+
+	<LI>Calls <A HREF="k106_5nhu.htm"><B>MmGetMdlVirtualAddress</B></A> followed by <B>MapTransfer</B> (described in <A HREF="iputoput_5vzb.htm">Setting Up a Transfer Operation</A>, next) to get the logical address its device can use to start the transfer operation</LI>
+
+	<LI>Sets up the bus-master adapter to start the transfer operation</LI>
+
+	<LI>Returns the value <B>DeallocateObjectKeepRegisters</B></LI>
+</OL>
+
+<P>For the driver of a bus-master device <I>with</I> scatter/gather capabilities, the <I>AdapterControl</I> routine usually does the following:
+
+<OL>
+	<LI>Saves or initializes whatever state the driver maintains about DMA operations, such as saving the <I>MapRegisterBase</I> handle the driver must pass to <B>MapTransfer</B> and <B>FlushAdapterBuffers</B>, the <B>Length</B> in bytes of the requested transfer from its I/O stack location in the IRP, and so forth</LI>
+
+	<LI>Calls <B>MmGetMdlVirtualAddress</B> followed by <B>MapTransfer</B> (described in the next subsection) to get the logical address its device can use to start the transfer operation
+<P>The <I>AdapterControl</I> routine calls <B>MapTransfer</B> repeatedly until it has used all the available map registers to build a scatter/gather list for the bus-master adapter.
+</LI>
+
+	<LI>Sets up the bus-master adapter to start the transfer operation</LI>
+
+	<LI>Returns the value <B>DeallocateObjectKeepRegisters</B></LI>
+</OL>
+
+<P>For additional information, see <A HREF="iputoput_1msn.htm">Writing <I>AdapterControl</I> Routines</A>.</P>
+
+<P>Note that drivers that perform bus-master DMA can use the <A HREF="kdma_0pbm.htm"><B>GetScatterGatherList</B></A> and <A HREF="kdma_5u42.htm"><B>PutScatterGatherList</B></A> routines whether or not their devices support scatter/gather DMA. Using these routines changes the requirements for the driver's <I>AdapterControl</I> routine; see <A HREF="iputoput_7nhj.htm">Using Scatter/Gather DMA</A> for details.</P>
+
+<P>An <I>AdapterControl</I> routine must return a system-defined value of type IO_ALLOCATION_ACTION. For drivers that use bus-master DMA, the <I>AdapterControl</I> routine should typically return the value <B>DeallocateObjectKeepRegisters</B>, which allows the driver to retain the allocated map registers for the target device object until it has transferred all the requested data for the current IRP. After the transfer is complete, the DPC routine should call <A HREF="kdma_5rqq.htm"><B>FreeMapRegisters</B></A> to free the allocated map registers. In cases where the device does not support command queuing, however, the <I>AdapterControl</I> routine can return <B>KeepObject</B> when the transfer for the current IRP is complete, and the DPC routine can call <A HREF="kdma_3bua.htm"><B>FreeAdapterChannel</B></A> instead.</P>
+
+<P>An <I>AdapterControl</I> routine cannot wait for the bus-master adapter to complete a DMA operation. </P>
+
+<P>Whether or not the bus-master adapter supports scatter/gather, the <I>AdapterControl</I> routine must at least do the following:
+
+<OL>
+	<LI>Save necessary context information — particularly the <I>MapRegisterBase</I> handle — in the driver's device extension, controller extension, or other driver-accessible resident storage area (nonpaged pool, allocated by the driver). The driver must pass this handle when it calls <B>MapTransfer</B> and <B>FlushAdapterBuffers</B>.</LI>
+
+	<LI>Return <B>DeallocateObjectKeepRegisters</B>.</LI>
+</OL>
+
+<P>Another driver routine (probably the <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A><I> </I>routine) must call <B>FlushAdapterBuffers</B> when each DMA transfer operation is done. This routine also must set up any additional DMA operations necessary to satisfy the current IRP.</P>
+
+<P>When the driver has satisfied the current IRP's transfer request or must fail the IRP due to a device or bus I/O error, it must call <B>FreeMapRegisters</B>. This call should occur immediately following the last call to <B>FlushAdapterBuffers</B> for the current IRP, so that the driver can service other DMA requests, possibly for other devices on the bus.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Allocating%20the%20Bus-Master%20Adapter%20Object"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

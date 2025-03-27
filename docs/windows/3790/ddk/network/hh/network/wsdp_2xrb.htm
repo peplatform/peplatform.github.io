@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Installing a SAN Service Provider</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Installing a SAN Service Provider">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_installing_a_san_service_provider_ng"></A>Installing a SAN Service Provider</H3>
+
+<P>A SAN service provider is typically installed as a base Windows Sockets service provider that interfaces with the Windows Sockets switch. Although a SAN service provider can be installed for direct use by an application instead, the Windows Sockets Direct technology does not support using a SAN service provider in this manner. A SAN service provider that is installed for direct use by an application exports its native address family and protocol characteristics rather than those of TCP/IP protocol. </P>
+
+<P>A SAN service provider that is indirectly exposed to applications through the Windows Sockets switch must set the PFL_HIDDEN flag in the <B>dwProviderFlags</B><I> </I>member of the SAN service provider's <A HREF="wsdpref_0bg2.htm">WSAPROTOCOL_INFOW</A> structure. To install the SAN service provider on the operating system, the SAN service provider's installation mechanism passes this structure in a call to the <B>WSCInstallProvider</B> function. For more information on <B>WSCInstallProvider</B>, see the Platform SDK documentation. The SAN service provider's installation mechanism can be for example, a setup program or a function exported by the SAN service provider and called by a INF file directive.</P>
+
+<P>The SAN service provider's installation mechanism must add a value of type REG_BINARY to the following key in the registry before the SAN service provider can be detected by the Windows Sockets switch as a base Windows Sockets service provider:</P>
+
+<PRE>HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\Winsock\
+Parameters\TCP on SAN</PRE>
+
+<P>This value contains the binary representation of the value in the <B>ProviderId</B> member from the WSAPROTOCOL_INFOW structure. This value registers a SAN service provider with the Windows Sockets switch. This member contains the globally unique identifier (GUID) that the vendor assigned to the SAN service provider. </P>
+
+<P>The vendor can also assign a unique name that represents this GUID, for example:
+
+<UL>
+	<LI>Trademarked name of the product</LI>
+
+	<LI>Unique numeric value</LI>
+
+	<LI>Textual representation of the GUID</LI>
+</UL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To register a SAN service provider</B>
+
+<OL>
+	<LI>The switch calls the <B>WSAProviderConfigChange</B> function to detect Windows Sockets provider installation and removal events. </LI>
+
+	<LI>After a new Windows Sockets service provider is installed, the switch calls the <B>WSCEnumProtocols</B> function to query the Windows Sockets catalog and the list of SAN service providers in the registry to determine whether the new service provider controls a SAN. For more information on <B>WSCEnumProtocols</B>, see the Platform SDK. </LI>
+
+	<LI>If the switch detects a new SAN service provider, the switch initializes that service provider as described in <A HREF="wsdp_7izr.htm">Initializing a SAN Service Provider</A>. </LI>
+
+	<LI>The switch also calls the following functions of the newly installed SAN service provider after the SAN service provider is initialized to service any existing listening sockets bound to the wildcard IP address (0.0.0.0) (the wildcard IP address implies that the SAN service provider should accept incoming connection requests from all NICs it controls):
+<DL>
+<DT><B>WSPSocket</B></DT>
+
+<DD>Creates a socket </DD>
+
+<DT><B>WSPBind</B></DT>
+
+<DD>Binds the socket to the wildcard IP address </DD>
+
+<DT><B>WSPListen</B></DT>
+
+<DD>Sets the socket to acknowledge and queue incoming connection requests until accepted by the switch
+</DD>
+</DL>
+</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Installing%20a%20SAN%20Service%20Provider"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

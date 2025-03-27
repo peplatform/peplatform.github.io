@@ -1,0 +1,51 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Epilog Code for AMD 64 Bit</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_epilog_code_for_amd_64_bit_kg"></A>Epilog Code for AMD 64 Bit</H4>
+
+<P>Each exit to a function contains epilog code. Whereas there is typically only one prolog, there can be many epilogs. Epilog code trims the stack to its fixed allocation size if necessary, releases the fixed stack allocation, restores nonvolatile registers by popping their saved values from the stack, and returns.</P>
+
+<P>The epilog code must follow a strict set of rules in order for the unwind code to reliably unwind through exceptions and interrupts. This reduces the amount of unwind data required as no extra data is required to describe each epilog. Instead, the unwind code can determine that an epilog is being executed by scanning forward through a code stream to identify an epilog.</P>
+
+<P>If no frame pointer is used in the function, then the epilog must first release the fixed part of the stack, the nonvolatile registers are popped, and control is returned to the calling function. For instance, the following is example code for an epilog when no frame pointer is used in the function:</P>
+
+<PRE>add   RSP, fixed-allocation-size
+pop   R13
+pop   R14
+pop   R15
+ret</PRE>
+
+<P>If a frame pointer is used in the function, then the stack must be trimmed to its fixed allocation prior to the execution of the epilog. This is technically not part of the epilog. For instance, the following epilog could be used to undo the prolog used in <A HREF="64bitamd_6zs7.htm">Prolog Code for AMD 64 Bit</A>:</P>
+
+<PRE>lea   RSP, -128[R13]
+; epilogue proper starts here
+add   RSP, fixed-allocation-size
+pop   R13
+pop   R14
+pop   R15
+ret</PRE>
+
+<P>In practice, when a frame pointer is used, adjusting RSP in two steps is not necessary. Thus, the following epilog would be used instead:</P>
+
+<PRE>lea   RSP, fixed-allocation-size – 128[R13]
+pop   R13
+pop   R14
+pop   R15
+ret</PRE>
+
+<P>The preceding examples are the only valid forms for an epilog. An epilog must consist of either an “add RSP,constant” or “lea RSP,constant[FPReg]” followed by a series of zero or more 8-byte register pops and a return. No other code can appear. In particular, nothing can be scheduled within an epilog, including loading of a return value.</P>
+
+<P>Note that when a frame pointer is not used, the epilog must use “add RSP,constant” to release the fixed part of the stack. The epilog cannot use “lea RSP,constant[RSP]” instead. This restriction exists so the unwind code has fewer patterns to recognize when searching for epilogs.</P>
+
+<P>Following these rules allows the unwind code to determine that an epilog is currently being executed, and to simulate execution of the remainder of the epilog to allow recreating the context of the calling function.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Epilog%20Code%20for%20AMD%2064%20Bit"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

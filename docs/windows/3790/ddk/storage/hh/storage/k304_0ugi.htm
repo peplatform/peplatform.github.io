@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TapeMiniSetPosition</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TapeMiniSetPosition">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tapeminisetposition_kr"></A>TapeMiniSetPosition</H1>
+
+<P><I>TapeMiniSetPosition</I> handles the device-specific aspects of an <A HREF="k307_2hir.htm">IOCTL_TAPE_SET_POSITION</A> request. This routine is required.</P>
+
+<PRE class=syntax><B>TAPE_STATUS 
+  TapeMiniSetPosition(
+    IN OUT PVOID</B>  <I>MinitapeExtension</I>  <B>OPTIONAL,</B>
+<B>    IN OUT PVOID</B>  <I>CommandExtension</I>  <B>OPTIONAL,</B>
+<B>    IN OUT PVOID</B>  <I>CommandParameters</I><B>,</B>
+<B>    IN OUT PSCSI_REQUEST_BLOCK </B> <I>Srb</I><B>,</B>
+<B>    IN ULONG </B> <I>CallNumber</I><B>,</B>
+<B>    IN TAPE_STATUS</B>  <I>StatusOfLastCommand</I>  <B>OPTIONAL,</B>
+<B>    IN OUT PULONG </B> <I>RetryFlags</I>  <B>OPTIONAL</B>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>MinitapeExtension</I></DT>
+
+<DD>Pointer to the driver-specific minitape extension. This is NULL if the miniclass driver did not request a minitape extension when it initialized.</DD>
+
+<DT><I>CommandExtension</I></DT>
+
+<DD>Pointer to the command extension. This is NULL if the miniclass driver did not request a command extension when it initialized.</DD>
+
+<DT><I>CommandParameters</I></DT>
+
+<DD>Pointer to a buffer that contains a <A HREF="k306_0pbn.htm">TAPE_SET_POSITION</A> structure that indicates the tape position. </DD>
+
+<DT><I>Srb</I></DT>
+
+<DD>Pointer to an SRB allocated and partially filled in by the tape class driver. <I>TapeMiniSetPosition</I> must fill in the CDB in the SRB. <I>TapeMiniSetPosition</I> might fill in other SRB members, depending on the requirements of its devices.</DD>
+
+<DT><I>CallNumber</I></DT>
+
+<DD>Specifies the number of times the routine has been called to process a given tape command. <I>CallNumber</I> is zero the first time this routine is called and is incremented for each subsequent call until the miniclass driver returns a <A HREF="k306_6cky.htm">TAPE_STATUS</A> value that indicates the command is complete.</DD>
+
+<DT><I>StatusOfLastCommand</I></DT>
+
+<DD>Specifies the status of the last command. In the first call to <A HREF="k304_38aa.htm"><I>TapeMiniCreatePartition</I></A> to process a given request, <I>StatusOfLastCommand </I>is TAPE_STATUS_SUCCESS. In subsequent calls, <I>StatusOfLastCommand </I>is either TAPE_STATUS_SUCCESS or an error status if an error occurred and the tape miniclass driver set RETURN_ERRORS in <I>RetryFlags</I> in the previous call. </DD>
+
+<DT><I>RetryFlags</I></DT>
+
+<DD>Pointer to a variable that specifies what action the tape class driver should take when a tape device reports an error.
+
+<P>The low-order word specifies the number of retries to perform in the event of a SCSI command failure. The default is zero (no retries).
+
+
+<P>The high-order word contains flags that specify how the tape class driver should return control if an error occurs:
+
+
+<UL>
+	<LI>If RETURN_ERRORS and IGNORE_ERRORS are clear (the default) the tape class driver returns a failure status to the original requester.</LI>
+
+	<LI>If the miniclass driver sets RETURN_ERRORS, the tape class driver calls <A HREF="k304_9nsi.htm"><I>TapeMiniSetDriveParameters</I></A> with <I>StatusOfLastCommand </I>set to a failure status.</LI>
+
+	<LI>If the miniclass driver sets IGNORE_ERRORS, the tape class driver converts a failure status to success and calls <I>TapeMiniSetDriveParameters</I> with <I>StatusOfLastCommand </I>set to success.</LI>
+</UL>
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>TAPE_STATUS_SEND_SRB_AND_CALLBACK<BR>
+Indicates to the tape class driver that the SRB has been filled in and is ready to be sent to the target device. By default, the tape class driver calls <I>TapeMiniSetPosition</I> again only if the SRB succeeds. A miniclass driver can modify the default behavior by setting <I>RetryFlags </I>before returning from <I>TapeMiniSetPosition</I>.</P>
+
+<P>TAPE_STATUS_CALLBACK<BR>
+Directs the tape class driver to increment <I>CallNumber</I> and call <I>TapeMiniSetPosition</I> again without sending an SRB to the tape device. </P>
+
+<P>TAPE_STATUS_CHECK_TEST_UNIT_READY<BR>
+Directs the tape class driver to fill in an SRB for the TEST UNIT READY command and send the SRB to the device.</P>
+
+<P>TAPE_STATUS_<I>XXX</I><BR>
+Any other return code indicates to the tape class driver that the command is complete and indicates success, failure, or warning. Possible completion return values for this routine include, but are not limited to:</P>
+
+<P class=indent1>TAPE_STATUS_SUCCESS<BR>
+TAPE_STATUS_INVALID_DEVICE_REQUEST<BR>
+TAPE_STATUS_NOT_IMPLEMENTED</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>minitape.h</I>. Include <I>minitape.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P><I>TapeMiniSetPosition</I> sets the position of a tape by filling in the CDB in an SRB passed by the tape class driver. Setting the position typically requires one SRB. After <I>TapeMiniSetPosition</I> fills in the SRB and returns, the tape class driver sends the SRB to the device and, depending on the result of the SRB and the value of <I>RetryFlags</I>, calls <I>TapeMiniSetPosition</I> again. <I>TapeMiniSetPosition</I> then returns TAPE_STATUS_SUCCESS.</P>
+
+<P><I>TapeMiniSetPosition</I> must fill in the following members in the SRB before returning to the tape class driver:
+
+<UL>
+	<LI><B>Cdb</B> – Pointer to the SCSI CDB for the command. Clear the CDB with <A HREF="k303_5zua.htm"><B>TapeClassZeroMemory</B></A> before filling it in.</LI>
+
+	<LI><B>CdbLength</B> – Specifies the number of bytes in the CDB.</LI>
+</UL>
+
+<P><I>TapeMiniSetPosition</I> might also fill in the following members in the SRB:
+
+<UL>
+	<LI><B>DataBuffer</B> – Pointer to the data buffer to be transferred. Use <A HREF="k303_1jg2.htm"><B>TapeClassAllocateSrbBuffer</B></A> to allocate a <B>DataBuffer</B> of length greater than or equal to <B>DataTransferLength</B>.</LI>
+
+	<LI><B>DataTransferLength</B> – Specifies the number of bytes to be transferred in the SRB. This member is set by <B>TapeClassAllocateSrbBuffer</B>.</LI>
+
+	<LI><B>TimeOutValue</B> – Specifies a timeout value for this command, overriding the default timeout value from the tape class driver's device extension.</LI>
+
+	<LI><B>SrbFlags</B> – Specifies a flag for this command. The tape miniclass driver must set SRB_FLAGS_DATA_OUT if the SRB is sending data to the tape drive. This member can be zero if the SRB is requesting data from the tape drive or if no data is being transferred by the command.</LI>
+</UL>
+
+<P>If the tape miniclass driver stores the current partition in the minitape extension, <I>TapeMiniSetPosition</I> updates the extension before returning to the tape class driver with STATUS_SUCCESS.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k306_0hte.htm">SCSI_REQUEST_BLOCK</A>, <A HREF="k303_1jg2.htm"><B>TapeClassAllocateSrbBuffer</B></A>, <A HREF="k303_5zua.htm"><B>TapeClassZeroMemory</B></A>, <A HREF="k306_6cky.htm">TAPE_STATUS</A>,</P>
+
+<P><A HREF="k307_2hir.htm">IOCTL_TAPE_SET_POSITION</A>,</P>
+
+<P><A HREF="k306_0pbn.htm">TAPE_SET_POSITION</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TapeMiniSetPosition"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

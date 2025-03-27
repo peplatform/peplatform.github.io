@@ -1,0 +1,46 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Registering Memory for Operations on a SAN</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Registering Memory for Operations on a SAN">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_registering_memory_for_operations_on_a_san_ng"></A>Registering Memory for Operations on a SAN</H3>
+
+<P>The Windows Sockets switch calls a SAN service provider's extension functions to register all data buffers for sending and receiving messages and for RDMA operations on a system area network. These extension functions register a buffer to a region of physical memory for use on a particular SAN socket that is connected to a remote peer. For a description of these extension functions, see the <A HREF="wsdp_4acn.htm">Windows Sockets SPI Extensions for SANs</A>. </P>
+
+<H4>Registering Data Buffers</H4>
+
+<P>The switch calls a SAN service provider's <A HREF="wsdpref_62gi.htm"><B>WSPRegisterMemory</B></A> extension function on behalf of an application that runs in a local process to register data buffers that can be accessed only by that process. The buffer handles that <B>WSPRegisterMemory</B> returns are valid only in the context of the local process that performed the registration. The switch calls <B>WSPRegisterMemory</B> to register buffers that serve as the message receiving buffer in a call to the <A HREF="wsdpref_5hte.htm"><B>WSPRecv</B></A> function or the message sending buffer in a call to the <A HREF="wsdpref_6rqq.htm"><B>WSPSend</B></A> function. The switch also calls <B>WSPRegisterMemory</B> to register buffers that serve as the local receiving RDMA buffer in a call to the <A HREF="wsdpref_7soi.htm"><B>WSPRdmaRead</B></A> extension function or the local RDMA source in a call to the <A HREF="wsdpref_7c6q.htm"><B>WSPRdmaWrite</B></A> extension function. After the local process finishes using buffers that were registered with <B>WSPRegisterMemory</B>, the switch calls the <A HREF="wsdpref_4b1u.htm"><B>WSPDeregisterMemory</B></A> extension function to release those buffers. </P>
+
+<P>The switch calls the SAN service provider's <A HREF="wsdpref_0sj6.htm"><B>WSPRegisterRdmaMemory</B></A> extension function on behalf of an application that runs in a local process to register RDMA buffers that both local and remote processes can access. The buffer descriptors that <B>WSPRegisterRdmaMemory</B> returns are valid only for RDMA data transfer operations that a remote peer initiates in the context of the peer's connection to the SAN socket on which the registration was performed. The switch at the remote peer connection uses these RDMA buffers as either the target in a call to the <B>WSPRdmaWrite</B> extension function or the source in a call to the <B>WSPRdmaRead</B> extension function. After the local and remote processes finish using buffers that were registered with <B>WSPRegisterRdmaMemory</B>, the switch calls the <A HREF="wsdpref_76gi.htm"><B>WSPDeregisterRdmaMemory</B></A> extension function to release those buffers. </P>
+
+<H4>Managing Memory Access</H4>
+
+<P>A SAN service provider must prevent unauthorized access to registered memory. </P>
+
+<P>Memory must be registered and accessible as follows:</P>
+
+<P class=indent1>Memory registered for local access should be available only to the process in which the switch called <B>WSPRegisterMemory</B>. </P>
+
+<P class=indent1>Memory registered for both local and remote access can be accessed by either the process in which the switch called <B>WSPRegisterRdmaMemory</B> to register memory, or by the remote peer that is connected to the SAN socket to which the memory is registered. </P>
+
+<P class=indent1>Memory must be accessible only while registered and while the connection is established. A SAN service provider must ensure that it does not inadvertently make such memory accessible to other processes running on the same computer or on other computers on the SAN. </P>
+
+<P class=indent1>Memory registered only for read access must not be available for write access. Memory registered only for write access must not be available for read access. </P>
+
+<H4>Using Registered Memory</H4>
+
+<P>The switch registers two virtually contiguous regions of memory for each connected TCP socket to use for negotiating a data-transfer session. The switch uses one region of memory to provide message buffers containing send data when calling a SAN service provider's <B>WSPSend</B> function. The switch uses the other region of memory to post message buffers to receive data when calling a SAN service provider's <B>WSPRecv</B> function. </P>
+
+<P>The switch typically registers RDMA buffers only if it transfers application data in RDMA operations. </P>
+
+<P>Before the switch closes a socket, the switch calls either <B>WSPDeregisterMemory</B> or <B>WSPDeregisterRdmaMemory</B> functions of a SAN service provider to release any memory that a pending data transfer operation is not currently using. The SAN service provider must also release memory associated with outstanding data transfer operations. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Registering%20Memory%20for%20Operations%20on%20a%20SAN"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

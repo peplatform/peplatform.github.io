@@ -1,0 +1,55 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Getting the 32-bit Enhanced Driver Name</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_getting_the_32_bit_enhanced_driver_name_gg"></A>Getting the 32-bit Enhanced Driver Name</H4>
+
+<P><B>This topic applies only to Windows 98/Me.</B></P>
+
+<P>The <B>DDGET32BITDRIVENAME</B> escape is sent after getting the DirectDraw version information. The code you add to the Windows 98/Me display 16-bit GDI driver returns the name of your 32-bit DirectDraw driver DLL (<I>szName</I>), the name of the entry point (<I>szEntryPoint</I>, which is set to <A HREF="ddfncs_4srr.htm"><I>DriverInit</I></A> in the sample code), and a pointer to a region of shared data between the 16- and 32-bit address space (<I>dwContext</I>). Once DirectDraw has this information, it loads the 32-bit DirectDraw driver DLL (indicated by <I>szName</I>), calls <I>DriverInit</I> (as indicated by <I>szEntryPoint</I>), and passes <I>dwContext</I> (containing a memory block shared between the 16- and 32-bit side of the driver) to it. These steps are shown in the following sample code (once again, a continuation of the <I>Control</I> function): </P>
+
+<PRE>/*
+* return information about our 32-bit DLL
+*
+* we pass a pointer to our shared global Data
+* to the 32-bit driver so we can talk to each
+* other by reading each others mind.
+*/
+else if (pdci-&gt;dwCommand == DDGET32BITDRIVERNAME)
+{
+    LPDD32BITDRIVERDATA p32dd = (LPDD32BITDRIVERDATA)lpOutput;
+
+    DPF("DDGET32BITDRIVERNAME");
+    lstrcpy(p32dd-&gt;szName, DIRECTDRAW_DLLNAME);
+    lstrcpy(p32dd-&gt;szEntryPoint, "DriverInit");
+    p32dd-&gt;dwContext = (DWORD)(LPVOID)&amp;DriverData;
+
+    return TRUE;
+}
+ </PRE>
+
+<P><I>DriverInit</I> (which was loaded in <I>szEntryPoint</I>) uses the standard Windows function <B>MapSLFix</B> to convert the <I>dwContext</I> 16-bit pointers to a 32-bit pointer, which is accessed like this: </P>
+
+<PRE>      pDriverData = MapSLFix(dwDriverData);</PRE>
+
+<P>The entry point indicated by <I>szEntryPoint</I> (<I>DriverInit</I> in the sample) is called only once when the DLL is loaded. </P>
+
+<P>In the sample functions documented here, the <A HREF="ddfncs_54tj.htm"><I>buildDDHALInfo32</I></A> function is called by <I>DriverInit</I> to modify the structures in the shared 16- and 32-bit memory window (contained in the <A HREF="ddstrcts_9m7b.htm">DDHALINFO</A> structure). This is the unchanging data passed to DirectDraw and includes the main driver callback functions, surface callbacks, and palette callbacks. It also fills out FOURCCs supported, the DLL instance handle, the physical device pointer, capabilities supported, raster operations (ROPs) supported, and the required alignments of the scan lines for each kind of memory. </P>
+
+<P>The 32-bit DirectDraw driver DLL must be in shared address space. That is, it must reside above the 2 gigabyte address space so that memory can be shared with the 16-bit components. The base 0xb00b0000 is used as a linker option. DirectDraw invokes <I>ddhelp.exe</I> to load the 32-bit DirectDraw driver DLL and to call the entry point with the shared data pointer. The 32-bit DirectDraw driver DLL fills in shared data such as the addresses of all the 32-bit HAL functions. </P>
+
+<P>The following figure shows the process for querying the 32-bit enhanced driver name and loading the 32-bit HAL function addresses to the shared 16- and 32-bit address space: </P>
+
+<P><IMG SRC="images/queryname.gif" ALT="" BORDER=0></P>
+
+<P><B>Querying the 32-bit Enhanced Driver Name and Loading the 32-bit HAL Function Addresses</B></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Getting%20the%2032-bit%20Enhanced%20Driver%20Name"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

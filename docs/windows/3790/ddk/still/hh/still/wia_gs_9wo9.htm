@@ -1,0 +1,94 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WIA Minidriver Debugging</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WIA Minidriver Debugging">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wia_minidriver_debugging_si"></A>WIA Minidriver Debugging</H1>
+
+<P>WIA drivers execute inside the WIA service process. Therefore, in order to perform user-mode debugging of these drivers, you must connect the debugger to the WIA service. There are several different ways to do this; this topic presents two of them. (See Debugging Services in the Platform SDK documentation for additional information).</P>
+
+<P>Your debugger can be started in one of two ways:
+
+<UL>
+	<LI>By automatically starting the WIA service under a debugger.</LI>
+
+	<LI>By attaching the debugger to the appropriate process at run time.</LI>
+</UL>
+
+<P>Following are two points to keep in mind:
+
+<UL>
+	<LI>If you require network access to symbols and other files from within the debugger, these may not be visible if you automatically start the WIA service under the debugger. WIA runs as a LocalSystem service in Windows XP and as a LocalService for Windows Server 2003 and later operating system versions and does not have the appropriate privileges to access the network. So, even though your machine can "see" everything on your network, the debugger running the service may not be able to. For more information on the WIA service's changed privilege level, see <A HREF="wia_best_practice_4mg9.htm">Security Issues for WIA Drivers</A>.</LI>
+
+	<LI>If a problem occurs during driver loading or initialization of the STI portion of the driver (for example, during <A HREF="stifnc_0lrd.htm"><B>IStiUSD::Initialize</B></A>), then by the time you attach a debugger, the error has already occurred and it is too late to get useful information. A common symptom of this problem is that the device does not show up in the <B>My Computer</B> folder, but <I>does</I> show up in the <B>Device Manager</B> folder.</LI>
+</UL>
+
+<H4>Starting the WIA Service Under a Debugger</H4>
+
+<P>When the WIA service is started, the Service Control Manager (SCM) looks at the entry in the service control database and launches the executable pointed to by that entry. A simple way to start the WIA service under a debugger is to replace that entry with one that includes your debugger. The entry can be found in the registry under:</P>
+
+<P><B>HKLM\System\CurrentControlSet\Services\StiSvc\ImagePath</B></P>
+
+<P>Initially, the <B>ImagePath</B> key is set to the following string value:</P>
+
+<P>"<B>%SystemRoot%\System32\svchost.exe -k imgsvc</B>"</P>
+
+<P>To run the WIA service under NTSD, for example, modify the preceding value as follows:</P>
+
+<P>"<B>ntsd -g -G %SystemRoot%\System32\svchost.exe -k imgsvc</B>"</P>
+
+<P>With this change, the WIA service always starts under NTSD. Note that if the service is already running, it must be stopped and restarted before this change takes effect. See <A HREF="stillimg_7up5.htm">Starting and Stopping the Still Image Service</A> for details.</P>
+
+<P>To make the debugger's window visible, you also need to change another registry key. The path to this registry key is:</P>
+
+<P><B>HKLM\System\CurrentControlSet\Services\StiSvc\Type</B></P>
+
+<P>The initial value of the <B>Type</B> key, 0X20, prevents the debugger window from being displayed. Change the value of the <B>Type</B> key to the DWORD value 0X120.</P>
+
+<H4>Attaching the Debugger at Run Time</H4>
+
+<P>Most debuggers require the PID of the running process in order to attach to it after the process has already started. Because WIA runs under a generic hosting process called <I>svchost.exe</I>, finding the correct instance of <I>svchost.exe</I> is essential.</P>
+
+<P>If you downloaded the debugger package from the Microsoft site (www.microsoft.com), it includes a utility program named <I>tlist.exe</I>. <I>Tlist.exe</I> displays all running processes. If you execute <I>tlist.exe</I> using the s switch, this utility also shows which processes are hosting which services. For example, running <I>tlist.exe -s </I>produces output similar to the following:</P>
+
+<PRE>   0 System Process
+   4 System
+ 160 smss.exe
+ 216 csrss.exe       Title:
+ 208 winlogon.exe    Title: NetDDE Agent
+ 268 services.exe    Svcs:  Eventlog,PlugPlay
+ 280 lsass.exe       Svcs:  Netlogon,PolicyAgent,ProtectedStorage,SamSs
+ 416 svchost.exe     Svcs:  RpcSs
+ 444 svchost.exe     Svcs:  AudioSrv,CryptSvc,Dhcp,EventSystem,FastUserSwitching,CompatibilityServices,helpsvc,Irmon,lanmanserver,lanmanworkstation,Netman,Nla,Schedule,SENS,ShellHWDetection,srservice,TapiSrv,TermService,ThemeService,uploadmgr,W32Time,winmgmt,WmdmPmSp
+ 504 svchost.exe     Svcs:  Dnscache
+ 372 svchost.exe     Svcs:  LmHosts,Messenger,RemoteRegistry,SSDPSRV,WebClient
+ 616 spoolsv.exe     Svcs:  Spooler
+ 680 inojobsv.exe    Svcs:  Cheyenne InocuLAN Anti-Virus Server
+ 700 emsvc.exe       Svcs:  EMSVC
+ 912 fxssvc.exe      Svcs:  Fax
+ 192 explorer.exe    Title: Program Manager
+1076 svchost.exe     Svcs:  stisvc
+22824 tlist.exe
+</PRE>
+
+<P>In the preceding example, five instances of <I>svchost.exe</I> are running. The WIA service, <B>StiSvc</B> (Still Image service), is running under the <I>svchost.exe</I> instance whose PID is 1076. Attach the debugger to process 1076 to start debugging.</P>
+
+<P>Instead of using a utility program such as <I>tlist.exe,</I> to identify a single instance of multiple <I>svchost.exe </I>instances, you can make a copy of <I>svchost.exe</I> and rename it (for example, <I>stisvc.exe</I>). Then, change the service control entry’s <B>ImagePath</B> value to use this copy of <I>svchost.exe</I> (the one whose name is now <I>stisvc.exe</I>). For example, you can set the key whose path is</P>
+
+<P><B>HKLM\System\CurrentControlSet\Control\Services\Stisvc\ImagePath</B></P>
+
+<P>to the following string value:</P>
+
+<P>"<B>%SystemRoot%\System32\stisvc.exe -k imgsvc</B>"</P>
+
+<P>Now, when the WIA service starts, it runs under <I>stisvc.exe</I> instead of <I>svchost.exe</I>. Finding this process is simpler, because there is only a single instance of <I>stisvc.exe</I>. You do not have to look for the PID to find it. Thus, for example, if you are developing the driver using Microsoft Visual Studio, you can go to the <B>Start Debug</B> menu item under the <B>Build</B> menu, click <B>Attach to Process...</B>, and select <I>stisvc.exe</I> in the list.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WIA%20Minidriver%20Debugging"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

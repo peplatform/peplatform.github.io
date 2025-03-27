@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DrmForwardContentToInterface</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DrmForwardContentToInterface">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iocalldriver_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_iocalldriver_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_drmforwardcontenttointerface_ks"></A>DrmForwardContentToInterface</H1>
+
+<P>The <B>DrmForwardContentToInterface</B> function accepts a pointer to the COM interface of an object to which the caller intends to forward protected content. The function authenticates the object and sends the object the content ID and DRM rights that the system has assigned to the protected content.</P>
+
+<PRE class=syntax><B>NTSTATUS
+</B>  <B>DrmForwardContentToInterface(</B>
+    <B>ULONG</B>  <I>ContentId</I><B>,</B>
+    <B>PUNKNOWN</B>  <I>pUnknown</I><B>,</B>
+    <B>ULONG</B>  <I>NumMethods
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>ContentId</I></DT>
+
+<DD>Specifies the DRM content ID. This parameter identifies a protected KS audio stream.</DD>
+
+<DT><I>pUnknown</I></DT>
+
+<DD>Pointer to a COM interface that directly receives KS audio stream data for a KS audio filter.</DD>
+
+<DT><I>NumMethods</I></DT>
+
+<DD>Specifies the total number of methods in the COM interface that <I>pUnknown</I> points to, including all the methods in its base interfaces.</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>DrmForwardContentToInterface </B>returns STATUS_SUCCESS if the call was successful. Otherwise, the method returns an appropriate error code. The following table shows some of the possible return status codes.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=26%>Error Status</TH>
+<TH align=left width=74%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=26%>STATUS_NOT_IMPLEMENTED</TD>
+<TD width=74%>Indicates that the KS audio stream that is associated with <I>pUnknown</I> does not support the DRM content rights that are assigned to <I>ContentId.</I></TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>drmk.h</I>. Include <I>drmk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Before allowing protected content to flow through a data path, the system verifies that the data path is secure. To do so, the system authenticates each module in the data path beginning at the upstream end of the data path and moving downstream. As each module is authenticated, that module gives the system information about the next module in the data path so that it can also be authenticated. To be successfully authenticated, a module's binary file must be signed as DRM-compliant.</P>
+
+<P>If two adjacent modules in the data path communicate with each other through the downstream module's COM interface, the upstream module calls the <B>DrmForwardContentToInterface</B> function to provide the system with a pointer to the COM interface. (If the two modules communicate through the <A HREF="JavaScript:hhobj_1.Click()"><B>IoCallDriver</B></A> function or the downstream module's content handlers, the upstream module calls <A HREF="aud-prop_10s3.htm"><B>DrmForwardContentToDeviceObject</B></A> or <A HREF="aud-prop_6ecz.htm"><B>DrmAddContentHandlers</B></A> instead.)</P>
+
+<P><B>DrmForwardContentToInterface</B> authenticates the module that implements the methods in the COM interface pointed to by <I>pUnknown</I>. (If the methods are distributed among several modules, the function authenticates all these modules.) This vendor-defined interface must be understood by both the module that calls the interface and the module that implements the interface. <B>DrmForwardContentToInterface</B> makes no assumptions regarding this interface other than that it is derived from <B>IUnknown</B>.</P>
+
+<P>If <B>DrmForwardContentToInterface</B> succeeds in authenticating the driver or library, it does the following:
+
+<UL>
+	<LI>Queries the <I>pUnknown</I> interface for its <A HREF="audmp-routines_1sj7.htm"><B>IDrmAudioStream</B></A> interface. Note that although the <B>DrmForwardContentToInterface</B> authenticates all the methods in the <I>pUnknown</I> interface, it does not call any methods in the <I>pUnknown</I> interface other than the base <B>IUnknown</B> methods.</LI>
+
+	<LI>Calls <A HREF="audmp-routines_6r77.htm"><B>IDrmAudioStream::SetContentId</B></A> to set the DRM content ID and DRM content rights on the audio stream. Before returning, <B>DrmForwardContentToInterface</B> releases the <B>IDrmAudioStream</B> interface.</LI>
+</UL>
+
+<P>The <I>pUnknown</I> parameter follows the <A HREF="pcdesign_1y93.htm">reference-counting conventions for COM objects</A>.</P>
+
+<P><B>DrmForwardContentToInterface</B> performs the same function as <A HREF="audpc-routines_7gdv.htm"><B>PcForwardContentToInterface</B></A> and <A HREF="audmp-routines_331v.htm"><B>IDrmPort::ForwardContentToInterface</B></A>. For more information, see <A HREF="aud-prop_9f77.htm">DRM Functions</A>.</P>
+
+<P><B>DrmForwardContentToInterface</B> runs in the context of the caller at IRQL PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="JavaScript:hhobj_2.Click()"><B>IoCallDriver</B></A>, <A HREF="aud-prop_10s3.htm"><B>DrmForwardContentToDeviceObject</B></A>, <A HREF="aud-prop_6ecz.htm"><B>DrmAddContentHandlers</B></A>, <A HREF="audmp-routines_1sj7.htm"><B>IDrmAudioStream</B></A>, <A HREF="audmp-routines_6r77.htm"><B>IDrmAudioStream::SetContentId</B></A>, <A HREF="audpc-routines_7gdv.htm"><B>PcForwardContentToInterface</B></A>, <A HREF="audmp-routines_331v.htm"><B>IDrmPort::ForwardContentToInterface</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DrmForwardContentToInterface"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

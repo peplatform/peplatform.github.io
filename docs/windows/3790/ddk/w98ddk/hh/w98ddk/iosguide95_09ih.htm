@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Unraveling the Scatter-Gather Descriptor Confusion</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Unraveling the Scatter-Gather Descriptor Confusion">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_unraveling_the_scatter_gather_descriptor_confusion_si"></A>Unraveling the Scatter-Gather Descriptor Confusion</H2>
+
+<P>There are two different types of Scatter Gather Descriptors: <I>linear</I> (also known as <I>logical</I>) and <I>physical</I>.</P>
+
+<P>Walt Oney's book, <I>Systems Programming for Windows 95</I>, includes some discussion of this issue.</P>
+
+<H4>Linear SGDs</H4>
+
+<P>The linear SGD structure is defined in \ddk\inc32\blockdev.h (as _BlockDev_Scatter_Gather):</P>
+
+<PRE>typedef struct BlockDev_Scatter_Gather{
+  ULONG BD_SG_Count;
+  ULONG BD_SG_Buffer_Ptr;
+}  _BlockDev_Scatter_Gather     ;</PRE>
+
+<P>A linear SGD consists of a DWORD count followed by a DWORD linear pointer. The count is always assumed to be a block count within SCSIPORT's transfer routines (such as ScsiPortReadPortBufferUchar). Linear SGDs are terminated with a zero-length SGD element, but you should use IOR_xfer_count for total length information (this field contains the sector count if IORF_CHAR_COMMAND is not set). The IOP's IOR_buffer_ptr points to a normal linear memory buffer if (IOR_flags &amp; IORF_SCATTER_GATHER)==FALSE. Otherwise, IOR_buffer_ptr points to a simple list of linear SGDs as defined in blockdev.h.</P>
+
+<H4>Physical SGDs</H4>
+
+<P>The physical SGD structure is defined in \ddk\inc32\sgd.h (as _SGD):</P>
+
+<PRE>typedef struct _SGD { /* */
+  ULONG  SG_buff_ptr;     /* 32-bit physical pointer to the buffer
+  ULONG  SG_buff_size;    /* size of the buffer in bytes
+} SGD, *PSGD;</PRE>
+
+<P>The physical SGD structure consists of a DWORD physical pointer followed by a DWORD count (the ordering is the reverse of that used in the linear SGD structure). If the port driver demanded the physical SGD creation service, then the DCB_dmd_phys_sgd bit will be set within DCB_dmd_flags. </P>
+
+<P>Inside SCSIPORT.PDR, the  ILB_int_io_criteria_rtn is called before forwarding any read/write to the miniport driver. ILB_int_io_criteria_rtn will create physical SGDs if DCB_dmd_phys_sgd is set. In this case, the IOP's IOR_sgd_lin_phys field must point to a valid memory buffer, designed to accommodate the max number of physical SGDs (DCB_max_sg_elements). Each SGD is eight bytes long. It would be safe to assign (17*8) bytes of memory for IOR_sgd_lin_phys since the maximum number of SGDs is 17.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Unraveling%20the%20Scatter-Gather%20Descriptor%20Confusion"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

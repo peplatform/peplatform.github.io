@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling Windows Messages for Property Pages</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling Windows Messages for Property Pages">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_handling_windows_messages_for_property_pages_dg"></A>Handling Windows Messages for Property Pages</H1>
+
+<P>When an installer that supplies property pages handles a <A HREF="dif-codes_89de.htm">DIF_ADDPROPERTYPAGE_ADVANCED</A> request, it sets the address of a dialog box procedure for the property page. The dialog box procedure must initialize the property page when it gets a WM_INITDIALOG message, and it must be prepared to handle changes to device properties when it gets a WM_NOTIFY message. The procedure can also handle any other such messages it may require, as described in the Platform SDK documentation. </P>
+
+<P>In response to a WM_INITDIALOG message, the dialog box procedure initializes information in the property page. Such information might include an icon that represents the device, the friendly name of the device, and its PnP device description. </P>
+
+<P><A HREF="di-rtns_29yq.htm"><B>SetupDiLoadClassIcon</B></A> loads the icons for a specified device class and returns a handle to the loaded large icon that can be used in a subsequent call to <B>SendDlgItemMessage</B>. For example:</P>
+
+<PRE>if (SetupDiLoadClassIcon(
+        &amp;pTestPropPageData-&gt;DeviceInfoData-&gt;ClassGuid, &amp;ClassIcon, 
+        NULL)) {
+    OldIcon = (HICON)SendDlgItemMessage(hDlg, IDC_TEST_ICON,
+        STM_SETICON, (WPARAM)ClassIcon, 0);
+    if (OldIcon) {
+                DestroyIcon(OldIcon);
+    }
+}</PRE>
+
+<P>The handle returned in ClassIcon can be cast to the WPARAM required by the <B>SendDlgItemMessage</B> function. In the example, IDC_TEST_ICON identifies the control in the dialog box that receives the STM_SETICON message. The value of IDC_TEST_ICON must be defined in the installer. See <A HREF="di-rtns_85ma.htm">Device Installation Functions</A> for additional <B>SetupDi</B> functions that manipulate icons and bitmaps, and see the Platform SDK documentation for more information on <B>SendDlgItemMessage</B>, <B>DestroyIcon</B>, and using icons in dialog boxes.</P>
+
+<P>In addition to an icon representing the device, a typical device property page includes a description or "friendly name" of the device and shows the current settings of device properties. The PnP Manager stores the PnP properties of each device in the registry. A property page provider can call <A HREF="di-rtns_4x2q.htm"><B>SetupDiGetDeviceRegistryProperty</B></A> to get the value of any such property. If device- or class-specific configuration information has also been stored in the registry as part of the installation process, a property page provider can use other <B>SetupDi</B> functions to extract that information for display. See <A HREF="di-rtns_85ma.htm">Device Installation Functions</A> for details.</P>
+
+<P>When certain types of changes occur on the page, the property sheet sends a WM_NOTIFY message to the dialog box procedure. The dialog box procedure should be prepared to extract the notification code from the message parameters and respond appropriately. </P>
+
+<P>The PSN_APPLY notification is of particular interest to an installer. The property sheet sends this message when the user clicks OK or Apply. In response, the installer should validate the changes and set the DI_FLAGSEX_PROPCHANGE_PENDING flag in the device install parameters, as follows:
+
+<OL>
+	<LI>If it has not already done so, get a pointer to the device install parameters (SP_DEVINSTALL_PARAMS structure) for the device. This structure is available by calling <A HREF="di-rtns_0h2q.htm"><B>SetupDiGetDeviceInstallParams</B></A>, passing the saved <I>DeviceInfoSet</I> and <I>DeviceInfoData</I> that were passed in the area at <I>lParam</I>.</LI>
+
+	<LI>Ensure that the user's changes are valid.</LI>
+
+	<LI>Set the DI_FLAGSEX_PROPCHANGE_PENDING flag in the <B>FlagsEx </B>field of the returned SP_DEVINSTALL_PARAMS structure. However, if the installer can be absolutely certain that the changes do not require the device's drivers to be stopped and then restarted, it need not set this flag.</LI>
+
+	<LI>Call <A HREF="di-rtns_9oc2.htm"><B>SetupDiSetDeviceInstallParams</B></A><B> </B>with the changed SP_DEVINSTALL_PARAMS structure to set the new parameters.</LI>
+</OL>
+
+<P>After the installer sets the new parameters, Setup or the Device Manager sends a <A HREF="dif-codes_2agi.htm">DIF_PROPERTYCHANGE</A> request.</P>
+
+<P>The property sheet sends a PSN_RESET notification message when the user clicks Cancel. In response to this message, the dialog box procedure should discard any changes made by the user.</P>
+
+<P>See the Platform SDK documentation for more information on the other notifications that such a procedure might encounter and how it should handle them. </P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20Windows%20Messages%20for%20Property%20Pages"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

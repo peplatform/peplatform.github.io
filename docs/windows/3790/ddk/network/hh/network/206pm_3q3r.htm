@@ -1,0 +1,70 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Power Management for Legacy Miniport Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Power Management for Legacy Miniport Drivers">
+<META NAME="MS-HKWD" CONTENT="Power Management, for legacy miniport drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_irp_mn_query_power_dr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_system_power_states_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_power_management_for_legacy_miniport_drivers_ng"></A>Power Management for Legacy Miniport Drivers</H1>
+
+<P>NDIS treats a miniport driver as a legacy miniport driver that is not power management-aware if:
+
+<UL>
+	<LI>During initialization, the bus driver indicates that the system and/or the NIC is not power management-aware.</LI>
+
+	<LI>The miniport driver returns NDIS_STATUS_UNSUPPORTED in response to the <A HREF="212pnpoid_5j02.htm">OID_PNP_CAPABILITIES</A> query.</LI>
+
+	<LI>The user disables power management in the user interface.</LI>
+</UL>
+
+<P>NDIS supports only two device power states for legacy miniport drivers: the highest-powered (D0) state and the D3 state. </P>
+
+<P>During initialization, a legacy miniport driver can indicate that NDIS should not halt it before the system transitions to the sleeping (D3) state. A miniport driver makes such an indication by setting the NDIS_ATTRIBUTE_NO_HALT_ON_SUSPEND flag in the <I>AttributeFlags</I> parameter that the miniport driver passes to the <A HREF="103ndisx_1pmb.htm"><B>NdisMSetAttributesEx</B></A> function. A legacy miniport driver should set this flag only if it can:
+
+<UL>
+	<LI>Save all hardware context that it might require.</LI>
+
+	<LI>Put its NIC in an appropriate state for the sleeping state (D3).</LI>
+
+	<LI>Reactivate the NIC to the highest-powered state (D0).</LI>
+</UL>
+
+<P>If NDIS determines from the bus driver that the NIC is not power management-aware and if the miniport driver did not set the NDIS_ATTRIBUTE_NO_HALT_ON_SUSPEND flag, NDIS will not query the miniport driver's power management capabilities. However, if the miniport driver set the NDIS_ATTRIBUTE_NO_HALT_ON_SUSPEND flag, NDIS issues an <A HREF="212pnpoid_5j02.htm">OID_PNP_CAPABILITIES</A> request to the miniport driver. In this case, the miniport driver should succeed the OID_PNP_CAPABILITIES request with NDIS_STATUS_SUCCESS. In the NDIS_PM_WAKE_UP_CAPABILITIES structure that the miniport driver returns in response to this request, the miniport driver must also specify a device power state of <B>NdisDeviceStateUnspecified</B> for each wake-up capability.</P>
+
+<P>NDIS provides the following power management support for legacy miniport drivers:
+
+<UL>
+	<LI>NDIS succeeds all <A HREF="JavaScript:hhobj_1.Click()">IRP_MN_QUERY_POWER</A> requests that the system Power Manager sends to the device object that represents the NIC. That is, NDIS guarantees that the miniport driver's NIC will transition to the D3 state in response to any IRP_MN_QUERY_POWER request from the system.</LI>
+
+	<LI>If the miniport driver did not set the NDIS_ATTRIBUTE_NO_HALT_ON_SUSPEND flag during initialization, NDIS calls the miniport driver's <A HREF="101mini_6stu.htm"><I>MiniportHalt</I></A> function before the miniport driver's NIC transitions to state D3. The miniport driver's NIC loses all hardware context information.</LI>
+
+	<LI>If the miniport driver set the NDIS_ATTRIBUTE_NO_HALT_ON_SUSPEND flag during initialization, NDIS does not halt the miniport driver before the system transitions to state D3. Instead, NDIS issues the miniport driver an <A HREF="212pnpoid_52sy.htm">OID_PNP_SET_POWER</A> request to D3 state. The miniport driver must save any hardware context that it uses and put its NIC in a state appropriate for the D3 state.</LI>
+
+	<LI>While the system is transitioning to the S0 <A HREF="JavaScript:hhobj_2.Click()">system power state</A>, NDIS calls the miniport driver's <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A> function if NDIS halted the miniport driver. If NDIS did not halt the miniport driver, NDIS issues the miniport driver an OID_PNP_SET_POWER request to D0 state. The miniport driver must put its NIC in a state appropriate for the D0 state.</LI>
+
+	<LI>If the miniport driver was halted and reinitialized, NDIS restores all the appropriate miniport driver settings, such as packet filters and multicast address lists, by issuing OID requests. If the miniport driver was not halted and then reinitialized, the miniport driver must restore such settings.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Power%20Management%20for%20Legacy%20Miniport%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

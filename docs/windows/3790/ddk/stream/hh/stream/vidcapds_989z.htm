@@ -1,0 +1,47 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Opening and Closing a Stream</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Opening and Closing a Stream">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_opening_and_closing_a_stream_ksg"></A>Opening and Closing a Stream</H2>
+
+<P>Streams are opened using the <A HREF="strclass-srbs_4omr.htm">SRB_OPEN_STREAM</A> request. Information passed in this SRB includes the index of the stream to open and a pointer to a pointer to a <A HREF="vidcapref_9y9f.htm">KS_VIDEOINFOHEADER</A> structure. The stream index corresponds to the index of the stream in the array of <A HREF="vidcapref_8vqr.htm">KS_DATARANGE_VIDEO</A> structures returned by the driver in response to <A HREF="strclass-srbs_531v.htm">SRB_GET_STREAM_INFO</A>. For more information about handling SRB_GET_STREAM_INFO see <A HREF="vidcapds_5353.htm">Video Stream Categories</A>.</P>
+
+<P>The following pseudocode obtains the stream index, KS data format and KS video info header:</P>
+
+<PRE>int StreamNumber = pSrb-&gt;StreamObject-&gt;StreamNumber;
+PKS_DATAFORMAT_VIDEOINFOHEADER  pKSDataFormat = 
+    (PKS_DATAFORMAT_VIDEOINFOHEADER) pSrb-&gt;CommandData.OpenFormat;
+PKS_VIDEOINFOHEADER pVideoInfoHdrRequested = 
+    &amp;pKSDataFormat-&gt;VideoInfoHeader;</PRE>
+
+<P>Minidrivers should verify that they can support the requested stream format. In particular, the contents of the<A HREF="vidcapref_2l2r.htm"> KS_BITMAPINFOHEADER</A> structure should be verified, along with cropping and scaling information specified by the <B>rcSource</B> and <B>rcTarget</B> members.</P>
+
+<P>If the device hardware cannot support the capture frame rate requested in the <B>AvgTimePerFrame</B> field of KS_VIDEOINFOHEADER, it should always select the next <I>lower</I> frame rate available. For example, if a camera can support 7 fps and 15 fps and a client application attempts to open the stream at 10 fps, the camera should create a 7 fps physical stream. For a ten second capture in which all available 70 physical frames are captured, the driver should report 100 frames captured, 30 frames of which were dropped by the <A HREF="vidcapref_6oxf.htm">KSPROPERTY_DROPPEDFRAMES_CURRENT</A> property.</P>
+
+<P>Special rules apply when the output buffer is a DirectDraw surface. In this case, the <B>biWidth</B> member of the KS_BITMAPINFOHEADER structure actually represents the “stride” of the destination DirectDraw surface, which will typically be larger than the video image width.</P>
+
+<P>To determine the requested image width, use the following pseudocode:</P>
+
+<PRE>if (IsRectEmpty(&amp;pVideoInfoHdrRequested-&gt;rcTarget) {
+    Width =  pVideoInfoHdrRequested-&gt;bmiHeader.biWidth;
+    Height = pVideoInfoHdrRequested-&gt;bmiHeader.biHeight;
+} 
+else {
+    Width = pVideoInfoHdrRequested-&gt;rcTarget.right – 
+            pVideoInfoHdrRequested-&gt;rcTarget.left;
+    Height = pVideoInfoHdrRequested-&gt;rcTarget.bottom – 
+             pVideoInfoHdrRequested-&gt;rcTarget.top;
+}</PRE>
+
+<P>The stream is closed by <A HREF="strclass-srbs_8egj.htm">SRB_CLOSE_STREAM</A>. All outstanding stream SRBs should be returned to stream class.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Opening%20and%20Closing%20a%20Stream"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

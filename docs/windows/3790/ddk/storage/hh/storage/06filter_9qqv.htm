@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling PnP Paging Requests</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling PnP Paging Requests">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_handling_pnp_paging_requests_kg"></A>Handling PnP Paging Requests</H1>
+
+<P>A storage filter driver must handle PnP paging requests (IRP_MJ_PNP with IRP_MN_DEVICE_USAGE_NOTIFICATION and <B>Parameters.UsageNotification.Type</B> set to <B>DeviceUsageTypePaging</B>) if the function driver it is filtering handles this IRP. </P>
+
+<P>The following items must be added to the DeviceExtension of the Filter DO:</P>
+
+<P class=indent1>ULONG PagingCount;</P>
+
+<P class=indent1>KEVENT PagingCountEvent;</P>
+
+<P>Upon receiving PnP paging requests, a storage filter driver must update both the PagingCount and the setting of the DO_POWER_PAGABLE bit in the Filter DO. The timing of the update of the DO_POWER_PAGABLE bit depends on whether the bit is being set or cleared. If the IRP indicates that the bit should be set, then the filter driver must set it <I>before</I> forwarding the IRP down the driver stack. But if the IRP indicates that the bit should be cleared, then the filter driver should not clear the bit right away. It must first forward the IRP, then wait on status from the lower drivers and clear the bit only if the lower drivers return STATUS_SUCCESS.</P>
+
+<P>The following traces the flow of actions taken by the storage filter driver. Please refer to the pseudocode sample immediately beneath the outline to see a representation of this outline in C code:
+
+<OL type=A>
+	<LI>Verify that the device has been started. If not, fail with STATUS_DEVICE_NOT_READY.</LI>
+
+	<LI>Synchronize on the PagingCountEvent (KeWaitForSingleObject( PagingCountEvent, …)).</LI>
+
+	<LI>If removing the last paging device ( (! <B>Parameters.UsageNotification.InPath)</B> &amp;&amp; <BR>
+(PagingCount == 1) ) then 
+<OL>
+	<LI>Set a local boolean to TRUE, and </LI>
+
+	<LI>If the DO_POWER_INRUSH bit is not set in the Filter DO, then set the DO_POWER_PAGABLE bit.
+<P>The following explains why the DO_POWER_PAGABLE bit must be set on the way down and not on the way up:
+
+<P>The power requirements state that if any lower device object sets the DO_POWER_PAGABLE bit, all higher-level drivers must do the same. If the filter driver fails to set the DO_POWER_PAGABLE bit prior to sending the paging request IRP down the stack, it could violate this condition as follows:
+
+<P>Suppose the filter driver does not set the DO_POWER_PAGABLE bit in its Filter DO before forwarding the paging request IRP to the drivers beneath it in the driver stack. Next suppose that a lower driver sets the DO_POWER_PAGABLE bit in its own DO. Finally, suppose that prior to the completion of the IRP by the filter driver a power IRP occurs. At that point, the DO_POWER_PAGABLE bit would be cleared in the Filter DO but would be set in the DO of the lower-level driver, causing a system crash.
+
+<P>It is safe to set the DO_POWER_PAGABLE bit before forwarding a paging request down the stack, because there is no longer an active paging file on the filter driver's device, and therefore no more paging I/O will occur on it. If the request to remove this paging file succeeds, the filter driver will be done. If the request fails, the filter driver can restore the original state of its flags by simply clearing the DO_POWER_PAGABLE bit prior to completing the IRP. Because the paging file requests are serialized, there is no danger that some other thread will have modified this bit since the filter driver last altered it. 
+</LI>
+</OL>
+</LI>
+
+	<LI>Synchronously forward the IRP to the lower drivers.</LI>
+
+	<LI>If the IRP completes successfully, then 
+<OL>
+	<LI>Call IoAdjustPagingPathCount(&amp;PagingCount, <B>Parameters.UsageNotification.InPath</B>) to increment or decrement the PagingCount. IoAdjustPagingPathCount does an InterlockedIncrement or InterlockedDecrement of the PagingCount depending on the value in <B>Parameters.UsageNotification.InPath</B>. A value of TRUE indicates that a paging file is being added, so increment the PagingCount; a value of FALSE indicates that a paging file is being removed, so decrement the PagingCount.</LI>
+
+	<LI>If <B>Parameters.UsageNotification.InPath</B> is TRUE, a paging file is being added, so clear the DO_POWER_PAGABLE bit.</LI>
+</OL>
+</LI>
+
+	<LI>Else if the IRP fails, then 
+<OL>
+	<LI>Check the local Boolean to see if DO_POWER_PAGABLE was set in the Filter DO on the way down. </LI>
+
+	<LI>If DO_POWER_PAGABLE was set on the way down, clear it.</LI>
+</OL>
+</LI>
+
+	<LI>End Synchronization (KeSetEvent(PagingCountEvent, …)). </LI>
+</OL>
+
+<H4>Pseudocode Example</H4>
+
+<P>The sections marked by letters (<B>//A</B>, <B>//B</B>, etc.) in the following code sample map to the letters of the outline above.</P>
+
+<PRE>case DeviceUsageTypePaging: { 
+    BOOLEAN setPageable = FALSE; 
+    BOOLEAN addPageFile = irpStack -&gt; 
+                          Parameters.UsageNotification.InPath; 
+ 
+    <B>//</B> <B>A</B> 
+    if((addPageFile) &amp;&amp; 
+        (extension -&gt; CurrentPnpState != 
+        IRP_MN_START_DEVICE)) { 
+            status = STATUS_DEVICE_NOT_READY; 
+            break; 
+        } 
+    <B>//</B> <B>B</B> 
+    KeWaitForSingleObject(&amp;commonExtension -&gt; PagingCountEvent, 
+                                    Executive, KernelMode, 
+                                    FALSE, NULL); 
+    <B>//</B> <B>C</B> 
+    if (!addPageFile &amp;&amp; commonExtension -&gt; PagingCount == 1 ) { 
+        // The last paging file is no longer active.
+        // Set the DO_POWER_PAGABLE bit before 
+        // forwarding the paging request down the 
+        // stack.
+        if (!(DeviceObject-&gt;Flags &amp; DO_POWER_INRUSH)) { 
+            DeviceObject-&gt;Flags |=             DO_POWER_PAGABLE; 
+            setPageable = TRUE; 
+        ) 
+    ) 
+    <B>//</B> <B>D</B> 
+        status = ForwardIrpSynchronous(commonExtension, Irp); 
+    <B>// E</B>
+        if (NT_SUCCESS(status)) { 
+            IoAdjustPagingPathCount(&amp;commonExtension -&gt; PagingCount, 
+                                    addPageFile); 
+        if (addPageFile &amp;&amp; commonExtension -&gt; PagingCount == 1) { 
+            // Once the lower device objects have 
+            // succeeded the addition of the paging 
+            // file, it is illegal to fail the 
+            // request. It is also the time to 
+            // clear the Filter DO's 
+            //DO_POWER_PAGABLE flag.
+ 
+            DeviceObject-&gt;Flags &amp;= ~DO_POWER_PAGABLE; 
+            } 
+        } else { 
+    <B>//</B> <B>F</B> 
+        if (setPageable == TRUE) { 
+            DeviceObject-&gt;Flags &amp;= ~DO_POWER_PAGABLE; 
+            setPageable = FALSE; 
+        } 
+    } 
+    <B>//</B> <B>G</B> 
+        KeSetEvent(&amp;commonExtension-&gt;PagingCountEvent, 
+                                    IO_NO_INCREMENT, FALSE); 
+                                    break;
+    } </PRE>
+
+<P></P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20PnP%20Paging%20Requests"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

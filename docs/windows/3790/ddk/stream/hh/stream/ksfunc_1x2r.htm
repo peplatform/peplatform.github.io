@@ -1,0 +1,123 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Event Set Functions</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Event Set Functions">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_event_set_functions_ks"></A>Event Set Functions</H1>
+
+<P>This section contains the helper functions for event sets and event generating code. These functions allow a device object to present an event set to a client and to perform some of the basic parameter validations and routing based on an event set table.</P>
+
+<P>The following functions are provided:</P>
+
+<P class=indent1><A HREF="ksfunc_6tgz.htm"><B>KsGenerateEvent</B></A> </P>
+
+<P class=indent1><A HREF="ksfunc_8rlf.htm"><B>KsEnableEventWithAllocator</B></A></P>
+
+<P class=indent1><A HREF="ksfunc_1odv.htm"><B>KsGenerateDataEvent</B></A> </P>
+
+<P class=indent1><A HREF="ksfunc_7cfn.htm"><B>KsEnableEvent</B></A> </P>
+
+<P class=indent1><A HREF="ksfunc_8q43.htm"><B>KsDiscardEvent</B></A> </P>
+
+<P class=indent1><A HREF="ksfunc_8w1f.htm"><B>KsDisableEvent</B></A> </P>
+
+<P class=indent1><A HREF="ksfunc_2nqr.htm"><B>KsFreeEventList</B></A> </P>
+
+<P>The <B>PFNKSADDEVENT</B> function prototype defines the entry point for an event set list add handler:</P>
+
+<PRE>typedef NTSTATUS (*PFNKSADDEVENT)(
+  IN PIRP  Irp,
+  IN PKSEVENTDATA  EventData,
+  IN struct _KSEVENT_ENTRY*  EventEntry
+  );</PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>Irp</I></DT>
+
+<DD>Specifies the original enable IRP passed to the event handler function.</DD>
+
+<DT><I>EventData</I></DT>
+
+<DD>Specifies an aligned copy of the original data attached to the event request.</DD>
+
+<DT><I>EventEntry</I></DT>
+
+<DD>Specifies the initialized entry that was created for the event request.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>The callback should return STATUS_SUCCESS or an error specific to the event being enabled. The function does not set the Irp-&gt;IoStatus.Information and Irp-&gt;IoStatus.Status fields, nor does it complete the IRP. It may mark the IRP pending if it is to be completed asynchronously. However, if enabling the event subsequently fails, <A HREF="ksfunc_8q43.htm"><B>KsDiscardEvent</B></A> must be used to free the event entry data allocated by <A HREF="ksfunc_7cfn.htm"><B>KsEnableEvent</B></A>.</P>
+
+<P>The <B>PFNKSREMOVEEVENT</B> function prototype defines the entry point for an event set list-remove handler:</P>
+
+<PRE>typedef VOID (*PFNKSREMOVEEVENT)(
+  IN PFILE_OBJECT  FileObject,
+  IN struct _KSEVENT_ENTRY*  EventEntry
+  ); </PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>FileObject</I></DT>
+
+<DD>Contains the file object on which the request was made.</DD>
+
+<DT><I>EventEntry</I></DT>
+
+<DD>Specifies the entry that was originally created for the event request.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>The callback must succeed.</P>
+
+<H4>Comments</H4>
+
+<P>The function allows a filter pin or master clock to keep separate lists for different types of events. Event set list handlers are specified for each event set.</P>
+
+<P>The <B>PFNKSALLOCATOR</B> callback function is optionally used as a parameter to <B>KsEnableEventWithAllocator</B>, <B>KsPropertyHandlerWithAllocator</B>, and <A HREF="ksfunc_0qlv.htm"><B>KsMethodHandlerWithAllocator</B></A>. It specifies a filter-provided function that is used to allocate memory for data buffers. Normally pool memory is used for buffer allocations. This enables filters that pass event, property, and method queries directly to hardware to avoid extra data copies by allowing them to provide the buffer into which such data is placed by the standard handling functions. Thus, a filter may have memory blocks that already have been mapped to an adapter from which buffer allocations can occur.</P>
+
+<P>Since this memory presumably is not normal pool allocated memory, the filter must perform buffer cleanup on completion of the IRP. This means that for input operations from user mode that are not synchronous, the allocator must allocate an MDL for the destination buffer, probe and lock it, and retrieve a system address. This must be done in order to enable copying of the return data to the original buffer.</P>
+
+<PRE class=syntax><B>Typedef NTSTATUS (*PFNKSALLOCATOR)(
+</B>  <B>IN PIRP</B>  <I>Irp</I>,
+    <B>IN ULONG</B>  <I>BufferSize</I>,
+    <B>IN BOOL</B>  <I>InputOperation</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><B>Irp</B></DT>
+
+<DD>Specifies the IRP for which the buffer allocation request is being made.</DD>
+
+<DT><B>BufferSize</B></DT>
+
+<DD>Specifies the size of buffer needed. This size covers all parameters in the request.</DD>
+
+<DT><B>InputOperation</B></DT>
+
+<DD>Set to TRUE if this is an input operation, meaning that on successful return, the Irp-&gt;IoStatus.Information field will contain the number of bytes to copy back to the original input buffer.</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>Typically, pool memory is used for buffer allocations. This enables filters that pass event, property, and method queries directly to hardware to avoid extra data copies by allowing them to provide the buffer into which such data is placed by the standard handling functions. So, a filter may have memory blocks that have already been mapped to an adapter from which buffer allocations can occur.</P>
+
+<P>Since this memory presumably is not typical pool-allocated memory, the filter must perform buffer cleanup on completion of the Irp. This means that for input operations from usermode that are not synchronous, the allocator must allocate an MDL for the destination buffer, probe and lock it, and retrieve a system address. This must be done in order to enable copying of the return data to the original buffer.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Event%20Set%20Functions"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

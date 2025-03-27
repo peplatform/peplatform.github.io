@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using Bulk Pipes to Retrieve Still Frames from the Camera</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using Bulk Pipes to Retrieve Still Frames from the Camera">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_using_bulk_pipes_to_retrieve_still_frames_from_the_camera_ksg"></A>Using Bulk Pipes to Retrieve Still Frames from the Camera</H2>
+
+<P>An STI USB minidriver can retrieve still frames from the camera using USBCAMD bulk services.</P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>To retrieve still frames from cameras that use bulk pipes for still image transfer.</B>
+
+<OL>
+	<LI>Open the WDM video capture source filter associated with the camera.</LI>
+
+	<LI>Open the still pin on the filter handle obtained in step 1.</LI>
+
+	<LI>Send a <B>ReadFile</B> on that pin with maximum-sized buffer.</LI>
+
+	<LI>Set the stream state from Pause to Run.</LI>
+
+	<LI>Get the interface pointer to <A HREF="vidcapref_967n.htm">PROPSETID_VIDCAP_VIDEOCONTROL</A> property set.</LI>
+
+	<LI>Set the <B>KS_VideoControlFlag_Trigger</B> flag associated with property ID KSPROPERTY_VIDEOCONTROL_MODE.</LI>
+
+	<LI>Once the video control handler of the camera minidriver receives the trigger request, it should call <A HREF="usbcmdpr_3po3.htm">USBCAMD_BulkReadWrite</A> with a NULL buffer pointer.</LI>
+
+	<LI>USBCAMD will dequeue a data SRB from the still pin and call the minidriver's <A HREF="usbcmdpr_5lbn.htm">CamNewVideoFrameEx</A> entry point before it starts the bulk transfer. The camera minidriver can reduce the requested size of the bulk transfer if it determines that the actual still frame is smaller than the maximum size allocated by DirectShow.</LI>
+
+	<LI>Upon completion of the bulk transfer, USBCAMD will call the <A HREF="usbcmdpr_45v7.htm">CamProcessRawVideoFrameEx</A> entry point for further processing. Afterward, USBCAMD will finish the stream class read request on the still pin.</LI>
+</OL>
+
+<P>A user application can cancel a requested bulk read or write by sending a <B>CancelIO</B> to the still pin. If there is a need to load tables to the camera through a bulk out pipe, the USB bus driver (USBD) can send a <B>WriteFile</B> to the still pin.</P>
+
+<P>Still data flow is intended for use in a <I>pull</I> model. A pull occurs when an application requests a still. Still data flow will also work in a <I>push</I> model where it functions as a pull. A push occurs when the user pushes the button on the camera, triggering the device event. USBCAMD will send a  <A HREF="vidcapref_1hyr.htm">KSEVENT_VIDCAPTOSTI_EXT_TRIGGER</A> event that can be propagated all the way to the imaging application. For more information about triggering a device event, see <A HREF="usbcmdpr_90oj.htm">USBCAMD_InitializeNewInterface</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20Bulk%20Pipes%20to%20Retrieve%20Still%20Frames%20from%20the%20Camera"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

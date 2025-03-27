@@ -1,0 +1,112 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TdiDispatchFastDeviceControl</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TdiDispatchFastDeviceControl">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_defining_i_o_control_codes_kg">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_introduction_to_driver_objects_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdidispatchfastdevicecontrol_nr"></A>TdiDispatchFastDeviceControl</H1>
+
+<P>The <I>TdiDispatchFastDeviceControl</I> routine is an optional TDI transport driver function that usually returns data already buffered internally by the transport. </P>
+
+<PRE class=syntax><B>BOOLEAN 
+</B>  <B>TdiDispatchFastDeviceControl(
+</B>    <B>IN STRUCT FILE_OBJECT</B>  <B>*</B><I>FileObject</I><B>,
+</B>    <B>IN BOOLEAN</B>  <I>Wait</I><B>,
+</B>    <B>IN PVOID</B>  <I>InputBuffer</I><B>,
+</B>    <B>IN ULONG</B>  <I>InputBufferLength</I><B>,
+</B>    <B>IN OUT PVOID</B>  <I>OutputBuffer</I><B>,
+</B>    <B>IN ULONG</B>  <I>OutputBufferLength</I><B>,
+</B>    <B>IN ULONG</B>  <I>IoControlCode</I><B>,
+</B>    <B>OUT PIO_STATUS_BLOCK</B>  <I>IoStatus
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>FileObject</I></DT>
+
+<DD>Pointer to the file object representing the open address, connection endpoint, or control channel.</DD>
+
+<DT><I>Wait</I></DT>
+
+<DD>Specifies TRUE if the driver can wait in the context of the call to <B>TdiDispatchFastDeviceControl</B>.</DD>
+
+<DT><I>InputBuffer</I></DT>
+
+<DD>Optionally points to the input buffer, containing caller-supplied information required by the given <I>IoControlCode</I>.</DD>
+
+<DT><I>InputBufferLength</I></DT>
+
+<DD>Specifies the size in bytes of the input buffer.</DD>
+
+<DT><I>OutputBuffer</I></DT>
+
+<DD>Optionally points to the output buffer in which the transport returns any data requested.</DD>
+
+<DT><I>OutputBufferLength</I></DT>
+
+<DD>Specifies the size in bytes of the output buffer.</DD>
+
+<DT><I>IoControlCode</I></DT>
+
+<DD>Specifies the IOCTL_TDI_<I>XXX</I> code for the requested operation. This value must be one of the codes defined in <I>ntddtdi.h</I>. 
+
+<P>The set of valid IOCTL_TDI_<I>XXX</I> codes depends on the fast I/O support, if any, provided by an individual transport and on what that transport currently holds in its internal buffers. In general, transports are most likely to buffer read-ahead data to satisfy anticipated IOCTL_TDI_RECEIVE requests and, possibly, data used to satisfy IOCTL_TDI_QUERY_INFORMATION requests. 
+
+
+<P>The <I>afd.sys</I> driver, which provides support for Windows Sockets to communicate with underlying transports, also provides read-ahead fast I/O support for system transports that do not provide a fast I/O path for received data. 
+</DD>
+
+<DT><I>IoStatus</I></DT>
+
+<DD>Pointer to a caller-supplied variable in which <B>TdiDispatchFastDeviceControl</B> returns the completion status, formatted as an IO_STATUS_BLOCK structure. <B>TdiDispatchFastDeviceControl</B> fills in the <B>Status</B> and <B>Information</B> members as appropriate for the given <I>IoControlCode</I>.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>TdiDispatchFastDeviceControl</B> returns TRUE only if it satisfies or completes the kernel-mode client's request before returning control.</P>
+
+<H4>Comments</H4>
+
+<P>When preparing a fast I/O request, a client neither allocates an IRP nor uses an IRP passed in from a higher network layer. </P>
+
+<P>When the I/O Manager calls <B>TdiDispatchFastDeviceControl</B>, a given <I>OutputBuffer</I> usually corresponds to the buffer at <B>Irp-&gt;MdlAddress</B> in a client-supplied IRP. The <I>InputBuffer</I> contains any client-supplied information for the request, depending on the <I>IoControlCode</I>. This request is different from other kernel requests in that system-defined user-mode IOCTLs identify the requests, as opposed to the TDI_<I>XXX</I> minor function codes listed with <B>TdiBuildInternalDeviceControlIrp</B>.</P>
+
+<P>For example, for IOCTL_TDI_SEND, <I>InputBuffer</I> contains a client-supplied TDI_REQUEST_SEND structure, and <I>OutputBuffer</I> contains the actual data to be sent over the network. For IOCTL_TDI_RECEIVE, <I>InputBuffer</I> contains a TDI_REQUEST_RECEIVE structure, and the transport driver copies the receive data to <I>OutputBuffer</I>. </P>
+
+<P>The definition of each IOCTL_TDI_<I>XXX</I> code in <I>ntddtdi.h</I> determines how buffers should be set up. For an explanation of how to interpret IOCTL_<I>XXX</I> codes, see <A HREF="JavaScript:hhobj_1.Click()">Defining I/O Control Codes</A>. </P>
+
+<P>When the buffer parameters have been set up for the transport, the client calls <B>IoCallDriver</B> to deliver the request to <B>TdiDispatchFastDeviceControl</B> if the transport exports this routine. If the transport cannot complete a fast I/O client request immediately, <B>TdiDispatchFastDeviceControl</B> returns FALSE and the I/O Manager repackages the given request into an IRP_MJ_DEVICE_CONTROL IRP and submits the IRP to the transport driver's <B>TdiDispatchDeviceControl</B> routine. Otherwise, <B>TdiDispatchFastDeviceControl</B> satisfies the request itself, possibly by calling an internal driver function to process the request, or it fails the request. When <B>TdiDispatchFastDeviceControl </B>returns TRUE, the transport relinquishes ownership of the original buffers to the client.</P>
+
+<P>At initialization, a TDI transport driver enables its fast I/O path by setting the <B>FastIoDispatch</B> field in the input driver object to the address of a driver-allocated FAST_IO_DISPATCH structure. The transport must fill in the <B>SizeOfFastIoDispatch</B> member and set <B>FastIoDeviceControl</B> to the entry point of the transport's <B>TdiDispatchFastDeviceControl</B> function; all other members of the FAST_IO_DISPATCH structure must be set to NULL. For more information about driver objects, see <A HREF="JavaScript:hhobj_2.Click()">Introduction to Driver Objects</A>.</P>
+
+<P><B>TdiDispatchFastDeviceControl</B> runs at IRQL PASSIVE_LEVEL or IRQL DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="34bldmac_8df6.htm"><B>TdiBuildInternalDeviceControlIrp</B></A>, <A HREF="31tddisp_9pwy.htm"><B>TdiDispatchDeviceControl</B></A>, <A HREF="32ioctl_508i.htm"><B>TDI_QUERY_INFORMATION</B></A>, <A HREF="32ioctl_5drm.htm"><B>TDI_RECEIVE</B></A>, <A HREF="32ioctl_2hv6.htm"><B>TDI_SEND</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TdiDispatchFastDeviceControl"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

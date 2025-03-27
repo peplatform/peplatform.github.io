@@ -1,0 +1,113 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TdiDispatchInternalDeviceControl</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TdiDispatchInternalDeviceControl">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdidispatchinternaldevicecontrol_nr"></A>TdiDispatchInternalDeviceControl</H1>
+
+<P>The <I>TdiDispatchInternalDeviceControl</I> routine handles TDI_<I>XXX</I> device-control requests from kernel-mode clients. </P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>TdiDispatchInternalDeviceControl(
+</B>    <B>IN PDEVICE_OBJECT</B>  <I>DeviceObject</I><B>,
+</B>    <B>IN PIRP</B>  <I>Irp
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the device object created by the TDI driver.</DD>
+
+<DT><I>Irp</I></DT>
+
+<DD>Pointer to the IRP.
+
+<P>A transport calls <B>IoGetCurrentIrpStackLocation</B> with the given <I>Irp</I> to get a pointer to its own I/O stack location in the IRP, shown in the following list as IrpSp. The transport can use the information set in the following members of the IRP in processing an internal device-control request:
+
+
+<DL>
+<DT><B>IoStatus.Status</B></DT>
+
+<DD>Specifies the final status of the operation. The transport sets this member to the same value that will be returned by <B>TdiDispatchInternalDeviceControl</B>. </DD>
+
+<DT><B>IoStatus.Information</B> </DT>
+
+<DD>Usually, this member is initialized to zero. Depending on the IrpSp<B>-&gt;MinorFunction</B> value, the transport resets this member to the number of bytes of data it is returning to the client or to the number of bytes of data it transferred before the transport completes this IRP. </DD>
+
+<DT>IrpSp<B>-&gt;MajorFunction</B></DT>
+
+<DD>Specifies IRP_MJ_INTERNAL_DEVICE_CONTROL. The transport can ignore this member if it exports a <B>TdiDispatchInternalDeviceControl</B> routine that handles only these requests. </DD>
+
+<DT>IrpSp<B>-&gt;MinorFunction</B></DT>
+
+<DD>Specifies the TDI_<I>XXX</I> code for the operation to be carried out. </DD>
+
+<DT>IrpSp<B>-&gt;FileObject</B></DT>
+
+<DD>Pointer to the file object representing an address, connection endpoint, or control channel. The transport driver uses the values of the <B>FsContext</B> and possibly <B>FsContext2</B> fields in this file object to access any driver-allocated state for operations on the address, connection endpoint, or control channel. 
+</DD>
+</DL>
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>TdiDispatchInternalDeviceControl</B> returns STATUS_SUCCESS if it completed the requested operation successfully. Otherwise, it returns a driver-determined error status, such as STATUS_INVALID_DEVICE_REQUEST or STATUS_INVALID_DEVICE_STATE. </P>
+
+<H4>Comments</H4>
+
+<P>When preparing a request, a kernel-mode client either allocates an IRP with <B>TdiBuildInternalDeviceControlIrp</B> or uses an IRP passed in from a higher network layer. The client calls a <B>TdiBuild</B><I>Xxx</I> macro to set up the IRP for the underlying transport with the corresponding TDI_<I>XXX</I> as the <B>MinorFunction</B> code and IRP_MJ_INTERNAL_DEVICE_CONTROL as the <B>MajorFunction</B> code in the IRP. When it has set up the IRP, the client calls <B>IoCallDriver</B> to submit the request to the underlying transport's <B>TdiDispatchInternalDeviceControl</B> routine. </P>
+
+<P>Usually, a transport's <B>TdiDispatchInternalDeviceControl</B> routine determines whether the given file object at IrpSp<B>-&gt;FileObject</B> represents an address, connection endpoint, or control channel, because certain TDI_<I>XXX</I> are relevant only to addresses, others are relevant only to connection endpoints, and a subset of TDI_<I>XXX</I> codes are relevant to both and to control channels. The following summarizes which TDI_<I>XXX</I> codes are likely to be processed for each:
+
+<DL>
+<DT><B>FileObject</B> represents an address</DT>
+
+<DD>TDI_SEND_DATAGRAM<BR>
+TDI_RECEIVE_DATAGRAM<BR>
+TDI_SET_EVENT_HANDLER</DD>
+
+<DT><B>FileObject</B> represents a connection endpoint</DT>
+
+<DD>TDI_SEND<BR>
+TDI_RECEIVE<BR>
+TDI_ASSOCIATE_ADDRESS<BR>
+TDI_DISASSOCIATE_ADDRESS<BR>
+TDI_CONNECT<BR>
+TDI_DISCONNECT<BR>
+TDI_LISTEN<BR>
+TDI_ACCEPT</DD>
+
+<DT><B>FileObject</B> represents an address, connection endpoint, or control channel</DT>
+
+<DD>TDI_QUERY_INFORMATION<BR>
+TDI_SET_INFORMATION<BR>
+TDI_ACTION
+</DD>
+</DL>
+
+<P>For each TDI_<I>XXX</I> the transport handles, its <B>TdiDispatchInternalDeviceControl</B> routine usually calls an internal driver function to carry out the requested operation. Possibly, the internal driver function also complete the IRP, particularly if that function transfers data because it then can set <B>IoStatus.Information</B> to the appropriate value, leaving <B>TdiDispatchInternalDeviceControl</B> to complete IRPs in which this member is set to zero. Each such internal function usually returns an NTSTATUS-type value, which <B>TdiDispatchInternalDeviceControl</B> propagates when it returns control. </P>
+
+<P>For more information about each of the TDI_<I>XXX</I> mentioned here, see <A HREF="32ioctl_1hiq.htm">TDI IOCTLs for Transport Drivers</A>, next. </P>
+
+<P><B>TdiDispatchInternalDeviceControl</B> runs at IRQL PASSIVE_LEVEL or IRQL DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="34bldmac_8df6.htm"><B>TdiBuildInternalDeviceControlIrp</B></A>, <A HREF="31tddisp_9pwy.htm"><B>TdiDispatchDeviceControl</B></A> </P>
+
+<P></P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TdiDispatchInternalDeviceControl"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,30 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Closing a SAN Socket</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Closing a SAN Socket">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_closing_a_san_socket_ng"></A>Closing a SAN Socket</H3>
+
+<P>After the Windows Sockets switch on either side of a connection calls a SAN service provider's <A HREF="wsdpref_4fsi.htm"><B>WSPCloseSocket</B></A> function, the SAN service provider performs the following procedure to close a SAN socket:
+
+<OL>
+	<LI>Each SAN service provider on either side of the connection tears down the connection and completes receive requests—<A HREF="wsdpref_5hte.htm"><B>WSPRecv</B></A> function calls—by returning the appropriate error code at the <I>lpErrno</I> parameter. For example, a SAN service provider returns WSAECONNRESET to indicate that the remote peer reset the connection. 
+<P>Each SAN service provider also signals completion of pending overlapped operations for the SAN socket to be closed. The SAN service provider calls the <B>WPUCompleteOverlappedRequest</B> function to signal completion of an overlapped operation. In this call, the SAN service provider passes a pointer to the <A HREF="wsdpref_4xo2.htm">WSAOVERLAPPED</A> structure that is associated with the overlapped operation. The SAN service provider also passes the WSA_OPERATION_ABORTED error code to specify that the overlapped operation was canceled because the SAN socket was closed. Before signaling completion of an overlapped operation, the SAN service provider should release any memory that was required for the operation. 
+</LI>
+
+	<LI>After the SAN service provider is done making up-calls—calls to functions that are prefixed with <B>WPU</B>—to the switch using the handle to the SAN socket that was obtained through a <B>WPUCreateSocketHandle</B> up-call, the SAN service provider must make a final up-call to the switch by calling the <B>WPUCloseSocketHandle</B> function to close the socket handle. The SAN service provider then cleans up everything related to the SAN socket. Up-calls are function calls from the switch's up-call dispatch table. The switch provides a pointer to this up-call dispatch table when it calls the SAN service provider's <A HREF="wsdpref_40he.htm"><B>WSPStartupEx</B></A> function to start using the provider. For more information about these up-call functions, see the Platform SDK documentation.</LI>
+</OL>
+
+<P>As long as a SAN service provider performs the preceding procedure to close a SAN socket, the switch takes care of everything else. </P>
+
+<P>To prevent race conditions between a SAN service provider and the switch initiating socket closures, the SAN service provider should never release data structures related to a SAN socket until the switch calls <B>WSPCloseSocket</B>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Closing%20a%20SAN%20Socket"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IRP_MN_FILTER_RESOURCE_REQUIREMENTS</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IRP_MN_FILTER_RESOURCE_REQUIREMENTS">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_irp_mn_filter_resource_requirements_dr"></A>IRP_MN_FILTER_RESOURCE_REQUIREMENTS</H1>
+
+<P>The PnP Manager sends this IRP to a device stack so the function driver can adjust the resources required by the device, if appropriate.</P>
+
+<P>The function driver typically handles this IRP. </P>
+
+<P>The parent bus driver (and bus filter drivers) should not handle this request for a child PDO; instead, such a driver should report resource requirements in response to an <A HREF="pnp-irps_9jhu.htm">IRP_MN_QUERY_RESOURCE_REQUIREMENTS</A> request. </P>
+
+<P>Upper and lower filter drivers do not handle this IRP.</P>
+
+<H4>Major Code</H4>
+
+<P><A HREF="k113_8ur6.htm">IRP_MJ_PNP</A> </P>
+
+<H4>When Sent</H4>
+
+<P>The PnP Manager sends this IRP when it is preparing to allocate resource(s) to a device.</P>
+
+<P>The PnP Manager sends this IRP at IRQL PASSIVE_LEVEL in the context of an arbitrary thread.</P>
+
+<H4>Input</H4>
+
+<P><B>Irp-&gt;IoStatus.Information</B> points to an <A HREF="k112_5quq.htm">IO_RESOURCE_REQUIREMENTS_LIST</A> containing the hardware resource requirements for the device. The pointer is NULL if the device consumes no hardware resources.</P>
+
+<P><B>Parameters.FilterResourceRequirements.IoResourceRequirementList</B> also points to an IO_RESOURCE_REQUIREMENTS_LIST, but the function driver should use the list in the <B>IoStatus</B> block. </P>
+
+<H4>Output</H4>
+
+<P>Returned in the I/O status block.</P>
+
+<H4>I/O Status Block</H4>
+
+<P>If a function driver handles this IRP, it handles it on the IRP's way back up the stack. If the function driver handles the IRP successfully, it sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS and sets <B>Irp-&gt;IoStatus.Information</B> to a pointer to an <A HREF="k112_5quq.htm">IO_RESOURCE_REQUIREMENTS_LIST</A> containing the filtered resource requirements. See the <B>Operation</B> section below for further information on setting the filtered resource list. If a function driver encounters an error when handling this IRP, it sets the error in <B>Irp-&gt;IoStatus.Status</B>. If a function driver does not handle this IRP, it uses <A HREF="k104_1ohe.htm"><B>IoSkipCurrentIrpStackLocation</B></A> to pass the IRP down the stack unchanged.</P>
+
+<P>Upper and lower-filter drivers do not handle this IRP. Such a driver calls <B>IoSkipCurrentIrpStackLocation</B>, passes the IRP down to the next driver, must not modify <B>Irp-&gt;IoStatus</B>, and must not complete the IRP. </P>
+
+<P>The parent bus driver does not handle this IRP. It leaves <B>Irp-&gt;IoStatus</B> as is and completes the IRP.</P>
+
+<H4>Operation</H4>
+
+<P>The PnP Manager sends an <A HREF="pnp-irps_9jhu.htm">IRP_MN_QUERY_RESOURCE_REQUIREMENTS</A> request to the parent bus driver for the device, before the function driver has attached its device object to the device stack. To give the function driver an opportunity to modify the device's resource requirements, if appropriate, the PnP Manager later sends an IRP_MN_FILTER_RESOURCE_REQUIREMENTS request to the full device stack. The PnP Manager sends this IRP before it allocates hardware resources to the device during initial device configuration. The PnP Manager might also send this IRP during resource rebalancing.</P>
+
+<P>When the PnP Manager sends this IRP, it supplies the driver stack with a <A HREF="plugplay_1xk7.htm#ddk_resource_requirements_list_kg">resource requirements list</A>, which drivers can modify and return. The PnP Manager supplies one of the following types of resource requirements list (listed in order of priority):
+
+<UL>
+	<LI><A HREF="plugplay_1xk7.htm#ddk_forced_configuration_kg">Forced configuration</A> (modified from a <A HREF="plugplay_1xk7.htm#ddk_resource_list_kg">resource list</A> to a resource requirements list) </LI>
+
+	<LI><A HREF="plugplay_1xk7.htm#ddk_override_configuration_kg">Override configuration</A> </LI>
+
+	<LI><A HREF="plugplay_1xk7.htm#ddk_basic_configuration_kg">Basic configuration</A> </LI>
+
+	<LI><A HREF="plugplay_1xk7.htm#ddk_boot_configuration_kg">Boot configuration</A> (modified from a resource list to a resource requirements list) </LI>
+</UL>
+
+<P>If a function driver handles this IRP, it must set a completion routine and handle the IRP on its way back up the device stack. See <A HREF="plugplay_15t3.htm">Plug and Play</A> for information on handling a PnP IRP on its way back up the device stack.</P>
+
+<P>If the function driver is not changing the size of the current list pointed to by <B>Irp-&gt;IoStatus.Information</B>, the driver can modify the list in place. If the driver needs to change the size of the requirements list, the driver must allocate a new <A HREF="k112_5quq.htm">IO_RESOURCE_REQUIREMENTS_LIST</A> list from paged memory and free the previous list. The PnP Manager frees the returned structure when it is no longer needed.</P>
+
+<P>A function driver must preserve the order of resources in the list pointed to by <B>Irp-&gt;IoStatus.Information</B> and must not alter resource tags that it does not handle. The driver must take care to adjust the requirements list in a way that the device's parent bus supports. If a function driver adds a new resource to the requirements list, and that resource is assigned to the device, the function driver should filter that resource out of the <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> before passing the start IRP down to the bus driver. </P>
+
+<P>If the function driver for the device does not handle this IRP, the PnP Manager uses the resource requirements as specified by the parent bus driver in response to the <A HREF="pnp-irps_9jhu.htm">IRP_MN_QUERY_RESOURCE_REQUIREMENTS</A> request.</P>
+
+<P>A function driver must be prepared to handle this IRP for a device at any time after the driver's AddDevice routine has been called for the device.</P>
+
+<P>See <A HREF="plugplay_15t3.htm">Plug and Play</A> for the general rules for handling <A HREF="pnp-irps_9bzm.htm">Plug and Play Minor IRPs</A>.</P>
+
+<H4>Sending This IRP</H4>
+
+<P>Reserved for system use. Drivers must not send this IRP.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k102_2omq.htm"><B>ExAllocatePoolWithTag</B></A>, <A HREF="k102_6uuq.htm"><B>ExFreePool</B></A>, <A HREF="k112_5quq.htm">IO_RESOURCE_REQUIREMENTS_LIST</A>, <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IRP_MN_FILTER_RESOURCE_REQUIREMENTS"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

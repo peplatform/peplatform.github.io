@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Intermediate Driver Packet Management</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Intermediate Driver Packet Management">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_intermediate_driver_packet_management_ng"></A>Intermediate Driver Packet Management</H2>
+
+<P>An intermediate driver receives a packet descriptor with one or more chained buffers of data from a higher-level driver to send over the network. The intermediate driver can pass the packet through to the underlying driver by calling <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A> or <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A> if the driver has a connectionless lower edge, or by calling <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A> if the driver has a connection-oriented lower edge. Alternatively the intermediate driver can take some actions to modify either the contents of the chained buffers or perhaps the ordering or timing of the incoming packets relative to other transmissions.</P>
+
+<P>NDIS 4.0 and 5.0 intermediate drivers must allocate a new <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A> to encapsulate data that they pass on. These intermediate drivers must also copy any out-of-band (OOB) data to the new packet. Even if the intermediate driver does nothing other than simply pass on incoming packets — for example, if it simply counts the packets — it <I>must</I> allocate a fresh packet descriptor and manage some or all of a new packet structure. </P>
+
+<P>NDIS 5.1 intermediate drivers that support packet stacking avoid this extra data handling in most common cases. Each NDIS_PACKET allocated includes "stacks", where each stack is defined as:</P>
+
+<PRE class=syntax>typedef struct _NDIS_PACKET_STACK
+{
+  ULONG_PTR  IMReserved[2];
+  ULONG_PTR  NdisReserved[4];
+} NDIS_PACKET_STACK, *PNDIS_PACKET_STACK;
+</PRE>
+
+<P>NDIS 5.1 intermediate drivers call the <A HREF="103ndisx_1hbm.htm"><B>NdisIMGetCurrentPacketStack</B></A> function to access the <B>IMReserved</B> member in the NDIS_PACKET_STACK structure. This member can be used by an NDIS 5.1 intermediate driver to store its context information, if any, for the packet. NDIS 4.0 and 5.0 intermediate drivers use the <B>ProtocolReserved</B> and <B>MiniportReserved</B> members, for sent and received packets, in the NDIS_PACKET structure. If a call to <B>NdisIMGetCurrentPacketStack</B> indicates <I>*StacksRemaining</I> is FALSE, the NDIS 5.1 intermediate driver must revert to the NDIS 5.0 packet handling model. </P>
+
+<P>Every NDIS 4.0 and 5.0 intermediate driver <I>must</I> allocate new packet descriptors to replace those of the overlying driver. If an intermediate driver converts the packet from one format to another, it also can allocate buffer descriptors to map intermediate-allocated buffers into which the converted data is copied. If there is OOB data associated with the packet descriptor being copied, this data can be copied to the new OOB block associated with the intermediate-allocated packet descriptor, using the macro <A HREF="103ndisx_43qq.htm">NDIS_OOB_DATA_FROM_PACKET</A>, to obtain a pointer to the OOB data area and, then, calling <A HREF="103ndisx_87le.htm"><B>NdisMoveMemory</B></A> to move the contents into the OOB area associated with the new packet descriptor. Alternatively, such an intermediate driver can use the NDIS_GET_PACKET_<I>XXX</I> and NDIS_SET_PACKET_<I>XXX</I> macros to read specific items from the OOB data associated with the old packet descriptor and to write the OOB data for the new packet descriptor. </P>
+
+<P>Depending on the purpose of the intermediate driver, such a driver can repackage buffers that are chained to incoming packet descriptors. For example, an intermediate driver allocates buffer pool and repackages incoming packet data in the following circumstances:
+
+<UL>
+	<LI>The intermediate driver receives a larger data buffer from an overlying protocol driver than can be sent in a single buffer over the underlying medium. Consequently, the intermediate driver must divide the incoming data into smaller buffers. </LI>
+
+	<LI>The intermediate driver changes the length or content of the packet data by compressing or encrypting the data before forwarding each send to the underlying driver. </LI>
+</UL>
+
+<P>For Information about creating packet and buffer pools, see <A HREF="302pro_0bqf.htm">Allocating Packet Pools and Buffer Pools in a Protocol Driver</A>. </P>
+
+<P>Packet descriptors to meet typical needs can be allocated as needed, at driver initialization time, or in the <A HREF="104tdlow_2bqq.htm"><I>ProtocolBindAdapter</I></A> function. An intermediate driver developer can, if necessary and for performance reasons, allocate a number of packet descriptors and possibly buffers mapped by buffer descriptors at initialization time so that <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> has preallocated resources into which to copy incoming data for indicating to a higher-level driver, and so that <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A><I> </I>or <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A> has available descriptors (and possibly buffers) to pass incoming send packets on to the next lower driver. </P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;NDIS manages received and sent packets differently. If an intermediate drivers preallocates and reuses packets, it should manage separate send and receive packet pools.</P>
+
+<P>If an intermediate driver copies send data or received data to a new buffer or buffers, and the length of actual data in the last buffer is less than the allocated length of the buffer, the intermediate driver calls <A HREF="103ndisx_2pki.htm"><B>NdisAdjustBufferLength</B></A> to adjust the buffer descriptor to the actual length of the data. When the packet is returned to the intermediate driver, it should again make this call to readjust the length to the full length of its buffer.</P>
+
+<P>An intermediate driver with a connectionless lower edge can receive incoming data from an underlying miniport driver by:
+
+<UL>
+	<LI>Receiving a complete packet, specified by a packet descriptor of type <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A>, from its <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A> function, or</LI>
+
+	<LI>the data can be indicated to its <I>ProtocolReceive</I> function and copied into an intermediate-driver-supplied packet. </LI>
+</UL>
+
+<P>An intermediate driver with a connection-oriented lower edge always receives incoming data from an underlying miniport driver as a complete packet from its <A HREF="104tdlow_3pwy.htm"><I>ProtocolCoReceivePacket</I></A> function.</P>
+
+<P>An intermediate driver can retain ownership of a received packet in the following circumstances:
+
+<UL>
+	<LI>When an intermediate driver with a connectionless lower edge has a complete packet indicated to its <I>ProtocolReceivePacket</I> function</LI>
+
+	<LI>When an intermediate driver with a connection-oriented lower edge has a packet indicated to its <I>ProtocolCoReceivePacket</I> function with the <B>Status</B> member of NDIS_PACKET_OOB_DATA set to anything other than NDIS_STATUS_RESOURCES</LI>
+</UL>
+
+<P>In these cases, the driver can retain ownership of the packet descriptor and the resources that it describes until the received data is consumed and return these resources to the underlying driver later by calling <A HREF="103ndisx_61de.htm"><B>NdisReturnPackets</B></A>. If <I>ProtocolReceivePacket</I> passes the packets that it received to a higher-level driver, it <I>must</I>, at a minimum, replace the input packet descriptor with one that the intermediate driver has allocated. </P>
+
+<P>Depending on an intermediate driver’s purpose when it receives a full packet from an underlying driver, several packet-management strategies are possible. For example, it can do either of the following:
+
+<UL>
+	<LI>Copy the buffered contents into an intermediate driver-allocated buffer mapped and chained to a fresh packet descriptor, return the input packet descriptor to the underlying driver, and then indicate the new packet to the higher-level driver. </LI>
+
+	<LI>Create a new packet descriptor and chain the buffers from the indicated packet descriptor to this new descriptor. This new packet descriptor can then be indicated up to the higher-level driver. When this higher-level driver returns the packet descriptor, the intermediate driver must unchain the buffers from its packet descriptor, chain them to the packet descriptor it originally received from the underlying driver, and return the original packet descriptor and the resources that it describes to the underlying driver. </LI>
+</UL>
+
+<P>Even if an intermediate driver with a connectionless lower edge has a <A HREF="104tdlow_5i7n.htm"><I>ProtocolReceivePacket</I></A> function, it must also have a <A HREF="104tdlow_62k2.htm"><I>ProtocolReceive</I></A> function. NDIS calls <I>ProtocolReceive</I> whenever the underlying driver will not relinquish ownership of the resources it indicates with a packet descriptor, and the intermediate driver must copy the received data into its own buffers when such an indication occurs. If the underlying driver also indicates out-of-band data with receives, <I>ProtocolReceive</I> can call <A HREF="103ndisx_4faq.htm"><B>NdisGetReceivedPacket</B></A> and <A HREF="103ndisx_7xma.htm">NDIS_GET_ORIGINAL_PACKET</A> to get the per-packet information associated with the receive indication. </P>
+
+<P>When an underlying connection-oriented miniport driver will not relinquish ownership of the resources that it indicates with a packet descriptor, it sets the <B>Status</B> member of the packet's NDIS_PACKET_OOB_DATA to  NDIS_STATUS_RESOURCES. The <A HREF="104tdlow_3pwy.htm"><I>ProtocolCoReceivePacket</I></A> function of the intermediate driver then must copy the received data into its own buffers.</P>
+
+<P>After NDIS returns an intermediate-driver-allocated packet descriptor to the intermediate driver by calling <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A>, <A HREF="104tdlow_2t4i.htm"><I>ProtocolCoSendComplete</I></A>, or by calling <A HREF="101mini_81ki.htm"><I>MiniportReturnPacket</I></A>, the intermediate driver owns the packet descriptor and all the resources that it describes. If a higher-level or lower-level driver supplied the buffers chained to such a returned packet descriptor, the intermediate driver should return these resources back to the allocating driver promptly.</P>
+
+<P>If the intermediate driver originally allocated the packet descriptor and/or the chained buffers, it can reclaim its resources and reuse them. For additional information on reusing packets, see <A HREF="302pro_6mhz.htm">Packet Reuse in a Protocol Driver</A>. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Intermediate%20Driver%20Packet%20Management"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

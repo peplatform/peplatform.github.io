@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Adding a Party to a Multipoint Call</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Adding a Party to a Multipoint Call">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_adding_a_party_to_a_multipoint_call_ng"></A>Adding a Party to a Multipoint Call</H3>
+
+<P>A client requests to add a party to a multipoint call with <A HREF="103ndisx_5fua.htm"><B>NdisClAddParty</B></A>. A client can add a party only to an existing multipoint call—that is, a call for which the client supplied a <I>ProtocolPartyContext</I> to <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A> (see <A HREF="401condis_69yf.htm">Making a Call</A>).</P>
+
+<P>The following figure shows a client of a call manager requesting to add a party to multipoint call.</P>
+
+<P><IMG SRC="images/cm_17.gif" ALT="" BORDER=0></P>
+
+<P><B>Adding a Party Through a Call Manager to a Multipoint Call</B></P>
+
+<P>The following figure shows a client of an MCM driver requesting to add a party to multipoint call.</P>
+
+<P><IMG SRC="images/fig1_17.gif" ALT="" BORDER=0></P>
+
+<P><B>Adding a Party Through an MCM Driver to a Multipoint Call</B></P>
+
+<P>Before it calls <B>NdisClAddParty</B>, a client must allocate and initialize its context area for the party to be added. Clients commonly pass a pointer to such a context area as the <I>ProtocolPartyContext</I> and a pointer to a variable within that context area as the <I>NdisPartyHandle</I> parameters when they call <B>NdisClAddParty</B>. </P>
+
+<P>In addition to an <I>NdisVcHandle</I> and a <I>ProtocolPartyContext</I>, the client passes call parameters (a buffered <A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A> structure) to <B>NdisClAddParty</B>. The underlying network medium determines whether a client can specify per-party traffic parameters on a multipoint VC. For example, traffic parameters on a multipoint VC are identical for all parties on ATM networks. </P>
+
+<P>The call to <B>NdisClAddParty</B> causes NDIS to forward this request to the <A HREF="104tdlow_9trm.htm"><I>ProtocolCmAddParty</I></A> function of the call manager or MCM driver with which the client shares the given <I>NdisVcHandle</I>. NDIS passes the following to the <I>ProtocolCmAddParty</I>:
+
+<UL>
+	<LI>A <I>CallMgrVcContext</I> that indicates the VC for the call</LI>
+
+	<LI>A pointer to a CO_CALL_PARAMETERS structure that contains the call parameters passed by the client to <B>NdisClAddParty</B></LI>
+
+	<LI>An <I>NdisPartyHandle</I> that identifies the party to be added</LI>
+</UL>
+
+<P><I>ProtocolCmAddParty</I> allocates and initializes any dynamic resources needed for the party being added to the call. From <I>ProtocolCmAddParty</I>, a call manager or MCM driver communicates with network control devices or other media-specific agents, as necessary, to add the specified party to the multipoint call.</P>
+
+<P>If the client passed in call parameters that did not match those already established for the multipoint VC, the call manager or MCM driver can, for example:
+
+<UL>
+	<LI>Set up the per-party traffic parameters if the underlying network medium supports this feature on multipoint VCs</LI>
+
+	<LI>Reset the client-supplied traffic parameters to those originally established for the VC</LI>
+
+	<LI>Change the call  parameters for the VC and for every party currently connected on it</LI>
+
+	<LI>Fail the client's attempt to add a party</LI>
+</UL>
+
+<P><I>ProtocolCmAddParty</I> can complete synchronously or, more probably, asynchronously with <A HREF="103ndisx_2ynm.htm"><B>NdisCmAddPartyComplete</B></A>, in the case of a call manager, or <A HREF="103ndisx_72pe.htm"><B>NdisMCmAddPartyComplete</B></A>, in the case of an MCM driver. Whether the call manager or MCM driver completes the operation synchronously or asynchronously, it passes the buffered call parameters to NDIS.</P>
+
+<P>The call to <B>Ndis(M)CmAddPartyComplete</B> causes NDIS to call the client's <A HREF="104tdlow_2j5e.htm"><I>ProtocolClAddPartyComplete</I></A> function. If the client's request to add the party succeeded and if the signaling protocol allows the call manager or MCM driver to modify the call parameters, <I>ProtocolClAddPartyComplete</I> should test the CALL_PARAMETERS_CHANGED flag in the buffered CO_CALL_PARAMETERS structure to determine whether the call parameters were modified. The signaling protocol determines what the client can do if it finds the modifications to CO_CALL_PARAMETERS unacceptable. Usually, a client calls <A HREF="103ndisx_2tf6.htm"><B>NdisClDropParty</B></A> in this case (see <A HREF="401condis_8wo7.htm">Dropping a Party from a Multipoint Call</A>).</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Adding%20a%20Party%20to%20a%20Multipoint%20Call"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

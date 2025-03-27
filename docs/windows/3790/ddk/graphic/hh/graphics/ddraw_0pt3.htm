@@ -1,0 +1,39 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Overview of DMA Operations</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Overview of DMA Operations">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_overview_of_dma_operations_gg"></A>Overview of DMA Operations</H4>
+
+<P><B>This topic applies only to Windows 98/Me.</B></P>
+
+<P>When DirectDraw receives a blt request, it consults the blt capabilities of the device to see if it can perform the required blt. In cases involving at least one system memory surface, DirectDraw checks the DDCAPS_CANBLTSYSMEM flag and, if it is set, further consults the appropriate caps fields in the driver's <A HREF="ddstrcts_5xgn.htm">DDCORECAPS</A> structure. To review, these fields are as follows (as extracted from the DDCORECAPS structure definition in <I>ddrawi.h</I>): </P>
+
+<PRE>DWORD    dwSVBCaps; 
+DWORD    dwSVBCKeyCaps; 
+DWORD    dwSVBFXCaps; 
+DWORD    dwSVBRops[DD_ROP_SPACE]; 
+DWORD    dwVSBCaps; 
+DWORD    dwVSBCKeyCaps; 
+DWORD    dwVSBFXCaps; 
+DWORD    dwVSBRops[DD_ROP_SPACE]; 
+DWORD    dwSSBCaps; 
+DWORD    dwSSBCKeyCaps; 
+DWORD    dwSSBFXCaps; 
+DWORD    dwSSBRops[DD_ROP_SPACE]; </PRE>
+
+<P>Once the driver has received the DMA blt request, it can set up the DMA operation and immediately return to DirectDraw. DirectDraw then decides if the DMA operation can be completed asynchronously by checking whether the driver has exposed the <A HREF="ddfncs_8lk7.htm"><I>DdGetSysmemBltStatus</I></A> HAL callback (system-memory-surface version of this callback). If the driver offers this function, DirectDraw tags the system memory surfaces to indicate that they have taken part in a DMA operation and returns immediately to the caller, typically before the DMA transfer has completed. If the driver does not offer this callback, then DirectDraw does not return to the caller until the driver reports through <A HREF="ddfncs_8lk7.htm"><I>DdGetBltStatus</I></A> that the destination surface is no longer involved in a blt. This behavior is required to ensure backwards compatibility with pre-DirectX 5.0 drivers. </P>
+
+<P>Additionally, DirectDraw does not allow asynchronous DMA (that is, DirectDraw spins on <I>DdGetBltStatus</I> after setting up a blt) if any involved system memory surface has not been page locked by the application. A driver that does not require page locks to perform a transfer involving system memory surfaces can set the DDCAPS2_NOPAGELOCKREQUIRED flag. DirectDraw ignores the page lock status of system memory surfaces if this flag is set. </P>
+
+<P>Because DirectDraw tags system memory surfaces that have taken part in a DMA operation, it checks with the driver before allowing any access or changes to such surfaces. If DirectDraw is asked to <B>Lock</B>, <B>Blt</B>, <B>GetDC</B>, <B>PageUnlock</B>, or <B>Release</B> a system memory surface, it first calls the driver's <I>DdGetSysmemBltStatus</I> function to determine whether the prior DMA operation has been completed. If the operation has not been completed, DirectDraw repeatedly calls <I>DdGetSysmemBltStatus</I> until the driver reports that the DMA operation has finished. The application-requested operation is then allowed to begin. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Overview%20of%20DMA%20Operations"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

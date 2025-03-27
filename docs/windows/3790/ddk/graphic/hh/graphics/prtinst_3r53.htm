@@ -1,0 +1,117 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Downloading Queue-Specific Files</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Downloading Queue-Specific Files">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_downloading_queue_specific_files_gg"></A>Downloading Queue-Specific Files</H3>
+
+<P>If a user decides to create a printer connection from his or her client system to a print server, and if an installation application has created the registry entries described in <A HREF="prtinst_0js7.htm">Supporting Point and Print During Printer Installations</A>, the following events occur:
+
+<OL>
+	<LI>The user application calls <B>AddPrinterConnection</B>, which is described in the Platform SDK documentation.</LI>
+
+	<LI>The client’s remote print provider (<I>win32spl.dll</I>) creates a connection to the server.</LI>
+
+	<LI>The server’s spooler sends driver files to the client.</LI>
+
+	<LI>The client’s <I>win32spl.dll</I> calls <B>EnumPrinterKey</B> and <B>EnumPrinterDataEx</B> on the server to copy the printer’s registry entries.</LI>
+
+	<LI>As the server’s spooler enumerates registry values during processing of <B>EnumPrinterDataEx</B>, it performs the following operations each time it encounters a subkey of the printer’s <B>CopyFiles</B> key, such as <B>CopyFiles\ICM</B>:
+<UL>
+	<LI>Loads the <A HREF="prtinst_49bb.htm">Point and Print DLL</A>, if specified, and calls its <A HREF="poprfnc_1cmf.htm"><B>GenerateCopyFilePaths</B></A> function, which can modify source and/or destination paths.</LI>
+
+	<LI>Creates <B>SourceDir</B> and <B>TargetDir</B> keys, based on source and destination paths returned by <B>GenerateCopyFilePaths</B>, and returns them to the client spooler as <B>EnumPrinterDataEx</B> data. (These keys do not really exist on the server.)</LI>
+</UL>
+</LI>
+
+	<LI>The client’s <I>win32spl.dll</I> caches printer keys received in response to <B>EnumPrinterData</B> and <B>EnumPrinterDataEx</B> calls.</LI>
+
+	<LI>For each subkey of the printer’s <B>CopyFiles</B> key, such as <B>CopyFiles\ICM</B>, the client’s <I>win32spl.dll</I> performs the following operations:
+<UL>
+	<LI>Loads the local Point and Print DLL, if one is provided, and calls its <B>GenerateCopyFilePaths</B> function, which can modify source and/or destination paths. (Inputs are the <B>SourceDir</B> and <B>TargetDir</B> keys received from the server.)</LI>
+
+	<LI>Downloads all files associated with the <B>Files</B> key from the server.</LI>
+
+	<LI>Logs an event, indicating Point and Print files were downloaded.</LI>
+
+	<LI>Calls the Point and Print DLL’s <A HREF="poprfnc_5xnr.htm"><B>SpoolerCopyFileEvent</B></A> function, if a DLL is provided, specifying a COPYFILE_EVENT_FILE_CHANGED event.</LI>
+</UL>
+</LI>
+
+	<LI>The client spooler calls the driver’s <A HREF="drvrfnc_7xuv.htm"><B>DrvPrinterEvent</B></A> function, specifying a PRINTER_EVENT_CACHE_REFRESH event.</LI>
+
+	<LI>The client spooler calls the driver’s <B>DrvPrinterEvent</B> function again, specifying a PRINTER_EVENT_ADD_CONNECTION event.</LI>
+
+	<LI>If a Point and Print DLL is provided, the client spooler calls its <B>SpoolerCopyFileEvent</B> function, specifying a COPYFILE_EVENT_ADD_PRINTER_CONNECTION event.</LI>
+</OL>
+
+<H4>Connection Example</H4>
+
+<P>As an example, assume that an installation application has defined the server registry entries described in the <A HREF="prtinst_9fon.htm#ddk_installation_example_gg">installation example</A>. Additionally, assume that the server is named NTPRINT and the client is named MyClient.</P>
+
+<P>To connect to the print queue named HpColor on NTPRINT, a user application on MyClient calls <B>AddPrinterConnection</B> as follows:</P>
+
+<PRE>AddPrinterConnection(“\\NTPRINT\HpColor”)</PRE>
+
+<P>On the server, the spooler loads <I>mscms.dll</I> and calls <A HREF="poprfnc_1cmf.htm"><B>GenerateCopyFilePaths</B></A> as follows:</P>
+
+<PRE>GenerateCopyFilePaths(
+    “HpColor”,
+    “Color”,
+    &amp;SplclientInfo1,
+    1,
+    \\NTPRINT\PRINT$\Color,
+    &amp;dwSourceDirSize,
+    “Color”,
+    &amp;dwDestDirSize,
+    COPYFILE_FLAG_SERVER_SPOOLER)</PRE>
+
+<P>Microsoft ICM’s <I>mscms.dll</I> module does not modify the source or destination paths, so it just returns ERROR_SUCCESS.</P>
+
+<P>The server spooler returns the following keys to MyClient:</P>
+
+<PRE><B>SourceDir</B>: \\NTPRINT\PRINT$\Color
+<B>TargetDir</B>: “Color”</PRE>
+
+<P>On the client, the value for <B>TargetDir</B> expands to <I>C:\Winnt\System32\Spool\Drivers\Color</I>.</P>
+
+<P>The spooler on MyClient performs the following operations:
+
+<UL>
+	<LI>Downloads <I>mscms.dll</I> and calls <A HREF="poprfnc_1cmf.htm"><B>GenerateCopyFilePaths</B></A> as follows:
+<PRE>GenerateCopyFilePaths(
+    “\\NTPRINT\HpColor”,
+    “Color”,
+    &amp;SplclientInfo1,
+    1,
+    \\NTPRINT\PRINT$\Color,
+    &amp;dwSourceDirSize,
+    “C:\Winnt\System32\Spool\Drivers\Color”,
+    &amp;dwDestDirSize,
+    COPYFILE_FLAG_CLIENT_SPOOLER)</PRE>
+
+<P>Microsoft ICM’s <I>mscms.dll</I> module does not modify the source or destination paths, so it just returns ERROR_SUCCESS.
+</LI>
+
+	<LI>Downloads <I>hpclrlsr.icm</I> to <I>C:\Winnt\System32\Spool\Drivers\Color</I>.</LI>
+
+	<LI>Logs an event, indicating Point and Print files were downloaded.</LI>
+
+	<LI>Calls the <A HREF="poprfnc_5xnr.htm"><B>SpoolerCopyFileEvent</B></A> function in <I>mscms.dll</I>, specifying a COPYFILE_EVENT_FILE_CHANGED event.</LI>
+
+	<LI>Calls the printer driver’s <A HREF="drvrfnc_7xuv.htm"><B>DrvPrinterEvent</B></A> function, specifying a PRINTER_EVENT_CACHE_REFRESH event.</LI>
+
+	<LI>Calls the printer driver’s <B>DrvPrinterEvent</B> function again, specifying a PRINTER_EVENT_ADD_CONNECTION event.</LI>
+
+	<LI>Calls the <B>SpoolerCopyFileEvent</B> function in <I>mscms.dll</I>, specifying a COPYFILE_EVENT_ADD_PRINTER_CONNECTION event.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Downloading%20Queue-Specific%20Files"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

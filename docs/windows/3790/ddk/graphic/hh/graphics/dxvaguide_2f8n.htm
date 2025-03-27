@@ -1,0 +1,194 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ProcAmpControlQueryRange</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ProcAmpControlQueryRange">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_procampcontrolqueryrange_gg"></A><I>ProcAmpControlQueryRange</I></H1>
+
+<P>The sample <I>ProcAmpControlQueryRange</I> function allows the VMR to query the driver to determine the minimum, maximum, step size and default value for each ProcAmp property.</P>
+
+<PRE class=syntax><B>HRESULT
+</B>  <I>ProcAmpControlQueryRange</I><B>(</B>
+    [<B>in</B>] <B>DWORD</B>  <I>VideoProperty</I>,
+    [<B>in</B>] <B>DXVA_VideoDesc</B>*  <I>lpVideoDescription</I>,
+    [<B>out</B>] <B>DXVA_VideoPropertyRange</B>*  <I>lpPropRange</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>VideoProperty</I></DT>
+
+<DD>Identifies the ProcAmp control property that the driver should return information for. Following are the possible values for this parameter:
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=44%>Value</TH>
+<TH align=left width=56%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=44%>DXVA_ProcAmp_Brightness</TD>
+<TD width=56%>Returns brightness information.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=44%>DXVA_ProcAmp_Contrast</TD>
+<TD width=56%>Returns contrast information.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=44%>DXVA_ProcAmp_Hue</TD>
+<TD width=56%>Returns hue information.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=44%>DXVA_ProcAmp_Saturation</TD>
+<TD width=56%>Returns saturation information.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><I>lpVideoDescription</I></DT>
+
+<DD>Pointer to a <A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A> structure. This structure provides the driver with a description of the video that the ProcAmp adjustment is going to be applied to. Drivers may adjust their ProcAmp support for particular video streams.</DD>
+
+<DT><I>lpPropRange</I></DT>
+
+<DD>Pointer to a <A HREF="dxvaref_8uxz.htm">DXVA_VideoPropertyRange</A> structure that specifies the range, step size, and default value for the ProcAmp.</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>S_OK or E_NOTIMPL</P>
+
+<H4>Comments</H4>
+
+<P>For each ProcAmp property (brightness, contrast, saturation and so on), the VMR queries the driver to determine the minimum, maximum, step size, and default value. If the hardware does not support a particular ProcAmp control property, the driver should return E_NOTIMPL from the <I>ProcAmpControlQueryRange</I> function.</P>
+
+<P>Although the driver can return any value for the ProcAmp properties, the following are the recommended settings (all values are floats).</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=20%>Property</TH>
+<TH align=left width=20%>Minimum</TH>
+<TH align=left width=20%>Maximum</TH>
+<TH align=left width=20%>Default</TH>
+<TH align=left width=20%>Increment</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=20%>Brightness</TD>
+<TD width=20%>-100.0F</TD>
+<TD width=20%>100.0F</TD>
+<TD width=20%>0.0F</TD>
+<TD width=20%>0.1F</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=20%>Contrast</TD>
+<TD width=20%>0.0F</TD>
+<TD width=20%>10.0F</TD>
+<TD width=20%>1.0F</TD>
+<TD width=20%>0.01F</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=20%>Saturation</TD>
+<TD width=20%>0.0F</TD>
+<TD width=20%>10.0F</TD>
+<TD width=20%>1.0F</TD>
+<TD width=20%>0.01F</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=20%>Hue</TD>
+<TD width=20%>-180.0F</TD>
+<TD width=20%>180.0F</TD>
+<TD width=20%>0.0F</TD>
+<TD width=20%>0.1F</TD>
+</TR>
+</TABLE><BR>
+
+<P>It is important that the default values result in a <I>null</I> transform of the video stream. This allows the VMR to bypass the ProcAmp adjustment stage in its video pipeline if an application has not altered any of the ProcAmp control properties.</P>
+
+<H4>Notes Regarding ProcAmp Values and Ranges</H4>
+
+<P>The VMR enforces the following parameter validations before calling a driver:
+
+<UL>
+	<LI>The VMR ensures that values supplied by applications fall within the valid range as specified by the driver. The VMR clamps any application-provided values to the specified range. For example, if the maximum value for brightness is 100 and the application supplies a value of 105, the VMR clamps the application's value to 100. When the application queries the VMR to determine the current brightness setting, it receives the clamped value, in this case 100.</LI>
+
+	<LI>The VMR also makes any necessary rounding to the application-provided value to ensure that the values fall on the nearest location as indicated by the step size increment returned by your driver. For example, if the brightness step size increment is 0.5, the minimum permitted brightness value is -100.0, and the application supplies a value of -80.7, the VMR adjusts the application's value to the nearest valid value, -80.5 in this case.</LI>
+</UL>
+
+<P>The driver should ensure that the following relationships hold:
+
+<UL>
+	<LI>The maximum range value is greater than the minimum range value. This implies that the difference between the maximum and minimum value is greater than 0.0.</LI>
+
+	<LI>The default and maximum values fall on a valid locations as specified by the step size increment, as shown in the following expressions:
+<PRE>min + (int((default - min) / increment) * increment) == default
+min + (int((max - min) / increment) * increment) == max</PRE>
+</LI>
+
+	<LI>Because applications will usually use Windows slider controls to display ProcAmp settings and because the maximum range of Windows slider controls is 65536, drivers should keep the number of distinct ProcAmp values to fewer than 65536. The following inequality should be true for the values chosen:
+<PRE>int((max - min) / increment) &lt; 65536.</PRE>
+</LI>
+
+	<LI>For ProcAmp properties that are not supported by your hardware, the driver should return the maximum value, minimum value, and default value with a step size increment of 0.0.</LI>
+</UL>
+
+<P>The sample <B>ProcAmpControlQueryRange</B> function maps directly to a call to the <B>RenderMoComp</B> member of the <A HREF="ddstrcts_0qav.htm">DD_MOTIONCOMPCALLBACKS</A> structure in the deinterlace container device. <B>RenderMoComp</B> points to the driver-supplied <I>DdMoCompRender</I> callback that references the <A HREF="ddstrcts_5jtz.htm">DD_RENDERMOCOMPDATA</A> structure. The DD_RENDERMOCOMPDATA structure is completed as follows.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=45%>Member</TH>
+<TH align=left width=55%>Value</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%><B>dwNumBuffers</B></TD>
+<TD width=55%>Zero</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%><B>lpBufferInfo</B></TD>
+<TD width=55%>NULL</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%><B>dwFunction</B></TD>
+<TD width=55%>DXVA_ProcAmpControlQueryRangeFnCode constant (defined in <I>dxva.h</I>)</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%><B>lpInputData</B></TD>
+<TD width=55%>Pointer to a <A HREF="dxvaref_2aav.htm">DXVA_ProcAmpControlQueryRange</A> structure.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=45%><B>lpOutputData</B></TD>
+<TD width=55%>Pointer to a <A HREF="dxvaref_8uxz.htm">DXVA_VideoPropertyRange</A> structure.</TD>
+</TR>
+</TABLE><BR>
+
+<P>Note that the DirectX VA container device’s <B>RenderMoComp</B> function will be called without <B>BeginMoCompFrame</B> or <B>EndMoCompFrame</B> being called first. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="dxvaref_2aav.htm">DXVA_ProcAmpControlQueryRange</A>, <A HREF="dxvaref_3t0n.htm">DXVA_VideoDesc</A>, <A HREF="dxvaref_8uxz.htm">DXVA_VideoPropertyRange</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ProcAmpControlQueryRange"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

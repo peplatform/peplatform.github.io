@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Topology Miniport</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Topology Miniport">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_topology_miniport_ksg"></A>Topology Miniport</H3>
+
+<P>The <I>topology class </I>of miniport drivers provides access to the various controls (volume, equalization, and hardware reverb) that audio adapters typically support. The topology miniport driver implements a control as a <I>topology node</I>. The driver exposes a topology that consists of a set of topology nodes<I> </I>and their interconnections.</P>
+
+<P>The <A HREF="aud-design_1kiv.htm#ddk_sysaudio_system_driver_ksg">SysAudio system driver</A> looks at the topology when it builds an audio filter graph. The Windows Multimedia <B>mixer</B> API (see the Platform SDK documentation) exposes the topology nodes as mixer-line controls to user-mode applications such as SndVol32 (see <A HREF="pcdesign_9ulj.htm">SysTray and SndVol32</A>).</P>
+
+<P>PortCls supports the <A HREF="audmp-routines_70z7.htm"><B>IMiniportTopology</B></A> interface for topology miniport drivers. An audio adapter driver forms a <A HREF="aud-design_67qf.htm">topology filter</A> by binding a miniport driver that has an <B>IMiniportTopology</B> interface to the corresponding port driver, which has an <A HREF="audmp-routines_1c8j.htm"><B>IPortTopology</B></A> interface.</P>
+
+<P>A topology node can have any number of properties, but one of these properties is typically the control value that is specific to the node type. For example, a volume node (<A HREF="aud-prop_9eb7.htm">KSNODETYPE_VOLUME</A>) has a value indicating its current volume setting. Volume and pan controls are exposed as separate volume nodes (see <A HREF="pcdesign_2vmv.htm">DirectSound Node-Ordering Requirements</A>). A node might support only one control value. Nodes that have control values can be specified to have any type of value that can be supported by the <A HREF="ks-overview_1uhz.htm">KS property</A> mechanism. For a list of audio node types and their properties, see <A HREF="aud-prop_24z7.htm">Audio Topology Nodes</A>.</P>
+
+<P>A topology miniport driver uses a <I>connection descriptor </I>(<A HREF="audpc-struct_6yb7.htm">PCCONNECTION_DESCRIPTOR</A>) to describe a connection between two topology nodes. Each connection is directed and specifies both a <I>from</I> node and a <I>to</I> node. A connection also specifies a <I>pin number</I> for each of its associated nodes. Although node pins are not explicitly supported as entities in the topology, the inputs and outputs with distinct functions can be differentiated by the pin numbering in the connection descriptors. For example, a state-variable filter might have three output pins—one each for high, middle, and low frequencies. Pin numbering allows clients of the miniport driver to determine which connections are associated with which pins.</P>
+
+<P>A <I>distinguished node identifier</I>, <A HREF="audpc-struct_8xbn.htm">PCFILTER_NODE</A>, designates each of the topology’s external connections. In the WDM streaming environment, the pins on this "filter node" are the pins on the topology filter that the topology port driver implements. These pins represent physical, hardwired connections of the adapter hardware. Thus, the pins cannot provide explicit control over whether a connection is made, and they cannot be used to manage the flow of data over that connection. Some of the filter pins represent connections internal to the system, such as the point at which analog data from a digital-to-analog converter (DAC) enters the topology. Other filter pins represent external physical connections, such as the lineout jack on an audio adapter.</P>
+
+<P>A single connection descriptor can describe a connection between any two pin types in a topology. The pins on the two sides of a connection can be pins on a filter or "logical" pins on nodes inside the filter, or the connection can have a filter pin on one side and a "logical" node pin on the other. A miniport driver specifies its topology as an array of connection descriptors. A single pin can have more than one connection, which means that the same pin can appear in more than one connection descriptor in the array.</P>
+
+<P>The topology description that a client obtains from a miniport driver is <I>not</I> designed to support open-ended discovery of how to use node types that are unknown to the client. Node pin numbering alone does not provide the client with the information needed to discover the functions of the pins. Although the miniport driver identifies the type of a node (by means of a GUID), it does not provide any standardized list of parameters for describing either the node type or the pins supported by the node type.</P>
+
+<P>For example, if a client enumerates a node that uses the node-type GUID <A HREF="aud-prop_9eb7.htm">KSNODETYPE_VOLUME</A> to identify itself, the client can make use of the node only if it knows the conventions for dealing with volume nodes. By convention, a volume node supports the <A HREF="aud-prop_6jar.htm">KSPROPERTY_AUDIO_VOLUMELEVEL</A> property and assigns node pin numbers 0 and 1 to the output (source) pin and input (sink) pin, respectively. Also, a client that is able to control a volume node usually performs a directed search that limits its exploration to a relatively small number of node types (volume and mute nodes, for example). The client typically explores only portions of a filter graph that are likely to contain volume nodes (for example, mixer lines).</P>
+
+<P>The miniport interface supports the delivery of unsolicited control-value changes from the miniport driver to the port driver. This feature accommodates devices with control knobs, sliders, or switches that can be physically manipulated by the user. Each time the user changes a node's control value, this event triggers a notification call to the port driver's lower-edge interface. For more information, see <A HREF="aud-design_4m93.htm">Hardware Events</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Topology%20Miniport"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

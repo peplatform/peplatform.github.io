@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Realizing Brushes</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Realizing Brushes">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_rop_gg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_ddb_gg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_palette_gg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_realizing_brushes_gg"></A>Realizing Brushes</H2>
+
+<P>Graphics functions that output lines, text or fills take at least one brush as an argument. The brush defines the pattern to be used to draw the graphics object on the specified surface. Each output function that takes a brush requires a <I>brush origin</I>. The brush origin provides the coordinates of a pixel on the device surface to be aligned with the upper left pixel of the brush’s pattern. The brush pattern is repeated (tiled) to cover the whole device surface.</P>
+
+<P>The driver can support the following functions to define brushes:</P>
+
+<P class=indent1><A HREF="ddifncs_6krr.htm"><I>DrvRealizeBrush</I></A> </P>
+
+<P class=indent1><A HREF="ddifncs_87mv.htm"><I>DrvDitherColor</I></A> </P>
+
+<P>A brush is always used with a mix mode that defines how the pattern should be mixed with the data already on the device surface. The MIX data type consists of two ROP2 values packed into a single ULONG value. The foreground <A HREF="JavaScript:hhobj_1.Click()">ROP</A> is in the lowest-order byte. The next byte contains the background ROP. For more information, see the Platform SDK documentation.</P>
+
+<P>GDI keeps track of all logical brushes that an application has requested for use. Before asking a driver to draw something, GDI first issues a call to the driver function <A HREF="ddifncs_6krr.htm"><I>DrvRealizeBrush</I></A>. This allows the driver to compute the optimal representation of the required pattern for its own drawing code.</P>
+
+<P><I>DrvRealizeBrush</I> is called to realize the brush defined by <I>psoPattern</I> (pattern for the brush) and by <I>psoTarget</I><B> </B>(surface for the realized brush). A realized brush contains information and accelerators a driver needs to fill an area with a pattern. This information is defined and used only by the driver. Driver realization of a brush is written into a buffer that the driver can cause to be allocated by calling the GDI service function<B> <A HREF="gdifncs_5ns7.htm">BRUSHOBJ_pvAllocRBrush</A></B> from within <I>DrvRealizeBrush</I>. GDI caches all realized brushes; consequently, they seldom need to be recomputed.</P>
+
+<P>In <I>DrvRealizeBrush</I>, the <A HREF="grstrcts_4gbr.htm">BRUSHOBJ</A> user object represents the brush. The surface for which the brush is to be realized can be the physical surface for the device, a <A HREF="JavaScript:hhobj_2.Click()">DDB</A>, or a standard-format bitmap. For a raster device, the surface describing the brush pattern represents a bitmap; and for a vector device, it is always one of the pattern surfaces returned by the <A HREF="ddifncs_0zzb.htm"><I>DrvEnablePDEV</I></A> function. The transparency mask used for the brush is a one-bit-per-pixel bitmap with the same extent as the pattern. A mask bit of zero means that the pixel is considered to be a background pixel for the brush; that is, the target pixel is unaffected by that particular pattern pixel. <I>DrvRealizeBrush</I> uses an <A HREF="grstrcts_5j53.htm">XLATEOBJ</A> structure to translate the colors in the brush pattern to the device color indexes.</P>
+
+<P>The driver should call the GDI service function <A HREF="gdifncs_2enb.htm"><B>BRUSHOBJ_pvGetRbrush</B></A> when the value of the <B>iSolidColor</B> member of the BRUSHOBJ structure is 0xFFFFFFFF and the <B>pvRbrush</B> member is NULL. <B>BRUSHOBJ_pvGetRbrush</B> retrieves a pointer to the driver’s realization of a specified brush. If the brush has not been realized when the driver calls this function, GDI automatically calls <I>DrvRealizeBrush</I> for the driver’s realization of the brush.</P>
+
+<H4>Dithering</H4>
+
+<P>If necessary, GDI can request the assistance of the driver when trying to create a brush with a solid color that cannot be represented exactly on the hardware. GDI calls the driver function <A HREF="ddifncs_87mv.htm"><I>DrvDitherColor</I></A> to request the driver to dither a brush against the reserved portion of the <A HREF="JavaScript:hhobj_3.Click()">device palette</A>.</P>
+
+<P>Dithering uses a pattern of several colors to approximate the chosen color, and its result is an array of device color indexes. A brush created using these colors for its pattern is usually a good approximation of the given color. <A HREF="ddifncs_87mv.htm"><I>DrvDitherColor</I></A> can also represent a color that cannot be specified exactly by a device. To do this, <I>DrvDitherColor</I> requests a pattern of several colors and creates a brush that approximates the given solid color.</P>
+
+<P>The function <I>DrvDitherColor</I> is optional and is called only if the GCAPS_COLOR_DITHER or GCAPS_MONO_DITHER capability flags are set in the <B>flGraphicsCaps</B> member of the <A HREF="grstrcts_4ilj.htm">DEVINFO</A> structure. <I>DrvDitherColor</I> can return the values listed in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=27%>Value</TH>
+<TH align=left width=73%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>DCR_DRIVER</TD>
+<TD width=73%>Indicates that the dither values have been calculated by the driver. The handle to a <B>cxDither</B> by <B>cyDither</B> array of device color indexes is passed back in this case.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>DCR_HALFTONE</TD>
+<TD width=73%>Indicates that GDI should approximate a color using the existing device (halftone) palette. For example, GDI can use the typical palette for a printer that contains only three or four colors. DCR_HALFTONE can be used with a display driver only when the device contains a device (halftone) palette, such as VGA-16 adapter card, which has a standard fixed palette. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=27%>DCR_SOLID</TD>
+<TD width=73%>Indicates that GDI should map the requested color to the nearest color value in the existing device palette (many to one).</TD>
+</TR>
+</TABLE><BR>
+
+<P>Monochrome drivers should support <I>DrvDitherColor</I> in order for GDI to obtain good gray-level patterns.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Realizing%20Brushes"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

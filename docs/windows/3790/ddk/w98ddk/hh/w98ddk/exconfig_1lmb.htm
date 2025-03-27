@@ -1,0 +1,192 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Windows 95 Layout</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_pss_703"></A>Windows 95 Layout</H2>
+
+<P>To support a variety of ISDN boards, the Windows® 95 registry layout adopts a hierarchy of lines<B> </B>and channels for each driver. In this context, lines<B> </B>are the actual physical ISDN lines that plug into the adapter. (This is different from TAPI’s logical line device.) For example, the first adapter shown (see preceding) would have only one line while the second adapter would have two. Each line has a number of channels which depends on the type of ISDN line. A ISDN BRI line has two B-channels maximum although only one may actually be used. An ISDN PRI line has up to 23 or 31 B-channels, depending on whether it is in North America or Europe. Conceivably, a driver could have 31 channels for each of the lines the adapter supports.   </P>
+
+<P>A skeletal example of a Windows 95 driver registry key follows.  A description of this driver key layout follows the example.</P>
+
+<PRE>\HKLM\System\CurrentControlSet\
+    Services\Net\
+        0000\
+            <I>&lt;PnP config values&gt;
+</I>            BoardName = (LPSTR) "ISDNBoard - 1 Line"
+            BoardType = (LPSTR) "ISDNBoardType - 1 Line"
+            DeviceVxDs = (LPSTR) "driver.sys"
+            DevLoader = (LPSTR) "*ndis"
+            DriverDesc = (LPSTR) "ISDN Adapter"
+            EnumPropPages = (LPSTR) "netdi.dll,EnumPropPages"
+            InfPath = (LPSTR) "COMPANYX.INF"
+            InterruptNumber = (BINARY) 05 00 00 00
+            NumberOfLines = (STRING) "1"
+            Line0.SwitchType = (STRING) "1" 
+            Line0.Properties = (STRING) "0" 
+            Line0.Channel0.Properties = (STRING) "0" 
+            Line0.Channel0.Phone = (STRING) "5551111" 
+            Line0.Channel0.SPID = (STRING) "015551111000"
+            Line0.Channel1.Properties = (STRING) "0" 
+            Line0.Channel1.Phone = (STRING) "5552222" 
+            Line0.Channel1.SPID = (STRING) "015552222000"
+            TAPI\
+                DeviceCaps = (BINARY) 00 00 ... 00 00<I>
+    </I>            Properties = (BINARY) 00 00 00 00<I>
+                </I>VendorConfig = (BINARY) 00 00 ... 00 00
+                Line0\
+                    LineCaps = (BINARY) 00 00 ... 00 00
+                    Properties = (BINARY) 00 00 00 00
+                    SwitchType = (BINARY) 00 00 00 00
+                    VendorConfig = (BINARY) 00 00 ... 00 00
+                    Channel0\
+                        ChannelCaps = (BINARY) 00 00 00 00
+                        Properties = (BINARY) 00 00 00 00
+                        Phone = (STRING) ""
+                        SPID = (STRING) ""<I>
+</I>                        VendorConfig = (BINARY) 00 00 ... 00 00
+                    Channel1\
+                        ChannelCaps = (BINARY) 00 00 00 00
+                        Properties = (BINARY) 00 00 00 00
+                        Phone = (STRING) ""
+                        SPID = (STRING) ""<I>
+</I>                        VendorConfig = (BINARY) 00 00 ... 00 00
+ </PRE>
+
+<P>The driver key contains one child key per physical line that plugs into the adapter. These key names are displayed as Line<I>X</I>, where <I>X</I> is a monotonically increasing decimal number. Similarly, each Line<I>X</I> key contains one child key per B-channel that the line supports. These key names are displayed as Channel<I>Y</I>, where <I>Y</I> is a monotonically increasing decimal number. The WANTSP provides a mapping between the flat key layout used by the driver and the hierarchical layout used by the ISDN UI. The values which are mapped by the WANTSP are the following:</P>
+
+<P>Line level mappings. These two values are mapped for all lines present.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=22%>LineX.SwitchType</TD>
+<TD width=15%>STRING</TD>
+<TD width=63%>This value corresponds to the SwitchType setting for the particular line. It represents the selected bit flag corresponding to a particular switch, for example, ISDN_SWITCH_NI1. It is stored as a STRING key, and it should be read by the driver as NdisParameterHexInteger.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>LineX.Properties</TD>
+<TD width=15%>STRING</TD>
+<TD width=63%>This is a four-byte value containing the current line configuration settings. The legal values are the ISDN_LINE_* manifest constants. This key controls whether the line is active or inactive. It is stored as a STRING key, and it should be read by the driver as NdisParameterHexInteger. If not present it should be interpreted as ISDN_LINE_DEFAULT.</TD>
+</TR>
+</TABLE><BR>
+
+<P>Channel level mappings.  These two values are mapped for all channels present for each line present.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=30%>LineX.ChannelY.SPID</TD>
+<TD width=15%>STRING</TD>
+<TD width=55%>This value corresponds to the SPID setting for the particular channel. This value should be used as the Service Profile ID corresponding to this B channel. This value will be numeric only with no separators.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>LineX.ChannelY.Phone</TD>
+<TD width=15%>STRING</TD>
+<TD width=55%>This value corresponds to the Phone setting for the particular channel. This value should be used as the directory number (w/o area code) corresponding to this B channel. This value will be numeric only with no separators.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=30%>LineX.ChannelY.Properties</TD>
+<TD width=15%>STRING</TD>
+<TD width=55%>This is a four-byte value containing the current channel configuration settings. The legal values are the ISDN_LINE_* manifest constants. This key controls whether the channel is active or inactive. It is stored as a STRING key, and it should be read by the driver as NdisParameterHexInteger. If not present it should be interpreted as ISDN_CHANNEL_DEFAULT.</TD>
+</TR>
+</TABLE><BR>
+
+<P>The registry value names, types, and descriptions for the \Net\xxxx\TAPI registry key are as follows:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=22%>Properties</TD>
+<TD width=15%>BINARY</TD>
+<TD width=63%>This is a four-byte value containing the current configuration flags for the device. The legal values are the ISDN_* manifest constants. This key controls whether the device is active or inactive.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>DeviceCaps</TD>
+<TD width=15%>BINARY</TD>
+<TD width=63%>Capabilities of the driver. This is five DWORDs in size, and determines the entire contents of the <B>ISDNDEVCAPS </B>structure (see the following).</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>VendorConfig</TD>
+<TD width=15%>BINARY</TD>
+<TD width=63%>Optional value that contains opaque, driver specific data related to the driver.</TD>
+</TR>
+</TABLE><BR>
+
+<P>The registry value names, types, and descriptions for the \Net\xxxx\TAPI\LineX registry keys are as follows:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=22%>Properties</TD>
+<TD width=15%>BINARY</TD>
+<TD width=63%>This is a four-byte value containing the current line configuration settings. The legal values are the ISDN_LINE_* manifest constants. This key controls whether the line is active or inactive.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>LineCaps</TD>
+<TD width=15%>BINARY</TD>
+<TD width=63%>Capabilities of the line. This is seven DWORDs in size, and determines the entire contents of the <B>ISDNLINECAPS </B>structure (see the following).</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>SwitchType</TD>
+<TD width=15%>BINARY</TD>
+<TD width=63%>This is a four-byte value containing the current switch setting.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>VendorConfig</TD>
+<TD width=15%>BINARY</TD>
+<TD width=63%>Optional value that contains opaque, driver specific data related to the specific line. </TD>
+</TR>
+</TABLE><BR>
+
+<P>The registry value names, types, and descriptions for the \Net\xxxx\TAPI\LineX\ChannelY registry keys are as follows:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=22%>Properties</TD>
+<TD width=15%>BINARY</TD>
+<TD width=63%>This is a four-byte value containing the current channel configuration settings. The legal values are the ISDN_CHANNEL_* constants. This key controls whether the channel is active or inactive.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>ChannelCaps</TD>
+<TD width=15%>BINARY</TD>
+<TD width=63%>This is a four-byte value containing the configuration flags for the channel. These flags are effective only if the device is capable of the respective support. The legal values are the ISDN_CHANNEL_* constants. These flags represent the capability of the channel.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>Phone</TD>
+<TD width=15%>STRING</TD>
+<TD width=63%>The phone number of the channel. See LineX.ChannelY.Phone.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>SPID</TD>
+<TD width=15%>STRING</TD>
+<TD width=63%>The SPID of the channel. See LineX.ChannelY.SPID.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=22%>VendorConfig</TD>
+<TD width=15%>BINARY</TD>
+<TD width=63%>Optional value that contains opaque, driver specific data related to the specific line. </TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Windows%2095%20Layout"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

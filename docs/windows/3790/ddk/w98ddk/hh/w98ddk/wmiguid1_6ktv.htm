@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Schema Design Recommendations</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_wmiguid1_schema_design_recommendations"></A>Schema Design Recommendations</H2>
+
+<P>The performance of WMI and the data consumer applications that use it are greatly affected by the design of a device driver’s schema. The following are guidelines for schema organization.
+
+<UL>
+	<LI>Separate data items into blocks containing data items that are operationally grouped together. For example, the i8042 port controller may maintain information about both the keyboard and mouse port states. Rather than have one large data block with all mouse and keyboard information, it would make sense to have two data blocks — one for mouse information and one for keyboard information.</LI>
+</UL>
+
+<PRE>[WMI,
+Provider(“WMIProv”), Dynamic, 
+Description(“Keyboard port information”),
+[guid(“{85F64E01-5A9B-11d0-A838-00AA0060D45C}”)]
+class KeyboardPortInformation 
+{
+    [key, read]
+    string InstanceName;
+
+    [read] boolean Active;
+
+    [read,write,WmiDataId(1)] 
+     int32 KeyRepeatRate; 
+
+    [read,write,WmiDataId(2)] 
+     int32 KeyRepeatDelay; 
+}
+
+[WMI,
+Provider(“WMIProv”), Dynamic, 
+Description(“Keyboard port information”),
+[guid(“{85F64E02-5A9B-11d0-A838-00AA0060D45C}”)]
+class MousePortInformation 
+{
+    [key, read]
+    string InstanceName;
+    [read] boolean Active;
+
+    [read,write,WmiDataId(1)] 
+     boolean SwapButtons; 
+}
+</PRE>
+
+<UL>
+	<LI>Separate an often-used data item into its own block, particularly if it would normally be grouped with other infrequently used data items. This is useful because data consumers cannot query for a single data item; they can only query for all data items for all instances or all data items of a single instance. For example, it would make sense to separate the CPU utilization data item into its own data block so queries for information to track only CPU utilization will not cause extra work by returning extra rarely used information.</LI>
+
+	<LI>Fixed sized data items should be placed at the beginning of a data block and variable sized data items should be placed after them. This will allow a data consumer to easily pick out fixed sized data items within the data. For example, a data block that has three DWORD data items and one variable length string should put the three DWORDs first and then the variable length string. </LI>
+
+	<LI>If there is a standard data block that contains the data items that a device wants to expose, the driver writer should use the standard block. If there are additional data items that are not part of the standard data block, then a custom data block can be created.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Schema%20Design%20Recommendations"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

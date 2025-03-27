@@ -1,0 +1,68 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Passing IRPs down the Driver Stack</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Passing IRPs down the Driver Stack">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_passing_irps_down_the_driver_stack_kg"></A>Passing IRPs down the Driver Stack</H1>
+
+<P>When a driver's dispatch routine receives an IRP, it must call <A HREF="k104_89pu.htm"><B>IoGetCurrentIrpStackLocation</B></A> so that it can check its own I/O stack location and determine that any parameters are valid. If the driver cannot satisfy and complete the request itself, it can do one of the following:
+
+<UL>
+	<LI>Pass the IRP on for further processing by lower-level drivers. </LI>
+
+	<LI>Create one or more new IRPs and pass them down to lower-level drivers.</LI>
+</UL>
+
+<P class=proch><B>ÛA higher-level driver should pass an I/O request on to a next-lower driver as follows: </B>
+
+<OL>
+	<LI>If the driver will pass the input IRP on to the next lower-level driver, the dispatch routine should call <A HREF="k104_1ohe.htm"><B>IoSkipCurrentIrpStackLocation</B></A> or <A HREF="k104_4fqq.htm"><B>IoCopyCurrentIrpStackLocationToNext</B></A> to set up the I/O stack location of the next-lower driver.
+<P>If the driver calls <A HREF="k104_42pe.htm"><B>IoAllocateIrp</B></A> to allocate one or more additional IRPs for lower drivers, the dispatch routine must initialize the next-lower driver's I/O stack location by following the steps that are described in <A HREF="irps_38kn.htm">Processing IRPs in an Intermediate-Level Driver</A>.
+
+<P>The dispatch routine can modify some of the parameters in the next-lower driver’s I/O stack location for certain requests. For example, a higher-level driver might modify the parameters for a large transfer request when the underlying device has a known limit in transfer capacity, and reuse the IRP to send partial-transfer requests to the underlying device driver. 
+</LI>
+
+	<LI>Call <A HREF="k104_5w6q.htm"><B>IoSetCompletionRoutine</B></A>.
+<P>If the dispatch routine is passing a received IRP to the next-lower driver, setting an <I>IoCompletion</I> routine is optional but useful, because the routine can perform such tasks as determining how lower drivers completed the request, reusing the IRP for partial transfers, updating whatever state the driver maintains if it tracks IRPs, and retrying a request that was returned with an error.
+
+<P>If the dispatch routine has allocated new IRPs, setting an <I>IoCompletion</I> routine is required because the routine must release each IRP after lower drivers have completed it.
+
+<P>For more information about <I>IoCompletion</I> routines, see <A HREF="irps_6crr.htm">Completing IRPs</A>. 
+</LI>
+
+	<LI>Call <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A> with each IRP to be processed by lower drivers. </LI>
+
+	<LI>Return an appropriate NTSTATUS value, such as:
+<UL>
+	<LI>STATUS_PENDING
+<P>The driver usually returns STATUS_PENDING if the input IRP is an asynchronous request, such as IRP_MJ_READ or IRP_MJ_WRITE. 
+</LI>
+
+	<LI>The result of the call to <B>IoCallDriver</B>
+<P>The driver frequently returns the result of the call to <B>IoCallDriver</B> if the input IRP is a synchronous request, such as IRP_MJ_CREATE.
+</LI>
+</UL>
+</LI>
+</OL>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>A lowest-level device driver passes any IRP that it cannot complete in its dispatch routine on to other driver routines as follows: </B>
+
+<OL>
+	<LI>Call <A HREF="k104_9odu.htm"><B>IoMarkIrpPending</B></A> with the input IRP.</LI>
+
+	<LI>Call <A HREF="k104_1nsi.htm"><B>IoStartPacket</B></A> to pass on or queue the IRP to the driver’s <I>StartIo </I>routine, unless the driver manages its own internal IRP queuing, as described in <A HREF="irps_5kpz.htm">Driver-Managed IRP Queues</A>.
+<P>If the driver does not have a <I>StartIo </I>routine but handles cancelable IRPs, it must either register a <A HREF="drvrrtns_8y0i.htm"><I>Cancel</I></A> routine or implement a <A HREF="irps_4sdj.htm">cancel-safe IRP queue</A>. For more information about <I>Cancel</I> routines, see <A HREF="irps_6unb.htm">Canceling IRPs</A>.
+</LI>
+
+	<LI>Return STATUS_PENDING.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Passing%20IRPs%20down%20the%20Driver%20Stack"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

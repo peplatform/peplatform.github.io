@@ -1,0 +1,192 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WSPDuplicateSocket</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WSPDuplicateSocket">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wspduplicatesocket_nr"></A>WSPDuplicateSocket</H1>
+
+<P><B>WSPDuplicateSocket</B> retrieves a WSAPROTOCOL_INFOW structure that can be used to create a new socket descriptor for a shared socket in the context of another process. </P>
+
+<PRE class=syntax><B>int 
+  WSPDuplicateSocket(
+    IN SOCKET </B><I> s</I><B>,</B>
+<B>    IN DWORD </B><I> dwProcessId</I><B>,</B>
+<B>    OUT LPWSAPROTOCOL_INFOW </B><I> lpProtocolInfo</I><B>,</B>
+<B>    OUT LPINT </B><I> lpErrno</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>s</I></DT>
+
+<DD>Descriptor that identifies a shared socket.</DD>
+
+<DT><I>dwProcessId</I></DT>
+
+<DD>Identifier of the target process that is to use the shared socket.</DD>
+
+<DT><I>lpProtocolInfo</I></DT>
+
+<DD>Pointer to a <A HREF="wsdpref_0bg2.htm">WSAPROTOCOL_INFOW</A> structure that receives the protocol information that can be used to create a descriptor for the shared socket. </DD>
+
+<DT><I>lpErrno</I></DT>
+
+<DD>Pointer to a variable that receives the error code.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>Returns zero if successful; otherwise, returns SOCKET_ERROR and, at <I>lpErrno</I>, one of the following error codes: 
+
+<DL>
+<DT>WSAENETDOWN</DT>
+
+<DD>Network subsystem failed.</DD>
+
+<DT>WSAEINVAL</DT>
+
+<DD>One of the specified parameters was invalid.</DD>
+
+<DT>WSAEMFILE</DT>
+
+<DD>No more socket descriptors available.</DD>
+
+<DT>WSAENOBUFS</DT>
+
+<DD>No buffer space is available; the socket cannot be created.</DD>
+
+<DT>WSAENOTSOCK</DT>
+
+<DD>Descriptor is not a socket.
+</DD>
+</DL>
+
+<P>Note that a SAN service provider does not support the WSAEINPROGRESS error code for <B>WSPDuplicateSocket</B> because the switch never issues cancel blocking calls to a SAN service provider.</P>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>Ws2spi.h</I>. Include <I>Ws2spi.h</I>. Requires Windows Sockets version&nbsp;2.0.</P>
+
+<H4>Comments</H4>
+
+<P>The Windows Sockets switch that resides in a source process calls the SAN service provider's <B>WSPDuplicateSocket</B> function to obtain a special WSAPROTOCOL_INFOW structure. The switch uses some interprocess communications (IPC) mechanism to pass the contents of the special WSAPROTOCOL_INFOW to an application that resides in a destination process. The switch in this destination process in turn calls the SAN service provider's <B>WSPSocket</B> function and passes the special WSAPROTOCOL_INFOW to obtain a duplicate descriptor for the shared underlying socket. Note that the switch in the destination process can only use the special WSAPROTOCOL_INFOW once. </P>
+
+<P>The SAN service provider in the source process context must create a WSAPROTOCOL_INFOW structure that a call to the SAN service provider's <B>WSPSocket</B> function in the destination process context can use successfully. The SAN service provider's <B>WSPDuplicateSocket</B> function must return a WSAPROTOCOL_INFOW structure that defines characteristics of the common underlying socket. The SAN service provider can use the <B>dwProviderReserved</B> member of WSAPROTOCOL_INFOW to store any useful context information, including a duplicate handle. </P>
+
+<P>The switch in a destination process calls the SAN service provider's <B>WSPSocket</B> function to create a duplicate descriptor for the shared underlying socket. The SAN service provider must call the switch's <B>WPUCreateSocketHandle</B> function to allocate a descriptor for the new socket. The SAN service provider must store the descriptor returned by the switch in the SAN service provider's internal data structure for the new socket. Finally, the SAN service provider returns its own descriptor for the socket to complete the <B>WSPSocket</B> call. The application in the destination process must supply the SAN service provider’s internal descriptor for the new socket when calling the SAN service provider's functions, while the SAN service provider must supply the switch's socket descriptor in up calls. </P>
+
+<P>The following table illustrates a typical scenario for establishing and using a shared socket. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=51%>Source Process</TH>
+<TH align=left width=49%>Destination Process</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>1)<B> WSPSocket, WSPConnect</B></TD>
+<TD width=49%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>2) Request destination process ID</TD>
+<TD width=49%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>&nbsp;</TD>
+<TD width=49%>3) Receive process ID request and respond</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>4) Receive process ID</TD>
+<TD width=49%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>5) Call <B>WSPDuplicateSocket </B>to get special WSAPROTOCOL_INFOW </TD>
+<TD width=49%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>6) Send WSAPROTOCOL_INFOW to destination</TD>
+<TD width=49%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>&nbsp;</TD>
+<TD width=49%>7) Receive WSAPROTOCOL_INFOW</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>&nbsp;</TD>
+<TD width=49%>8) Call <B>WSPSocket </B>to create descriptor for shared socket</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>&nbsp;</TD>
+<TD width=49%>9) Use shared socket for data exchange</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>&nbsp;</TD>
+<TD width=49%>10) Call <B>WSPDuplicateSocket</B> back to the original process</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>&nbsp;</TD>
+<TD width=49%>11) Send WSAPROTOCOL_INFOW back to source</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>13) Receive WSAPROTOCOL_INFOW</TD>
+<TD width=49%>12) Call <B>WSPCloseSocket</B> to close shared socket descriptor (but not the socket itself)</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>14) Call <B>WSPSocket </B>to transfer socket access control back and possibly create new SAN provider socket descriptor</TD>
+<TD width=49%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>15) Call <B>WSPClosesocket</B> to close the original socket descriptor if different from the new one</TD>
+<TD width=49%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>16) Gracefully terminate the session</TD>
+<TD width=49%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=51%>17) Call <B>WSPClosesocket</B> to finally close the socket and associated connection</TD>
+<TD width=49%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Although instances of the switch running in different processes can independently use their own descriptors that reference a shared socket for I/O data exchange, these instances of the switch cannot concurrently access the shared socket. The switch implements an access control mechanism. This mechanism ensures that after the switch calls the <B>WSPDuplicateSocket</B> function, the switch does not access the shared socket again until the switch calls the <B>WSPSocket</B> function to explicitly create again a descriptor for the shared socket. Note that a typical scenario for using a shared socket is for a controlling process to create that socket and establish connections to that socket. The controlling process then hands off that socket to other processes that perform I/O data exchange. Such a scenario typically involves the following two socket-duplication operations: 
+
+<OL>
+	<LI>A controlling process duplicates a socket to pass the socket handle to a target process for data exchange </LI>
+
+	<LI>The target process duplicates the socket to return the socket handle to the controlling process for graceful connection closure. </LI>
+</OL>
+
+<P class=note>Because socket descriptors are duplicated, and not the underlying shared socket, all the state associated with a socket is held in common across all duplicate descriptors. For example, if an option value on a descriptor for a shared socket is set in a <B>WSPSetSockOpt</B> call, that option value is subsequently visible from each duplicate descriptor using a <B>WSPGetSockOpt</B> call. A process can call <B>WSPCloseSocket</B> on a duplicate socket descriptor in order to release that descriptor. However, the underlying shared socket remains open until <B>WSPCloseSocket</B> is called on the last remaining descriptor. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="wsdpref_0bg2.htm">WSAPROTOCOL_INFOW</A>, <A HREF="wsdpref_4fsi.htm"><B>WSPCloseSocket</B></A>, <A HREF="wsdpref_7enm.htm"><B>WSPConnect</B></A>, <A HREF="wsdpref_1o4y.htm"><B>WSPGetSockOpt</B></A>, <A HREF="wsdpref_6fea.htm"><B>WSPSetSockOpt</B></A>, <A HREF="wsdpref_6ir6.htm"><B>WSPSocket</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WSPDuplicateSocket"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

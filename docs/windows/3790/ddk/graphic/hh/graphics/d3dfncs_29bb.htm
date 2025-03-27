@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>CreateD3DBuffer</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="CreateD3DBuffer">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_created3dbuffer_gg"></A><I>CreateD3DBuffer</I></H1>
+
+<P>The<I> CreateD3DBuffer</I> callback function is used to create a driver-level command or vertex buffer of the specified description.</P>
+
+<PRE class=syntax><B>DWORD
+  (APIENTRY *PDD_CREATED3DBUFFER)(</B>
+    <B>PDD_CREATESURFACEDATA  </B><I>lpCreateD3DBuffer
+</I>    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>lpCreateD3DBuffer</I></DT>
+
+<DD>Points to a <A HREF="ddstrcts_13fr.htm">DD_CREATESURFACEDATA</A> structure that contains the information required to create the buffer.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>CreateD3DBuffer</I> returns one of the following callback codes:</P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_handled_gg">DDHAL_DRIVER_HANDLED</A> </P>
+
+<P class=indent1><A HREF="ddraw_7kbr.htm#ddk_ddhal_driver_nothandled_gg">DDHAL_DRIVER_NOTHANDLED</A> </P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ddrawint.h</I>. Include <I>winddi.h</I>.  </P>
+
+<H4>Comments</H4>
+
+<P>This callback is used only if the driver manages driver-level command and vertex buffers.</P>
+
+<P>If the buffer is created out of system memory instead of video memory, the runtime must be notified by updating the <B>dwGlobalFlags</B> member of the <A HREF="ddstrcts_5mw7.htm">DDRAWI_DDRAWSURFACE_GBL</A> structure with the DDRAWISURFGBL_SYSMEMEXECUTEBUFFER flag. The DDRAWI_DDRAWSURFACE_GBL structure is similar in purpose to the Windows&nbsp;2000 and later structure, <A HREF="ddstrcts_392f.htm">DD_SURFACE_GLOBAL</A>. A pointer to this DDRAWI_DDRAWSURFACE_GBL structure is stored in the <B>lpGbl</B> member of the surface at the <B>lplpSList</B> member of the DD_CREATESURFACEDATA structure at <I>lpCreateD3DBuffer</I>.</P>
+
+<P>By default, the driver is not notified when a primary surface is created on Windows&nbsp;2000 and later versions. However, if the driver supports the GUID_NTPrivateDriverCaps GUID in a <A HREF="ddfncs_0yhz.htm"><I>DdGetDriverInfo</I></A> call and the DDHAL_PRIVATECAP_NOTIFYPRIMARYCREATION flag is set in the <B>dwPrivateCaps</B> member of the <A HREF="ddstrcts_35bb.htm">DD_NTPRIVATEDRIVERCAPS</A> structure, then the driver is notified.</P>
+
+<P>The pitch must be returned in the <B>lPitch</B> member of both the DD_SURFACE_GLOBAL and <A HREF="ddstrcts_2y7b.htm">DDSURFACEDESC</A> structures. For linear memory, the driver should set <B>dwBlockSizeX</B> to the size, in bytes, of the memory region and set <B>dwBlockSizeY</B> to 1. Both are members of the DD_SURFACE_GLOBAL structure.</P>
+
+<P>This call has the same prototype as <A HREF="ddfncs_6bdz.htm"><I>DdCreateSurface</I></A>. The <I>CreateD3DBuffer</I> callback is used instead when the surface in question has the DDSCAPS_EXECUTEBUFFER flag set in the <B>ddsCaps</B> member of the <A HREF="ddstrcts_1vl4.htm">DD_SURFACE_LOCAL</A> structure. The buffer creation flags are DDSCAPS_WRITEONLY, DDSCAPS2_VERTEXBUFFER and DDSCAPS2_COMMANDBUFFER. </P>
+
+<P>The driver determines the type of buffer being requested by checking the <B>ddsCaps</B> member of the DD_SURFACE_LOCAL structure for the following flags:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Flag</TH>
+<TH align=left width=52%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDSCAPS2_COMMANDBUFFER</TD>
+<TD width=52%>The driver should allocate a command buffer.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDSCAPS2_VERTEXBUFFER</TD>
+<TD width=52%>The driver should allocate an explicit vertex buffer.</TD>
+</TR>
+</TABLE><BR>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;If neither flag is set, the driver should allocate an implicit vertex buffer. Implicit vertex buffers should not be placed in video memory because they are expected to be read/write. Only explicit vertex buffers with the DDSCAPS_WRITEONLY flag set can be safely placed in video memory.</P>
+
+<P>The driver can allocate the buffer memory itself or it can request that DirectDraw perform the memory management. If the driver performs the allocation, it must write a valid pointer to the memory in the <B>fpVidMem</B> member of the <A HREF="ddstrcts_392f.htm">DD_SURFACE_GLOBAL</A> or <A HREF="ddstrcts_5mw7.htm">DDRAWI_DDRAWSURFACE_GBL</A> structure.</P>
+
+<P>Alternatively, the driver can request that DirectDraw allocate the buffer by returning one of the following values in <B>fpVidMem</B>:</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Value</TH>
+<TH align=left width=52%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDHAL_PLEASEALLOC_BLOCKSIZE</TD>
+<TD width=52%>DirectDraw should allocate the buffer memory from offscreen memory.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>DDHAL_PLEASEALLOC_USERMEM</TD>
+<TD width=52%>DirectDraw should allocate the buffer memory from user memory. The driver must also return the size, in bytes, of the memory region in <B>dwUserMemSize</B>.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddfncs_6bdz.htm"><I>DdCreateSurface</I></A>, <A HREF="ddstrcts_13fr.htm">DD_CREATESURFACEDATA</A>, <A HREF="ddfncs_0yhz.htm"><I>DdGetDriverInfo</I></A>, <A HREF="ddstrcts_35bb.htm">DD_NTPRIVATEDRIVERCAPS</A>, <A HREF="ddstrcts_2y7b.htm">DDSURFACEDESC</A>, <A HREF="ddstrcts_392f.htm">DD_SURFACE_GLOBAL</A>, <A HREF="ddstrcts_1vl4.htm">DD_SURFACE_LOCAL</A>, <A HREF="ddstrcts_5mw7.htm">DDRAWI_DDRAWSURFACE_GBL</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: CreateD3DBuffer"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

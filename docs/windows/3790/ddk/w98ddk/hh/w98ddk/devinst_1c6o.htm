@@ -1,0 +1,66 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Ordering of Device ID and Compatible Device ID Values</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_410"></A>Ordering of Device ID and Compatible Device ID Values</H3>
+
+<P>As described earlier, the compatible device ID (CID) for a printer provides the IDs of the other devices with which the printer is compatible. The operating system uses this information to load compatible device drivers, if necessary. There can be several CIDs for each logical device. The order in which these CIDs are listed in an INF file may be used by the operating system as a criteria for determining which driver to search for and load first. </P>
+
+<P>The ordering scheme assigns a numeric rank value to each CID value and a driver with lower rank-order CID is considered by the operating system to be a better match for the device than a driver with a CID of higher-rank order. A driver with a CID with rank order of zero is considered an exact match to the printer and when the driver identified by this CID is found it is automatically installed without prompting the user. </P>
+
+<P>If a rank order zero match is not found and a higher-order rank match is found, then the user is prompted with the information that a compatible device driver is available. At this point, the user is responsible for installing the most compatible driver available. If the user has a diskette with the rank order zero driver on it, or some other driver the user believes is more compatible than the one found on the system and identified in the user dialog, then the user can insert that diskette and specify the driver to be installed from there. If the user does not have a more compatible driver on a diskette, the user may either OK the installation of the most compatible driver the system could find or select another printer driver from a list of printer drivers found by the system. </P>
+
+<P>Note that there may be an extra step in the procedure previously described if the device being installed does not provide the information about what class of devices it belongs to. In that case, the user will be prompted to provide the device class and the procedure previously described will occur after the user responds that a printer is being installed. </P>
+
+<P>Rank ordering is determined as follows: 
+
+<OL>
+	<LI>Assign device rank orders to the device IDs returned by the device. The device ID derived from the MFG and MDL key values returned by the device is assigned device rank order 0, the first CID returned by the device is assigned rank device order 1, the second CID returned by the device is assigned device rank order 2, and so on. </LI>
+
+	<LI>The contents of the INF files on the host are searched for any matches with any of the device IDs returned by the device. </LI>
+
+	<LI>Each time an exact match is found between a device ID in an INF file and a device ID returned by the device, an INF rank order is determined using the following rule: if the matching device ID in the INF file is the first one listed after the INF file Install section name, then the INF rank order is zero; if the matching device ID in the INF file is the second one listed after the Install section name, then the INF rank order is 1; and so on. </LI>
+
+	<LI>After all the INF files are searched and all the matches are found and each match is assigned a device ID rank order and an INF file rank order, add the values of the two rank orders for each match. </LI>
+
+	<LI>If this is the very first time the Windows 95 system has started up on this host, then automatically load the driver with the lowest-valued rank order sum without prompting the user. If this is not the very first time Windows 95 has started up, if one of the resulting rank order sums is zero, install that driver without prompting the user. Otherwise, prompt the user with the identity of the driver with the lowest-valued rank order sum and give the user a chance to provide a better matched driver on a diskette or select another printer from a list presented by the system. If the user does not provide a diskette, either the driver with the lowest-valued rank order is installed or the driver for the printer the user selects is installed. </LI>
+</OL>
+
+<P>For example, suppose an INF file on the host contains the following statements: </P>
+
+<PRE>"Sample Printer 1" = X1.DRV,LPTENUM\Sample_Printer_CompaAAA2,Sample_Printer_CompaBBB2
+"Sample Printer 2" = X2.DRV,LPTENUM\Sample_Printer_CompaCCC2,LPTENUM\Sample_Printer_CompaDDD2,Sample_Printer_CompaEEE2
+ </PRE>
+
+<P>And suppose the device returns the following Plug and Play device ID (derived from the MFG and MDL key values returned by the device as described in section Generating Unique Plug and Play Device IDs) and CIDs: </P>
+
+<PRE>Device ID="LPTENUM\Sample_Printer_CompaCCC2"
+CID=LPTENUM\Sample_Printer_CompaAAA2,Sample_Printer_CompaBBB2
+ </PRE>
+
+<P>The result of applying the matching and rank ordering rules to the preceding example is that Sample_Printer_2 has a device ID rank order of zero and an INF rank order of zero, so the driver X2.DRV is automatically loaded without prompting the user. </P>
+
+<P>For another example, suppose an INF file on the host contains the following statements: </P>
+
+<PRE>"Sample Printer 1" = X1.DRV,LPTENUM\Sample_Printer_CompaAAA2,Sample_Printer_CompaBBB2
+"Sample Printer 2" = X2.DRV,LPTENUM\Sample_Printer_CompaCCC2,LPTENUM\Sample_Printer_CompaDDD2,Sample_Printer_CompaEEE2
+"Sample Printer 3" = X3.DRV,LPTENUM\Sample_Printer_CompaFFF2,LPTENUM\Sample_Printer_CompaGGG2,Sample_Printer_CompaHHH2</PRE>
+
+<P>And suppose the device returns the following Plug and Play device ID (derived from the MFG and MDL key values returned by the device) and CIDs: </P>
+
+<PRE>Device ID="LPTENUM\Sample_Printer_CompaDDD2"
+CID=LPTENUM\Sample_Printer_CompaHHH2,Sample_Printer_CompaBBB2</PRE>
+
+<P>The result of applying the matching and rank ordering rules to the preceding example is that there is no rank order zero match found. Sample_Printer_2 (X2.DRV) has a rank order sum value of 1, Sample_Printer_1 (X1.DRV) has a rank order sum of 3, and Sample_Printer_3 (X3.DRV) has a rank order sum of 3. </P>
+
+<P>If this is the very first time Windows 95 is run on the host, then X2.DRV is automatically installed without prompting the user. Otherwise, the user is prompted that X2.DRV will be installed as the printer driver unless the user inserts a diskette with a driver better matched to the printer (this diskette will probably have been provided by the printer vendor). </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Ordering%20of%20Device%20ID%20and%20Compatible%20Device%20ID%20Values"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

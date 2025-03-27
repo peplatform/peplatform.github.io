@@ -1,0 +1,146 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>KSPROPERTY_ITEM</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="KSPROPERTY_ITEM">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ksproperty_item_ks"></A>KSPROPERTY_ITEM</H1>
+
+<P>Drivers use the KSPROPERTY_ITEM structure to describe how they support a property in a property set.</P>
+
+<PRE class=syntax>typedef struct {
+    ULONG PropertyId;
+    union {
+        PFNKSHANDLER GetPropertyHandler;
+        BOOLEAN GetSupported;
+    };
+    ULONG MinProperty;
+    ULONG MinData;
+    union {
+        PFNKSHANDLER SetPropertyHandler;
+        BOOLEAN SetSupported;
+    };
+    PKSPROPERTY_VALUES Values;
+    ULONG RelationsCount;
+    PKSPROPERTY Relations;
+    PKFNKSHANDLER SupportHandler;
+    ULONG SerializedSize;
+} KSPROPERTY_ITEM;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>PropertyId</B></DT>
+
+<DD>Specifies the ID of the property being described.</DD>
+
+<DT><B>GetPropertyHandler</B></DT>
+
+<DD>Contains the handler for retrieving the property. If this is NULL, the property cannot be read. This member is used only by drivers running under AVStream or KS 1.0.</DD>
+
+<DT><B>GetSupported</B></DT>
+
+<DD>Set to TRUE if this property supports get requests, FALSE if it does not. (The class driver fulfills the request through the SRB_GET_DEVICE_PROPERTY or SRB_GET_STREAM_PROPERTY requests.) This member is used only by minidrivers running under stream class. </DD>
+
+<DT><B>MinProperty</B></DT>
+
+<DD>Specifies the minimum buffer length to hold the property identifier. This must be at least <B>sizeof</B>(<A HREF="ks-struct_6jlf.htm">KSPROPERTY</A>).</DD>
+
+<DT><B>MinData</B></DT>
+
+<DD>Specifies the minimum buffer length to hold the data read from or written to this property.</DD>
+
+<DT><B>SetPropertyHandler</B></DT>
+
+<DD>Contains the handler for setting the property. If this is NULL, the property cannot be set. This member is used only by drivers running under AVStream or KS 1.0. </DD>
+
+<DT><B>SetSupported</B></DT>
+
+<DD>Set to TRUE if this property supports set requests, FALSE if it does not. (The class driver fulfills the request through the SRB_SET_DEVICE_PROPERTY or SRB_SET_STREAM_PROPERTY requests.)</DD>
+
+<DT><B>Values</B></DT>
+
+<DD>Pointer to a structure of type <A HREF="ks-struct_5mwj.htm">KSPROPERTY_VALUES</A>. Specifies the acceptable and/or default values for the property. These are the same as the values reported by a driver in response to an IOCTL_KS_PROPERTY request with the  KSPROPERTY_TYPE_BASICSUPPORT and KSPROPERTY_TYPE_DEFAULTVALUES flags set.</DD>
+
+<DT><B>RelationsCount</B></DT>
+
+<DD>Specifies the number of entries in the array pointed to by the <B>Relations</B> member.</DD>
+
+<DT><B>Relations</B></DT>
+
+<DD>Points to an array of related properties. Two properties are considered related if changing one property may affect the value of the other property. The <B>Flags</B> member of each entry is unused.</DD>
+
+<DT><B>SupportHandler</B></DT>
+
+<DD>Provide this member only if implementing your own format for raw serialization or raw unserialization. Basic support queries, range queries, and relations queries are automatically handled by AVStream, which returns the relevant values from other members of this KSPROPERTY_ITEM structure.</DD>
+
+<DT><B>SerializedSize</B></DT>
+
+<DD>Specifies the size of the property when serialized in a KSPROPERTY_TYPE_SERIALIZESET request. This should be zero if the property cannot be serialized.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ks.h</I>. Include <I>ks.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Stream class minidrivers use KSPROPERTY_ITEM to describe to the client how to fulfill property requests on each property within a set. Handling for the property set as a whole is specified in the <A HREF="ks-struct_2rsj.htm">KSPROPERTY_SET</A> structure, which contains pointers to arrays of KSPROPERTY_ITEM structures.</P>
+
+<P>The stream class driver handles property requests on behalf of the minidriver. When the stream class driver requires more information from the minidriver, it passes an SRB_XXX request to one of the minidriver's <B>StrMiniReceiveXXXRequest</B> routines. The stream class driver handles the different request types as listed in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Property request flags value</TH>
+<TH align=left width=52%>Response</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPROPERTY_TYPE_GET</TD>
+<TD width=52%>If <B>GetSupported</B> is TRUE, the stream class driver submits an <A HREF="strclass-srbs_77oz.htm">SRB_GET_DEVICE_PROPERTY</A> or <A HREF="strclass-srbs_92ur.htm">SRB_GET_STREAM_PROPERTY</A> request to the appropriate minidriver <B>StrMiniReceiveXXXRequest</B> routine.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPROPERTY_TYPE_SET</TD>
+<TD width=52%>If <B>SetSupported</B> is TRUE, the stream class driver submits an <A HREF="strclass-srbs_1ayb.htm">SRB_SET_DEVICE_PROPERTY</A> or <A HREF="strclass-srbs_3643.htm">SRB_SET_STREAM_PROPERTY</A> request to the appropriate minidriver <B>StrMiniReceiveXXXRequest</B> routine.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPROPERTY_TYPE_BASICSUPPORT</TD>
+<TD width=52%>The stream class driver uses KSPROPERTY_ITEM to obtain the information necessary to fulfill this request.  For example, to specify the data type and permitted ranges of the property data, they each use the <B>Values</B> member of this structure.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPROPERTY_TYPE_SETSUPPORT</TD>
+<TD width=52%>The stream class driver completes the property request IRP as STATUS_SUCCESS only if the driver supplies an entry for the property set within its <A HREF="ks-struct_2rsj.htm">KSPROPERTY_SET</A> structure.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPROPERTY_TYPE_DEFAULTVALUES</TD>
+<TD width=52%>The stream class driver uses the <B>Values</B> member of this structure to determine the default values for the property data.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>KSPROPERTY_TYPE_RELATIONS</TD>
+<TD width=52%>The stream class driver uses the <B>Relations</B> member to determine what properties are related to this property.</TD>
+</TR>
+</TABLE><BR>
+
+<P>If the client specifies KSPROPERTY_TYPE_DEFAULTVALUES, the driver uses the data buffer to return a description of its value type, including possibly its allowed range and default value. This flag is similar in result to KSPROPERTY_TYPE_BASICSUPPORT, except that any values returned are those that have been marked with KSPROPERTY_MEMBER_FLAG_DEFAULT in the <B>Flags</B> member of the structure KSPROPERTY_MEMBERSHEADER.</P>
+
+<P>For more information, see <A HREF="ks-overview_1uhz.htm">KS Properties</A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="ks-struct_6jlf.htm">KSPROPERTY</A>, <A HREF="ks-struct_2rsj.htm">KSPROPERTY_SET</A>, <A HREF="strclass-srbs_77oz.htm">SRB_GET_DEVICE_PROPERTY</A>, <A HREF="strclass-srbs_92ur.htm">SRB_GET_STREAM_PROPERTY</A>, <A HREF="strclass-srbs_1ayb.htm">SRB_SET_DEVICE_PROPERTY</A>, <A HREF="strclass-srbs_3643.htm">SRB_SET_STREAM_PROPERTY</A>, <A HREF="ks-struct_5mwj.htm">KSPROPERTY_VALUES</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: KSPROPERTY_ITEM"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

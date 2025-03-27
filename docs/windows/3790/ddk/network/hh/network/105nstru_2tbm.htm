@@ -1,0 +1,130 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NDIS_IPSEC_PACKET_INFO</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NDIS_IPSEC_PACKET_INFO">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndis_ipsec_packet_info_nr"></A>NDIS_IPSEC_PACKET_INFO</H1>
+
+<P>The NDIS_IPSEC_PACKET_INFO structure specifies information used in offloading IP Security tasks from the TCP/IP transport to a miniport driver. The NDIS_IPSEC_PACKET_INFO structure is part of the per-packet information (extended out-of-band data) associated with a packet descriptor.</P>
+
+<PRE class=syntax>typedef struct _NDIS_IPSEC_PACKET_INFO
+{
+    union
+    {
+        struct
+        {
+            NDIS_HANDLE    OffloadHandle;
+            NDIS_HANDLE    NextOffloadHandle;
+        } Transmit;
+ 
+        struct
+        {
+            ULONG    SA_DELETE_REQ:1;
+            ULONG    CRYPTO_DONE:1;
+            ULONG    NEXT_CRYPTO_DONE:1;
+            ULONG    CryptoStatus;
+        } Receive;
+    };
+} NDIS_IPSEC_PACKET_INFO, *PNDIS_IPSEC_PACKET_INFO;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>OffloadHandle</B></DT>
+
+<DD>Specifies the handle to the outbound security association (SA) for a packet that has just one IP Security payload, regardless of whether that payload is for a transport (end-to-end) connection or a tunnel connection.</DD>
+
+<DT><B>NextOffloadHandle</B></DT>
+
+<DD>For a packet that has both a transport IP Security payload and a tunnel IP Security payload, <B>NextOffloadHandle</B> specifies the handle to the outbound security association (SA) for the tunnel connection. <B>NextOffloadHandle</B> is specified only if a packet has both tunnel and transport IP Security payloads; otherwise, <B>NextOffloadHandle</B> is set to zero.</DD>
+
+<DT><B>SA_DELETE_REQ</B></DT>
+
+<DD>When set, indicates that the TCP/IP transport should issue <A HREF="216offload_7bsi.htm">OID_TCP_TASK_IPSEC_DELETE_SA</A> once to delete the inbound security association (SA) over which the packet was received and once again to delete the outbound SA that corresponds to the deleted inbound SA. The miniport driver's NIC must not remove either of these SAs before receiving the corresponding OID_TCP_TASK_IPSEC_DELETE_SA request.</DD>
+
+<DT><B>CRYPTO_DONE</B></DT>
+
+<DD>When set, indicates that the NIC performed IP Security checking on at least one IP security payload in the receive packet. When cleared, indicates that the NIC did not perform IP Security checking on the packet.</DD>
+
+<DT><B>NEXT_CRYPTO_DONE</B></DT>
+
+<DD>When set, indicates that the NIC performed IP security checking on both the tunnel and transport portions of the receive packet. <B>CRYPTO_DONE</B> must also be set in this case. <B>NEXT_CRYPTO_DONE</B> is set only if a packet has both tunnel and transport IP Security payloads; otherwise, <B>NEXT_CRYPTO_DONE</B> is set to zero.</DD>
+
+<DT><B>CryptoStatus</B></DT>
+
+<DD>Specifies, as one of the following values, the result of IP Security checking performed by the NIC on a receive packet:
+
+<DL>
+<DT><B>CRYPTO_SUCCESS</B></DT>
+
+<DD>The packet was successfully decrypted, if necessary, and the AH checksum(s) and/or ESP checksum(s) in the packet were validated.</DD>
+
+<DT><B>CRYPTO_GENERIC_ERROR</B></DT>
+
+<DD>The packet failed the IP Security check for an unspecified reason.</DD>
+
+<DT><B>CRYPTO_TRANSPORT_AH_AUTH_FAILED</B></DT>
+
+<DD>The AH checksum for the transport portion of the packet was invalid.</DD>
+
+<DT><B>CRYPTO_TRANSPORT_ESP_AUTH_FAILED</B></DT>
+
+<DD>The ESP checksum for the transport portion of the packet was invalid.</DD>
+
+<DT><B>CRYPTO_TUNNEL_AH_AUTH_FAILED</B></DT>
+
+<DD>The AH checksum for the tunnel portion of the packet was invalid.</DD>
+
+<DT><B>CRYPTO_TUNNEL_ESP_AUTH_FAILED</B></DT>
+
+<DD>The ESP checksum for the tunnel portion of the packet was invalid.</DD>
+
+<DT><B>CRYPTO_INVALID_PACKET_LENGTH</B></DT>
+
+<DD>The receive packet's length is invalid.</DD>
+
+<DT><B>CRYPTO_INVALID_PROTOCOL</B></DT>
+
+<DD>The IP Security protocol(s) specified in the security association (SA) on which the packet was received do not match the IP Security protocols found in the packet. For example, this error occurs if the SA on which the packet was received specifies the AH protocol but the packet contained only an ESP header.
+</DD>
+</DL>
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ndis.h</I>. Include <I>ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Before the TCP/IP transport passes to a miniport driver a send packet on which the miniport driver's NIC will perform IP Security tasks, it updates the IP Security information in the NDIS_IPSEC_PACKET_INFO structure associated with the packet descriptor. Specifically, the TCP/IP transport supplies an <I>OffloadHandle</I> in the NDIS_IPSEC_PACKET_INFO structure. The <I>OffloadHandle</I> specifies the handle to the outbound security association (SA) for a packet that has just one IP Security payload, regardless of whether that payload is for a transport (end-to-end) security association or a tunnel security association. The <I>OffloadHandle</I> supplied in the NDIS_IPSEC_PACKET_INFO structure has the same value as the <I>OffloadHandle</I> supplied by the TCP/IP transport when it set <A HREF="216offload_9hpu.htm">OID_TCP_TASK_IPSEC_ADD_SA</A> to request the miniport driver to add the outbound SA to its NIC.</P>
+
+<P>If a packet that has both a transport IP Security payload and a tunnel IP Security payload, <B>NextOffloadHandle</B> specifies the handle to the outbound SA for the tunnel connection. <B>NextOffloadHandle</B> is specified only if a packet has both tunnel and transport IP Security payloads; otherwise, <B>NextOffloadHandle</B> is set to zero.</P>
+
+<P>Before indicating up a receive packet that has one or more IP Security payloads, a miniport driver updates the NDIS_IPSEC_PACKET_INFO structure associated with the packet descriptor:
+
+<UL>
+	<LI>If the miniport driver's NIC performed IP Security checks on at least one IP security payload in the packet, the miniport driver sets the <B>CRYPTO_DONE</B> flag and indicates the results of the checksum validation tests by specifying the appropriate <B>CryptoStatus</B> value.</LI>
+
+	<LI>If the miniport driver's NIC performed IP security checking on both the tunnel and transport portions of a receive packet, the miniport driver also sets the <B>NEXT</B>_<B>CRYPTO_DONE</B> flag. The <B>NEXT_CRYPTO_DONE</B> flag is set only if a packet has both tunnel and transport IP security payloads; otherwise, <B>NEXT_CRYPTO_DONE</B> is set to zero.</LI>
+
+	<LI>If the miniport driver's NIC did not perform IP Security checks on the packet, the miniport driver does not set the <B>CRYPTO_DONE</B> flag or the <B>NEXT</B>_<B>CRYPTO_DONE</B> flag and does not supply a <B>CryptoStatus</B> value.</LI>
+</UL>
+
+<P>To make room for another SA on the NIC, the miniport driver can set <B>SA_DELETE_REQ</B> in the NDIS_IPSEC_PACKET_INFO structure for a receive packet. The TCP/IP transport subsequently issues <A HREF="216offload_7bsi.htm">OID_TCP_TASK_IPSEC_DELETE_SA</A> once to delete the inbound security association (SA) over which the packet was received and once again to delete the outbound SA that corresponds to the deleted inbound SA. The miniport driver's NIC must not remove either of these SAs before receiving the corresponding OID_TCP_TASK_IPSEC_DELETE_SA request. The miniport driver can set <B>SA_DELETE_REQ</B> independently of <B>CRYPTO_DONE</B>.</P>
+
+<P>To obtain a pointer to the NDIS_IPSEC_PACKET_INFO structure, drivers should call the <A HREF="103ndisx_0bjm.htm">NDIS_PER_PACKET_INFO_FROM_PACKET</A> macro with an <I>InfoType</I> of <B>IpSecNdisTask</B>. Alternatively, drivers can call the <A HREF="103ndisx_6pyq.htm">NDIS_PACKET_EXTENSION_FROM_PACKET</A> macro to obtain a pointer to the <A HREF="105nstru_9oqa.htm">NDIS_PACKET_EXTENSION</A> structure associated with a given packet descriptor. The driver can then use the <B>IpSecNdisTask</B> array index to obtain a pointer that points to the NDIS_IPSEC_PACKET_INFO structure.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="105nstru_9oqa.htm">NDIS_PACKET_EXTENSION</A>, <A HREF="103ndisx_6pyq.htm">NDIS_PACKET_EXTENSION_FROM_PACKET</A>, <A HREF="103ndisx_0bjm.htm">NDIS_PER_PACKET_INFO_FROM_PACKET</A>, <A HREF="216offload_9hpu.htm">OID_TCP_TASK_IPSEC_ADD_SA</A>, <A HREF="216offload_7bsi.htm">OID_TCP_TASK_IPSEC_DELETE_SA</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NDIS_IPSEC_PACKET_INFO"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

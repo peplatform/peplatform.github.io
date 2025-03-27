@@ -1,0 +1,95 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Bug Check 0x3F:  NO_MORE_SYSTEM_PTES</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="bug check 0x3F">
+<META NAME="MS-HKWD" CONTENT="NO_MORE_SYSTEM_PTES">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Driver&nbsp;Development&nbsp;Tools:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_bug_check_0x3f_bug"></A>Bug Check 0x3F: NO_MORE_SYSTEM_PTES</H1>
+
+<P>The NO_MORE_SYSTEM_PTES bug check has a value of 0x0000003F. This is the result of a system which has performed too many I/O actions. This has resulted in fragmented system page table entries (PTE).</P>
+
+<H4>Parameters</H4>
+
+<P>The following parameters are displayed on the blue screen.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=26%>Parameter</TH>
+<TH align=left width=74%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=26%>1</TD>
+<TD width=74%><B>0:</B> system expansion PTE type
+<P><B>1:</B> nonpaged pool expansion PTE type</P>
+</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=26%>2</TD>
+<TD width=74%>Size of memory request</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=26%>3</TD>
+<TD width=74%>Total free system PTEs</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=26%>4</TD>
+<TD width=74%>Total system PTEs</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Cause</H4>
+
+<P>In almost all cases, the system is not actually out of PTEs. Rather, a driver has requested a large block of memory, but there is no contiguous block of sufficient size to satisfy this request.</P>
+
+<P>Often video drivers will allocate large amounts of kernel memory that must succeed. Some backup programs do the same.</P>
+
+<H4>Resolving the Problem</H4>
+
+<P><I>A possible work-around:  </I>Modify the registry to increase the total number of system PTEs. If this does not help, remove any recently-installed software, especially backup utilities or disk-intensive applications.</P>
+
+<P><I>Debugging the problem:</I> If you are running Windows&nbsp;2000 or later, the following method can be used to debug bug check 0x3F.   </P>
+
+<P>First, get a stack trace, and use the <B>!sysptes&nbsp;3</B> extension command.</P>
+
+<P>Then set <B>HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session&nbsp;Manager\Memory&nbsp;Management\TrackPtes</B> equal to DWORD 1, and reboot. This will cause the system to save stack traces. </P>
+
+<P>This allows you to display more detailed information about the PTE owners. For example:</P>
+
+<PRE>0: kd&gt; <B>!sysptes 4</B>
+
+0x2c47 System PTEs allocated to mapping locked pages
+
+VA       MDL     PageCount  Caller/CallersCaller
+f0e5db48 eb6ceef0        1 ntkrpamp!MmMapLockedPages+0x15/ntkrpamp!IopfCallDriver+0x35
+f0c3fe48 eb634bf0        1 netbt!NbtTdiAssociateConnection+0x1f/netbt!DelayedNbtProcessConnect+0x17c
+f0db38e8 eb65b880        1 mrxsmb!SmbMmAllocateSessionEntry+0x89/mrxsmb!SmbCepInitializeExchange+0xda
+f8312568 eb6df880        1 rdbss!RxCreateFromNetRoot+0x3d7/rdbss!RxCreateFromNetRoot+0x93
+f8363908 eb685880        1 mrxsmb!SmbMmAllocateSessionEntry+0x89/mrxsmb!SmbCepInitializeExchange+0xda
+f0c54248 eb640880        1 rdbss!RxCreateFromNetRoot+0x3d7/rdbss!RxCreateFromNetRoot+0x93
+f0ddf448 eb5f3160        1 mrxsmb!MrxSmbUnalignedDirEntryCopyTail+0x387/mrxsmb!MRxSmbCoreInformation+0x36
+f150bc08 eb6367b0        1 mrxsmb!MrxSmbUnalignedDirEntryCopyTail+0x387/mrxsmb!MRxSmbCoreInformation+0x36
+f1392308 eb6fba70        1 netbt!NbtTdiOpenAddress+0x1fb/netbt!DelayedNbtProcessConnect+0x17c
+eb1bee64 edac5000      200 VIDEOPRT!pVideoPortGetDeviceBase+0x118/VIDEOPRT!VideoPortMapMemory+0x45
+f139b5a8 edd4b000       12 rdbss!FsRtlCopyWrite2+0x34/rdbss!RxDriverEntry+0x149
+eb41f400 ede92000       20 VIDEOPRT!pVideoPortGetDeviceBase+0x139/VIDEOPRT!VideoPortGetDeviceBase+0x1b
+eb41f198 edf2a000       20 NDIS!NdisReadNetworkAddress+0x3a/NDIS!NdisFreeSharedMemory+0x58
+eb41f1e4 eb110000       10 VIDEOPRT!pVideoPortGetDeviceBase+0x139/VIDEOPRT!VideoPortGetDeviceBase+0x1b
+......
+</PRE>
+
+<P>If the system runs out of PTEs again after the <B>TrackPtes</B> registry value has been set, <A HREF="bccodes_052f.htm">bug check 0xD8</A> (DRIVER_USED_EXCESSIVE_PTES) will be issued instead of 0x3F. The name of the driver causing this error will be displayed as well.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Bug%20Check%200x3F:%20%20NO_MORE_SYSTEM_PTES"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,135 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using GetDriverInfo</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using GetDriverInfo">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_using_getdriverinfo_gg"></A>Using GetDriverInfo</H3>
+
+<P><B>This topic applies only to Windows 98/Me.</B></P>
+
+<P>Beginning with DirectX 5.0, the <A HREF="ddfncs_0yhz.htm"><I>DdGetDriverInfo</I></A> callback function gave device drivers a new mechanism for providing driver-specific information, such as pointers to driver callbacks, to the DirectDraw runtime. To preserve compatibility with Windows 2000 and later, there are no plans to furnish this mechanism at the application level. <I>DdGetDriverInfo</I> is provided to help minimize changes to HAL-related DirectDraw structures in the future. </P>
+
+<P>The pointer to this callback replaces the <B>hWndListBox</B> member that was part of the <A HREF="ddstrcts_9m7b.htm">DDHALINFO</A> structure (although it was never used) in versions of DirectDraw earlier than 5.0. This structure member has been renamed <B>GetDriverInfo</B> and points to a callback function with the following prototype: </P>
+
+<PRE>DWORD __stdcall GetDriverInfo(LPDDHAL_GETDRIVERINFODATA lpData);</PRE>
+
+<P>To inform DirectDraw that the <B>GetDriverInfo</B> member has been set correctly, the driver must also set the DDHALINFO_GETDRIVERINFOSET bit of <B>dwFlags</B> in the DDHALINFO structure. </P>
+
+<P>Drivers must use the <I>DdGetDriverInfo</I> callback if any of the following DirectX features are implemented: </P>
+
+<P><B>DirectDraw functionality: </B>
+
+<UL>
+	<LI>Video port extensions </LI>
+
+	<LI>Color control </LI>
+
+	<LI>Windows&nbsp;98/Me and Windows&nbsp;2000 and later kernel-mode</LI>
+
+	<LI>Advance graphics port (AGP) </LI>
+</UL>
+
+<P><B>Direct3D functionality: </B>
+
+<UL>
+	<LI><A HREF="d3dfncs_5usn.htm"><I>D3dDrawPrimitives2</I></A> operations </LI>
+</UL>
+
+<P>The prototype to <I>DdGetDriverInfo</I> is similar to those of all DirectDraw callbacks. For now, the function should always set the <B>ddRVal</B> member of the input structure and return DDHAL_DRIVER_HANDLED, because there is no way to emulate its functionality. </P>
+
+<P>The input for this callback function specifies a globally unique identifier (GUID) that determines what information DirectDraw requires. The behavior of this function is determined by which GUID is specified. The GUID points to a GUID instance defined in <I>ddrawi.h</I> that typically corresponds to a callback structure. The amount of data expected by DirectDraw depends on the value of this GUID. DirectDraw informs the driver of the expected amount of data in the <B>dwExpectedSize</B> member of the <A HREF="ddstrcts_3ijr.htm">DDHAL_GETDRIVERINFODATA</A> structure. The driver must not fill in more data than <B>dwExpectedSize</B> bytes. The driver should also fill in the <B>dwActualSize</B> member of the structure with the number of bytes known by the driver. </P>
+
+<P>This flexible handshaking procedure is important for forward and backward compatibility with DirectX versions. Assuming that callback structures will get bigger with future versions of DirectX, the following scenarios apply if there is a mismatch between the callback structure sizes expected by the DirectX runtime and the sizes implemented by the Driver:
+
+<UL>
+	<LI>Under versions earlier than DirectX 5.0, DirectDraw does not attempt to call <I>DdGetDriverInfo</I>. The driver functionality is not exploited because it is not supported by these versions of DirectDraw. 
+<P>Otherwise, DirectDraw asks for a smaller callback structure than the driver wants to provide. The driver copies only the callbacks expected by DirectDraw and reports the size it expects (which is higher). It is possible but unlikely that DirectDraw will take into account that it is running on a driver designed for a more recent version. 
+</LI>
+
+	<LI>If the driver is written for any release of DirectX earlier than version 5.0, it will not set the DDHALINFO_GETDRIVERINFOSET bit, and DirectX will not attempt to call <I>DdGetDriverInfo</I>. 
+<P>Otherwise, the driver implements a callback structure that is smaller than what DirectDraw expects. In this case, the driver copies its complete callback structure into the buffer provided by DirectDraw and reports the buffer size in <B>dwActualSize</B>. DirectDraw then determines how many callbacks are implemented by the driver and might implement different policies for the legacy driver than it would if the driver reported the entire callback structure. 
+</LI>
+</UL>
+
+<P>To avoid problems using <I>DdGetDriverInfo</I>: 
+
+<UL>
+	<LI>Do not implement dependencies based on the order in which <I>DdGetDriverInfo</I> is called. For example, avoid hooking driver initialization steps into <I>DdGetDriverInfo</I>. </LI>
+
+	<LI>Do not try to ascertain the DirectDraw version based on calls to <I>DdGetDriverInfo</I>. </LI>
+
+	<LI>Do not assume anything about the number of times DirectDraw will call the driver, or the number of times DirectDraw will query a given GUID. It is possible that DirectDraw will probe the driver repeatedly with the same GUID. Implementing assumptions about this in the driver hampers its compatibility with future runtimes. </LI>
+</UL>
+
+<P>To help avoid these problems, use the sample driver source code as a base for your implementation. The sample 32-bit callback function is defined as follows: </P>
+
+<PRE>DWORD __stdcall GetDriverInfo32(LPDDHAL_GETDRIVERINFODATA lpData)
+{
+    lpData-&gt;ddRVal = DDERR_CURRENTLYNOTAVAIL;
+
+    if (IsEqualIID(&amp;(lpData-&gt;guidInfo),
+        &amp;GUID_MiscellaneousCallbacks) )
+    {
+    }
+    if (IsEqualIID(&amp;(lpData-&gt;guidInfo),
+        &amp;GUID_VideoPortCallbacks) )
+    {
+        DDHAL_DDVIDEOPORTCALLBACKS vpCB;
+        DWORD dwSize = lpData-&gt;dwExpectedSize;
+        if ( sizeof(vpCB) &lt; dwSize )
+            dwSize = sizeof(vpCB);
+        lpData-&gt;dwActualSize = sizeof(vpCB);
+        memcpy(lpData-&gt;lpvData, &amp;vpCB, dwSize );
+        lpData-&gt;ddRVal = DD_OK;
+    }
+    if (IsEqualIID(&amp;(lpData-&gt;guidInfo),
+        &amp;GUID_ColorControlCallbacks) )
+    {
+        DDHAL_DDCOLORCONTROLCALLBACKS ccCB;
+        DWORD dwSize = lpData-&gt;dwExpectedSize;
+        if ( sizeof(ccCB) &lt; dwSize )
+            dwSize = sizeof(ccCB);
+        lpData-&gt;dwActualSize = sizeof(ccCB);
+        memcpy(lpData-&gt;lpvData, &amp;ccCB, dwSize );
+        lpData-&gt;ddRVal = DD_OK;
+    }
+    if (IsEqualIID(&amp;(lpData-&gt;guidInfo), &amp;GUID_VideoPortCaps) )
+    {
+        if (lpData-&gt;dwExpectedSize != sizeof(VideoPortCaps) )
+            return DDHAL_DRIVER_HANDLED;
+        lpData-&gt;dwActualSize = sizeof(VideoPortCaps);
+        memcpy(lpData-&gt;lpvData, VideoPortCaps,
+            sizeof(VideoPortCaps) );
+        lpData-&gt;ddRVal = DD_OK;
+    }
+    if (IsEqualIID(&amp;(lpData-&gt;guidInfo), &amp;GUID_KernelCallbacks) )
+    {
+        DDHAL_DDKERNELCALLBACKS kCB;
+        DWORD dwSize = lpData-&gt;dwExpectedSize;
+        if ( sizeof(kCB) &lt; dwSize )
+            dwSize = sizeof(kCB);
+        lpData-&gt;dwActualSize = sizeof(kCB);
+        memcpy(lpData-&gt;lpvData, &amp;kCB, dwSize );
+        lpData-&gt;ddRVal = DD_OK;
+    }
+    if (IsEqualIID(&amp;(lpData-&gt;guidInfo), &amp;GUID_KernelCaps) )
+    {
+        if (lpData-&gt;dwExpectedSize != sizeof(DDKERNELCAPS) )
+            return DDHAL_DRIVER_HANDLED;
+        lpData-&gt;dwActualSize = sizeof(DDKERNELCAPS);
+        memcpy(lpData-&gt;lpvData, &amp;KernelCaps,
+            sizeof(DDKERNELCAPS) );
+        lpData-&gt;ddRVal = DD_OK;
+    }
+    return DDHAL_DRIVER_HANDLED;
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20GetDriverInfo"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

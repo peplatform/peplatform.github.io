@@ -1,0 +1,220 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DrvAlphaBlend</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DrvAlphaBlend">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_alpha_blending_gg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_clip_region_gg_gly">
+</OBJECT>
+<OBJECT ID="hhobj_3" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_device_managed_surface_gg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_drvalphablend_gg"></A><I>DrvAlphaBlend</I></H1>
+
+<P>The <I>DrvAlphaBlend</I> function provides bit-block transfer capabilities with <A HREF="JavaScript:hhobj_1.Click()">alpha blending</A>.</P>
+
+<PRE class=syntax><B>BOOL
+  </B><I>DrvAlphaBlend</I><B>(</B>
+    <B>IN SURFOBJ</B>  <I>*psoDest</I><B>,</B>
+    <B>IN SURFOBJ</B>  <I>*psoSrc</I><B>,</B>
+    <B>IN CLIPOBJ</B>  <I>*pco</I><B>,</B>
+    <B>IN XLATEOBJ</B>  <I>*pxlo</I><B>,</B>
+    <B>IN RECTL</B>  <I>*prclDest</I><B>,</B>
+    <B>IN RECTL</B>  <I>*prclSrc</I><B>,</B>
+    <B>IN BLENDOBJ</B>  <I>*pBlendObj</I>
+    <B>)</B>;</PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>psoDest</I></DT>
+
+<DD>Pointer to a <A HREF="grstrcts_3rtz.htm">SURFOBJ</A> structure that identifies the surface on which to draw.</DD>
+
+<DT><I>psoSrc</I></DT>
+
+<DD>Pointer to a SURFOBJ structure that identifies the source surface.</DD>
+
+<DT><I>pco</I></DT>
+
+<DD>Pointer to a <A HREF="grstrcts_77zb.htm">CLIPOBJ</A> structure. The <B>CLIPOBJ_</B><I>Xxx</I> service routines are provided to enumerate the <A HREF="JavaScript:hhobj_2.Click()">clip region</A> as a set of rectangles. This enumeration limits the area of the destination that is modified. Whenever possible, GDI simplifies the clipping involved. However, unlike <A HREF="ddifncs_8z3b.htm"><I>DrvBitBlt</I></A>, <I>DrvAlphaBlend</I> might be called with a single rectangle in order to prevent round-off errors in clipping the output.</DD>
+
+<DT><I>pxlo</I></DT>
+
+<DD>Pointer to an <A HREF="grstrcts_5j53.htm">XLATEOBJ</A> structure that specifies how color indices should be translated between the source and destination surfaces. If <I>pxlo</I> is NULL, no translation is needed.
+
+<P>If the source surface is palette-managed, its colors are represented by indices into a lookup table of RGB color values. In this case, the XLATEOBJ can be queried for a translate vector that allows the device driver to quickly translate any source index into a color index for the destination.
+
+
+<P>The situation is more complicated when, for example, the source is RGB but the destination is palette-managed. In this case, the closest match to each source RGB value must be found in the destination palette. The driver can call the <A HREF="gdifncs_5zc7.htm"><B>XLATEOBJ_iXlate</B></A> service routine to perform this matching operation.
+</DD>
+
+<DT><I>prclDest</I></DT>
+
+<DD>Pointer to a <A HREF="grstrcts_2wpz.htm">RECTL</A> structure that defines the rectangular area to be modified. This rectangle is specified in the coordinate system of the destination surface and is defined by two points: upper left and lower right. The two points that define the rectangle are always well ordered. The rectangle is lower-right exclusive; that is, its lower and right edges are not a part of the blend.
+
+<P>The driver should be careful to do proper clipping when writing the pixels because the specified rectangle might overhang the destination surface.
+
+
+<P><I>DrvAlphaBlend</I> is never called with an empty destination rectangle.
+</DD>
+
+<DT><I>prclSrc</I></DT>
+
+<DD>Pointer to a RECTL structure that defines the area to be copied. This rectangle is specified in the coordinate system of the source surface, and is defined by two points: upper left and lower right. The two points that define the rectangle are always well ordered. The rectangle is lower-right exclusive; that is, its lower and right edges are not a part of the blend.
+
+<P>The source rectangle will never exceed the bounds of the source surface, and so will never overhang the source surface.
+
+
+<P><I>DrvAlphaBlend</I> is never called with an empty source rectangle.
+
+
+<P>The mapping is defined by <I>prclSrc</I> and <I>prclDest</I>. The points specified in <I>prclDest</I> and <I>prclSrc</I> lie on integer coordinates, which correspond to pixel centers. A rectangle defined by two such points is considered to be a geometric rectangle with two vertices whose coordinates are the given points, but with 0.5 subtracted from each coordinate. (POINTL structures are shorthand notation for specifying these fractional coordinate vertices.)
+</DD>
+
+<DT><I>pBlendObj</I></DT>
+
+<DD>Pointer to a <A HREF="grstrcts_05gn.htm">BLENDOBJ</A> structure that describes the blending operation to perform between the source and destination surfaces. This structure is a wrapper for the BLENDFUNCTION structure, which includes necessary source and destination format information not available in the XLATEOBJ. The BLENDFUNCTION structure is defined in the Platform SDK documentation. Its members are defined as follows:
+
+<P><B>BlendOp</B> defines the blend operation to be performed. Currently this value must be AC_SRC_OVER, which means that the source bitmap is placed over the destination bitmap based on the alpha values of the source pixels. There are three possible cases that this blend operation should handle. These are described in the <B>Comments</B> section.
+
+
+<P><B>BlendFlags</B> is reserved and is currently set to zero.
+
+
+<P><B>SourceConstantAlpha</B> defines the constant blend factor to apply to the entire source surface. This value is in the range of [0,255], where 0 is completely transparent and 255 is completely opaque.
+
+
+<P><B>AlphaFormat</B> defines whether the surface is assumed to have an alpha channel. This member can optionally be set to the following value:
+
+
+<DL>
+<DT>AC_SRC_ALPHA</DT>
+
+<DD>The source surface can be assumed to be in a pre-multiplied alpha 32bpp "BGRA" format; that is, the surface type is BMF_32BPP and the palette type is BI_RGB. The alpha component is an integer in the range of [0,255], where 0 is completely transparent and 255 is completely opaque.
+</DD>
+</DL>
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>DrvAlphaBlend</I> returns TRUE upon success. Otherwise, it reports an error and returns FALSE.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>winddi.h</I>. Include <I>winddi.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The driver can support a bit-block transfer with alpha blending between the following surfaces:
+
+<UL>
+	<LI>From one <A HREF="JavaScript:hhobj_3.Click()">device-managed surface</A> to another device-managed surface.</LI>
+
+	<LI>From one GDI-managed standard format bitmap to another GDI-managed standard format bitmap.</LI>
+
+	<LI>From one device-managed surface to a GDI-managed surface, and vice versa.</LI>
+</UL>
+
+<P>The driver can punt calls to <A HREF="gdifncs_0x7r.htm"><B>EngAlphaBlend</B></A>.</P>
+
+<P>The driver will never be called with overlapping source and destination rectangles on the same surface.</P>
+
+<P>The three possible cases for the AC_SRC_OVER blend function are:
+
+<UL>
+	<LI>The source bitmap has no per-pixel alpha (AC_SRC_ALPHA is not set), so the blend is applied to the pixel's color channels based on the constant source alpha value specified in <B>SourceConstantAlpha</B> as follows:
+<PRE>Dst.Red = Round(((Src.Red * SourceConstantAlpha) + 
+    ((255 – SourceConstantAlpha) * Dst.Red)) / 255);
+Dst.Green = Round(((Src.Green * SourceConstantAlpha) + 
+    ((255 – SourceConstantAlpha) * Dst.Green)) / 255);
+Dst.Blue = Round(((Src.Blue * SourceConstantAlpha) + 
+    ((255 – SourceConstantAlpha) * Dst.Blue)) / 255);
+/* Do the next computation only if the destination bitmap 
+    has an alpha channel. */
+Dst.Alpha = Round(((Src.Alpha * SourceConstantAlpha) + 
+    ((255 – SourceConstantAlpha) * Dst.Alpha)) / 255);</PRE>
+</LI>
+
+	<LI>The source bitmap has per-pixel alpha values (AC_SRC_ALPHA is set), and <B>SourceConstantAlpha</B> is not used (it is set to 255). The blend is computed as follows:
+<PRE>Dst.Red = Src.Red + 
+    Round(((255 – Src.Alpha) * Dst.Red) / 255);
+Dst.Green = Src.Green + 
+    Round(((255 – Src.Alpha) * Dst.Green) / 255);
+Dst.Blue = Src.Blue + 
+    Round(((255 – Src.Alpha) * Dst.Blue) / 255);
+/* Do the next computation only if the destination bitmap 
+    has an alpha channel. */
+Dst.Alpha = Src.Alpha + 
+    Round(((255 – Src.Alpha) * Dst.Alpha) / 255);</PRE>
+</LI>
+
+	<LI>The source bitmap has per-pixel alpha values (AC_SRC_ALPHA is set), and <B>SourceConstantAlpha</B> is used (it is not set to 255). The blend is computed as follows:
+<PRE>Temp.Red = Round((Src.Red * SourceConstantAlpha) / 255);
+Temp.Green = Round((Src.Green * SourceConstantAlpha) / 255);
+Temp.Blue = Round((Src.Blue * SourceConstantAlpha) / 255);
+/* The next computation must be done even if the 
+    destination bitmap does not have an alpha channel. */
+Temp.Alpha = Round((Src.Alpha * SourceConstantAlpha) / 255);
+ 
+/* Note that the following equations use the just-computed 
+   Temp.Alpha value: */
+Dst.Red = Temp.Red + 
+    Round(((255 – Temp.Alpha) * Dst.Red) / 255);
+Dst.Green = Temp.Green + 
+    Round(((255 – Temp.Alpha) * Dst.Green) / 255);
+Dst.Blue = Temp.Blue + 
+    Round(((255 – Temp.Alpha) * Dst.Blue) / 255);
+/* Do the next computation only if the destination bitmap 
+    has an alpha channel.  */
+Dst.Alpha = Temp.Alpha + 
+    Round(((255 – Temp.Alpha) * Dst.Alpha) / 255);</PRE>
+</LI>
+</UL>
+
+<P>The <I>Round(x)</I> function rounds to the nearest integer, computed as:</P>
+
+<PRE>Trunc(x + 0.5);</PRE>
+
+<P><I>DrvAlphaBlend</I> can be optionally implemented in graphics drivers. It can be provided to handle some kinds of alpha blends, such as blends where the source and destination surfaces are the same format and do not contain an alpha channel.</P>
+
+<P>A hardware implementation can use floating point or fixed point in the blend operation. Compatibility tests will account for some numerical error in the results; please see <A HREF="dpyddi_09t3.htm">Special Effects in Display Drivers</A> for information about maximum permissible error. When using fixed point, an acceptable approximation to the term <I>x/255</I> is <I>(x*257)/65536</I>. Incorporating rounding, the expression:</P>
+
+<PRE>((255 - Src.Alpha) * Dst.Red) / 255</PRE>
+
+<P>can then be approximated as:</P>
+
+<PRE>temp = ((255 - Src.Alpha) * Dst.Red) + 128;
+result = (temp + (temp &gt;&gt; 8)) &gt;&gt; 8;</PRE>
+
+<P>The driver hooks <I>DrvAlphaBlend</I> by setting the HOOK_ALPHABLEND flag when it calls <A HREF="gdifncs_1wrr.htm"><B>EngAssociateSurface</B></A>. If the driver has hooked <I>DrvAlphaBlend</I> and is called to perform an operation that it does not support, the driver should have GDI handle the operation by punting the data in a call to <A HREF="gdifncs_0x7r.htm"><B>EngAlphaBlend</B></A>.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddifncs_8z3b.htm"><I>DrvBitBlt</I></A>, <A HREF="ddifncs_79yf.htm"><I>DrvPlgBlt</I></A>, <A HREF="ddifncs_3ew7.htm"><I>DrvStretchBlt</I></A>, <A HREF="ddifncs_0z3b.htm"><I>DrvStretchBltROP</I></A>, <A HREF="ddifncs_0bl3.htm"><I>DrvTransparentBlt</I></A>, <A HREF="gdifncs_0x7r.htm"><B>EngAlphaBlend</B></A>, <A HREF="gdifncs_3nzb.htm"><B>EngBitBlt</B></A>, <A HREF="gdifncs_1yuf.htm"><B>EngPlgBlt</B></A>, <A HREF="gdifncs_0bs7.htm"><B>EngStretchBlt</B></A>, <A HREF="gdifncs_4jzb.htm"><B>EngStretchBltROP</B></A>, <A HREF="gdifncs_9gh3.htm"><B>EngTransparentBlt</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DrvAlphaBlend"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,168 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ESC_TWAIN_PRIVATE_SUPPORTED_CAPS Escape Code</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_esc_twain_private_supported_caps_escape_code_si"></A>ESC_TWAIN_PRIVATE_SUPPORTED_CAPS Escape Code</H4>
+
+<P>In order to determine private TWAIN-supported capabilities, a TWAIN application notifies the TWAIN compatibility layer, which then sends the ESC_TWAIN_PRIVATE_SUPPORTED_CAPS escape code to the WIA driver's <A HREF="stifnc_2kh5.htm"><B>IStiUSD::Escape</B></A> method. The following pseudocode implementation of the <B>Escape</B> method demonstrates how it should respond to the ESC_TWAIN_PRIVATE_SUPPORTED_CAPS escape code to report private TWAIN-support capabilities. </P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The <B>Escape</B> method in this example is the same as the one shown in <A HREF="wia_drv_scan_8fxl.htm">ESC_TWAIN_CAPABILITY Escape Code</A>, although the focus of each sample is a different escape code.</P>
+
+<PRE>STDMETHODIMP CWIADevice::Escape(STI_RAW_CONTROL_CODE EscapeFunction,
+  LPVOID               lpInData,
+  DWORD                cbInDataSize,
+  LPVOID               pOutData,
+  DWORD                dwOutDataSize,
+  LPDWORD              pdwActualData)
+{
+  //
+  // Only process EscapeFunction codes that are known to your driver.
+  // Any application can send escape calls to your driver using the
+  // IWiaItemExtras interface Escape() method call.  The driver must
+  // be prepared to validate all incoming calls to Escape().
+  //
+
+  //
+  // Because this driver does not support any escape functions it will
+  // reject all incoming EscapeFunction codes.
+  //
+  // If your driver supports an EscapeFunction, then add your function
+  // code to the switch statement, and set hr = S_OK. This will allow
+  // the function to continue to the incoming/outgoing buffer
+  // validation.
+  //
+
+  HRESULT hr = E_NOTIMPL;
+  switch(EscapeFunction) {
+  case ESC_TWAIN_PRIVATE_SUPPORTED_CAPS: // processing TWAIN supported caps Escapecode
+     hr = S_OK;
+     break;
+  default:
+     break;
+  }
+
+  //
+  // If an EscapeFunction code is supported, then first validate the
+  // incoming and outgoing buffers.
+  //
+
+  if(S_OK == hr) {
+
+     //
+     // validate the incoming data buffer
+     //
+
+     if(IsBadReadPtr(lpInData,cbInDataSize)) {
+         hr = E_UNEXPECTED;
+     }
+
+     //
+     // if the incoming buffer is valid, proceed to validate the
+     // outgoing buffer
+     //
+
+     if(S_OK == hr) {
+         if(IsBadWritePtr(pOutData,dwOutDataSize)) {
+             hr = E_UNEXPECTED;
+         } else {
+
+             //
+             // validate the outgoing size pointer
+             //
+
+             if(IsBadWritePtr(pdwActualData,sizeof(DWORD))) {
+                 hr = E_UNEXPECTED;
+             }
+        }
+     }
+
+     //
+     // Now that buffer validation is complete, proceed to process the
+     // proper EscapeFunction code.
+     //
+
+     if(S_OK == hr) {
+
+       //
+       // Only process a validated EscapeFunction code, and buffers.
+       //
+
+       if(EscapeFunction == ESC_TWAIN_PRIVATE_SUPPORTED_CAPS) {
+
+           //
+           // Process a TWAIN supported capabilities message.
+           //
+
+           // Check the lpInData buffer for the number of bytes
+           // of the capability array.
+           //
+           // 1. Create variable of type LONG*, initializing it
+           //    to the value in lpInData.
+           // 2. Dereference this variable to obtain the size, in
+           //    bytes, of the private TWAIN capability array.
+
+           LONG *pSupportedCapsSize = NULL;
+           pSupportedCapsSize = (LONG*)lpInData;
+
+           if(pSupportedCapsSize) {
+               LONG lNumBytes = *pSupportedCapsSize;
+
+                // lNumBytes determines the operation to perform.
+
+               if(lNumBytes == 0) {
+                // If lNumBytes is zero:
+                // a. Create a variable of type LONG*, and
+                //    initialize it to the value in pOutData.
+                // b. Dereference this variable, and set the size,
+                //    in bytes, of the private TWAIN capability array.
+                //  c. Set *pchActualData to sizeof(LONG).
+                //  d. Set the HRESULT to S_OK, and return.
+
+                  LONG *pCapArraySize = (LONG*)pOutData;
+                  *pCapArraySize = (NUM_PRIVATE_TWAIN_CAPS * sizeof(LONG));
+                  *pdwActualData = sizeof(LONG);
+                   hr = S_OK;
+               } else if(lNumBytes &gt; 0) {
+                  // If lNumBytes is positive:
+                  //  a. Create a variable of type LONG*, and
+                  //     initialize it to the value in pOutData.
+                  //  b. Dereference this variable, and set each
+                  //     capability ID of the private TWAIN capability
+                  //     array.
+                  //  c. Set *pchActualData to the size, in bytes, of
+                  //     the total capability array.
+                  //  d. Set the HRESULT to S_OK, and return.
+
+                   LONG *pCapArray = (LONG*)pOutData;
+                   pCapArray[0] = ICAP_MY_PRIVATE_CAP1;
+                   pCapArray[1] = ICAP_MY_PRIVATE_CAP2;
+                   pCapArray[2] = ICAP_MY_PRIVATE_CAP3;
+                   pCapArray[3] = ICAP_MY_PRIVATE_CAP4;
+                   pCapArray[4] = ICAP_MY_PRIVATE_CAP5;
+                   *pdwActualData = (NUM_PRIVATE_TWAIN_CAPS * sizeof(LONG));
+                   hr = S_OK;
+               } // if (lNumBytes &gt; 0)
+           } // if (pSupportedCapsSize)
+       }
+     }
+  }
+
+  //
+  // If your driver will not support this entry point then
+  //  it must return E_NOTIMPL (error, not implemented).
+  //
+
+  return hr;
+}</PRE>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ESC_TWAIN_PRIVATE_SUPPORTED_CAPS%20Escape%20Code"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

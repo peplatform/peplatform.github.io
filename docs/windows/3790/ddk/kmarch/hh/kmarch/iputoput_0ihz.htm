@@ -1,0 +1,130 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Obtaining Device Configuration Information at Raised IRQL</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Obtaining Device Configuration Information at Raised IRQL">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_obtaining_device_configuration_information_at_raised_irql_kg"></A>Obtaining Device Configuration Information at Raised IRQL</H2>
+
+<P>The method illustrated in the <A HREF="iputoput_4pev.htm">Obtaining Device Configuration Information at Passive IRQL</A> section makes use of I/O request packets (IRPs) and therefore is only valid for drivers running at IRQL = PASSIVE_LEVEL. Drivers running at IRQL = DISPATCH_LEVEL must use a bus interface to obtain device configuration space data. To obtain this data, you can use a bus-specific interface or the system-supplied bus-independent bus interface, <A HREF="drvr_interface_7hma.htm">BUS_INTERFACE_STANDARD</A>.</P>
+
+<P>It is preferable to use BUS_INTERFACE_STANDARD where possible, because a bus number is not required to retrieve configuration information when using BUS_INTERFACE_STANDARD, whereas drivers must often identify the bus number when retrieving bus-specific interfaces. Bus numbers for some buses, such as PCI, can change dynamically. Therefore, drivers should not depend on the bus number to access the PCI ports directly. Doing so might lead to system failure. </P>
+
+<P>Three steps are required when accessing the configuration space of a PCI device at IRQL = DISPATCH_LEVEL: 
+
+<OL>
+	<LI>Send an <A HREF="pnp-irps_9k36.htm">IRP_MN_QUERY_INTERFACE</A> request at IRQL = PASSIVE_LEVEL to get the direct-call interface structure (BUS_INTERFACE_STANDARD) from the PCI bus driver. Store this in a nonpaged pool memory (typically in a device extension).</LI>
+
+	<LI>Call the BUS_INTERFACE_STANDARD interface routines, <B>SetBusData</B> and <B>GetBusData</B>, to access the PCI configuration space at IRQL = DISPATCH_LEVEL.</LI>
+
+	<LI>Dereference the interface. The PCI bus driver takes a reference count on the interface before it returns, so the driver that accesses the interface must dereference it, once it is no longer needed.</LI>
+</OL>
+
+<P>The following code sample demonstrates how to implement these three steps:</P>
+
+<PRE>NTSTATUS
+GetPCIBusInterfaceStandard(
+    IN  PDEVICE_OBJECT DeviceObject,
+    OUT PBUS_INTERFACE_STANDARD    BusInterfaceStandard
+    )
+/*++
+Routine Description:
+    This routine gets the bus interface standard information from the PDO.
+Arguments:
+    DeviceObject - Device object to query for this information.
+    BusInterface - Supplies a pointer to the retrieved information.
+Return Value:
+    NT status.
+--*/ 
+{
+    KEVENT event;
+    NTSTATUS status;
+    PIRP irp;
+    IO_STATUS_BLOCK ioStatusBlock;
+    PIO_STACK_LOCATION irpStack;
+    PDEVICE_OBJECT targetObject;
+
+    Bus_KdPrint(("GetPciBusInterfaceStandard entered.\n"));
+    KeInitializeEvent( &amp;event, NotificationEvent, FALSE );
+    targetObject = IoGetAttachedDeviceReference( DeviceObject );
+    irp = IoBuildSynchronousFsdRequest( IRP_MJ_PNP,
+                                        targetObject,
+                                        NULL,
+                                        0,
+                                        NULL,
+                                        &amp;event,
+                                        &amp;ioStatusBlock );
+    if (irp == NULL) {
+        status = STATUS_INSUFFICIENT_RESOURCES;
+        goto End;
+    }
+    irpStack = IoGetNextIrpStackLocation( irp );
+    irpStack-&gt;MinorFunction = IRP_MN_QUERY_INTERFACE;
+    irpStack-&gt;Parameters.QueryInterface.InterfaceType = 
+                        (LPGUID) &amp;GUID_BUS_INTERFACE_STANDARD ;
+    irpStack-&gt;Parameters.QueryInterface.Size = sizeof(BUS_INTERFACE_STANDARD);
+    irpStack-&gt;Parameters.QueryInterface.Version = 1;
+    irpStack-&gt;Parameters.QueryInterface.Interface = (PINTERFACE)
+BusInterfaceStandard;
+    irpStack-&gt;Parameters.QueryInterface.InterfaceSpecificData = NULL;
+    // Initialize the status to error in case the bus driver does not 
+    // set it correctly.
+    irp-&gt;IoStatus.Status = STATUS_NOT_SUPPORTED ;
+    status = IoCallDriver( targetObject, irp );
+    if (status == STATUS_PENDING) {
+        KeWaitForSingleObject( &amp;event, Executive, KernelMode, FALSE, NULL );
+        status = ioStatusBlock.Status;
+    }
+End:
+    // Done with reference
+    ObDereferenceObject( targetObject );
+    return status;
+} </PRE>
+
+<P>The following code snippet shows how to use the <B>GetBusData</B> interface routine to get the configuration space data (step 2). </P>
+
+<PRE>    bytes = busInterfaceStandard.GetBusData(
+                    busInterfaceStandard.Context,
+                    PCI_WHICHSPACE_CONFIG,
+                    Buffer
+                    Offset,
+                    Length); </PRE>
+
+<P>When the driver is done with the interface, it can use code similar to the following snippet to dereference the interface (step 3). Drivers must not call interface routines after dereferencing the interface. </P>
+
+<PRE>    (busInterfaceStandard.InterfaceDereference)(
+                (PVOID)busInterfaceStandard.Context); 
+</PRE>
+
+<P>The interface synchronizes the caller's access to the bus hardware with the PCI bus driver's access. The driver writer need not worry about creating spin locks to avoid contending with the PCI bus driver for access to bus hardware. </P>
+
+<P>Note, that if all that is needed are bus, function, and device numbers, it is usually unnecessary to resort to a bus interface to obtain this information. This data can be retrieved indirectly by passing the PDO of the target device to the <A HREF="k104_7pgy.htm"><B>IoGetDeviceProperty</B></A> function as follows: </P>
+
+<PRE>    ULONG   propertyAddress, length;
+    USHORT  FunctionNumber; DeviceNumber;
+    // Get the BusNumber. Be warned that bus numbers may be
+    // dynamic and therefore subject to change unpredictably!!!
+    IoGetDeviceProperty(PhysicalDeviceObject,
+                        DevicePropertyBusNumber,
+                        sizeof(ULONG),
+                        (PVOID)&amp;BusNumber,
+                        &amp;length);
+    // Get the DevicePropertyAddress
+    IoGetDeviceProperty(PhysicalDeviceObject,
+                     DevicePropertyAddress,
+                     sizeof(ULONG),
+                     (PVOID)&amp;propertyAddress,
+                     &amp;length);
+    // For PCI, the DevicePropertyAddress has device number 
+    // in the high word and the function number in the low word. 
+    FunctionNumber = (USHORT)((propertyAddress) &amp; 0x0000FFFF);
+    DeviceNumber = (USHORT)(((propertyAddress) &gt;&gt; 16) &amp; 0x0000FFFF);</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Obtaining%20Device%20Configuration%20Information%20at%20Raised%20IRQL"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

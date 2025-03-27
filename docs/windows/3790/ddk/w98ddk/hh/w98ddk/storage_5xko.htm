@@ -1,0 +1,315 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IFSMgr_NetFunction</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_4448"></A>IFSMgr_NetFunction</H3>
+
+<PRE>IFSMgr_NetFunction(
+ pioreq pir,
+ pUserRegs pRegs,
+ int proId,
+ int flags
+ )
+ </PRE>
+
+<P>This service is provided to export certain functions most of which are specific to the network FSDs. These functions can come from a variety of sources: INT 21h and INT 2fh functions that the IFS hooks but does not support, INT 21h functions that the IFS does not support that are hooked via IFSMgr_SetReqHook and internal IFS manager broadcast functions to notify FSDs of certain happenings. It is not possible to document the different functions that different FSDs might hook. What is documented here are the internal broadcasts that the IFS manager issues and the general interface of the IFSMgr_NetFunction API. FSDs that need to see these calls need to hook the IFSMgr_NetFunction service using the VMM Hook_Device_Service service. The IFS manager has a stub installed for the IFSMgr_NetFunction service that returns error if no one else has hooked the service. 
+
+<DL>
+<DT><I>pir</I> </DT>
+
+<DD>Supplies the IOREQ structure. The actual fields used in IOREQ vary based on the function type and are described in the following. </DD>
+
+<DT><I>pRegs</I> </DT>
+
+<DD>Supplies pointer to the client register structure. </DD>
+
+<DT><I>User AX</I> </DT>
+
+<DD>Supplies the function type. Depending on the type of function the IOREQ structure is appropriately initialized. If this is an INT 21h that is not processed by the IFS manager but has been hooked by the FSD via the <B>IFSMgr_SetReqHook</B> function, this field contains the original AX value that the user issued the INT 21h with. There are a via INT 2fh requests that are also routed through this service with AX containing the original INT 2fh function numbers in AX. FSDs that need to process them should look for them. 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><B>Function Type:</B> </TD>
+<TD width=66%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Value </TH>
+<TH align=left width=66%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>NF_PROCEXIT </TD>
+<TD width=66%>This function is broadcast whenever a process exits for FSDs to do any cleanup, if necessary. For normal resources, the IFS manager takes care of cleanup and calls the FSDs at process exit time. Only FSDs that need to maintain special per process resources that the IFS does not know about need to monitor this call. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>NF_DRIVEUSE </TD>
+<TD width=66%>This function is broadcast whenever a new drive appears in the system. This need not necessarily be a network drive. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>NF_DRIVEUNUSE </TD>
+<TD width=66%>This function is broadcast whenever a drive goes away. This need not necessarily be a net drive. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>NF_GETPRINTJOBID </TD>
+<TD width=66%>This function is broadcast when the IFS manager needs a print job ID from the FSD. This is used only for network FSDs. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>NF_PRINTERUSE </TD>
+<TD width=66%>This function is broadcast whenever a network printer is attached. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>NF_PRINTERUNUSE </TD>
+<TD width=66%>This function is broadcast whenever a network printer is disconnected. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>proId</I> </TD>
+<TD width=66%>Supplies the provider ID the call is meant for–could be all providers (ANYPROID) also depending on the function type. This is described in the following. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><I>flags</I> </DT>
+
+<DD>Supplies special flags. This flag is currently a Boolean flag–it is set if this is a Win32 API call and clear if it is not a Win32 API call. 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><B>Function NF_PROCEXIT:</B> </TD>
+<TD width=66%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Value </TH>
+<TH align=left width=66%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>ir_pid</I> </TD>
+<TD width=66%>Supplies process ID of exiting process. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>proId</I> </TD>
+<TD width=66%>ANYPROID. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><B>Function NF_DRIVEUSE:</B> </TD>
+<TD width=66%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Value </TH>
+<TH align=left width=66%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>ir_rh</I> </TD>
+<TD width=66%>Supplies FSD resource handle to the drive that has just appeared. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>ir_flags</I> </TD>
+<TD width=66%>Supplies driveletter (1-based) of drive that has just appeared. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>ir_aux1.aux_ul</I> </TD>
+<TD width=66%>Supplies provider ID of the provider handling the new drive. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>proId</I> </TD>
+<TD width=66%>ANYPROID. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><B>Function NF_DRIVEUNUSE:</B> </TD>
+<TD width=66%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Value </TH>
+<TH align=left width=66%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>ir_rh</I> </TD>
+<TD width=66%>Supplies FSD resource handle to the drive that has gone away. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>ir_flags</I> </TD>
+<TD width=66%>Supplies driveletter (1-based) of drive that has gone away. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>ir_aux1.aux_ul</I> </TD>
+<TD width=66%>Supplies provider ID for the deleted drive. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>proId</I> </TD>
+<TD width=66%>ANYPROID. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><B>Function NF_GETPRINTJOBID:</B> </TD>
+<TD width=66%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Value </TH>
+<TH align=left width=66%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>ir_rh</I> </TD>
+<TD width=66%>Supplies FSD resource handle to the printer. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>ir_data</I> </TD>
+<TD width=66%>Supplies pointer to the user buffer where the print job ID is to be filled in. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>proId</I> </TD>
+<TD width=66%>Provider ID of provider handling the printer resource. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><B>Function NF_PRINTERUSE:</B> </TD>
+<TD width=66%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Value </TH>
+<TH align=left width=66%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>ir_rh</I> </TD>
+<TD width=66%>Supplies FSD resource handle to the new printer. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>ir_flags</I> </TD>
+<TD width=66%>Supplies printer index of new printer. The printer index is a value from zero through 8 for LPT1 - LPT9. PRN has the same index as LPT1. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>proId</I> </TD>
+<TD width=66%>Supplies provider ID of provider who is handling the new printer. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><B>Function NF_PRINTERUNUSE:</B> </TD>
+<TD width=66%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Value </TH>
+<TH align=left width=66%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>ir_rh</I> </TD>
+<TD width=66%>Supplies FSD resource handle to the printer that just got disconnected. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>ir_flags</I> </TD>
+<TD width=66%>Supplies printer index of printer being disconnected. Look above for details about this field. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>proId</I> </TD>
+<TD width=66%>Supplies provider ID of provider who was handling the disconnected printer. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><B>Hooked Int 21h Function:</B> </TD>
+<TD width=66%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Value </TH>
+<TH align=left width=66%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>ir_ppath</I> </TD>
+<TD width=66%>Supplies pointer to parsed path buffer that can be used by the FSD. The IFS manager does not initialize this field with anything. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>proId</I> </TD>
+<TD width=66%>Provider returned by the hooking FSD on its preamble return. The details are described in Section 8.11.5.9. </TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+</DL>
+
+<UL>
+	<LI>The internal functions: NF_PROCEXIT, NF_DRIVEUSE, NF_DRIVEUNUSE, NF_PRINTERUSE, NF_PRINTERUNUSE have no return values. For all other functions, the return value is the same as what is returned in <I>ir_error</I>. </LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><I>ir_error</I> </TD>
+<TD width=57%>Returns zero if success, error code if failure. </TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IFSMgr_NetFunction"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

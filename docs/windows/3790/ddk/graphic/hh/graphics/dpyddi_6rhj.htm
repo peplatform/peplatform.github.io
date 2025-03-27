@@ -1,0 +1,118 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Supporting Multiple PDEVs</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Supporting Multiple PDEVs">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_supporting_multiple_pdevs_gg"></A>Supporting Multiple PDEVs</H2>
+
+<P>This section shows how an application can create a new PDEV while the current PDEV is still loaded. Control Panel's Display program requires that a display driver support the enabling of additional PDEVs, because it is possible for an application to create a new PDEV with a new desktop. Specifically, the end user can click on the Display icon to run a test on changes to such elements as the size, number of colors, and refresh rate of the screen. The Display program creates a new desktop dynamically to test the display's mode changes.</P>
+
+<P>GDI performs the following steps when the user clicks on the Display icon to request a mode change. These steps assume that no active Direct3D, WNDOBJ, or DRIVEROBJ objects are owned by the current driver instance.
+
+<OL>
+	<LI>Temporarily disable the current PDEV
+<UL>
+	<LI>Call <A HREF="ddifncs_00pz.htm"><I>DrvAssertMode</I></A> (old PDEV instance). Call is made using FALSE if miniport driver is to assume control, and with TRUE if PDEV should be used.</LI>
+</UL>
+</LI>
+
+	<LI>Load new driver (if required by new PDEV instance)
+<UL>
+	<LI>Call <A HREF="ddifncs_9go7.htm"><B>DrvEnableDriver</B></A> (new driver instance).</LI>
+</UL>
+</LI>
+
+	<LI>Create new PDEV
+<UL>
+	<LI>Call <A HREF="ddifncs_0zzb.htm"><I>DrvEnablePDEV</I></A> (new PDEV instance).</LI>
+
+	<LI>Call <A HREF="ddifncs_13xj.htm"><I>DrvCompletePDEV</I></A> (new PDEV instance).</LI>
+
+	<LI>Call <A HREF="ddifncs_871j.htm"><I>DrvEnableSurface</I></A> (new PDEV instance).</LI>
+</UL>
+</LI>
+
+	<LI>Get DirectDraw information (if DirectDraw is hooked by driver). Second call to <A HREF="ddfncs_4yav.htm"><I>DrvGetDirectDrawInfo</I></A> is made only if the first call succeeds.
+<UL>
+	<LI>Call <I>DrvGetDirectDrawInfo</I> (new PDEV instance).</LI>
+
+	<LI>Call <I>DrvGetDirectDrawInfo</I> (new PDEV instance).</LI>
+</UL>
+</LI>
+
+	<LI>Enable DirectDraw (if hooked by driver and previous call to <I>DrvGetDirectDrawInfo</I> succeeded).
+<UL>
+	<LI>Call <A HREF="ddfncs_592f.htm"><I>DrvEnableDirectDraw</I></A> (new PDEV instance).</LI>
+</UL>
+</LI>
+
+	<LI>Copy old PDEV state to new PDEV instance (if both instances use same driver, and DirectDraw is hooked by driver).
+<UL>
+	<LI>Call <A HREF="ddifncs_6vqf.htm"><I>DrvResetPDEV</I></A>.</LI>
+</UL>
+</LI>
+
+	<LI>Notify each driver instance of its new HDEV association. The first call to <A HREF="ddifncs_13xj.htm"><I>DrvCompletePDEV</I></A> notifies the new driver instance; the second call notifies the old driver instance.
+<UL>
+	<LI>Call <I>DrvCompletePDEV</I> (new PDEV instance).</LI>
+
+	<LI>Call <I>DrvCompletePDEV</I> (old PDEV instance).</LI>
+</UL>
+
+<P>The driver should use the new HDEV value in any callbacks to GDI that require an HDEV.
+</LI>
+
+	<LI>Disable DirectDraw (if hooked by the driver and DirectDraw is active).
+<UL>
+	<LI>Call <A HREF="ddfncs_5yg7.htm"><I>DrvDisableDirectDraw</I></A> (old PDEV instance).</LI>
+</UL>
+</LI>
+
+	<LI>Disable surface.
+<UL>
+	<LI>Call <A HREF="ddifncs_4b3b.htm"><I>DrvDisableSurface</I></A> (old PDEV instance).</LI>
+</UL>
+</LI>
+
+	<LI>Disable PDEV.
+<UL>
+	<LI>Call <A HREF="ddifncs_6ip3.htm"><I>DrvDisablePDEV</I></A> (old PDEV instance).</LI>
+</UL>
+</LI>
+</OL>
+
+<P>In this example, GDI temporarily disables the current PDEV when the user clicks Apply, and then creates a second PDEV that matches the display mode selections in the dialog box. After the user views a bitmap on the display screen under the test mode, the second PDEV is destroyed and the Display program restores the original PDEV for the desktop. Note that without the ability to revert back to the original display settings, the system would become unusable if the settings were incompatible with the hardware and driver.</P>
+
+<P>If the current instance of the driver owns a Direct3D, WNDOBJ, or DRIVEROBJ object, the driver’s view of the previous mode change sequence changes as follows (note that in Windows&nbsp;2000 and later, DirectDraw is always enabled as soon as the driver is initialized):
+
+<UL>
+	<LI>Destruction of the owning driver instance will be deferred. Specifically, the second call to <A HREF="ddifncs_13xj.htm"><I>DrvCompletePDEV</I></A> in step 7, step 8, and step 9 will not occur at the time of the mode change. As a result, the old driver instance is disabled due to the call to <A HREF="ddifncs_00pz.htm"><I>DrvAssertMode</I></A>(FALSE) in step 1, and is retained until either the system does a mode change back to the original mode, or until all the objects that reference the instance are destroyed.</LI>
+
+	<LI>If the system reverts back to the original mode before the referencing objects are destroyed, the original driver instance will be resurrected. That is, steps 2 through 5 do not occur, and the original driver instance is re-enabled by a call to <I>DrvAssertMode</I>(TRUE) (see step 1).</LI>
+
+	<LI>If the system does not revert back to the original mode before all the referencing objects are destroyed, then the driver instance will be destroyed when the final referencing object is destroyed. That is, the second call to <I>DrvCompletePDEV</I> in step 7, step 8, and step 9 will occur at the time the final referencing object is destroyed (for example, when all the owning processes are terminated).</LI>
+</UL>
+
+<P>An implication of this is that Direct3D or OpenGL drivers can be called to destroy an inactive driver instance at any time. These drivers can be called even if another instance of the driver is currently active, or if the driver is in full-screen DOS mode, or if another driver owns the hardware entirely (such as the VGA driver). Consequently, the <A HREF="ddfncs_5yg7.htm"><I>DrvDisableDirectDraw</I></A>, <A HREF="ddifncs_4b3b.htm"><I>DrvDisableSurface</I></A>, and <A HREF="ddifncs_6ip3.htm"><I>DrvDisablePDEV</I></A> routines (see steps 8-10) of a driver cannot assume that the device is in graphics mode and that they own exclusive access. As a general rule, drivers should not manipulate their video hardware in their <I>DrvDisableXxx</I> routines unless they know that their instance is currently active (by remembering the state from the last <A HREF="ddifncs_00pz.htm"><I>DrvAssertMode</I></A> call).</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;A PDEV is private to a driver and contains all the information and data that represents the associated physical device. To create multiple PDEVs, the graphics driver must meet both of the following requirements:
+
+<OL>
+	<LI>The driver must not use global variables instead of dereferencing members of a PDEV structure. If global variables are used, they might contain or point to random data when a new PDEV is created, or an old one restored. All state information must be saved in the PDEV. The PDEV is always passed to any graphics operation and is therefore used to get or set global data. </LI>
+
+	<LI>The <A HREF="ddifncs_4b3b.htm"><I>DrvDisableSurface</I></A>, <A HREF="ddifncs_6ip3.htm"><I>DrvDisablePDEV</I></A>, and <A HREF="ddifncs_8xlz.htm"><I>DrvDisableDriver</I></A> routines must be implemented in the graphics driver so that an application can create and destroy additional PDEVs, and in some cases load more than one driver.</LI>
+</OL>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;If the driver's version number is 1.0, GDI will not call the driver to create a second PDEV. The version number of the driver is returned in <A HREF="grstrcts_2c9z.htm">DRVENABLEDATA</A>.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Occasionally, the Display program's test bitmap will be displayed using a different driver than the currently-loaded driver. For example, if a system is running in 16-color mode with the VGA driver and testing a 64K-color mode with the VGA64K display driver, the VGA64K driver will be loaded dynamically and unloaded when the test is complete.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Supporting%20Multiple%20PDEVs"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

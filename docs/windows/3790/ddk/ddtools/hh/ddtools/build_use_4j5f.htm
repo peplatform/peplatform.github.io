@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Building on a Multiprocessor Computer</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Building on a Multiprocessor Computer">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Driver&nbsp;Development&nbsp;Tools:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_building_on_a_multiprocessor_computer_tools"></A>Building on a Multiprocessor Computer</H4>
+
+<P>When the Build utility is run on a multiprocessor computer, different Build utility threads may be running on different processors. Therefore you need to be careful that your products are built in the correct order.</P>
+
+<P>Your project may contain compiler dependencies — for example, one part of your project may produce a global precompiled header that will be used by another part of your project. It may also contain linker dependencies — for example, one part of your project may be building a TARGETTYPE=LIBRARY product containing several functions, and another part of your project may be building a TARGETTYPE=DYNLINK that will be exporting these functions.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;Often, what seems to be a synchronization problem actually results from misuse of TARGETLIBS and LINKLIBS. If you are building a DLL (TARGETTYPE=DYNLINK), and one directory is building a function, and a second directory is building a binary that will export that function, you need to use the <A HREF="build_ref_3ddf.htm">LINKLIBS</A> macro to specify the library built from the first directory within the <A HREF="build_ref_02k3.htm"><I>sources</I></A> file of the second directory. In all other cases you should use <A HREF="build_ref_7wj7.htm">TARGETLIBS</A>.</P>
+
+<P>On a multiprocessor computer, you need to control the order of your build so that the Build utility does not attempt to build a product without first having built any products on which it depends.</P>
+
+<P>There are two different pairs of macros that can be used in your <I>sources</I> files to control the build order. One pair is BUILD_PRODUCES and BUILD_CONSUMES. The other pair is SYNCHRONIZE_BLOCK and SYNCHRONIZE_DRAIN.</P>
+
+<P>You can use either pair; you do not have to use both. Indeed, if a single <I>sources</I> file contains BUILD_PRODUCES or BUILD_CONSUMES, any instances of SYNCHRONIZE_BLOCK or SYNCHRONIZE_DRAIN in that file will be ignored by the Build utility. You can combine both methods within a single project if they are never in the same <I>sources</I> file, but this is not recommended.</P>
+
+<P>The BUILD_PRODUCES and BUILD_CONSUMES method is more powerful and usually lets the build complete faster than the SYNCHRONIZE_* method.</P>
+
+<H4>The BUILD_PRODUCES and BUILD_CONSUMES Method</H4>
+
+<P>BUILD_PRODUCES and BUILD_CONSUMES lets you indicate dependencies in your project. Suppose that the objects in directory one need to be built before the objects in directory two. You can indicate this by placing the following macro in the <I>sources</I> file of directory one:</P>
+
+<PRE><B>BUILD_PRODUCES=</B><I>SomeString</I>
+</PRE>
+
+<P>and then by placing the following macro in the <I>sources</I> file of directory two:</P>
+
+<PRE><B>BUILD_CONSUMES=</B><I>SomeString</I>
+</PRE>
+
+<P><I>SomeString</I> can be any string that does not contain spaces. The Build utility will look for matching strings. Any unique string can be used in exactly one BUILD_PRODUCES macro, and in any number of BUILD_CONSUMES macros in other files. For each string, the Build utility will build the objects in the directory containing the BUILD_PRODUCES macro before building any of the directories containing the corresponding BUILD_CONSUMES macros.</P>
+
+<P>There is no limit to the number of BUILD_PRODUCES or BUILD_CONSUMES macros that can be used in one <I>sources</I> file, although of course you must avoid circular use of these macros. There is no limit to the number of distinct strings that can be used in one project.</P>
+
+<P>To keep track of these strings, it is recommended that a string contain the name of the directory with its BUILD_PRODUCES macro. If a string contains the <B>$(</B><I>VariableName</I><B>)</B> syntax it will be expanded before matching. If you use this technique, be very careful of letting <I>VariableName</I> equal a macro that may have a different value in different <I>sources</I> files.</P>
+
+<P>Any directory that uses BUILD_PRODUCES should be listed first in its parent <A HREF="build_ref_6vzn.htm"><I>dirs</I> file</A>., and any directory that uses BUILD_CONSUMES should be listed last in the <I>dirs</I> file.</P>
+
+<H4>The SYNCHRONIZE_BLOCK and SYNCHRONIZE_DRAIN Method</H4>
+
+<P>SYNCHRONIZE_BLOCK and SYNCHRONIZE_DRAIN provide a less granular way to control synchronization.
+
+<UL>
+	<LI>SYNCHRONIZE_BLOCK=1 instructs the Build utility to build a certain directory first. When the Build utility finds this macro in a <I>sources</I> file, it will stop building all other directories until this directory is built. You should use this macro in any directory that other directories depend upon.</LI>
+
+	<LI>SYNCHRONIZE_DRAIN=1 instructs the Build utility to build a certain directory last. A directory whose <I>sources</I> file contains this macro will not be built until all other directories have been built. You should use this macro in any directory that depends on the products built in another (including any directory whose <I>sources</I> macro includes LINKLIBS).</LI>
+</UL>
+
+<P>Any directory that uses SYNCHRONIZE_BLOCK should be listed first in its parent <A HREF="build_ref_6vzn.htm"><I>dirs</I> file</A>., and any directory that uses SYNCHRONIZE_DRAIN should be listed last in the <I>dirs</I> file.</P>
+
+<P>You should use these directives very sparingly, because they completely stall a multiprocessor build when they are encountered.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Building%20on%20a%20Multiprocessor%20Computer"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

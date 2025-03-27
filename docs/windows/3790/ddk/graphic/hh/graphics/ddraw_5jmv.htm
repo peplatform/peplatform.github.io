@@ -1,0 +1,79 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Querying DCICOMMAND Support</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_querying_dcicommand_support_gg"></A>Querying DCICOMMAND Support</H4>
+
+<P><B>This topic applies only to Windows 98/Me.</B></P>
+
+<P>DirectDraw driver initialization occurs the first time the application's <B>DirectDrawCreate</B> function is called (see the reference section of the DirectX Software Development Kit (SDK) for more information on <B>DirectDrawCreate</B>). DirectDraw handles initialization communication using the standard GDI <B>Escape</B> function mechanism. Escape 3075 (the old <B>DCICOMMAND</B> escape) is used, with the <B>dwVersion</B> member of the DCICMD structure set to 0x200 to indicate DCI version 2.0. (The DCICMD structure is used for backward compatibility.) </P>
+
+<P>The display driver for Windows&nbsp;98/Me begins the DirectDraw initialization as soon as DirectDraw sends a <B>QUERYESCSUPPORT</B> escape to the 16-bit GDI driver <I>Control</I> function. The GDI driver's <I>Control</I> function then checks for the <B>DCICOMMAND</B> escape, which is also sent by DirectDraw. If the <B>DCICOMMAND</B> escape was sent, the GDI driver responds with DD_HAL_VERSION (the DirectDraw HAL version supported). If DD_HAL_VERSION is not returned, DirectDraw assumes that extended DirectDraw HAL functionality is not available and uses the HEL for all DirectDraw functions. This initialization process is shown as a conceptual diagram in the following figure. IHV-provided parts in this diagram are shown shaded.</P>
+
+<P><IMG SRC="images/queryesc.gif" ALT="" BORDER=0></P>
+
+<P><B>Starting DirectDraw Initialization</B></P>
+
+<P>The following sample code shows how <B>QUERYESCSUPPORT</B> can be handled by your <I>Control</I> function: </P>
+
+<PRE>/***********************************************************************
+ *
+ * Control
+ *
+ * This is what GDI calls when an app calls Escape or ExtEscape.
+ * If you don't handle an escape make sure to pass it to the DIBENG.
+ ************************************************************************/
+
+LONG FAR PASCAL _loadds Control(
+    DIBENGINE FAR * lpDevice,
+    UINT            function,
+    LPVOID          lpInput,
+    LPVOID          lpOutput)
+{
+    DCICMD FAR *pdci;
+
+    DPF("Control");  // debug message to show we are in control function
+
+
+    switch (function)
+    {
+        case QUERYESCSUPPORT:
+            //
+            // QUERYESCSUPPORT is sent to ask
+            // "do you support this?" lpInput points
+            // to the function code to query
+            //
+            switch (*(UINT FAR *)lpInput)
+            {
+                case DCICOMMAND:
+                    return DD_HAL_VERSION;
+            }
+            break;
+        case MOUSETRAILS:
+            //
+            // Keep track of state of mouse trails.
+            // We need to know if mouse trails are on
+            // so we can turn off our hardware cursor.
+            //
+            if (lpInput &amp;&amp; *(UINT FAR *)lpInput &gt; 1)
+                DriverData.fMouseTrailsOn = TRUE;
+            else
+                DriverData.fMouseTrailsOn = FALSE;
+            break;
+        case DCICOMMAND:
+            pdci = (DCICMD FAR *)lpInput;
+            if (pdci == NULL || pdci-&gt;dwVersion != DD_VERSION)
+            {
+                break;
+            }
+ </PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Querying%20DCICOMMAND%20Support"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

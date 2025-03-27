@@ -1,0 +1,70 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Windows Millennium Input Architecture</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Windows Millennium Input Architecture">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_windows_millennium_input_architecture_usbn"></A>Windows Millennium Input Architecture</H1>
+
+<P>Like Microsoft® Windows®&nbsp;2000, Windows Millennium Edition (Windows&nbsp;Me) supports devices that are compliant with the Human Interface Device (HID) firmware specification. HID is the new standard for input devices, such as keyboards, mouse and pointing devices, joysticks, gamepads, and other types of game controllers. Support is based on the specification developed by the USB Implementers’ Forum and is targeted toward devices connecting through USB. For more information about the USB Implementers Forum, see http://www.usb.org/. The HID specification is available at http://www.microsoft.com/hwdev/. For a detailed discussion of the Windows&nbsp;2000 input architecture, see the Windows&nbsp;2000 DDK. Sections dealing with the implementation of HID in Windows&nbsp;2000 are applicable to Windows&nbsp;Me as well.</P>
+
+<P>However, there are important differences between Windows&nbsp;2000 and Windows&nbsp;Me. In Windows&nbsp;Me, HID keyboards, mouse devices, joysticks, and gamepads that plug into USB are connected to the existing legacy input subsystem. This is done through a set of VxD-to-WDM mappers that map the HID data into the corresponding legacy format. This allows the operating system and existing applications to receive data transparently from these kinds of USB/HID devices. </P>
+
+<P>In Windows&nbsp;Me, legacy VxD style minidrivers connect <I>vmd.vxd</I> with the serial and PS/2 ports, and <I>vjoyd.vxd</I> with the gameports. In Windows&nbsp;2000, all virtual device drivers, both mapper drivers and minidrivers, have been replaced with WDM drivers. Since <I>vjoyd.vxd</I> is no longer part of the architecture in Windows&nbsp;2000, there is no built-in game port emulation for MS-DOS® – based games. Legacy game port devices are supported by HID class minidrivers through HID emulation. </P>
+
+<P>The following figure illustrates the Windows&nbsp;Me input architecture. The heart of the architecture is the HID class driver, <I>hidclass.sys</I>, and the HID parsers, <I>hidparse.sys</I> and <I>hid.dll</I>, all three of which are supplied by Microsoft. </P>
+
+<P><IMG SRC="images/winmilar.gif" ALT="" BORDER=0></P>
+
+<P><B>The Windows&nbsp;Me Input Architecture</B></P>
+
+<P>The following HID modules are shown in this figure:
+
+<DL>
+<DT><B>HIDCLASS.SYS</B></DT>
+
+<DD><I>Hidclass.sys</I> is the HID class driver. It routes communication between all HID clients and the various HID minidrivers that serve as interfaces to their respective bus stacks. <I>Hidclass.sys</I> also manages input queues that allow several processes to have handles open on the same HID class device.
+
+<P>The central role played by <I>hidclass.sys</I> in the Windows&nbsp;Me input architecture derives from the <I>Device Class Definition for Human Interface Devices</I> published by the USB standards group which attempts to bring all USB input devices under the controlling umbrella of a single class driver. A key function of <I>hidclass.sys</I> is to manage the diversity of protocols employed by the input devices in the system. <I>hidclass.sys</I> retrieves a device's protocol information either by querying the device's firmware or, in the case of non-USB devices, by querying the minidriver associated with the port or bus to which the device is connected. In both cases, protocol information is communicated by means of <I>report descriptors</I> (see the definition of report descriptors in the Windows&nbsp;2000 DDK).
+
+
+<P><I>hidclass.sys</I> retrieves and parses a device's report descriptor as soon as the system detects the device, then makes the report descriptor data available to both user-mode and kernel-mode clients in a standard "preparsed data" format. Kernel-mode clients can retrieve preparsed data by sending an IRP of type IRP_MJ_DEVICE_CONTROL with an IOCTL code of IOCTL_HID_GET_COLLECTION_DESCRIPTOR to <I>hidclass.sys</I>. Upon receiving this IRP, the HID class driver provides the kernel-mode client with a <I>collection descriptor</I> (see the definition of collection descriptors in HID Terminology) that contains the preparsed data. User-mode clients retrieve preparsed data from <I>hidclass.sys</I> more indirectly, by means of a call to the <B>HidD_GetPreparsedData</B> routine exported by <I>hid.dll</I>. <I>hid.dll</I> sends the required device control IRP to <I>hidclass.sys </I>on the user-mode client's behalf. (See Initializing and Connecting an HID Clien<I>t</I> in the Windows&nbsp;2000 DDK for a detailed explanation.) 
+
+
+<P>In addition to centralizing the management of the data protocols used by input devices, <I>hidclass.sys</I> routes report information to and from the appropriate port driver, bus driver, or bus driver stack in a manner that is transparent to the HID client. Even devices that plug into older-style ports, such as traditional gameports and serial ports, can be accessed by means of the HID class driver, provided an HID minidriver exists for that port. (See When Do I Write a HID Minidriver? in the Windows&nbsp;2000 DDK for a discussion of the design of HID minidrivers.)
+</DD>
+
+<DT><B>HIDUSB.SYS</B></DT>
+
+<DD><I>Hidusb.sys</I> is the USB minidriver supplied by Microsoft. It sends and receives HID reports over the USB bus. (See When Do I Write an HID Minidriver? in the Windows&nbsp;2000 DDK for a discussion of the design of HID minidrivers.)</DD>
+
+<DT><B>HID.DLL and HIDPARSE.SYS</B></DT>
+
+<DD><I>Hid.dll</I> and <I>hidparse.sys</I> are primarily parsing services. They export routines that aid both user-mode applications and kernel-mode drivers in parsing HID reports. <I>Hid.dll</I> provides the user-mode parsing service. <I>Hidparse.sys</I> provides the kernel-mode parsing service. As parsers, they do not send IRPs down the driver stack or communicate with the HID class driver. They simply interpret the report data passed to them in a "preparsed data" form (see HID Terminology for a discussion of preparsed data) and extract the requested values.
+
+<P>Unlike <I>hidparse.sys</I>, however, not all of the routines exported by <I>hid.dll</I> are parsing routines. HidD_FlushQueue, for instance, flushes the class driver's ring buffers, and HidD_GetPreparsedData queries the HID class driver for a particular collection's preparsed data. Both <I>hid.dll </I>and <I>hidparse.sys</I> contain a set of routines of the form HidP<I>_Xxx</I> that interpret preparsed data, but only <I>hid.dll</I> has routines of the form HidD<I>_Xxx</I>, which communicate directly with the HID class driver in order to retrieve or set data. Kernel-mode HID clients that need the functionality of the HidD<I>_Xxx</I> routines must send IRPs to the HID class driver. For example, user-mode clients use the HidD_GetPreparsedData routine, which is exported by the <I>hid.dll</I>, to retrieve preparsed data from <I>hidclass.sys</I>. Kernel-mode clients, on the other hand, have no equivalent routine available in <I>hidparse.sys</I>. They must retrieve preparsed data directly from <I>hidclass.sys</I> by means of an IRP of type IRP_MJ_DEVICE_CONTROL with an IOCTL code of IOCTL_HID_GET_COLLECTION_DESCRIPTOR. Upon obtaining the preparsed data, user-mode clients interpret the preparsed data by calling the HidP<I>_Xxx</I> routines exported by the <I>hid.dll</I>. Kernel-mode clients call routines of the same name exported by <I>hidparse.sys</I>.
+</DD>
+
+<DT><B>KBDHID.VXD</B></DT>
+
+<DD><I>Kbdhid.vxd</I> is a filter driver that maps keyboard HID reports into the existing legacy data format expected by <I>vkd.vxd. </I></DD>
+
+<DT><B>MOUHID.VXD</B></DT>
+
+<DD><I>Mouhid.vxd</I> is a filter driver that maps mouse HID reports into the existing legacy data format expected by <I>vmd.vxd</I>. </DD>
+
+<DT><B>JOYHID.VXD</B></DT>
+
+<DD><I>Joyhid.vxd</I> calls <I>hidparse.sys</I> to find the various elements that might be in a joystick HID report (X, Y, rudder, throttle, hat switch, and buttons) and then maps these report values into a data format expected by <I>vjoyd.vxd</I>.  
+
+</DD>
+</DL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Windows%20Millennium%20Input%20Architecture"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

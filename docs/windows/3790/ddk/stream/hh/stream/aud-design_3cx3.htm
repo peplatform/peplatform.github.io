@@ -1,0 +1,46 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>KMixer Latency</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="KMixer Latency">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_kmixer_latency_ksg"></A>KMixer Latency</H3>
+
+<P>Inserting KMixer, the system software mixer, into a wave audio stream adds KMixer's inherent latency to the total latency of that stream. KMixer introduces a latency of 30 milliseconds into an audio stream. This is usually sufficient to absorb jitter resulting from competition for CPU time with ISRs (interrupt service routines) and other high-priority operations. In contrast, hardware mixers are largely immune to these sources of delay.</P>
+
+<P>DirectSound streams that feed into hardware mixer pins bypass KMixer and avoid the latency of software mixing in KMixer. DirectSound makes use of all of an audio device's available hardware-accelerated mixer pins as long as those pins have a topology that conforms to the <A HREF="pcdesign_2vmv.htm">DirectSound node-ordering requirements</A>.</P>
+
+<P>In all current versions of Windows, including Windows&nbsp;Me and Microsoft® Windows®&nbsp;XP, the <B>waveOut</B> API has a limitation that prevents it from taking advantage of all available hardware acceleration. An audio stream that is output by the <B>waveOut</B> API always passes through KMixer, even if the audio device provides hardware-accelerated mixing. If <B>waveOut</B> and DirectSound audio streams are played concurrently, the DirectSound audio streams can still use any available hardware-mixing pins, although the <B>waveOut</B> streams all pass through KMixer and go to a single hardware buffer.</P>
+
+<P>Other non-DirectSound stream sources have limitations similar to those of <B>waveOut</B> that prevent them from using hardware-accelerated mixing. These sources include:
+
+<UL>
+	<LI>Redbook CD digital audio (See <A HREF="aud-design_1kiv.htm#ddk_redbook_system_driver_ksg">Redbook System Driver</A>.)</LI>
+
+	<LI>Sound Blaster emulator (See <A HREF="aud-design_1kiv.htm#ddk_sbemul_system_driver_ksg">SBEMul System Driver</A>.)</LI>
+
+	<LI>Kernel-mode software synthesizers (See <A HREF="aud-design_1kiv.htm#ddk_swmidi_system_driver_ksg">SWMidi System Driver</A> and <A HREF="aud-design_1kiv.htm#ddk_dmusic_system_driver_ksg">DMusic System Driver</A>.)</LI>
+
+	<LI>DRMK, the kernel-mode DRM-decryption module (See <A HREF="aud-design_1kiv.htm#ddk_drmk_system_driver_ksg">DRMK System Driver</A>.)</LI>
+</UL>
+
+<P>Similar to <B>waveOut</B> streams, streams from the four sources above always pass through KMixer but can play concurrently with hardware-accelerated DirectSound streams.</P>
+
+<P>If an audio device performs hardware mixing, streams that feed directly into the hardware mixing pins bypass KMixer and avoid the KMixer latency. The SysAudio system driver always reserves one hardware pin for KMixer so that after the other (unreserved) hardware pins have all been allocated, any additional streams can be mixed by KMixer and fed into the reserved hardware pin.</P>
+
+<P>In the case of a single-stream device, KMixer is always instantiated on the one available rendering pin.</P>
+
+<P>KMixer's buffer-management policy determines its latency. Upon being instantiated, KMixer initially allocates three buffers for wave data. After that, KMixer makes sure that a minimum of two buffers are queued at the miniport driver at all times. At any moment, the miniport driver has access to at least two buffers: the buffer that the device is currently reading and a second buffer that the miniport driver can switch to immediately when the first buffer is exhausted. Meanwhile, KMixer can write new data into the third buffer.</P>
+
+<P>If at any time the driver has less than two buffers, KMixer interprets this as a starvation condition and begins allocating additional buffers. If starvation continues, KMixer can allocate up to eight buffers, but it allocates no further buffers once this limit is reached. Consequently, a driver might find as many as eight buffers in its queue following a period of severe starvation.</P>
+
+<P>The parameters described above are specific to the current implementation of KMixer and may change in future versions of Windows.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: KMixer%20Latency"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

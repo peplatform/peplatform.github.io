@@ -1,0 +1,127 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DSDRIVERDESC</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DSDRIVERDESC">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_dxddk_dsdriverdesc_dsound"></A>DSDRIVERDESC</H1>
+
+<P>Describes the system details of the driver. </P>
+
+<PRE>typedef struct tDSDRIVERDESC{
+    DWORD     dwFlags;
+    TCHAR     szDesc[256];
+    TCHAR     szDrvname[256]
+    DWORD     dnDevNode;
+    WORD      wVxdId;
+    WORD      wReserved;
+    ULONG     ulDeviceNum;
+    DWORD     dwHeapType;
+    LPVOID    pvDirectDrawHeap;
+    DWORD     dwMemStartAddress;
+    DWORD     dwMemEndAddress;
+    DWORD     dwMemAllocExtra;
+    LPVOID    pvReserved1;
+    LPVOID    pvReserved2;
+} DSDRIVERDESC, *PDSDRIVERDESC;
+ </PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>dwFlags</B> </DT>
+
+<DD>Flags describing certain characteristics of the driver: 
+
+<DL>
+<DT>DSDDESC_DOMMSYSTEMOPEN </DT>
+
+<DD>Acquire the device through Mmsystem.dll (by calling the <B>waveOutOpen</B> function) before opening the device through <A HREF="ds-ddk_209w.htm"><B>IDsDriver::Open</B></A>. This is recommended, since it minimizes the risk of driver bugs that might cause device contention problems between Mmsystem.dll and DirectSound. </DD>
+
+<DT>DSDDESC_DOMMSYSTEMSETFORMAT </DT>
+
+<DD>Set the format of the primary buffer through Mmsystem.dll (by calling <B>waveOutOpen</B>) rather than by calling <A HREF="ds-ddk_04tg.htm"><B>IDsDriverBuffer::SetFormat</B></A>. This allows reuse of the tested code in the Wave portion of the device driver. </DD>
+
+<DT>DSDDESC_DONTNEEDPRIMARYLOCK </DT>
+
+<DD>Specifies that this driver doesn't need to receive <A HREF="ds-ddk_10x0.htm"><B>IDsDriverBuffer::Lock</B></A> and <A HREF="ds-ddk_7zok.htm"><B>IDsDriverBuffer::Unlock</B></A> calls for the primary buffer. This would typically be used on a DMA-based device in which the driver needs to supply the location and size of the DMA buffer. DirectSound will get that information from <A HREF="ds-ddk_1zl0.htm"><B>IDsDriver::CreateSoundBuffer</B></A> when the buffer is created. This will reduce the number of ring transitions required by the DirectSound mixer, significantly improving performance. </DD>
+
+<DT>DSDDESC_DONTNEEDSECONDARYLOCK </DT>
+
+<DD>Specifies that this driver doesn't need to receive <B>IDsDriverBuffer::Lock</B> and <B>IDsDriverBuffer::Unlock</B> calls for secondary buffers. </DD>
+
+<DT>DSDDESC_USESYSTEMMEMORY </DT>
+
+<DD>Requests that DirectSound allocate system memory buffers of the required size before calling <B>IDsDriver::CreateSoundBuffer</B> for secondary buffers (not for primaries). This is for convenience only; drivers can allocate their own memory equally well. If specified, the driver is required to locate the buffer in the memory that DirectSound allocates. </DD>
+</DL>
+</DD>
+
+<DT><B>szDesc</B> and <B>szDrvname</B> </DT>
+
+<DD>These members consist of strings that are passed back to calling applications by the <B>DirectSoundEnumerate</B> function. The first is a description of the driver, for example "Windows Sound System DirectSound Driver.". The second is the filename of the driver module, for example "Mssndsys.vxd". </DD>
+
+<DT><B>dnDevNode</B> and <B>wVxdId</B> </DT>
+
+<DD>The devnode of this device, and the VxD ID for this driver. These values, along with <B>ulDeviceNum</B>, help DirectSound determine which Wave driver, if any, is associated with this DirectSound device. DirectSound needs to make this association to use the Mmsystem.dll wave APIs when supporting the DSDDESC_DOMMSYSTEMOPEN and DSDDESC_DOMMSYSTEMSETFORMAT flags. </DD>
+
+<DT><B>wReserved</B> </DT>
+
+<DD>Reserved for future use. </DD>
+
+<DT><B>ulDeviceNum</B> </DT>
+
+<DD>Describes the wave device ID used by this driver (relative to this device, not the whole system). This is needed for sound hardware that exports more than one wave device (as accessed through the Wave APIs). For example, if the sound hardware has two wave devices, the driver should tell DirectSound to use either 0 or 1. For hardware that has only one wave device (that is, almost all hardware), this parameter should be set to zero. </DD>
+
+<DT><B>dwHeapType</B> </DT>
+
+<DD>A constant describing the type of heap used for the device's onboard sound memory. This must be one of the following values: 
+
+<DL>
+<DT><A NAME="_dxddk_dsdheap_noheap_dsound"></A>DSDHEAP_NOHEAP </DT>
+
+<DD>This device does not support onboard sound memory. </DD>
+
+<DT><A NAME="_dxddk_dsdheap_createheap_dsound"></A>DSDHEAP_CREATEHEAP </DT>
+
+<DD>Indicates that this device supports on-board sound memory, and requests DirectSound to manage the on-board memory heap (this is the easiest method for devices that support onboard memory). The driver must fill in the <B>dwMemStartAddress</B> and <B>dwMemEndAddress</B> members to describe the size of the device's memory buffer. </DD>
+
+<DT><A NAME="_dxddk_dsdheap_usedirectdrawheap_dsound"></A>DSDHEAP_USEDIRECTDRAWHEAP </DT>
+
+<DD>Indicates that this device supports on-board sound memory, and requests that DirectDraw manage the heap. See the DirectDraw memory management services in the <I>DirectDraw DDK</I> documentation for more details. This method should be used for shared-media devices that share on-board memory between sound and display devices. The driver must fill in the <B>pvDirectDrawHeap</B> member with the heap supplied by DirectDraw. </DD>
+
+<DT><A NAME="_dxddk_dsdheap_privateheap_dsound"></A>DSDHEAP_PRIVATEHEAP </DT>
+
+<DD>Indicates that this device supports on-board sound memory, and the driver manages the on-board memory heap itself. DirectSound simply requests the driver to allocate hardware buffers, and the driver succeeds or fails depending on whether the required memory is available. </DD>
+</DL>
+</DD>
+
+<DT><B>pvDirectDrawHeap</B> </DT>
+
+<DD>If the DSDHEAP_USEDIRECTDRAWHEAP heap type was specified, this member must be filled in with the DirectDraw heap. Otherwise, this member should be set to NULL. If specified, this heap value must be obtained from DirectDraw though the DirectDraw driver component, and transferred internally to the DirectSound driver component. </DD>
+
+<DT><B>dwMemStartAddress</B> and <B>dwMemEndAddress</B> </DT>
+
+<DD>If the DSDHEAP_CREATEHEAP heap type was specified, these parameters must be filled in with the start and end addresses used by the driver to reference the onboard sound memory. Note that the end address is the last valid address, not the one after; therefore, a 64K buffer would be described by <CODE>dwMemEndAddress = dwMemStartAddress+65535</CODE>. When DirectSound allocates a buffer from the heap, it passes the start address of the buffer to the driver in the <I>dwCardAddress</I> parameter of the <A HREF="ds-ddk_1zl0.htm"><B>IDsDriver::CreateSoundBuffer</B></A> call. 
+
+<P>The <B>dwMemStartAddress</B> member cannot be zero. If the hardware design does in fact use a start address of zero, the driver can simply offset the start address by some arbitrary amount when returning <B>dwMemStartAddress</B> to DirectSound. Then, of course, the driver should remove the offset when receiving card memory addresses from DirectSound. 
+</DD>
+
+<DT><B>dwMemAllocExtra</B> </DT>
+
+<DD>Specifies that DirectSound should allocate the specified number of extra bytes at the end of each sound buffer it creates. This may be required by some hardware devices. If not required, this member should be set to zero. Note that these extra bytes are allocated only for on-card memory allocations, that is when DSDDESC_USESYSTEMMEMORY and DSDHEAP_PRIVATEHEAP are not set by the driver. This member is used only if the driver is not managing its own heap. </DD>
+
+<DT><B>pvReserved1</B> and <B>pvReserved2</B> </DT>
+
+<DD>These members are reserved for future use. The driver should set both of them to NULL. </DD>
+</DL>
+
+
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DSDRIVERDESC"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Filter Specific Allocator</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Filter Specific Allocator">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_filter_specific_allocator_ksg"></A>Filter Specific Allocator</H3>
+
+<P>Filters that require allocators for on-board memory or other device dependent storage methods can provide a specific allocator by supporting allocator <A HREF="ks-prop_3noz.htm">properties</A> and <A HREF="ks-method_5i2b.htm">methods</A>. For more information, see <A HREF="ks-prop_9g6r.htm">KSPROPERTY_STREAM_ALLOCATOR</A>.</P>
+
+<P>A filter receives an IRP_MJ_CREATE of type KSCREATE_REQUEST_ALLOCATOR specifying the framing options for the allocator. The minidriver's allocator creation routine validates the create request by calling <A HREF="ksfunc_0aer.htm"><B>KsValidateAllocatorCreateRequest</B></A>. If the call is successful, this routine returns a pointer to the relevant <A HREF="ks-struct_220j.htm">KSALLOCATOR_FRAMING</A> structure.</P>
+
+<P>If the filter cannot satisfy the framing requirements, it returns a failure code in response to the IRP. Otherwise, the filter attaches a pointer to a structure to the <B>FsContext</B> member of the file object and services the resulting allocator requests.</P>
+
+<P>If buffers passed to the streaming interface should be modified in-place by the filter, the user mode client sets the KSALLOCATOR_REQUIREMENTF_INPLACE_MODIFIER flag on the relevant <A HREF="ks-struct_220j.htm">KSALLOCATOR_FRAMING</A> structure.</P>
+
+<P>There are two interfaces available to the allocator. First, all allocators must support the IRP-based <A HREF="ks-method_5i2b.htm">KSMETHODSETID_StreamAllocator</A>. Allocators using this mechanism are limited to a maximum number of allocated frames. Requests to allocate frames beyond this limit will be marked pending.</P>
+
+<P>Second, the minidriver can support function table access if the allocation pool type can be serviced at DISPATCH_LEVEL. Providing function table access is optional. Do this by supporting the properties in <A HREF="ks-prop_3noz.htm">KSPROPSETID_StreamAllocator</A>.</P>
+
+<P>The DISPATCH_LEVEL interface operates as follows:</P>
+
+<P>When an allocate request is submitted to the allocator, the allocator returns a pointer to a frame if one is available. If not, it immediately returns NULL.</P>
+
+<P>When a free request is submitted to the allocator, the allocator signals the stream allocator “free frame” event notifying the client that a free frame is available. Additionally, if there are allocation request IRPs waiting to be completed, the allocator must schedule a worker item (if the current IRQL is not PASSIVE_LEVEL) and complete the request with the free frame.</P>
+
+<P>It is possible for both the DISPATCH_LEVEL interface and the IRP-based interface to contend for free frames. KS synchronizes this queue using the cancel spinlock.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Filter%20Specific%20Allocator"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

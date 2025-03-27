@@ -1,0 +1,82 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>VideoPortSynchronizeExecution</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="VideoPortSynchronizeExecution">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_videoportsynchronizeexecution_gg"></A>VideoPortSynchronizeExecution</H1>
+
+<P>The <B>VideoPortSynchronizeExecution</B> function synchronizes the execution of a miniport driver-supplied <A HREF="vmpfncs_386f.htm"><I>HwVidSynchronizeExecutionCallback</I></A> function with the miniport driver's <A HREF="vmpfncs_2luv.htm"><I>HwVidInterrupt</I></A> function, if any. Otherwise, it runs <I>HwVidSynchronizeExecutionCallback</I> at a raised priority.</P>
+
+<PRE class=syntax><B>BOOLEAN
+  VideoPortSynchronizeExecution(
+    IN</B> <B>PVOID</B>  <I>HwDeviceExtension</I><B>,
+    IN</B> <B>VIDEO_SYNCHRONIZE_PRIORITY</B>  <I>Priority</I><B>,
+    IN</B> <B>PMINIPORT_SYNCHRONIZE_ROUTINE</B>  <I>SynchronizeRoutine</I><B>,
+    IN</B> <B>PVOID</B>  <I>Context</I><B>
+    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>HwDeviceExtension</I></DT>
+
+<DD>Pointer to the miniport driver's device extension.</DD>
+
+<DT><I>Priority</I></DT>
+
+<DD>Specifies the type of priority at which the given <I>SynchronizeRoutine</I> must be run, as one of the following:
+
+<UL>
+	<LI>If <I>Priority</I> is set to <B>VpLowPriority</B>, the current thread is raised to the highest noninterrupt-masking priority. Accordingly, the current thread can be preempted only by an ISR if a device interrupts.</LI>
+
+	<LI>If <I>Priority</I> is set to <B>VpMediumPriority</B> and the miniport driver has an ISR associated with its video adapter, the call to the given <I>SynchronizeRoutine</I> is synchronized with the miniport driver's <A HREF="vmpfncs_2luv.htm"><I>HwVidInterrupt</I></A> function. Otherwise, synchronization is made at the <B>VpLowPriority</B> level.</LI>
+
+	<LI><B>VpHighPriority</B> has the same effect as <B>VpMediumPriority</B>. </LI>
+</UL>
+</DD>
+
+<DT><I>SynchronizeRoutine</I></DT>
+
+<DD>Pointer to the miniport driver's <A HREF="vmpfncs_386f.htm"><I>HwVidSynchronizeExecutionCallback</I></A> function.</DD>
+
+<DT><I>Context</I></DT>
+
+<DD>Pointer to a caller-supplied context to be passed to the miniport driver's <I>HwVidSynchronizeExecutionCallback</I> function. This pointer can be NULL.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>If the operation succeeds, <B>VideoPortSynchronizeExecution</B> returns TRUE.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>video.h</I>. Include <I>video.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>Miniport drivers seldom call this routine unless either of the following conditions hold:
+
+<UL>
+	<LI>The miniport driver's <A HREF="vmpfncs_2luv.htm"><I>HwVidInterrupt</I></A> function shares memory with other miniport driver functions. In order to access the shared memory in a multiprocessor-safe way, such miniport driver functions must call <B>VideoPortSynchronizeExecution</B> with <A HREF="vmpfncs_386f.htm"><I>HwVidSynchronizeExecutionCallback</I></A>. This miniport driver function can safely access the shared memory because the video port driver prevents the <I>HwVidInterrupt</I> function from accessing the same memory concurrently.</LI>
+
+	<LI>The adapter must be programmed with a sequence of commands without being subject to a context switch. For example, a miniport driver's <I>SvgaHwIoPortXxx</I> function that has buffered a sequence of I/O instructions and validated the sequence might call <B>VideoPortSynchronizeExecution</B> with <I>HwVidSynchronizeExecutionCallback</I>. This miniport driver function can transfer the buffered and validated I/O stream to the adapter very quickly.</LI>
+</UL>
+
+<P>A caller should specify the lowest practical <I>Priority</I> value for the work <A HREF="vmpfncs_386f.htm"><I>HwVidSynchronizeExecutionCallback</I></A> must do. Any <I>CallbackRoutine</I> that is run at a high hardware priority (<B>VpMediumPriority</B> or <B>VpHighPriority</B>) should return control as quickly as possible. A driver with such a high-priority <I>HwVidSynchronizeExecutionCallback</I> function should be designed to do as much work as possible in every other driver function except one of both of its <I>HwVidSynchronizeExecutionCallback</I> and <I>HwVidInterrupt</I> functions.</P>
+
+<P>Callers of <B>VideoPortSynchronizeExecution</B> must be running at IRQL &lt;= DIRQL.  </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="vmpfncs_2luv.htm"><I>HwVidInterrupt</I></A>, <A HREF="vmpfncs_386f.htm"><I>HwVidSynchronizeExecutionCallback</I></A>, <I>SvgaHwIoPortXxx</I> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: VideoPortSynchronizeExecution"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

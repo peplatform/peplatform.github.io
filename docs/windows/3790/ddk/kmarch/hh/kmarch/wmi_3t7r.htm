@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WMI Event Tracing</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WMI Event Tracing">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wmi_event_tracing_kg"></A>WMI Event Tracing</H1>
+
+<P>This section describes the WMI extensions to WDM (supported by Windows&nbsp;2000 and later) that kernel-mode drivers, as information providers, can use to provide information to information consumers. Drivers typically provide information that a consumer uses to determine the driver's configuration and resource usage. In addition to the WMI extensions to WDM, a user-mode API supports providers or consumers of WMI event information — see the Platform SDK for more information.</P>
+
+<P>The event tracing logger supports up to 32 instances. One of the instances is reserved for tracing the kernel. The logger supports tracing a high event rate.</P>
+
+<P>Trace events are defined in the same manner as other WMI events. WMI events are described in the MOF file. For more information on WMI event descriptions, see <A HREF="wmi_7qnb.htm">MOF Syntax for WMI Data and Event Blocks</A>.</P>
+
+<P>The process by which kernel-mode drivers log information is integrated into the existing WMI infrastructure. To log trace events, a driver does the following:
+
+<OL>
+	<LI>Register as a WMI provider by calling <A HREF="k104_5dbm.htm"><B>IoWMIRegistrationControl</B></A>.</LI>
+
+	<LI>Mark events as traceable by setting WMIREG_FLAG_TRACED_GUID in the Flags member of the <A HREF="k112_3ulu.htm">WMIREGGUID</A> structure that is passed when the driver registers events with WMI.</LI>
+
+	<LI>Specify one event as the control event for overall enabling/disabling of a set of trace events by setting WMIREG_FLAG_TRACE_CONTROL_GUID in the <B>Flags</B> member of the WMIREGGUID structure that is passed when the driver registers events with WMI.</LI>
+
+	<LI>Upon receiving a request from WMI to enable events where the GUID matches the trace control GUID, the driver should store the handle to the logger. The value will be needed when writing an event. The logger handle value is contained in the <B>HistoricalContext</B> member of the <A HREF="k112_26gi.htm">WNODE_HEADER</A> portion of the WMI buffer that this is part of the parameters in the enable events request. </LI>
+
+	<LI>Decide whether the trace event will be sent to WMI event consumers or is targeted for the WMI event logger only. This will determine where the memory for the <A HREF="k112_05v6.htm">EVENT_TRACE_HEADER</A> structure should come from. This memory will eventually be passed to <A HREF="k104_2uya.htm"><B>IoWMIWriteEvent</B></A>.
+<P>If the event is a log event only, the memory will not be deleted by WMI. In this case, the driver should pass in a buffer on the stack or should be reusing an allocated buffer for this purpose. For performance reasons, the driver should minimize any unnecessary calls to allocate or free memory. Failure to comply with this recommendation will compromise the integrity of the timing information contained in the log file.
+
+<P>If the event is to be sent to both the logger and to WMI event consumers, then the memory must be allocated from a nonpaged pool. In this case the event will be sent to the logger and then forwarded to WMI to be sent to WMI event consumers who have requested notification of the event. The memory for the event will then be freed by WMI according to the behavior of <B>IoWMIWriteEvent</B>.
+</LI>
+
+	<LI>After the memory for the <A HREF="k112_05v6.htm">EVENT_TRACE_HEADER</A> and any driver event data, if any, has been secured, the following information should be set:
+<P>Set the Size member to the sizeof(EVENT_TRACE_HEADER) plus the size of any additional driver event data that will be appended on to the end of EVENT_TRACE_HEADER.
+
+<P>Set the Flags member to WNODE_FLAG_TRACED_GUID to have the event sent to the logger. If the event is to be sent to WMI event consumers as well, set the WNODE_FLAG_LOG_WNODE. Note, it is not necessary to set WNODE_FLAG_TRACED_GUID if setting WNODE_FLAG_LOG_WNODE. If both are set, WNODE_FLAG_TRACED_GUID will take precedence and the event will not be sent to WMI event consumers.
+
+<P>Set the <B>Guid</B> or the <B>GuidPtr</B> member. If using <B>GuidPtr</B>, set WNODE_FLAG_USE_GUID_PTR in the <B>Flags</B> member.
+
+<P>Optionally, specify a value for <B>TimeStamp</B>. If the driver does not specify a <B>TimeStamp</B> value the logger will fill this in. If the driver does not want the logger to set the time stamp then it should set WNODE_FLAG_USE_TIMESTAMP in the <B>Flags</B> member.
+
+<P>Set any of the following EVENT_TRACE_HEADER members that have meaning to the driver: <B>Class.Type</B>, <B>Class.Level</B>, and <B>Class.Version</B>.
+
+<P>Finally cast the EVENT_TRACE_HEADER to a WNODE_HEADER and set the <B>HistoricalContext</B> value of the <B>Wnode</B> to the logger handle that was saved in step 4 above.
+</LI>
+
+	<LI>Call <A HREF="k104_2uya.htm"><B>IoWMIWriteEvent</B></A><B> </B>with the pointer to the EVENT_TRACE_HEADER structure.</LI>
+</OL>
+
+<P>The driver should continue logging trace events associated with the control GUID until the driver receives notification to disable event logging via an IRP_MN_DISABLE_EVENTS request. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WMI%20Event%20Tracing"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

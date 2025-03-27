@@ -1,0 +1,236 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Choosing User Mode or Kernel Mode</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Choosing User Mode or Kernel Mode">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_choosing_user_mode_or_kernel_mode_gg"></A>Choosing User Mode or Kernel Mode</H3>
+
+<P>Before version 4.0 of Windows NT®, GDI and all graphics drivers executed in user mode. With version 4.0, these components were moved to kernel mode. While this change provided performance improvements for display devices, performance gains for printing devices were not significant enough to counteract losing the advantages inherent with user-mode execution.</P>
+
+<P>Therefore, for Windows®&nbsp;2000 and later, you can design a printer graphics DLL to execute in either kernel mode or user mode. User-mode execution of printer graphics DLLs provides the following advantages over kernel-mode execution:
+
+<UL>
+	<LI>Unlimited stack space.</LI>
+
+	<LI>Access to Win32® APIs.</LI>
+
+	<LI>Less potential for causing system crashes.</LI>
+
+	<LI>Easier debugging, with user-mode debuggers.</LI>
+
+	<LI>Better floating point capabilities, since use of graphics DDI floating point functions is not required.</LI>
+
+	<LI>Ability to call any customized, vendor-supplied user-mode DLLs that are not part of the described Windows&nbsp;2000 and later printer driver architecture</LI>
+</UL>
+
+<H4>Using the Graphics DDI in User Mode</H4>
+
+<P>A user-mode printer graphics DLL is not limited to calling the <A HREF="gdioview_39uv.htm">GDI Support Services</A> and other <B>Eng</B>-prefixed graphics DDI callback functions. However, there are some rules that must be followed:
+
+<UL>
+	<LI>Like kernel-mode graphics DLLs, user-mode graphics DLLs must call the graphics DDI's versions of functions that create or modify a drawing surface. These callback functions are the GDI Support Services, and calling Win32 equivalents of these drawing functions is <I>not</I> allowed.
+<P>For user-mode DLLs, calls to these drawing callback functions are intercepted by the user-mode GDI client, which then passes the calls to GDI's kernel-mode graphics rendering engine (GRE).
+</LI>
+
+	<LI>The following list of <B>Eng</B>-prefixed graphics DDI functions <I>cannot</I> be called by user-mode DLLs:
+<P><A HREF="gdifncs_4aav.htm"><B>EngCreatePath</B></A><B> <BR>
+<A HREF="gdifncs_8ftz.htm">EngCreateClip</A> <BR>
+<A HREF="gdifncs_7l47.htm">EngDeleteClip</A> <BR>
+<A HREF="gdifncs_6e5j.htm">EngGetType1FontList</A> <BR>
+<A HREF="gdifncs_9b1j.htm">EngMapModule</A> <BR>
+<A HREF="gdifncs_0fxj.htm">EngDebugBreak</A> </B>
+
+<P>All other <B>Eng</B>-prefixed functions available to kernel-mode printer graphics DLLs are also available in user mode. For functions that have exact Win32 equivalents, such as <B>EngGetPrinter</B> or <B>EngGetPrinterDriver</B>, the Win32 equivalent is called. Functions without exact Win32 equivalents are implemented in the GDI client.
+</LI>
+
+	<LI>User-mode printer graphics DLLs can continue to use graphics DDI functions for <A HREF="gdioview_8hif.htm">floating point support</A>.</LI>
+</UL>
+
+<H4>Converting an Existing Printer Graphics DLL to User Mode</H4>
+
+<P>If you have previously developed a printer graphics DLL that executes in kernel mode, for Windows®&nbsp;2000 and later you have the following options:
+
+<OL>
+	<LI>Do nothing to the DLL. Existing kernel-mode printer graphics DLLs will continue to work in kernel mode. <I>Microsoft might remove support for kernel-mode printer graphics DLLs in a future release of the operating system.</I></LI>
+
+	<LI>Convert the DLL to user-mode execution. To convert, simply add a <A HREF="ddifncs_0uxz.htm"><I>DrvQueryDriverInfo</I></A> function to the DLL, then follow the rules for <A HREF="drvarch_85d3.htm">building a printer graphics DLL</A>.</LI>
+</OL>
+
+<H4>Creating a New Printer Graphics DLL in User Mode</H4>
+
+<P>To develop a new printer graphics DLL that executes in user mode, you can continue to use all the graphics DDI functions used by kernel-mode DLLs. However, you also have the following options:
+
+<UL>
+	<LI>For <B>Eng</B>-prefixed functions that have exact Win32 equivalents, it is strongly recommended that you call the Win32 functions. The following table lists these <B>Eng</B>-prefixed functions, along with their Win32 equivalents.</LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=53%>Eng-prefixed Function</TH>
+<TH align=left width=47%>Win32 Equivalent</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngAllocMem</B></TD>
+<TD width=47%><B>HeapAlloc</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngAllocUserMem</B></TD>
+<TD width=47%><B>HeapAlloc</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngEnumForms</B></TD>
+<TD width=47%><B>EnumForms</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngFreeMem</B></TD>
+<TD width=47%><B>HeapFree</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngFreeUserMem</B></TD>
+<TD width=47%><B>HeapFree</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngFindImageProcAddress</B></TD>
+<TD width=47%><B>GetProcAddress</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngGetForm</B></TD>
+<TD width=47%><B>GetForm</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngGetLastError</B></TD>
+<TD width=47%><B>GetLastError</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngGetPrinter</B></TD>
+<TD width=47%><B>GetPrinter</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngGetPrinterData</B></TD>
+<TD width=47%><B>GetPrinterData</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngGetPrinterDriver</B></TD>
+<TD width=47%><B>GetPrinterDriver</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngLoadImage</B></TD>
+<TD width=47%><B>LoadLibrary</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngMulDiv</B></TD>
+<TD width=47%><B>MulDiv</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngSetLastError</B></TD>
+<TD width=47%><B>SetLastError</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngSetPrinterData</B></TD>
+<TD width=47%><B>SetPrinterData</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngUnloadImage</B></TD>
+<TD width=47%><B>FreeLibrary</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngWritePrinter</B></TD>
+<TD width=47%><B>WritePrinter</B></TD>
+</TR>
+</TABLE><BR>
+
+<UL>
+	<LI>For <B>Eng</B>-prefixed functions that correspond to Win32 functions with similar functionality, it is also strongly recommended that you call the Win32 functions. The following table lists several of these <B>Eng</B>-prefixed functions, together with their Win32 counterparts.</LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=53%>Eng-prefixed Function</TH>
+<TH align=left width=47%>Win32 Equivalent</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngAcquireSemaphore</B></TD>
+<TD width=47%><B>EnterCriticalSection</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngCreateSemaphore</B></TD>
+<TD width=47%>Allocate a CRITICAL_SECTION object, and initialize it using a call to the Win32 <B>InitializeCriticalSection</B> function.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngDeleteSemaphore</B></TD>
+<TD width=47%><B>DeleteCriticalSection</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngFindResource</B></TD>
+<TD width=47%><B>FindResource</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngFreeModule</B></TD>
+<TD width=47%><B>FreeLibrary</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngLoadModule</B></TD>
+<TD width=47%><B>LoadLibrary</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngMultiByteToWideChar</B></TD>
+<TD width=47%><B>MultiByteToWideChar</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngQueryLocalTime</B></TD>
+<TD width=47%><B>GetLocalTime</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngReleaseSemaphore</B></TD>
+<TD width=47%><B>ReleaseSemaphore</B></TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=53%><B>EngWideCharToMultiByte</B></TD>
+<TD width=47%><B>WideCharToMultiByte</B></TD>
+</TR>
+</TABLE><BR>
+
+<UL>
+	<LI>For functions that create or modify a drawing service, new drivers must continue to call <A HREF="gdioview_39uv.htm">GDI support services</A> and not their Win32 equivalents.</LI>
+
+	<LI>Instead of using graphics DDI functions for <A HREF="gdioview_8hif.htm">floating point support</A>, you can use the FLOAT data type.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Choosing%20User%20Mode%20or%20Kernel%20Mode"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

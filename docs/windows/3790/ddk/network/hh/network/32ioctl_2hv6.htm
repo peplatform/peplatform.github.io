@@ -1,0 +1,146 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TDI_SEND</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TDI_SEND">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdi_send_nr"></A>TDI_SEND</H1>
+
+<P>When a kernel-mode client makes a TDI_SEND request, it asks the underlying TDI transport driver to transmit a normal or expedited TSDU on a specified connection endpoint to its remote-node peer. </P>
+
+<H4>IRP</H4>
+
+<P>The transport calls <B>IoGetCurrentIrpStackLocation</B> with the given <I>Irp</I> to get a pointer to its own I/O stack location in the IRP, shown in the following list as <B>IrpSp</B>. The pointer to the IRP is shown in the following list as <B>Irp</B>. IRP members relevant to this request include the following:
+
+<DL>
+<DT><B>Irp-&gt;IoStatus.Status</B></DT>
+
+<DD>Specifies the final status of the send request. The transport sets this member before it completes the IRP, possibly to one of the following:
+
+<P>STATUS_SUCCESS<BR>
+STATUS_PENDING<BR>
+STATUS_INVALID_CONNECTION<BR>
+STATUS_INVALID_PARAMETER<BR>
+STATUS_DEVICE_NOT_READY
+</DD>
+
+<DT><B>Irp-&gt;IoStatus.Information</B></DT>
+
+<DD>Specifies the number of bytes of client-supplied data the driver transferred from the client-supplied buffer mapped at <B>Irp-&gt;MdlAddress</B>. </DD>
+
+<DT><B>IrpSp-&gt;MajorFunction</B></DT>
+
+<DD>Specifies IRP_MJ_INTERNAL_DEVICE_CONTROL. The transport can ignore this member if it exports a <B>TdiDispatchInternalDeviceControl</B> routine that handles only TDI_<I>XXX</I> requests. </DD>
+
+<DT><B>IrpSp-&gt;MinorFunction</B></DT>
+
+<DD>Specifies TDI_SEND.</DD>
+
+<DT><B>IrpSp-&gt;FileObject</B></DT>
+
+<DD>Pointer to an open file object representing the connection endpoint. The transport uses the <B>FsContext</B> and, possibly, <B>FsContext2</B> fields to access the state it maintains about this connection. 
+
+<P>The client already established an endpoint-to-endpoint connection with a remote-node peer on this connection endpoint. 
+</DD>
+
+<DT><B>IrpSp-&gt;Parameters</B></DT>
+
+<DD>Pointer to a TDI_REQUEST_KERNEL_SEND structure, defined as follows:
+
+<PRE>struct _TDI_REQUEST_KERNEL_SEND {<B> </B>
+    ULONG SendLength;<B> </B>
+    ULONG SendFlags;<B> </B>
+} TDI_REQUEST_KERNEL_SEND, *PTDI_REQUEST_KERNEL_SEND;<B> </B></PRE>
+
+
+<P>The transport uses the members of this structure as follows:
+
+
+<DL>
+<DT><B>SendLength</B></DT>
+
+<DD>Specifies the number of bytes of data to be sent in the buffer mapped at <B>Irp-&gt;MdlAddress</B>.</DD>
+
+<DT><B>SendFlags</B></DT>
+
+<DD>Specifies the type of TSDU the client expects to be sent as none (zero), one, or a combination (ORed) of TDI_SEND_<I>XXX</I> flags (see Comments).</DD>
+</DL>
+</DD>
+
+<DT><B>Irp-&gt;MdlAddress</B></DT>
+
+<DD>Pointer to an MDL, possibly the initial MDL in a chain, mapping a client-supplied buffer containing the data to be sent. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>TdiKrnl.h</I>. Include <I>TdiKrnl.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>When a client calls <B>TdiBuildSend</B> to set up this IRP, it can specify the type of send it wants. The transport finds this information at <B>IrpSp-&gt;Parameters</B> in the <B>SendFlags</B> member. On input, <B>SendFlags</B> can be zero or set with any combination (ORed) of the following flags: 
+
+<DL>
+<DT>TDI_SEND_EXPEDITED</DT>
+
+<DD>The given data should be sent ahead of any normal send requests the transport is currently holding queued for transmission on this endpoint-to-endpoint connection. If the transport does not support expedited transfers, it can ignore this flag. </DD>
+
+<DT>TDI_SEND_PARTIAL</DT>
+
+<DD>The given data is not a complete message-mode TSDU. The client will send the remaining data for the TSDU later. This flag is irrelevant to stream-mode transports. 
+
+<P>If this flag is clear in a send submitted to a message-mode transport, the driver inserts an end-of-record mark in the line flow after sending all data supplied in the client's buffer. 
+</DD>
+
+<DT>TDI_SEND_NO_RESPONSE_EXPECTED</DT>
+
+<DD>The caller is giving a hint to the underlying transport that it does not expect a response to this send from its remote-node peer. This flag should disable piggybacking of the TSDU acknowledgment by the remote-node transport.</DD>
+
+<DT>TDI_SEND_NON_BLOCKING</DT>
+
+<DD>If the underlying transport currently has no internal buffer space available for the given data, it should just complete the IRP with STATUS_DEVICE_NOT_READY. If the transport has some buffer space available, it should copy as much data as it can from the client-supplied buffer, set the <B>IoStatus.Information</B> member to the number of bytes it copied, and complete the IRP with STATUS_SUCCESS.
+
+<P>This flag is irrelevant to transports that do not buffer sends internally.
+
+</DD>
+</DL>
+
+<P>Each local-node client send request is associated with exactly one of the following:
+
+<UL>
+	<LI>A receive request issued by the remote-node client to its underlying transport </LI>
+
+	<LI>A remote-node transport's call to its client's registered ClientEventReceive, ClientEventReceiveExpedited, ClientEventChainedReceive, or ClientEventChainedReceiveExpedited handler </LI>
+</UL>
+
+<P>The local-node TDI transport driver can queue any number of send requests on a particular connection, but it must process them in FIFO order, unless the client issues an expedited send. Each expedited send request must be queued and transmitted ahead of any normal send requests the transport is holding queued, and each expedited send also must be transmitted in FIFO order for the client. </P>
+
+<P>The transport must complete each send IRP in a timely manner, whether with a success or error status. The driver should determine a reasonable time-out based on its knowledge of underlying network conditions.</P>
+
+<P>Depending on the underlying transport, clients can send stream-mode or message-mode TSDUs, the latter with one or more send requests. For stream-mode transports, the client does not delimit messages and the TDI_SEND_PARTIAL flag is irrelevant. For message-mode transports, the client can send a TSDU as a sequence of send requests, each specifying the TDI_SEND_PARTIAL flag. If this flag is clear in a submitted send request, a message-mode transport considers the data to be the end of such a sequence or a complete TSDU. The remote-node TDI transport notifies the receiving client of partial TSDUs through receive indicators passed in the corresponding receive indications.</P>
+
+<P>In its send request, the sending client provides a buffer containing the TSDU. The client can provide a buffer of any size up to the transport-determined limit. The transport is given ownership of this client-supplied buffer until it completes the send. The transport fails any send request for which a client specifies a <B>SendLength</B> larger than the transport supports. </P>
+
+<P>Clients can determine their underlying transports' send-size limits by submitting TDI_QUERY_PROVIDER_INFO-type queries. </P>
+
+<P>If the transport buffers client-supplied send data internally, the client can request a nonblocking send by setting the TDI_SEND_NON_BLOCKING flag. When such a transport is given a send request with this flag set, it completes the IRP with STATUS_DEVICE_NOT_READY if it cannot copy the given data into its internal buffer space. Such a transport returns STATUS_SUCCESS if it buffers only a part of the given TSDU internally, but it must set <B>IoStatus.Information</B> in such an IRP to the number of bytes it buffered internally so its client can submit a subsequent send for the remaining data in the original send request.</P>
+
+<P>Any client that submits nonblocking send requests usually registers a ClientEventSendPossible handler. The underlying transport calls this handler after it has rejected a send request with STATUS_DEVICE_NOT_READY as soon as that transport has internal buffer space available for holding send data. </P>
+
+<P>A transport also can support zero-length send requests. A zero-length send in which the TDI_SEND_PARTIAL flag is clear actually forces protocol flow. The client of such a transport can issue zero-length send to satisfy a receive request. If the driver does not support zero-length sends, it should return an error when its clients submit zero-length send requests.</P>
+
+<P><B>TdiBuildSend</B> is the macro a client uses to fill in the IRP.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_4qnm.htm"><B>ClientEventChainedReceive</B></A>, <A HREF="35tdicli_57n6.htm"><B>ClientEventChainedReceiveExpedited</B></A>, <A HREF="35tdicli_7yeq.htm"><B>ClientEventReceive</B></A>, <A HREF="35tdicli_7jea.htm"><B>ClientEventReceiveExpedited</B></A>, <A HREF="35tdicli_1wc2.htm"><B>ClientEventSendPossible</B></A>, <A HREF="34bldmac_3w4y.htm"><B>TdiBuildSend</B></A>, <A HREF="31tddisp_2sfm.htm"><B>TdiDispatchInternalDeviceControl</B></A>, <A HREF="32ioctl_508i.htm"><B>TDI_QUERY_INFORMATION</B></A>, <A HREF="32ioctl_5drm.htm"><B>TDI_RECEIVE</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TDI_SEND"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

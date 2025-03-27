@@ -1,0 +1,152 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Button Capability Arrays</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Button Capability Arrays">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Interactive&nbsp;Input&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_button_capability_arrays_kg"></A>Button Capability Arrays</H3>
+
+<P>A <I>button capability array</I> contains information about the button usages supported by a <A HREF="hidclass_2w13.htm">top-level collection</A> for a specific type of <A HREF="hidclass_5dev.htm">HID report</A>. Information about a collection's capability is contained in its <A HREF="hidstrct_22ia.htm">HIDP_CAPS</A> structure.</P>
+
+<P>A user-mode application or kernel-mode driver uses one of the following <A HREF="hidfunc_4uuq.htm">HIDClass support routines</A> to obtain button capability information:
+
+<UL>
+	<LI><A HREF="hidfunc_4wmq.htm"><B>HidP_GetButtonCaps</B></A> returns a button capability array describing all the button usages contained in a specified report type.</LI>
+
+	<LI><A HREF="hidfunc_53ci.htm"><B>HidP_GetSpecificButtonCaps</B></A> filters the button capability information it returns by a caller-specified <A HREF="hidclass_8nmv.htm#ddk_usage_page_kg">usage page</A>, <A HREF="hidclass_8nmv.htm#ddk_usage_id_kg">usage ID</A>, and <A HREF="hidclass_2bl3.htm">link collection</A>.</LI>
+</UL>
+
+<P>A button capability array contains <A HREF="hidstrct_2zaq.htm">HIDP_BUTTON_CAPS</A> structures, each one of which contains the following information about a <A HREF="hidclass_8nmv.htm">HID usage</A> or <A HREF="hidclass_8nmv.htm#ddk_usage_range_kg">usage range</A>:
+
+<UL>
+	<LI>The usage page for the usage or usage range</LI>
+
+	<LI>The report ID of the report that contains the button data</LI>
+
+	<LI>The usage ID or usage range</LI>
+
+	<LI>A flag that indicates whether a usage is an <A HREF="hidclass_8nmv.htm#ddk_aliased_usages_kg">aliased usage</A></LI>
+
+	<LI>The link collection that contains the usage or usage range</LI>
+
+	<LI>The string descriptors and designators associated with the usage or usage range (see <A HREF="hidclass_9i1z.htm#ddk_designator_index_item_kg">Designator Index item</A> and <A HREF="hidclass_9i1z.htm#ddk_string_index_item_kg">String Index item</A>)</LI>
+
+	<LI>The <A HREF="hidclass_0gx3.htm">data indices</A> that the HID parser assigned to the usage or usage range</LI>
+</UL>
+
+<P>In general, the following conditions hold for all the usages described by a button capability array:
+
+<UL>
+	<LI>Each capability structure represents a single usage or usage range that is associated with a variable <A HREF="hidclass_9i1z.htm#ddk_main_item_kg">main item</A> or an array main item.</LI>
+
+	<LI>Aliased usages can be used with a variable main item. A usage that is associated with an array item can not be aliased. A usage range can not be aliased. </LI>
+
+	<LI>The HID parser uses only the minimum required number of usages to assign a usage to each button. The parser assigns usages in the order in which they are specified in a report descriptor. Usages in a report descriptor that are not required, are discarded. The button capability array does not contain any information about discarded usages.</LI>
+
+	<LI>If the number of usages specified for a variable item is less than the number of buttons in the item, the capability array contains only one capability structure that describes one button usage (the last usage specified in the report descriptor for the variable main item). However, see <A HREF="hidclass_00iv.htm#ddk_usage_value_array_kg">Usage Value Array</A> for information about usage values that have a report count greater than one.</LI>
+
+	<LI>The HID parser assigns a unique data index to each usage described in the capability array.</LI>
+</UL>
+
+<P>The following topics discuss how the capability structures are organized and set in a button capability array:</P>
+
+<P class=indent1><A HREF="#ddk_button_usages_in_a_variable_main_item_kg">Button Usages in a Variable Main Item</A></P>
+
+<P class=indent1><A HREF="#ddk_button_usages_in_an_array_main_item_kg">Button Usages in an Array Main Item</A></P>
+
+
+
+<H4><A NAME="ddk_button_usages_in_a_variable_main_item_kg"></A>Button Usages in a Variable Main Item</H4>
+
+<P>Each <A HREF="hidclass_8nmv.htm">usage</A> or <A HREF="hidclass_8nmv.htm#ddk_usage_range_kg">usage range</A> specified in a <A HREF="hidclass_9i1z.htm">report descriptor</A> is described by its own capability structure in a <A HREF="#ddk_button_capability_arrays_kg">button capability array</A>.</P>
+
+<P>The <B>IsAlias</B> member of capability structures is used to specify a set of <I>n</I> aliased usages as follows:
+
+<UL>
+	<LI><B>IsAlias</B> is set to TRUE in the first <I>n-1</I> capability structures added to the capability array. <B>IsAlias</B> set to FALSE in the <I>nth</I> capability structure. The  preferred usage is the last aliased usage in the sequence.</LI>
+</UL>
+
+<P>An application or driver can determine which button usages are aliased by scanning for such sequences.</P>
+
+<P>The following table summarizes an example for three aliased usages.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Aliased Usage Order in a Report Descriptor</TH>
+<TH align=left width=31%>Usage Order in a Capability Array</TH>
+<TH align=left width=35%>IsAlias Member Value</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>usage 1</TD>
+<TD width=31%>usage 3</TD>
+<TD width=35%>TRUE</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>usage 2</TD>
+<TD width=31%>usage 2</TD>
+<TD width=35%>TRUE</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>usage 3</TD>
+<TD width=31%>usage 1</TD>
+<TD width=35%>FALSE</TD>
+</TR>
+</TABLE><BR>
+
+<P>For information about how usages and data indices are cross-referenced, see <A HREF="hidclass_0gx3.htm">Data Indices</A>.</P>
+
+
+
+<H4><A NAME="ddk_button_usages_in_an_array_main_item_kg"></A>Button Usages in an Array Main Item</H4>
+
+<P>Each <A HREF="hidclass_8nmv.htm">usage</A> or <A HREF="hidclass_8nmv.htm#ddk_usage_range_kg">usage range</A> for a button array <A HREF="hidclass_9i1z.htm#ddk_main_item_kg">main item</A> specified in a <A HREF="hidclass_9i1z.htm">report descriptor</A> is described by its own capability structure in a <A HREF="#ddk_button_capability_arrays_kg">button capability array</A>. The order in which the capability structures are added to a capability array is the reverse of the order in which the usages are specified for a main item.</P>
+
+<P>The HID parser assigns a <A HREF="hidclass_0gx3.htm">data index</A> to each usage associated with the array item in the order in which the usages are specified in a report descriptor. For example, the following table shows the correspondence between a set of usages, as specified in a report descriptor, and the usages and data indices, as specified in the capability array. (In this table, <I>n</I> is the first data index that the parser assigns to the first usage associated with the array item.)</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=31%>Usage Order in Report Descriptor</TH>
+<TH align=left width=34%>Usage Order in Capability Array</TH>
+<TH align=left width=35%>DataIndex or from DataIndexMin to 
+<P>DatatIndexMax</P>
+</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>usage 1</TD>
+<TD width=34%>usage range 2</TD>
+<TD width=35%>from <I>n</I>+7 to <I>n</I>+8</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>usage range 1 (with 4 usages)</TD>
+<TD width=34%>usage 2</TD>
+<TD width=35%><I>n</I>+5</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>usage 2</TD>
+<TD width=34%>usage range 1</TD>
+<TD width=35%>from <I>n</I>+1 to <I>n</I>+4</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=31%>usage range 2 (with 2 usages)</TD>
+<TD width=34%>usage 1</TD>
+<TD width=35%><I>n</I></TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Button%20Capability%20Arrays"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

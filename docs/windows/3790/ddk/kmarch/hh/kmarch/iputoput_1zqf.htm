@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ControllerControl Routine Requirements</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ControllerControl Routine Requirements">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_controllercontrol_routine_requirements_kg"></A><I>ControllerControl</I> Routine Requirements</H3>
+
+<P>As its name implies, a <I>ControllerControl</I> routine is associated with a controller object. When the <I>ControllerControl</I> routine executes, the hardware represented by the controller object is free and the controller extension generally is not being accessed by another driver routine unless the controller extension contains context that is shared with the driver’s ISR.</P>
+
+<P>Usually, a <I>ControllerControl</I> routine does at least the following:
+
+<OL>
+	<LI>Updates or initializes whatever context the driver maintains in the device extension of the target device object and in the controller extension
+<P>If the driver uses DMA, its <I>ControllerControl</I> routine usually is responsible for determining whether a given transfer request must be split up into partial transfers due to any system-imposed or device-imposed limitations on the size of each DMA transfer. In these circumstances, the <I>ControllerControl</I> routine also is responsible for calling <A HREF="kdma_92r6.htm"><B>AllocateAdapterChannel</B></A> if the driver has an <I>AdapterControl</I> routine.
+
+<P>If the driver uses PIO, its <I>ControllerControl</I> routine also is responsible for <A HREF="iputoput_70h3.htm">splitting transfer requests</A>, if its hardware requires it, into partial-transfer ranges and for calling <A HREF="k106_0nqq.htm"><B>MmGetSystemAddressForMdlSafe</B></A> with the MDL at <B>Irp-&gt;MdlAddress</B>.
+</LI>
+
+	<LI>Programs its hardware for the requested I/O operation
+<P>If the device or controller extension can be accessed from the ISR, the <I>ControllerControl</I> routine must use a <A HREF="drvrrtns_4m2a.htm"><I>SynchCritSection</I></A> routine that is invoked by calling <A HREF="k105_99rm.htm"><B>KeSynchronizeExecution</B></A>. For more information, see <A HREF="intrupts_6g13.htm">Using Critical Sections</A>.
+</LI>
+</OL>
+
+<P>If the driver has a <A HREF="drvrrtns_8y0i.htm"><I>Cancel</I></A> routine, its <I>ControllerControl</I> routine also must check the <B>Irp-&gt;Cancel</B> field to determine whether the current IRP should be canceled, and do either of the following:</P>
+
+<P>If <B>Irp-&gt;Cancel</B> is set to TRUE, the <I>ControllerControl</I> routine must do the following:
+
+<OL>
+	<LI>Set STATUS_CANCELLED for <B>Status</B> and zero for <B>Information</B> in the I/O status block of the IRP.</LI>
+
+	<LI>Call <A HREF="k104_8hte.htm"><B>IoFreeController</B></A> to release the controller object so the next device operation can be started promptly.</LI>
+
+	<LI>Call <A HREF="k104_7eb6.htm"><B>IoStartNextPacket</B></A> or dequeue the next IRP if the driver manages its own queuing.</LI>
+
+	<LI>Complete the canceled IRP with <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> and return control.</LI>
+</OL>
+
+<P>If <B>Irp-&gt;Cancel</B> is not set to TRUE, the <I>ControllerControl</I> routine instead must do the following:
+
+<OL>
+	<LI>Call <A HREF="k104_6hiq.htm"><B>IoSetCancelRoutine</B></A> to reset the Cancel routine entry point for the IRP to NULL. Acquire the cancel spin lock for this call if the driver uses the I/O-manager-supplied device queue in the device object.</LI>
+
+	<LI>Program the hardware for the requested I/O operation, using a <A HREF="drvrrtns_4m2a.htm"><I>SynchCritSection</I></A> routine that is invoked by calling <A HREF="k105_99rm.htm"><B>KeSynchronizeExecution</B></A>. For more information, see <A HREF="intrupts_6g13.htm">Using Critical Sections</A></LI>
+</OL>
+
+<P>For more information about handling cancelable IRPs, see <A HREF="irps_6unb.htm">Canceling IRPs</A>.</P>
+
+<P>For most interrupt-driven I/O operations except overlapped operations on different devices attached to the physical controller/adapter, a <I>ControllerControl</I> routine should return <B>KeepObject</B> because the <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> or <A HREF="drvrrtns_3tbm.htm"><I>CustomDpc</I></A> routine completes the operation and the IRP.</P>
+
+<P>As soon as the I/O operation(s) to satisfy the current request are done, the routine that will complete the IRP should call <B>IoFreeController</B> and <B>IoStartNextPacket</B> so that the next request can be processed as quickly as possible.</P>
+
+<P>If the <I>ControllerControl</I> routine itself completes an IRP or if it can set up an operation, such as a disk seek, for one target device object (disk) that could be overlapped with an operation for another device object, the <I>ControllerControl</I> routine should return <B>DeallocateObject</B>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ControllerControl%20Routine%20Requirements"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

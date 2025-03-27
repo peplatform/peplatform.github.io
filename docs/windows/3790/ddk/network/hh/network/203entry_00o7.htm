@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Minimizing Miniport Driver Initialization Time</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Minimizing Miniport Driver Initialization Time">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_minimizing_miniport_driver_initialization_time_ng"></A>Minimizing Miniport Driver Initialization Time</H1>
+
+<P>The time spent in driver initialization can significantly impact the total time required to boot the operating system. It is therefore important to minimize driver initialization time. Driver initialization time should be in the 10s of milliseconds or less.</P>
+
+<P>To reduce initialization time, an NDIS miniport driver should do the following:
+
+<UL>
+	<LI>Perform media detection before checking the link speed. If media detection fails (for example, because a network cable is not connected to the NIC), the miniport driver should not attempt to check the link speed.</LI>
+
+	<LI>If media detection is successful, the miniport driver should defer link-speed detection to a timer function. Network protocols are not loaded until after the miniport driver is loaded; therefore, the miniport driver should have sufficient time to obtain the link speed before a protocol requests the link speed.</LI>
+</UL>
+
+<P>If a miniport driver receives one of these requests: <A HREF="22genoid_25pu.htm">OID_GEN_LINK_SPEED</A>, <A HREF="211cooid_1242.htm">OID_GEN_CO_LINK_SPEED</A>, <A HREF="22genoid_1rw2.htm">OID_GEN_MEDIA_CONNECT_STATUS</A>, or <A HREF="211cooid_7l6a.htm">OID_GEN_CO_MEDIA_CONNECT_STATUS</A>, or a request to send a packet before it obtains the media connect status or the link speed, the driver should delay the completion of the request or send operation. The driver should complete the request or send operation after it obtains the media connection status or the link speed. The driver should not fail such a request or a send operation. In Windows XP and later, NDIS allows for three times the normal timeout period for queries of OID_GEN(_CO)_LINK_SPEED and OID_GEN(_CO)_MEDIA_CONNECT_STATUS. Miniport drivers running under earlier versions of the operating system can use <B>NdisMSetAttributesEx</B> to set an appropriate timeout interval for queries.</P>
+
+<P>The following pseudocode examples illustrate how to:
+
+<UL>
+	<LI>Handle media detection and link-speed detection during initialization</LI>
+
+	<LI>Use a timer function to obtain the link speed and to complete any pending OID requests and send operations</LI>
+
+	<LI>Delay completion of OID_GEN(_CO)_LINK_SPEED and OID_GEN(_CO)_MEDIA_CONNECT_STATUS requests if detection of link-speed or media connection status is not finished</LI>
+
+	<LI>Schedule send operations if link-speed detection is not finished</LI>
+</UL>
+
+<H4>Handling Media Detection and Link-Speed Detection During Initialization</H4>
+
+<P>The following pseudocode illustrates how to handle media detection and link-speed detection in the context of <I>MiniportInitialize</I>:</P>
+
+<PRE>If (there is no link pulse on the physical layer interface)
+  // The cable is not connected to NIC.
+{
+  // Do not do link-speed detection.
+}
+else
+{
+  Adapter-&gt;NegotiationDone = FALSE;
+  Command NIC to start the link-speed negotiation.
+  Start a timer to check for completion of link-speed detection.
+  }</PRE>
+
+<H4>Using a Timer Function to Obtain the Link Speed and to Complete Pending OID Requests and Send Operations</H4>
+
+<P>To minimize the time it spends in initialization, the miniport driver should defer link-speed detection to a timer function. The following pseudocode illustrates how to use a timer function to obtain the link speed. After the timer function obtains the link speed, it should complete any pending OID requests and restart any pending send operations.</P>
+
+<PRE>If (NIC has finished link-speed negotiation)
+{
+  Adapter-&gt;NegotiationDone = TRUE;
+  if (Adapter-&gt;QueryPending)
+  {
+    // Complete the pending OID request after getting the link speed.
+    NdisMQueryInformationComplete();   // If the miniport exports an
+// NdisMCoRequestComplete
+// function, call
+// NdisMCoRequestComplete
+// instead.
+  }
+  if (Adapter-&gt;SetPending)
+  {
+    Send the set filter down to the adapter;
+    // The NIC generates an interrupt to indicate the completion
+// of the set-filter operation.
+  NdisMSendResourcesAvailable();    // Restarts any pending send
+                          // operations.
+  // This timer does not fire again.
+}
+else
+{
+  Restart timer;
+}</PRE>
+
+<H4>Pending OID_GEN_LINK_SPEED and OID_GEN_CURRENT_PACKET_FILTER Requests if Link-Speed Detection is Not Finished </H4>
+
+<P>If a miniport driver has not completed link-speed detection, it should schedule an OID_GEN_LINK_SPEED request or an OID_GEN_CURRENT_PACKET_FILTER request that it receives. The miniport driver should complete such a pending OID request asynchronously in its timer function (see above) after the timer function has completed link-speed detection.</P>
+
+<P>The following pseudocode shows how to schedule an OID_GEN_LINK_SPEED request in <I>MiniportQueryInformation</I> or <I>MiniportCoRequest</I> if link-speed detection is not finished:</P>
+
+<PRE>if (!Adapter-&gt;NegotiationDone &amp;&amp; (OID == OID_GEN_LINK_SPEED))
+{
+  // Save the current OID request.
+  Adapter-&gt;QueryPending = TRUE;  //Timer function tests this value.
+  return NDIS_STATUS_PENDING;</PRE>
+
+<P>The following pseudocode shows how to schedule an OID_GEN_CURRENT_PACKET_FILTER request in <I>MiniportQueryInformation</I> or <I>MiniportCoRequest</I> if link-speed detection is not finished:</P>
+
+<PRE>if (!Adapter-&gt;NegotiationDone &amp;&amp; (OID == OID_GEN_CURRENT_PACKET_FILTER))
+{
+  // Save the current OID request.
+  Adapter-&gt;SetPending = TRUE;  //Timer function tests this value.
+  return NDIS_STATUS_PENDING;
+}</PRE>
+
+<H4>Pending Send Operations if Link-Speed Detection is not Finished</H4>
+
+<P>If a serialized miniport driver has not completed link-speed detection, it should schedule any send operations that it receives and restart such operations in a timer function (see above) after the timer function has completed link-speed detection.</P>
+
+<P>The following pseudocode illustrates how to schedule send operations in <I>MiniportSend </I>if link-speed detection is not finished:</P>
+
+<PRE>if (!Adapter_&gt;NegotiationDone)
+return NDIS_STATUS_RESOURCES;  // Force NDIS to resubmit the send
+// when link-speed negotiation is
+// finished.</PRE>
+
+<P>The following pseudocode illustrates how to schedule send operations in <I>MiniportSendPackets</I> if link-speed detection is not finished:</P>
+
+<PRE>if (!Adapter_&gt;NegotiationDone)
+Set the <B>Status</B> member of the NDIS_PACKET_OOB_DATA block
+associated with the packet descriptor to NDIS_STATUS_RESOURCES;
+return;</PRE>
+
+<P>A deserialized or connection-oriented miniport driver must queue such send operations internally and complete the send operations after link-speed detection is finished.</P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Minimizing%20Miniport%20Driver%20Initialization%20Time"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

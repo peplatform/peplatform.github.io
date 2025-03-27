@@ -1,0 +1,45 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Flip Intervals</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Flip Intervals">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_flip_intervals_gg"></A>Flip Intervals</H3>
+
+<P>Beginning with DirectX 6.0, DirectDraw added the ability for an application to determine when a flip command is performed. Support for these features can be added to an existing driver, depending on the hardware capabilities.</P>
+
+<P>The following terms are used when describing the timing related to the application's call to <B>Flip</B>:
+
+<DL>
+<DT><B>Posted</B></DT>
+
+<DD>The time at which the application calls <B>Flip</B> and DirectDraw calls the driver's <A HREF="ddfncs_3e07.htm"><I>DdFlip</I></A> entry point.</DD>
+
+<DT><B>Retired</B> </DT>
+
+<DD>The time at which the hardware begins displaying from the new surface.
+</DD>
+</DL>
+
+<P>In previous versions of DirectDraw, flips were always retired on or near the vertical sync following when they were posted. With DirectX 6.0 and later versions, applications can specify that the flip be retired immediately, that is, exactly when posted, or at some set number of vertical syncs after the flip is posted. There are two capability bits (DDCAPS2_FLIPNOVSYNC and DDCAPS2_FLIPINTERVAL in the <A HREF="ddstrcts_5xgn.htm">DDCORECAPS</A> structure) and four flags (DDFLIP_NOVSYNC, DDFLIP_INTERVAL2, DDFLIP_INTERVAL3, and DDFLIP_INTERVAL4 in the <A HREF="ddstrcts_8xlz.htm">DD_FLIPDATA</A> structure) to enable these features.</P>
+
+<P>If your driver sets DDCAPS2_FLIPNOVSYNC, it receives the DDFLIP_NOVSYNC flag in the <B>dwFlags</B> member of the DD_FLIPDATA structure. The DDFLIP_NOVSYNC flag indicates that the flip should be retired as soon as it is posted. However, in this case, your hardware must be able to switch buffers on at least a per-scan line basis. The driver should not specify support for DDCAPS2_FLIPNOVSYNC if the display does not actually retire the flip until the next vertical sync, even if the driver returns immediately.</P>
+
+<P>The number at the end of the DDFLIP_INTERVAL2, DDFLIP_INTERVAL3, and DDFLIP_INTERVAL4 flags denotes how many vertical syncs the hardware should wait before retiring a posted flip. For example, DDFLIP_INTERVAL2 means that the hardware should count two vertical syncs, then retire the flip on or near the second vertical sync.</P>
+
+<P>If your driver exposes DDCAPS2_FLIPINTERVAL, then DirectDraw places the number of vertical syncs to delay a flip by, into the most significant byte of the <B>dwFlags</B> member of the <A HREF="ddstrcts_8xlz.htm">DD_FLIPDATA</A> structure. Because the DDFLIP_INTERVAL2, DDFLIP_INTERVAL3, and DDFLIP_INTERVAL4 flags are defined to make this true, the driver should not treat these three flags as bit flags. Additionally, if the driver exposes DDCAPS2_FLIPINTERVAL, DirectDraw ensures that the most significant byte of the <B>dwFlags</B> member is set accordingly when the DDFLIP_INTERVAL2, DDFLIP_INTERVAL3, and DDFLIP_INTERVAL4 flags are not set. DDFLIP_NOVSYNC causes a zero to be placed in the most significant byte, and the default value of the most significant byte becomes one because the default behavior of a flip call is to retire the flip on or near the first vertical sync after it is posted. </P>
+
+<P>Since DirectX 1.0, drivers have been required to return DDERR_WASSTILLDRAWING whenever a flip was pending (that is, when the flip had been posted but not yet retired). This requirement is extended for flip intervals. Because DDFLIP_NOVSYNC flips are retired when they are posted and therefore are never pending, the driver should never return DDERR_WASSTILLDRAWING as a result of such flips. Conversely, using one of the DDFLIP_INTERVAL2, DDFLIP_INTERVAL3, or DDFLIP_INTERVAL4 flags means that the driver needs to return DDERR_WASSTILLDRAWING for a long period of time, because the period between posting and retiring a flip is extended.</P>
+
+<P>DirectDraw does not preclude the use of these flags with overlay surfaces, but drivers are not required to respect them, even if they do set the DDCAPS2_FLIPINTERVAL or DDCAPS2_FLIPNOVSYNC capability bits. Drivers may choose to respect these flags for overlays if they have the capability, but applications are unlikely to exploit this feature.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The DDFLIP_INTERVAL2, DDFLIP_INTERVAL3, and DDFLIP_INTERVAL4 flags are intended to exploit hardware capabilities. Drivers should not attempt to emulate these flags by looping in the driver until the flip can be retired as requested. Because important operating system mutexes are held while calling a DirectDraw driver, such an implementation can affect system performance.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Flip%20Intervals"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

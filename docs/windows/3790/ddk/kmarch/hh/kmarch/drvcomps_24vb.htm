@@ -1,0 +1,37 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DispatchReadWrite in Higher-Level Drivers</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DispatchReadWrite in Higher-Level Drivers">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_storage_class_drivers_splittransferrequest_routine_kg">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_dispatchreadwrite_in_higher_level_drivers_kg"></A><I>DispatchReadWrite</I> in Higher-Level Drivers</H3>
+
+<P>Except for file system drivers, a higher-level driver usually does not have any internal driver queues for IRPs. Such a driver’s <A HREF="drvrrtns_7lbm.htm"><I>DispatchReadWrite</I></A> routine can pass IRPs with valid parameters on to lower drivers, possibly after setting up its <A HREF="drvrrtns_4rsi.htm"><I>IoCompletion</I></A> routine, as described in <A HREF="irps_1oh3.htm">Passing IRPs Down the Driver Stack</A>.</P>
+
+<P>However, a SCSI class driver’s <I>DispatchReadWrite</I> routine is responsible for splitting up large transfer requests, if necessary, before it sends an IRP with the major function code IRP_MJ_READ or IRP_MJ_WRITE to the SCSI port/miniport driver pair. For more information, see <A HREF="JavaScript:hhobj_1.Click()">Storage Class Driver's <I>SplitTransferRequest</I> Routine</A>.</P>
+
+<P>If a higher-level driver allocates one or more IRPs, which it sets up for the next-lower driver in its <I>DispatchReadWrite</I> routine, to request some number of partial transfers, the <I>DispatchReadWrite</I> routine must call <A HREF="k104_5w6q.htm"><B>IoSetCompletionRoutine</B></A> with each driver-allocated IRP. The driver <I>must</I> register its <I>IoCompletion</I> routine to track how much data is transferred in each partial-transfer operation so that the <I>IoCompletion</I> routine can release all driver-allocated IRPs and, eventually, complete the original request. </P>
+
+<P>If the underlying driver controls a removable-media device, any IRPs allocated by the higher-level driver must have a thread context. To set up a thread context, the allocating driver must set the <B>Irp-&gt;Tail.Overlay.Thread</B> in each newly allocated IRP from the same value in the incoming transfer IRP. For more information, see <A HREF="other_5ag7.htm">Supporting Removable Media</A>.</P>
+
+<P>If the underlying device driver returns an IRP for a partial transfer with an error, the <I>IoCompletion</I> routine can either retry the partial-transfer request or complete the original IRP with its I/O status block set with the returned error, after freeing any IRPs and memory the higher-level driver has allocated. </P>
+
+<P>If a higher-level driver’s <I>DispatchReadWrite</I> routine allocates memory for partial-transfer operations and its allocation will be accessed by the driver’s <I>IoCompletion</I> routine (or by the underlying device driver), the <I>DispatchReadWrite</I> routine <I>must</I> allocate that memory from nonpaged pool. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DispatchReadWrite%20in%20Higher-Level%20Drivers"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

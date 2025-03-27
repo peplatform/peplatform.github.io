@@ -1,0 +1,97 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>MiniportWanSend</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="MiniportWanSend">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_miniportwansend_nr"></A>MiniportWanSend</H1>
+
+<P>The <I>MiniportWanSend</I> function is required if the driver controls a WAN NIC. Such a driver does not have a <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A> or <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A> function. </P>
+
+<PRE class=syntax><B>NDIS_STATUS</B>
+  <B>MiniportWanSend(</B>
+    <B>IN</B> <B>NDIS_HANDLE</B>  <I>MiniportAdapterContext</I><B>,</B>
+    <B>IN</B> <B>NDIS_HANDLE</B>  <I>NdisLinkHandle</I><B>,</B>
+    <B>IN</B> <B>PNDIS_WAN_PACKET</B>  <I>WanPacket</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>MiniportAdapterContext</I></DT>
+
+<DD>Specifies the handle, originally input to <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, identifying the miniport driver and WAN NIC it controls. </DD>
+
+<DT><I>NdisLinkHandle</I></DT>
+
+<DD>Specifies the handle to a miniport driver-allocated context area for this link. The driver previously returned this handle in an <A HREF="105nstru_4agi.htm">NDIS_MAC_LINE_UP</A> indication when the link was established. </DD>
+
+<DT><I>WanPacket</I></DT>
+
+<DD>Pointer to an <A HREF="105nstru_8n3m.htm">NDIS_WAN_PACKET</A><I> </I>structure, specifying the data to be transmitted. This structure specifies the virtual range for a buffer with guaranteed padding at the beginning and end. The driver can manipulate the data in this buffer in any way.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>MiniportWanSend</I> can return one of the following:
+
+<DL>
+<DT>NDIS_STATUS_SUCCESS</DT>
+
+<DD>The driver (or its NIC) has accepted the packet data for transmission, so <I>MiniportWanSend</I> is returning the packet. </DD>
+
+<DT>NDIS_STATUS_PENDING</DT>
+
+<DD>The driver will complete the packet asynchronously with a call to <A HREF="103ndisx_7x0y.htm"><B>NdisMWanSendComplete</B></A>. </DD>
+
+<DT>NDIS_STATUS_FAILURE or NDIS_STATUS_<I>XXX</I></DT>
+
+<DD>The given packet was invalid or unacceptable to the NIC. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h.</I></P>
+
+<H4>Comments</H4>
+
+<P>When <I>MiniportWanSend</I> is called, ownership of both the packet descriptor and the packet data is transferred to the driver until it completes the given packet, either synchronously or asynchronously. If <I>MiniportWanSend</I> returns a status other than NDIS_STATUS_PENDING, the request is considered complete and ownership of the packet immediately reverts to the initiator of the send request. If <I>MiniportWanSend</I> returns NDIS_STATUS_PENDING, the miniport driver subsequently must call <B>NdisMWanSendComplete</B> with the packet to indicate completion of the transmit request.</P>
+
+<P><I>MiniportWanSend</I> can use both the <B>MacReserved</B><I>x</I> and <B>WanPacketQueue</B><I> </I>areas within the <A HREF="105nstru_8n3m.htm">NDIS_WAN_PACKET</A><I> </I>structure. However, the miniport driver cannot access the <B>ProtocolReserved</B><I>x</I> members. </P>
+
+<P>Any NDIS intermediate driver that binds itself to an underlying WAN miniport driver is responsible for providing a fresh NDIS_WAN_PACKET structure to the underlying driver’s <I>MiniportWanSend</I> function. Before such an intermediate driver calls <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A>, it must repackage the send packet given to its <I>MiniportWanSend</I> function so the underlying driver will have <B>MacReserved</B><I>x</I> and <B>WanPacketQueue</B> areas of its own to use. </P>
+
+<P>The available header padding within a given packet can be calculated as (<B>CurrentBuffer</B> - <B>StartBuffer</B>), the available tail padding as (<B>EndBuffer</B> - (<B>CurrentBuffer</B> + <B>CurrentLength</B>)). The header and tail padding is guaranteed to be at least the length that the miniport driver requested in response to a preceding <A HREF="28wanoid_3302.htm">OID_WAN_GET_INFO</A> query. The header and/or tail padding for any packet given to <I>MiniportWanSend</I> can be more than the length that was requested. </P>
+
+<P><I>MiniportWanSend</I> can neither return NDIS_STATUS_RESOURCES for an input packet nor call <A HREF="103ndisx_58c2.htm"><B>NdisMSendResourcesAvailable</B></A>. Instead, the miniport driver must queue incoming send packets internally for subsequent transmission. The miniport driver controls how many packets NDIS will submit to <I>MiniportWanSend</I> when the NIC driver sets the <B>SendWindow</B> value in the driver’s NDIS_MAC_LINE_UP indication to establish the given link. NDISWAN uses this value as an upper bound on uncompleted sends submitted to <I>MiniportWanSend</I>, so the miniport’s internal queue cannot be overrun, and the miniport driver can adjust the <B>SendWindow</B> dynamically with subsequent line-up indications for established links. If the miniport driver set the <B>SendWindow</B> to zero when it called <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A> with a particular line-up indication, NDISWAN uses the <B>MaxTransmit</B> value that the driver originally set in response to the OID_WAN_GET_INFO query as its limit on submitted but uncompleted send packets.</P>
+
+<P>Each packet passed to <I>MiniportWanSend</I> is set up according to one of the flags that the miniport driver set in the <B>FramingBits</B> member in response to the <A HREF="28wanoid_3302.htm">OID_WAN_GET_INFO</A> query. It will contain simple HDLC PPP framing if the driver claimed to support PPP. For SLIP or RAS framing, such a packet contains only the data portion with no framing whatsoever. </P>
+
+<P>For more information about system-defined WAN and TAPI OIDs, see <A HREF="28wanoid_33oy.htm">WAN Objects</A> and <A HREF="29tpioid_5jhu.htm">TAPI Objects</A>. </P>
+
+<P>A WAN driver cannot manage software loopback or promiscuous mode loopback internally. NDISWAN supplies this loopback support for WAN drivers.</P>
+
+<P><I>MiniportWanSend</I> can be preempted by an interrupt.</P>
+
+<P>The <I>MiniportWanSend</I> function of a deserialized miniport driver can be called at any IRQL &lt;= DISPATCH_LEVEL. The <I>MiniportWanSend</I> function of a deserialized driver is responsible for synchronizing access to its internal queues of packet descriptors with the driver's other <I>MiniportXxx</I> functions that also access the same queues. </P>
+
+<P><I>The MiniportWanSend</I> function of a serialized miniport driver runs at IRQL = DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_2vw2.htm"><I>MiniportQueryInformation</I></A>, <A HREF="105nstru_4agi.htm">NDIS_MAC_LINE_UP</A>, <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A>, <A HREF="103ndisx_7x0y.htm"><B>NdisMWanSendComplete</B></A><I>, </I><A HREF="105nstru_8n3m.htm">NDIS_WAN_PACKET</A> </P>
+
+<P></P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: MiniportWanSend"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,197 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NVRAM</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NVRAM">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Server&nbsp;Appliance&nbsp;High&nbsp;Availability&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_nvram_sa"></A>NVRAM</H1>
+
+<P>The nonvolatile random access memory (NVRAM) device is used by the operating system to store system status across reboots of the operating system independently from the hard drive. The NVRAM device can also provide the operating system and BIOS with a method to determine whether the operating system is capable of booting. For example, each time the BIOS attempts to boot the operating system, the BIOS checks the value of a boot counter that is stored in NVRAM. If the value exceeds a threshold (for example, 3), the BIOS then attempts to boot from an alternate operating system. If the value is less than the threshold, the BIOS increments the value of the counter and attempts to boot the operating system. </P>
+
+<P>The NVRAM device is typically implemented using either battery backed CMOS RAM or FLASH EEPROM. The NVRAM device must provide a minimum of 128 bytes of storage. The first 104 bytes are used by the operating system to store status information. If the BIOS implements an algorithm to force fail over to alternate operating systems, the last 16 bytes are used to store values in four boot counters, one for each bootable system partition. The following table shows the storage layout of an NVRAM device.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=21%>Bytes</TH>
+<TH align=left width=79%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>104</TD>
+<TD width=79%>Nonvolatile storage that the operating system can use to maintain status across boots.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>8</TD>
+<TD width=79%>Reserved</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>4</TD>
+<TD width=79%>Boot counter number 1</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>4</TD>
+<TD width=79%>Boot counter number 2</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>4</TD>
+<TD width=79%>Boot counter number 3</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=21%>4</TD>
+<TD width=79%>Boot counter number 4</TD>
+</TR>
+</TABLE><BR>
+
+<P>The following table shows how each 4-byte boot counter is formatted.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=13%>4 bits</TH>
+<TH align=left width=18%>4 bits</TH>
+<TH align=left width=17%>4 bits</TH>
+<TH align=left width=14%>4 bits</TH>
+<TH align=left width=16%>12 bits</TH>
+<TH align=left width=22%>4 bits</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=13%>X</TD>
+<TD width=18%>Y</TD>
+<TD width=17%>Z</TD>
+<TD width=14%>W</TD>
+<TD width=16%>Undefined</TD>
+<TD width=22%>Count value</TD>
+</TR>
+</TABLE><BR>
+
+<P>The X, Y, Z, and W values specify an Advanced RISC Computing (ARC) path. For more information on ARC paths, see the <a href="http://go.microsoft.com/fwlink/?linkid=3100&id=102873&clcid=0x409" target="_blank">Microsoft Knowledge Base Article Q102873</A>. The BIOS must be able to read and write to each boot counter during boot up. The operating system uses the <A HREF="saintro_1ztt.htm">NVRAM driver</A> to control each boot counter. The operating system requests to retrieve the value in the boot counter and determines the status of the fail over based on this value as defined in the following table.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left colspan=4 width=41%>Boot counter number<BR>
+(X,Y,Z,W ARC path values<BR>
+count value)</TH>
+<TH align=left colspan=2 width=59%>Operating system interpretation</TH>
+</TR>
+
+<TR VALIGN="top">
+<TH align=left width=10%>1</TH>
+<TH align=left width=10%>2</TH>
+<TH align=left width=11%>3</TH>
+<TH align=left width=10%>4</TH>
+<TH align=left width=58%>&nbsp;</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>0,0,0,1<BR>
+1</TD>
+<TD width=10%>0,0,1,1<BR>
+0</TD>
+<TD width=11%>0,0,1,2<BR>
+0</TD>
+<TD width=10%>F,F,F,F<BR>
+0</TD>
+<TD width=58%>Normal boot of main operating system from ATA disk 0, partition 1. First partition on ATA disk 1 is first backup. Second partition on ATA disk 1 is second backup. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>0,0,0,1<BR>
+2 or 3</TD>
+<TD width=10%>0,0,1,1<BR>
+0</TD>
+<TD width=11%>0,0,1,2<BR>
+0</TD>
+<TD width=10%>F,F,F,F<BR>
+0</TD>
+<TD width=58%>Retry of main operating system after failed boot attempt.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>0,0,0,1<BR>
+3</TD>
+<TD width=10%>0,0,1,1<BR>
+1</TD>
+<TD width=11%>0,0,1,2<BR>
+0</TD>
+<TD width=10%>F,F,F,F<BR>
+0</TD>
+<TD width=58%>First boot attempt of first backup operating system.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>0,0,0,1<BR>
+3</TD>
+<TD width=10%>0,0,1,1<BR>
+2 or 3</TD>
+<TD width=11%>0,0,1,2<BR>
+0</TD>
+<TD width=10%>F,F,F,F<BR>
+0</TD>
+<TD width=58%>Retry of first backup operating system after failed boot attempt.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>0,0,0,1<BR>
+3</TD>
+<TD width=10%>0,0,1,1<BR>
+3</TD>
+<TD width=11%>0,0,1,2<BR>
+1</TD>
+<TD width=10%>F,F,F,F<BR>
+0</TD>
+<TD width=58%>First boot attempt of second backup operating system.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>0,0,0,1<BR>
+3</TD>
+<TD width=10%>0,0,1,1<BR>
+3</TD>
+<TD width=11%>0,0,1,2<BR>
+2 or 3</TD>
+<TD width=10%>F,F,F,F<BR>
+0</TD>
+<TD width=58%>Retry of second backup operating system after failed boot attempt.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>0,0,0,1<BR>
+F</TD>
+<TD width=10%>0,0,1,1<BR>
+1</TD>
+<TD width=11%>0,0,1,2<BR>
+0</TD>
+<TD width=10%>F,F,F,F<BR>
+0</TD>
+<TD width=58%>First boot attempt of first backup operating system after main disk has failed and is no longer visible to the system.</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=10%>0,0,0,1<BR>
+1</TD>
+<TD width=10%>0,1,0,1<BR>
+0</TD>
+<TD width=11%>0,1,0,2<BR>
+0</TD>
+<TD width=10%>F,F,F,F<BR>
+0</TD>
+<TD width=58%>Normal boot of main operating system from SCSI disk 0, partition 1. First partition on SCSI disk 1 is first backup. Second partition on SCSI disk 1 is second backup.</TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NVRAM"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

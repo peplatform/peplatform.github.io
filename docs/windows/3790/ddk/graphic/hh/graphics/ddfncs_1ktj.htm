@@ -1,0 +1,97 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>updateFlipStatus</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="updateFlipStatus">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_updateflipstatus_gg"></A><I>updateFlipStatus</I></H1>
+
+<P>The <I>updateFlipStatus</I> function determines whether the most recent flip has occurred. </P>
+
+<PRE class=syntax><B>static __inline HRESULT 
+  updateFlipStatus(
+</B>    <B>FLATPTR</B>  <I>fpVidMem</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>fpVidMem</I></DT>
+
+<DD>Points to the beginning of a particular surface in display memory. </DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>Returns DD_OK if the flip has occurred and DDERR_WASSTILLDRAWING if not. </P>
+
+<H4>Comments</H4>
+
+<P>The following sample implementation for <I>updateFlipStatus</I> represents a good default implementation of the flipping algorithm. Care should be exercised in making alterations to this routine, but such alterations may be necessary, nonetheless (see <A HREF="ddraw_4eqv.htm">Timing a Flip</A> for other useful algorithms). In addition to modifying the flipping algorithm in some cases, the sample implementation needs to be modified if the driver is to support flipping overlays. The code must be able to scan through a chain of <A HREF="ddstrcts_7k4n.htm">FLIPRECORD</A> structures to find the correct <I>fpVidMem</I> pointer; therefore, multiple FLIPRECORD structures can be used in that case. </P>
+
+<P>If the input parameter, <I>fpVidMem</I>, is set to zero then <I>updateFlipStatus</I> checks to see whether a flip is being processed on any surface (for a description of a flip being processed, see <A HREF="ddraw_44h3.htm">Flipping</A> and <A HREF="ddfncs_90o7.htm"><I>Flip32</I></A>). If <I>fpVidMem</I> points to a surface, then <I>updateFlipStatus</I> determines whether that surface is being flipped from. If <I>fpVidMem</I> does point to a surface that is being flipped from, it determines whether that surface has been completely displayed. If the display device is in the vertical blank, the time is checked to see whether enough time has passed to complete a flip. (This is because many cards cannot report the scan line while the gun is in the vertical blank.) If not enough time has passed, DDERR_WASSTILLDRAWING is returned. If enough time has passed, the <B>bFlipFlag</B> member of the FLIPRECORD structure is set to FALSE and DD_OK is returned, indicating the surface is available. </P>
+
+<P>If display isn't in vertical blank, the scan line can be used to determine whether the entire screen has been displayed. If the scan line is above where it was previously, the flip flag is set to FALSE (meaning that the flip is not pending on that surface) and DD_OK is returned to indicate that it is okay to proceed with operations on that surface. If the scan line is not above the previous measurement, the time is checked again to see whether it is greater than the display duration. If not enough time has elapsed, DDERR_WASSTILLDRAWING is returned to indicate that the surface is not yet available. </P>
+
+<P>The IN_VBLANK and CURRENT_VLINE macros can be written to test whether the CRT is in vertical blank and to read the current scan line, respectively. </P>
+
+<P>The following is the sample implementation of <I>updateFlipStatus</I>; it should be modified to match the characteristics of your particular card: </P>
+
+<PRE>/*
+ * updateFlipStatus
+ *
+ * Checks to see if the most recent flip has occurred
+ */
+static __inline HRESULT updateFlipStatus( FLATPTR fpVidMem )
+{
+    /*
+     * See if a flip has happened recently
+     */
+    if( flipRecord.bFlipFlag &amp;&amp; ((fpVidMem == 0)||
+                        (fpVidMem == flipRecord.fpFlipFrom) ) )
+    {
+        __int64 ttime;        //64 bit pointer - measures time in ticks
+
+        /*
+         * If we aren't in the vertical blank, we can use the scan line
+         * to help decide on what to do
+         */
+        if(!(IN_VBLANK))
+        {
+            if( (CURRENT_VLINE &gt;= flipRecord.wFlipScanLine) )
+            {
+                QueryPerformanceCounter((LARGE_INTEGER*)&amp;ttime);
+                if( (DWORD)(ttime-flipRecord.liFlipTime) &lt;= 
+                  flipRecord.dwFlipDuration )
+                {
+                    return DDERR_WASSTILLDRAWING;  // Not done flipping
+                }
+            }
+        }
+        /*
+         * In the vertical blank, scan line is useless
+         */
+        else
+        {
+            QueryPerformanceCounter((LARGE_INTEGER*)&amp;ttime);
+            if( ((DWORD)(ttime-flipRecord.liFlipTime) &lt;= 
+                        flipRecord.dwFlipDuration) )
+            {
+                return DDERR_WASSTILLDRAWING;     // Not done flipping
+            }
+        }
+        flipRecord.bFlipFlag = FALSE; 
+                        // A flip is not pending on this surface
+    }
+    return DD_OK;       // OK to do a flip or blt on this surface
+} /* updateFlipStatus */
+ </PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: updateFlipStatus"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

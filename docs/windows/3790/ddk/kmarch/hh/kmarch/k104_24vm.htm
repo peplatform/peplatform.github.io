@@ -1,0 +1,110 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IoGetDeviceInterfaces</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IoGetDeviceInterfaces">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_iogetdeviceinterfaces_kr"></A>IoGetDeviceInterfaces</H1>
+
+<P>The <B>IoGetDeviceInterfaces</B> routine returns a list of device interface instances of a particular device interface class (such as all devices on the system that support a HID interface).</P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>IoGetDeviceInterfaces(</B>
+    <B>IN CONST GUID</B>  *<I>InterfaceClassGuid</I><B>,</B>
+    <B>IN PDEVICE_OBJECT</B>  <I>PhysicalDeviceObject</I>  <B>OPTIONAL,</B>
+    <B>IN ULONG </B> <I>Flags</I><B>,</B>
+    <B>OUT PWSTR</B>  *<I>SymbolicLinkList</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>InterfaceClassGuid</I></DT>
+
+<DD>Pointer to a class GUID specifying the device interface class. The GUIDs for a class should be in a device-specific header file.</DD>
+
+<DT><I>PhysicalDeviceObject</I></DT>
+
+<DD>Pointer to an optional PDO that narrows the search to only the device interface instances of the device represented by the PDO.</DD>
+
+<DT><I>Flags</I></DT>
+
+<DD>Specifies flags that modify the search for device interfaces. These flags are described following.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=42%>Flag</TH>
+<TH align=left width=58%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=42%>DEVICE_INTERFACE_INCLUDE_NONACTIVE</TD>
+<TD width=58%>Return disabled device interface instances in addition to enabled interface instances. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>When searching for a device that supports a particular interface class, the caller requires an enabled interface instance and thus does not set the DEVICE_INTERFACE_INCLUDE_NONACTIVE flag.
+
+
+<P>A driver typically sets the DEVICE_INTERFACE_INCLUDE_NONACTIVE flag to locate disabled interface instances that the driver must enable. For example, the class installer for the device might have been directed by the INF file to register one or more interface instances for the device. The interface instances would be registered but are not usable until they are enabled by the driver (using <A HREF="k104_3epe.htm"><B>IoSetDeviceInterfaceState</B></A>). To narrow the list of interface instances returned to only those exposed by a given device, a driver can specify a <I>PhysicalDeviceObject</I>.
+</DD>
+
+<DT><I>SymbolicLinkList</I></DT>
+
+<DD>Pointer to a character pointer that is filled in on successful return with a list of Unicode strings identifying the device interface instances that match the search criteria. The newly allocated buffer contains a list of symbolic link names. Each Unicode string in the list is null-terminated; the end of the whole list is marked by an additional NULL. The caller is responsible for freeing the buffer (<A HREF="k102_6uuq.htm"><B>ExFreePool</B></A>) when it is no longer needed.
+
+<P>If no device interface instances match the search criteria, this routine returns STATUS_SUCCESS and the string contains a single NULL character.
+
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>IoGetDeviceInterfaces</B> returns STATUS_SUCCESS if the call was successful. Possible error return values include the following.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=52%>Error Status</TH>
+<TH align=left width=48%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=52%>STATUS_INVALID_DEVICE_REQUEST</TD>
+<TD width=48%>Possibly indicates that <I>PhysicalDeviceObject</I> was not a valid PDO pointer.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P><B>IoGetDeviceInterfaces</B> returns a list of device interface instances that match the search criteria. A kernel-mode component typically calls this routine to get a list of all enabled device interface instances of a particular device interface class. Such a component can get a pointer to the file object and/or the device object for an interface using <A HREF="k104_1os2.htm"><B>IoGetDeviceObjectPointer</B></A> or <A HREF="k111_9dte.htm"><B>ZwCreateFile</B></A>. The device object pointer returned by <B>IoGetDeviceObjectPointer</B> points to the top of the device stack for the device and can be used in calls to <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A>.</P>
+
+<P>If there is a default interface for the requested device interface class, it is listed first in <I>SymbolicLinkList</I>. Default interfaces can be set by user mode, but not by kernel mode.</P>
+
+<P>The format of a symbolic link name is opaque; the caller should not attempt to parse a symbolic link name.</P>
+
+<P>Symbolic links for device interface instances can be used across system boots.</P>
+
+<P>To be notified when additional device interface instances of a particular class are enabled on the system, register for notification of a device class change with <A HREF="k104_7diq.htm"><B>IoRegisterPlugPlayNotification</B></A>.</P>
+
+<P>Callers of <B>IoGetDeviceInterfaces</B> must be running at IRQL&nbsp;= PASSIVE_LEVEL in the context of a system thread.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k102_6uuq.htm"><B>ExFreePool</B></A>, <A HREF="k104_1os2.htm"><B>IoGetDeviceObjectPointer</B></A>, <A HREF="k104_27n6.htm"><B>IoRegisterDeviceInterface</B></A>, <A HREF="k104_7diq.htm"><B>IoRegisterPlugPlayNotification</B></A>, <A HREF="k104_3epe.htm"><B>IoSetDeviceInterfaceState</B></A>, <A HREF="k111_9dte.htm"><B>ZwCreateFile</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IoGetDeviceInterfaces"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,51 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>USB Isochronous Transfer</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="USB Isochronous Transfer">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_usb_isochronous_transfer_kg"></A>USB Isochronous Transfer</H1>
+
+<P>USB devices support isochronous transfer pipes for time-dependent data that does not require guaranteed delivery. The driver submits the <A HREF="usbstrct_1e0i.htm#ddk_urb_function_isoch_transfer_kr">URB_FUNCTION_ISOCH_TRANSFER</A> URB to perform I/O on the pipe. </P>
+
+<P>Isochronous transfer is packet-based — the device reads or writes a single packet of data each millisecond frame. Fortunately, the driver can send several consecutive packets with a single URB.</P>
+
+<P>The size of the <A HREF="usbstrct_1e0i.htm#ddk_urb_function_isoch_transfer_kr">URB_FUNCTION_ISOCH_TRANSFER</A> URB varies with the number of packets the driver sends. Drivers can use the <A HREF="usbfunc_9i9e.htm">GET_ISO_URB_SIZE</A> macro to determine the number of bytes to allocate for the URB. The <B>UrbIsochronousTransfer.IsoPacket</B> array member of the URB describes the length and offset of each packet within the buffer specified in the <B>UrbIsochronousTransfer.TransferBuffer</B> or <B>UrbIsochronousTransfer.TransferBufferMDL</B> members.</P>
+
+<P>Here is an example of how to create an URB for a data buffer that can hold ten packets, each sixteen bytes long:</P>
+
+<PRE>#define NUMBER_OF_PACKETS 10
+#define PACKET_SIZE 16
+
+ULONG UrbSize, size;
+PURB pUrb;
+
+UrbSize = GET_ISO_URB_SIZE(NUMBER_OF_PACKETS);
+size = (assign the length in bytes of the entire URB structure)
+pUrb = (PURB) ExAllocatePool(NonPagedPool, UrbSize);
+pUrb-&gt;UrbIsochronousTransfer.Hdr.Length = size;
+pUrb-&gt;UrbIsochronousTransfer.Hdr.Function = URB_FUNCTION_ISOCH_TRANSFER;
+pUrb-&gt;PipeHandle = PipeHandle;
+        .
+        .
+        .
+pUrb-&gt;UrbIsochronousTransfer.NumberOfPackets = NUMBER_OF_PACKETS;
+
+ULONG i;
+for (i = 0; i&lt;NUMBER_OF_PACKETS; i++) {
+  pUrb-&gt;UrbIsochronousTransfer.IsoPacket[i].Offset = i*PACKET_SIZE;
+  pUrb-&gt;UrbIsochronousTransfer.IsoPacket[i].Length = PACKET_SIZE;
+}</PRE>
+
+<P>The <B>UrbIsochronousTransfer.StartFrame</B> member of the URB specifies the starting USB frame number for the transaction. The driver can use the <A HREF="usbstrct_1e0i.htm#ddk_urb_function_get_current_frame_number_kr">URB_FUNCTION_GET_CURRENT_FRAME_NUMBER</A> URB to request current frame number.</P>
+
+<P>For the first transaction on the pipe after being opened or reset, the driver can specify the USB_START_ISO_TRANSFER_ASAP flag in <B>UrbIsochronousTransfer.TransferFlags</B>. The bus driver begins the transaction in the next available frame.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: USB%20Isochronous%20Transfer"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

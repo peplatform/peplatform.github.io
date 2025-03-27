@@ -1,0 +1,60 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Indicating an Incoming Call</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Indicating an Incoming Call">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_indicating_an_incoming_call_ng"></A>Indicating an Incoming Call</H3>
+
+<P>A call manager or MCM driver is alerted to an incoming call by signaling messages from the network. From these signaling messages, the call manager or MCM driver extracts the call parameters for the call, including the SAP to which the incoming call is addressed.</P>
+
+<P>The following figure shows a call manager indicating an incoming call.</P>
+
+<P><IMG SRC="images/cm_13.gif" ALT="" BORDER=0></P>
+
+<P><B>Indicating an Incoming Call Through a Call Manager</B></P>
+
+<P>The following figure shows a call manager indicating an incoming call.</P>
+
+<P><IMG SRC="images/fig1_13.gif" ALT="" BORDER=0></P>
+
+<P><B>Indicating an Incoming Call Through an MCM Driver</B></P>
+
+<P>If the incoming call parameters are unacceptable to the call manager or MCM driver, it can attempt to negotiate a change in these parameters with the remote party if such negotiation is allowed by the signaling protocol. Alternatively, the client to which the incoming call is directed could attempt to negotiate the call parameters after receiving the call indication from the call manager or MCM driver (see <A HREF="401condis_1j6v.htm">Client-Initiated Request to Change Call Parameters</A>). If the call manager or MCM driver cannot negotiate acceptable call parameters for the call with the remote party, it might refuse the call. The signaling protocol determines what is possible in such cases.</P>
+
+<P>Before indicating an incoming call to a client, the call manager or MCM driver must identify the SAP to which the call is directed. The SAP must have been previously registered by a client (see <A HREF="401condis_03qf.htm">Registering a SAP</A>) The call manager or MCM driver must also initiate the creation of a virtual connection (see <A HREF="401condis_0t47.htm">Creating a VC</A>) and initiate the activation of this VC (see <A HREF="401condis_1wx3.htm">Activating a VC</A>).</P>
+
+<P>The call manager or MCM driver then indicates the incoming call to the client that registered the SAP to which the incoming call is directed. A call manager indicates an incoming call with <A HREF="103ndisx_2v76.htm"><B>NdisCmDispatchIncomingCall</B></A>. An MCM driver indicates an incoming call with <A HREF="103ndisx_5zoy.htm"><B>NdisMCmDispatchIncomingCall</B></A>.</P>
+
+<P>In the call to <B>Ndis(M)CmDispatchIncomingCall</B>, the call manager or MCM driver passes the following:
+
+<UL>
+	<LI>An <I>NdisSapHandle</I> that identifies the SAP to which the incoming call is addressed</LI>
+
+	<LI>An <I>NdisVcHandle</I> that identifies the virtual circuit for the incoming call</LI>
+
+	<LI>A pointer to a structure of type <A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A>, which contains the call parameters for the call</LI>
+</UL>
+
+<P>The call to <B>Ndis(M)CmDispatchIncomingCall</B> causes NDIS to call the client’s <A HREF="104tdlow_8a9e.htm"><I>ProtocolClIncomingCall</I></A> function, within which the client either accepts or rejects the requested connection. <I>ProtocolClIncomingCall</I> should validate the SAP, VC, and call parameters. </P>
+
+<P><I>ProtocolClIncomingCall</I> can complete synchronously or it can return NDIS_STATUS_PENDING and complete asynchronously with <A HREF="103ndisx_3n5e.htm"><B>NdisClIncomingCallComplete</B></A>. A call to <B>NdisClIncomingCallComplete</B> causes NDIS to call the call manager’s or MCM driver’s <A HREF="104tdlow_2h2q.htm"><I>ProtocolCmIncomingCallComplete</I></A> function.</P>
+
+<P>The NDIS_STATUS code returned by a synchronous completion of <I>ProtocolClIncomingCall</I> or supplied to <B>NdisClIncomingCallComplete</B> indicates the client’s acceptance or rejection of the incoming call. The client also returns the call parameters for the call in a buffered CO_CALL_PARAMETERS structure. If the client finds the call parameters unacceptable, it can, if allowed by the signaling protocol, request a change in the call parameters by setting the <B>Flags</B> member in the CO_CALL_PARAMETERS structure with CALL_PARAMETERS_CHANGED and by supplying the revised call parameters in a buffered CO_CALL_PARAMETERS structure. </P>
+
+<P>If the client accepts the incoming call, the call manager or MCM driver should send signaling messages to indicate to the calling entity that the call has been accepted. Otherwise, the call manager or MCM driver should send signaling messages to indicate that the call has been rejected. If the client is requesting a change in call parameters, the call manager or MCM driver sends signaling messages to request a change in call parameters.</P>
+
+<P>If the client accepted the call, or if the client’s requested change in call parameters was accepted by the remote party, a call manager calls <A HREF="103ndisx_9uk2.htm"><B>NdisCmDispatchCallConnected</B></A>, and an MCM driver calls <A HREF="103ndisx_9u5u.htm"><B>NdisMCmDispatchCallConnected</B></A>. The call to <B>Ndis(M)CmDispatchCallConnected</B> causes NDIS to call the client’s <I>ProtocolClCallConnected</I> function.</P>
+
+<P>If the client rejected the call and the call manager or MCM driver has already activated a VC for the incoming call, the call manager or MCM driver calls <B>Ndis(M)CmDeactivateVc</B> to deactivate the VC if the VC is activated. The call manager or MCM driver can then initiate deletion of the VC by calling <A HREF="103ndisx_920i.htm"><B>NdisCoDeleteVc</B></A> in the case of the call manager or <A HREF="103ndisx_6qur.htm"><B>NdisMCmDeleteVc</B></A> in the case of the MCM driver (see <A HREF="401condis_3d2f.htm">Deleting a VC </A>).</P>
+
+<P>If the client accepted the call but the end-to-end connection was not successfully established (because, for example, the remote party tore down the call), then the call manager or MCM driver will not call <B>Ndis(M)CmDispatchCallConnected</B>. Instead, it will call <B>Ndis(M)CmDispatchIncomingCloseCall</B>, which causes NDIS to call the client's <I>ProtocolClIncomingCloseCall</I> function. The client must then call <A HREF="103ndisx_7rsi.htm"><B>NdisClCloseCall</B></A> to complete the teardown of the call. The call manager or MCM driver then calls <B>Ndis(M)CmDeactivateVC</B> to deactivate the VC that it created for the incoming call (see <A HREF="401condis_3dyf.htm">Deactivating a VC</A>). The call manager or MCM driver can then initiate deletion of the VC by calling <A HREF="103ndisx_920i.htm"><B>NdisCoDeleteVc</B></A> in the case of the call manager or <A HREF="103ndisx_6qur.htm"><B>NdisMCmDeleteVc</B></A> in the case of the MCM driver (see <A HREF="401condis_3d2f.htm">Deleting a VC</A>).</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Indicating%20an%20Incoming%20Call"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,28 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Processing Before Sys_Critical_Init Message</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="_pss_3655"></A>Processing Before Sys_Critical_Init Message</H2>
+
+<P>The devnode tree is constructed after entering protected mode, and after VXDLDR.VXD's early Device_Init. (VXDLDR is very early in the load order.) The root enumerator (which is part of Configuration Manager) creates device nodes for every device it can enumerate. Any static VxD that was loaded for a given device node is then sent a system control call with the following parameters: </P>
+
+<PRE>EAX = PNP_NEW_DEVNODE
+ EBX = DEVNODE
+ EDX = LOAD_DLVXD_DEVLOADER
+ </PRE>
+
+<P>At this point, most VxDs return CR_DEVLOADER_NOT_READY. When a static VxD reaches the device initialization stage, it should call the <B>CONFIGMG_Register_DevLoader</B> function. The system will make another PNP_NEW_DEVNODE system control call, at which point the VxD can load the device driver or enumerator. (Often, the device driver and enumerator are in the same binary file, as in the case of ISAPNP.386.) A typical driver must call <B>CONFIGMG_Register_Device_Driver</B>, and an enumerator must additionally call <B>CONFIGMG_Register_Enumerator</B>. Some VxDs will also register arbitrators at this point, using the <B>CONFIGMG_Register_Arbitrator</B> function. Arbitrators should be loaded at SYS_CRITICAL_INIT if they are global. </P>
+
+<P>Configuration Manager will then call any enumerator that has been registered to further enumerate devices. All devices that were enumerated in real mode will have been allocated a complete device node by the end of this process, and any VxD that was loaded for a particular device will have been notified through the new Plug and Play system control call. </P>
+
+<P>Once all device nodes have been created, Configuration Manager will assign resources to each device and call the driver entry point to inform it of its new configuration. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Processing%20Before%20Sys_Critical_Init%20Message"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

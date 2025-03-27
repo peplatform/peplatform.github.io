@@ -1,0 +1,54 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Supporting 802.1Q Using an Intermediate Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Supporting 802.1Q Using an Intermediate Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_supporting_802.1q_using_an_intermediate_driver_ng"></A>Supporting 802.1Q Using an Intermediate Driver</H2>
+
+<P>An <A HREF="301int_0x2f.htm">NDIS intermediate driver</A> can be created to provide full 802.1Q support for device types that support the following levels of packet marking:
+
+<UL>
+	<LI>Priority and VLAN identifier (ID) marking</LI>
+
+	<LI>Priority-only marking</LI>
+
+	<LI>No marking</LI>
+</UL>
+
+<P>The 802.1Q intermediate driver must support: 
+
+<UL>
+	<LI>Configuring and maintaining information for VLAN IDs. For more information, see <A HREF="204_802p_5raf.htm">Initializing, Setting, and Retrieving VLAN Identifiers</A>.</LI>
+
+	<LI>NICs that are members of multiple VLANs. That is, NICs that can be configured with multiple VLAN IDs.</LI>
+</UL>
+
+<P>The 802.1Q intermediate driver exposes one or more virtual NICs, which are driver instances that are initialized through the driver's <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A> routine. Each virtual NIC supports 802.1Q and acts as a protocol that binds to the miniport driver of a physical NIC. The 802.1Q intermediate driver configures the <B>VlanId</B> registry parameter. Therefore, regardless of the type of physical NIC to which the virtual NIC is bound, the VLAN ID of the physical NIC is always configured by the intermediate driver. The 802.1Q intermediate driver sends a <A HREF="204_802p_7ron.htm#ddk_oid_gen_mac_options_ng">OID_GEN_MAC_OPTIONS</A> query to the miniport driver of a specific physical NIC to determine what level of packet marking the physical NIC provides. The intermediate driver either inserts 802.1Q information into an outgoing packet or extracts 802.1Q information from an incoming packet according to the marking level that the physical NIC provides.</P>
+
+<P>For a NIC and its miniport driver that provide priority and VLAN ID marking (that is, full 802.1Q support), the 802.1Q intermediate driver performs the following operations for outgoing and incoming packets: 
+
+<UL>
+	<LI>For outgoing packets, the 802.1Q intermediate driver assigns the configured VLAN ID to the <B>TagHeader.VlanID</B> member of the <A HREF="105nstru_45bm.htm">NDIS_PACKET_8021Q_INFO</A> structure of a packet descriptor's per-packet information before passing the packet descriptor along to the miniport driver. </LI>
+
+	<LI>For incoming packets, because the miniport driver removes packet marking, the 802.1Q intermediate driver does not perform any 802.1Q-specific operations.</LI>
+</UL>
+
+<P>For a NIC and its miniport driver that do not provide packet marking or provide priority-only marking, the 802.1Q intermediate driver performs the following operations for outgoing and incoming packets: 
+
+<UL>
+	<LI>For outgoing packets, the 802.1Q intermediate driver retrieves the information from the packet descriptor and then generates the components of the packet's <A HREF="204_802p_5cdj.htm">tag header</A> as described in <A HREF="204_802p_2n3b.htm">Sending 802.1Q-Marked Packets</A>. The 802.1Q intermediate driver then clears the <B>Ieee8021QInfo</B> per-packet information for packet descriptors (pointers to <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A> structures) that are sent down the stack to prevent the possibility of the miniport driver inserting a duplicate priority mark in outgoing packets. </LI>
+
+	<LI>For incoming packets, the 802.1Q intermediate driver extracts the appropriate information from the MAC headers of the packets and then assigns the priority and VLAN ID values to members of the NDIS_PACKET_8021Q_INFO structure of a packet descriptor's per-packet information. The intermediate driver then indicates the packet to higher protocol layers as described in <A HREF="204_802p_3w87.htm">Receiving 802.1Q-Marked Packets</A>. A miniport driver that can assign and remove priority marking should have this feature disabled so that the miniport driver passes priority information transparently in the data stream. For more information, see <A HREF="204_802p_4usn.htm">Disable Priority Support by Default</A>.</LI>
+</UL>
+
+<P>For information on adding 802.1Q support to an intermediate driver, see the readme for the Mux driver. This intermediate driver is a sample driver that is included in the Windows DDK.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Supporting%20802.1Q%20Using%20an%20Intermediate%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

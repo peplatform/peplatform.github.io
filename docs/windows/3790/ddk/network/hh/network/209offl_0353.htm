@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Offloading the Segmentation of Large TCP Packets</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Offloading the Segmentation of Large TCP Packets">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_offloading_the_segmentation_of_large_tcp_packets_ng"></A>Offloading the Segmentation of Large TCP Packets</H1>
+
+<P>A NIC that supports the segmentation of large TCP packets (TCP packets that are larger than the maximum transmission unit of the network medium), must also be able to:
+
+<UL>
+	<LI>Calculate IP checksums for send packets that contain IP options.</LI>
+
+	<LI>Calculate TCP checksums for send packets that contain TCP options.</LI>
+</UL>
+
+<P>If a miniport driver indicates that its NIC supports large-TCP-packet segmentation, the TCP/IP stack assumes that the NIC can perform this segmentation on large TCP packets that contain IP options and/or TCP options.</P>
+
+<P>The TCP/IP transport offloads only those large TCP packets that meet the following criteria:
+
+<UL>
+	<LI>The packet is a TCP packet. The TCP/IP transport does not offload large UDP packets for segmentation.</LI>
+
+	<LI>The packet must be divisible by at least the minimum number of segments specified by the miniport driver. For more information, see <A HREF="209offl_9d5z.htm">Reporting a NIC's TCP Packet Segmentation Capabilities</A>.</LI>
+
+	<LI>The packet is not a loopback packet.</LI>
+
+	<LI>The packet will not be sent through a tunnel.</LI>
+
+	<LI>The packet will not be sent to a load-balancing miniport driver. For more information on load balancing, see <A HREF="210lbfo_8z8n.htm">Load Balancing and Fail Over</A>.</LI>
+</UL>
+
+<P>Before offloading a large TCP packet for segmentation, the TCP/IP transport:
+
+<UL>
+	<LI>Updates the large-packet segmentation information that is associated with the packet descriptor. This information is a ULONG value that is part of the per-packet information that is associated with the packet descriptor. For more information on per-packet information, see <A HREF="105nstru_9oqa.htm">NDIS_PACKET_EXTENSION</A>. The TCP/IP transport sets this ULONG value to the maximum segment size (MSS), which is equivalent to the current maximum transmission unit (MTU). The MTU is the maximum number of user data bytes that the miniport driver can currently include in a single packet.</LI>
+
+	<LI>Writes the total length of the large TCP packet to the Total Length field of the packet's IP header. The total length includes the length of the IP header, the length of the IP options if they are present, the length of the TCP header, the length of the TCP options if they are present, and the length of the TCP payload.</LI>
+
+	<LI>Calculates a one’s complement sum for the TCP pseudoheader and writes this sum to the Checksum field of the TCP header. The TCP/IP transport calculates the one’s complement sum over the following fields in the pseudoheader: Source IP Address, Destination IP Address, and Protocol. The one’s complement sum for the pseudoheader provided by the TCP/IP transport gives the NIC an early start in calculating the real TCP checksum for each packet that the NIC derives from the large TCP packet without having to examine the IP header. </LI>
+
+	<LI>Writes the correct sequence number to the Sequence Number field of the TCP header. The sequence number identifies the first byte of the TCP payload.</LI>
+</UL>
+
+<P>After the miniport driver obtains the packet descriptor in its <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A>, <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A>, or <A HREF="101mini_0ycy.htm"><I>MiniportCoSendPackets</I></A> function, it can call the <A HREF="103ndisx_0bjm.htm">NDIS_PER_PACKET_INFO_FROM_PACKET</A> macro with an <I>InfoType</I> of <B>TcpLargeSendPacketInfo</B> to obtain the MSS value written by the TCP/IP transport. Alternatively, the miniport driver can call the <A HREF="103ndisx_6pyq.htm">NDIS_PACKET_EXTENSION_FROM_PACKET</A> macro to obtain a pointer to the NDIS_PACKET_EXTENSION structure. The miniport driver can then use the <B>TcpLargeSendPacketInfo</B> array index to obtain the MSS value.</P>
+
+<P>The miniport driver obtains the total length of the large packet from the packet's IP header and uses the MSS value to divide the large TCP packet into smaller packets. Each of the smaller packets contains MSS or less user data bytes. Note that only the last packet that was created from the segmented large packet should contain less than MSS user data bytes. All other packets that were created from the segmented packet should contain MSS user data bytes. If you do not follow this rule, the creation and transmission of unnecessary extra packets could degrade performance.</P>
+
+<P>The miniport driver affixes MAC, IP, and TCP headers to each segment that is derived from the large packet. The miniport driver must calculate the IP and TCP checksums for these derived packets. To calculate the TCP checksum for each packet that was derived from the large TCP packet, the NIC calculates the variable part of the TCP checksum (for the TCP header and TCP payload), adds this checksum to the one’s complement sum for the pseudoheader calculated by the TCP/IP transport, and then calculates the 16-bit one's complement for the checksum. For more information on calculating such checksums, see RFC&nbsp;793 and RFC&nbsp;1122.</P>
+
+<P>The following figure shows the segmentation of a large packet.</P>
+
+<P><IMG SRC="images/segmentation.gif" ALT="" BORDER=0></P>
+
+<P><B>Segmentation of a Large TCP Packet</B></P>
+
+<P>The length of the TCP user data in the large TCP packet should be equal to or less than the value that the miniport driver assigns to the <B>MaxOffloadSize</B>. For more information, see <A HREF="209offl_9d5z.htm">Reporting a NIC's TCP Packet Segmentation Capabilities</A>.</P>
+
+<P>The length of the TCP user data in a segment packet must be less than or equal to the MSS. The MSS is the ULONG value that the TCP transport passes down by using the per-packet information that is associated with the large TCP packet descriptor. Note that only the last packet that was created from the segmented large packet should contain less than MSS user data bytes. All other packets that were created from the segmented packet should contain MSS user data bytes. If you do not follow this rule, the creation and transmission of unnecessary extra packets could degrade performance.</P>
+
+<P>The number of segment packets that were derived from the large TCP packet must be equal to or greater than the <B>MinSegmentCount</B> specified by the miniport driver. For more information, see <A HREF="209offl_9d5z.htm">Reporting a NIC's TCP Packet Segmentation Capabilities</A>.</P>
+
+<P>The following assumptions and restrictions apply to processing IP and TCP headers:
+
+<UL>
+	<LI>The MF bit in the IP header of the large TCP packet that the TCP/IP transport offloaded will not be set, and the Fragment Offset in the IP header will be zero.</LI>
+
+	<LI>The URG, RST, and SYN flags in the TCP header of the large TCP packet will not be set, and the urgent offset (pointer) in the TCP header will be zero.</LI>
+
+	<LI>If the FIN bit in the TCP header of the large packet is set, the miniport driver must set this bit in the TCP header of the last packet that it creates from the large TCP packet.</LI>
+
+	<LI>If the PSH bit in the TCP header of the large TCP packet is set, the miniport driver must set this bit in the TCP header of the last packet that it creates from the large TCP packet.</LI>
+
+	<LI>If the large TCP packet contains IP options and/or TCP options, the miniport driver copies these options, unaltered, to each packet that it derived from the large TCP packet. Specifically, the NIC will not increment the Time Stamp option.</LI>
+</UL>
+
+<P>The miniport driver must send packets in the order that it receives them from the TCP/IP transport. However, the miniport driver can interleave packets that were created from a large TCP packet with other packets.</P>
+
+<P>The miniport driver must also preserve the order of the ACKs that it receives in response to the transmission of packets that were derived from the large TCP packet. The miniport driver must indicate up packets that contain such ACKs in the order that it receives them so that the fast retransmit algorithms, fast recovery algorithms, and selective ACK algorithms performed by the TCP/IP transport work correctly.</P>
+
+<P>When processing a large TCP packet, the miniport driver is responsible only for segmenting the packet and affixing MAC, IP, and TCP headers to the packets that are derived from the large TCP packet. The TCP/IP transport performs all other tasks (such as adjusting the send window size based on the remote host's receive window size).</P>
+
+<P>Before completing the send operation for the large packet (such as with <A HREF="103ndisx_2kxe.htm"><B>NdisMSendComplete</B></A> or <A HREF="103ndisx_5t2q.htm"><B>NdisMCoSendComplete</B></A>), the miniport driver writes the ULONG value (the per-packet information for large-TCP-packet offloads) with the total number of TCP user data bytes sent successfully in all packets that were created from the large TCP packet.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Offloading%20the%20Segmentation%20of%20Large%20TCP%20Packets"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

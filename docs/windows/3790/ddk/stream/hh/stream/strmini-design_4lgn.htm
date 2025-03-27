@@ -1,0 +1,34 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Stream Class and Minidriver Interface</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Stream Class and Minidriver Interface">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_stream_class_and_minidriver_interface_ksg"></A>Stream Class and Minidriver Interface</H1>
+
+<P>The stream class interface is primarily a set of function calls between the class driver and the minidriver. The class driver controls the request flow, calling the adapter minidriver when access to the adapter hardware is necessary. The class driver is responsible for multiprocessor and interrupt synchronization. After both the class driver and the minidriver are initialized, the minidriver is passive and is called only by the class driver. Most of the function calls from the minidriver to the class driver are low-level service requests. </P>
+
+<P>The basic mechanism controlling commands and information to the minidriver is the <I>stream request block</I> (SRB). A set of SRBs is provided for each minidriver to access particular capabilities of a driver and are usually specific for each data stream supported by the device. This information is passed to the device through an operating-system-controlled DMA in a large circular buffer.</P>
+
+<P>An SRB comprises a command and data associated with that command. A <A HREF="strclass-struct_2jeb.htm"><B>HW_STREAM_REQUEST_BLOCK</B></A> structure contains all information relating to a specific SRB. This structure, often referred to simply as an SRB, contains additional parameters to supplement the command.</P>
+
+<P>The following illustration shows the interaction between the stream class and the minidriver during initialization.</P>
+
+<P><IMG SRC="images/stclassi.gif" ALT="" BORDER=0></P>
+
+<P><B>Initializing the Adapter</B></P>
+
+<P>All streaming minidriver functions are optionally synchronized with the minidriver’s interrupt service routine (ISR), making the minidrivers nonreentrant. In other words, when a thread is executing in the minidriver, no calls will be made to any other function within the minidriver, including the ISR. This nonreentrant condition holds true even on multiprocessor Windows&nbsp;NT/Windows 2000 systems, making the minidrivers easier to write. The stream class driver achieves this nonreentrant condition by masking off the IRQ of the streaming minidriver (and all lower priority IRQs) using <B>KeSynchronizeExecution</B> when code is executing in any of the minidriver’s routines. For more information on synchronization, see <A HREF="strmini-design_48x3.htm">Minidriver Synchronization</A>.</P>
+
+<P>The streaming minidriver can call WDM system services as necessary. However, the minidriver does not allocate a device object but uses the class driver’s device object to make system calls. Most minidrivers do not need to make WDM system calls, because all necessary functionality is available from the class driver.</P>
+
+<P>Minidrivers must be aware that all minidriver entry points are called at IRQL &gt; DISPATCH_LEVEL when making WDM system service calls, except for the <A HREF="strclass-routines_7jjn.htm"><B>StreamClassCallAtNewPriority</B></A> routine. This function allows service calls at IRQL = DISPATCH_LEVEL or PASSIVE_LEVEL, depending on the priority specified. This limitation on IRQL can be overridden by setting the <B>TurnOffSynchronization</B> Boolean in the <A HREF="strclass-struct_4ks3.htm"><B>HW_INITIALIZATION_DATA</B></A> structure to TRUE.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Stream%20Class%20and%20Minidriver%20Interface"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

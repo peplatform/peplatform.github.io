@@ -1,0 +1,72 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Starting a Device in a Function Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Starting a Device in a Function Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_starting_a_device_in_a_function_driver_kg"></A>Starting a Device in a Function Driver</H2>
+
+<P>A function driver sets an <A HREF="drvrrtns_4rsi.htm"><I>IoCompletion</I></A> routine, passes an <A HREF="pnp-irps_1gqa.htm">IRP_MN_START_DEVICE</A> request down the device stack, and postpones its start operations until all lower drivers have finished with the IRP. See <A HREF="plugplay_6wx3.htm">Postponing PnP IRP Processing Until Lower Drivers Finish</A> for detailed information on using a kernel event and an <I>IoCompletion</I> routine to postpone IRP processing. </P>
+
+<P>When its <A HREF="drvrrtns_8uya.htm"><I>DispatchPnP</I></A> routine regains control after all lower drivers have finished with the IRP, the function driver performs its tasks for starting the device. A function driver starts the device with a procedure like the following:
+
+<OL>
+	<LI>If a lower driver failed the IRP (<A HREF="k104_1agi.htm"><B>IoCallDriver</B></A> returned an error), do not continue processing the IRP. Do any necessary cleanup and return from the <I>DispatchPnP</I> routine (go to the last step in this list).</LI>
+
+	<LI>If lower drivers processed the IRP successfully, start the device.
+<P>The exact steps to start a device vary from device to device. Such steps might include mapping I/O space, initializing hardware registers, setting the device in the D0 power state, and connecting the interrupt with <A HREF="k104_7h9u.htm"><B>IoConnectInterrupt</B></A>. If the driver is restarting a device after an IRP_MN_STOP_DEVICE request, the driver might have device state to restore.
+
+<P>The device must be powered on before any drivers can access it. See <A HREF="pwrmgmt_2vfr.htm">Powering Up a Device</A> for more information. 
+
+<P>If the device should be enabled for wake-up, its power policy owner (usually the function driver) should send a wait/wake IRP after it powers up the device and before it completes the IRP_MN_START_DEVICE request. For details, see <A HREF="pwrmgmt_0s6f.htm">Sending a Wait/Wake IRP</A>. 
+</LI>
+
+	<LI>Start IRPs in the IRP-holding queue.
+<P>Clear the driver-defined HOLD_NEW_REQUESTS flag and start the IRPs in the IRP-holding queue. Drivers should do this when starting a device for the first time and when restarting a device after a query-stop or stop IRP. See <A HREF="plugplay_8alj.htm">Holding Incoming IRPs When a Device is Paused</A> for more information.
+</LI>
+
+	<LI>[Optional]  Enable interfaces for the device by calling <A HREF="k104_3epe.htm"><B>IoSetDeviceInterfaceState</B></A>.
+<P>Enable the interfaces, if any, that the driver previously registered in its <I>AddDevice</I> routine (or in an INF or by another component such as a coinstaller).
+
+<P>On Windows&nbsp;2000 and later systems, the PnP Manager does not send notification of device-interface arrivals until the IRP_MN_START_DEVICE IRP completes, indicating that all the drivers for the device have completed their start operations. The PnP Manager also fails any create requests that arrive before all the drivers for the device complete the start IRP.
+</LI>
+
+	<LI>Complete the IRP.
+<P>The function driver's <I>IoCompletion</I> routine returned STATUS_MORE_PROCESSING_REQUIRED, as described in <A HREF="plugplay_6wx3.htm">Postponing PnP IRP Processing Until Lower Drivers Finish</A>, so the function driver's <I>DispatchPnP</I> routine must call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> to resume I/O completion processing.
+
+<P>If the function driver's start operations were successful, the driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS, calls <B>IoCompleteRequest</B> with a priority boost of IO_NO_INCREMENT, and returns STATUS_SUCCESS from its <I>DispatchPnP</I> routine.
+
+<P>If the function driver encounters an error during its start operations, the driver sets an error status in the IRP, calls <B>IoCompleteRequest</B> with IO_NO_INCREMENT, and returns the error from its <I>DispatchPnP</I> routine.
+
+<P>If a lower driver failed the IRP (<B>IoCallDriver</B> returned an error), the function driver calls <B>IoCompleteRequest</B> with IO_NO_INCREMENT and returns the <B>IoCallDriver</B> error from its <I>DispatchPnP</I> routine. The function driver does not set <B>Irp-&gt;IoStatus.Status</B> in this case because the status has already been set by the lower driver that failed the IRP.
+</LI>
+</OL>
+
+<P>When a function driver receives an IRP_MN_START_DEVICE request, it should examine the structures at <B>IrpSp-&gt;Parameters.StartDevice.AllocatedResources </B>and <B>IrpSp-&gt;Parameters.StartDevice.AllocatedResourcesTranslated</B>, which describe the raw and translated resources, respectively, that the PnP Manager has assigned to the device. Drivers should save a copy of each resource list in the device extension a debugging aid.</P>
+
+<P>The resource lists are paired <A HREF="k112_92k2.htm">CM_RESOURCE_LIST</A> structures, in which each element of the raw list corresponds to the same element of the translated list. For example, if <B>AllocatedResources.List</B>[0] describes a raw I/O port range, then <B>AllocatedResourcesTranslated.List</B>[0] describes the same range after translation. Each translated resource includes a physical address and the type of the resource. </P>
+
+<P>If a driver is assigned a translated memory resource (<B>CmResourceTypeMemory</B>), it must call <A HREF="k106_9j5e.htm"><B>MmMapIoSpace</B></A> to map the physical address into a virtual address through which it can access device registers. For a driver to operate in a platform independent manner, it should check each returned, translated resource and map it, if necessary. </P>
+
+<P>A function driver should do the following in response to an IRP_MN_START_DEVICE to ensure access to all device resources: 
+
+<OL>
+	<LI>Copy <B>IrpSp-&gt;Parameters.StartDevice.AllocatedResources</B> to the device extension.</LI>
+
+	<LI>Copy <B>IrpSp-&gt;Parameters.StartDevice.AllocatedResourcesTranslated</B> to the device extension.</LI>
+
+	<LI>In a loop, inspect each descriptor element in <B>AllocatedResourcesTranslated</B>. If the descriptor resource type is <B>CmResourceTypeMemory</B>, call <B>MmMapIoSpace</B>, passing the physical address and length of the translated resource.</LI>
+</OL>
+
+<P>When the driver receives an IRP_MN_STOP_DEVICE, IRP_MN_REMOVE_DEVICE, or IRP_MN_SURPRISE_REMOVAL request, it must release the mappings by calling <A HREF="k106_16sy.htm"><B>MmUnmapIoSpace</B></A> in a similar loop. The driver should also call <B>MmUnmapIoSpace</B> if it must fail the IRP_MN_START_DEVICE request.</P>
+
+<P>See <A HREF="memmgmt_7n6v.htm">Mapping Bus-Relative Addresses to Virtual Addresses</A> for more information.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Starting%20a%20Device%20in%20a%20Function%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

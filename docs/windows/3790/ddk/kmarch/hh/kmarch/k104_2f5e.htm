@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IoReportTargetDeviceChangeAsynchronous</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IoReportTargetDeviceChangeAsynchronous">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ioreporttargetdevicechangeasynchronous_kr"></A>IoReportTargetDeviceChangeAsynchronous</H1>
+
+<P>The <B>IoReportTargetDeviceChangeAsynchronous</B> routine notifies the PnP Manager that a custom event has occurred on a device. </P>
+
+<PRE class=syntax><B>NTSTATUS 
+</B>  <B>IoReportTargetDeviceChangeAsynchronous(</B>
+    <B>IN PDEVICE_OBJECT</B>  <I>PhysicalDeviceObject</I><B>,</B>
+    <B>IN PVOID</B>  <I>NotificationStructure</I><B>,</B>
+    <B>IN PDEVICE_CHANGE_COMPLETE_CALLBACK </B> <I>Callback</I>  <B>OPTIONAL,</B>
+    <B>IN PVOID </B> <I>Context</I>  <B>OPTIONAL</B>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>PhysicalDeviceObject</I></DT>
+
+<DD>Pointer to the PDO of the device being reported.</DD>
+
+<DT><I>NotificationStructure</I></DT>
+
+<DD>Pointer to a caller-supplied TARGET_DEVICE_CUSTOM_NOTIFICATION structure describing the custom event. The PnP Manager sends this structure to drivers that registered for notification of the event.
+
+<P><I>NotificationStructure</I>.<B>FileObject</B> must be NULL. <I>NotificationStructure</I>.<B>Event</B> must contain the custom GUID for the event. The other fields of the <I>NotificationStructure</I> must be filled in as appropriate for the custom event.
+
+
+<P>The PnP Manager fills in the <I>NotificationStructure</I>.<B>FileObject</B> field when it sends notifications to registrants.
+</DD>
+
+<DT><I>Callback</I></DT>
+
+<DD>Optionally points to a caller-supplied routine that the PnP Manager calls after it finishes notifying drivers that registered for this custom event. 
+
+<P>The callback routine has the following type:
+
+
+<PRE>typedef
+VOID
+(*PDEVICE_CHANGE_COMPLETE_CALLBACK)(
+    IN PVOID Context
+    );</PRE>
+
+
+<P>A device-change-complete callback routine should not block and must not call synchronous routines that generate PnP events.
+
+
+<P>The PnP Manager calls device-change-complete callback routines at IRQL&nbsp;= PASSIVE_LEVEL.
+</DD>
+
+<DT><I>Context</I></DT>
+
+<DD>Optionally points to a caller-supplied context structure that the PnP Manager passes to the <I>Callback</I> routine. The caller must allocate this structure from nonpaged memory.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>IoReportTargetDeviceChangeAsynchronous</B> returns STATUS_SUCCESS or an appropriate error status. Possible error status values include the following.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=47%>Error Status</TH>
+<TH align=left width=53%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=47%>STATUS_INVALID_DEVICE_REQUEST</TD>
+<TD width=53%>The caller specified a system PnP event, such as GUID_TARGET_DEVICE_QUERY_REMOVE. This routine is only for custom events.</TD>
+</TR>
+</TABLE><BR>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ntddk.h. </I>Include <I>ntddk.h.</I></P>
+
+<H4>Comments</H4>
+
+<P>After the <B>IoReportTargetDeviceChangeAsynchronous</B> routine notifies the PnP Manager that a custom event has occurred on a device, the routine returns immediately; it does not wait while the PnP Manager sends notification of the event to drivers that registered for notification on the device. Do not use this routine to report system PnP events, such as GUID_TARGET_DEVICE_REMOVE_COMPLETE.</P>
+
+<P>A driver that defines a custom device event calls <B>IoReportTargetDeviceChangeAsynchronous</B> to inform the PnP Manager that the custom event has occurred. Custom notifcation can be used for events like a volume label change.</P>
+
+<P>The custom notification structure contains a driver-defined event with its own GUID. Driver writers can generate GUIDs with <I>uuidgen.exe</I> or <I>guidgen.exe</I>.</P>
+
+<P>When a driver calls this routine while handling an event, an IRP_MN_REMOVE_DEVICE, or an IRP_MN_SURPRISE_REMOVAL, the PnP Manager calls the driver's <I>Callback</I> routine after the driver returns and the stack unwinds.</P>
+
+<P>Callers of <B>IoReportTargetDeviceChangeAsynchronous</B> must be running at IRQL&nbsp;&lt;= DISPATCH_LEVEL. If a driver writer calls this routine at IRQL&nbsp;= DISPATCH_LEVEL, the <I>NotificationStructure</I> must be allocated from nonpaged memory.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k104_1n3m.htm"><B>IoReportTargetDeviceChange</B></A>, <A HREF="k112_3p4i.htm">TARGET_DEVICE_CUSTOM_NOTIFICATION</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IoReportTargetDeviceChangeAsynchronous"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

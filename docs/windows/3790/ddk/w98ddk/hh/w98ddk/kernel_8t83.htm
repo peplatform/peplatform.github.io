@@ -1,0 +1,55 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Note</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_1133"></A>Note</H3>
+
+<P>The preceding description implies that the only meaningful place to use Call_When_VM_Returns is when a Simulate_Far_Call or Build_Int_Stack_Frame is going to happen soon. (As noted, this is typically done inside the callback installed by Hook_V86_Int_Chain.) In particular, in order to hook the back end of a simulated interrupt, you must call Call_When_VM_Returns before the interrupt itself is simulated. If the interrupt or far call has already been simulated, Call_When_VM_Returns will not do what you want. (The name of the service is rather unfortunate. It really means "Call when the VM returns to where it is now", and not "Call when the VM executes a return instruction".) </P>
+
+<P>The system calls this callback procedure as follows: </P>
+
+<PRE>mov     ebx, VM             ; current VM handle
+mov     edi, hCurThread     ; current thread handle
+mov     edx, RefData        ; reference data
+mov     ebp, OFFSET32 crs   ; points to a Client_Reg_Struc
+call    [Callback]
+ </PRE>
+
+<P>The <I>VM</I> parameter is a handle identifying the current virtual machine. The <I>RefData</I> parameter is the value supplied when the callback procedure was installed, and the <I>crs</I> parameter points to a <B>Client_Reg_Struc</B> structure containing the register values for the virtual machine. </P>
+
+<P>If the system calls the callback procedure as a result of a time out, it sets the carry flag before calling the procedure. If the system calls the callback a second time (once for a time out and once for the <B>iret</B> instruction), the system sets the zero flag before calling the procedure a second time. The value of the zero flag is indeterminate unless the <I>TimeOut</I> parameter specifies a negative value. </P>
+
+<P>In other words, 
+
+<UL>
+	<LI>If you passed TimeOut = 0, then the callback is called when the VM returns and at no other time. </LI>
+
+	<LI>If you passed TimeOut &gt; 0, then the callback should begin like this: 
+<PRE>jc      timed_out;  Timeout notification
+                 ;  Otherwise, the VM returned
+                 ;  before the timeout expired
+</PRE>
+</LI>
+
+	<LI>If you passed TimeOut &lt; 0, then the callback should begin like this: 
+<PRE>jc      timed_out    ;  Timeout notification
+                     ;  Otherwise, the VM returned
+jnz         normal_return;  VM returned with no timeout
+                     ; Else, VM returned with timeout
+ </PRE>
+</LI>
+</UL>
+
+<H4>See Also</H4>
+
+<P><B>Hook_V86_Int_Chain</B> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Note"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,124 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>CO_MEDIA_PARAMETERS</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="CO_MEDIA_PARAMETERS">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_co_media_parameters_nr"></A>CO_MEDIA_PARAMETERS</H1>
+
+<P>The CO_MEDIA_PARAMETERS structure is typically used by a call manager to specify media parameters to an underlying connection-oriented miniport driver. The miniport driver either reserves resources for the VC or activates the VC with the specified media parameters.</P>
+
+<PRE class=syntax>typedef struct _CO_MEDIA_PARAMETERS{
+  ULONG  Flags;
+  ULONG  ReceivePriority;
+  ULONG  ReceiveSizeHint;
+  CO_SPECIFIC_PARAMETERS MediaSpecific;
+} CO_MEDIA_PARAMETERS, *PCO_MEDIA_PARAMETERS;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>Flags</B></DT>
+
+<DD>The flags can be one or more (ORed) of the following:
+
+<DL>
+<DT>RECEIVE_TIME_INDICATION</DT>
+
+<DD>When set, the miniport driver should use the <A HREF="103ndisx_3nxu.htm">NDIS_SET_PACKET_TIME_RECEIVED</A> macro to fill in the <B>TimeReceived</B> member in the out-of-band data block for each received packet.</DD>
+
+<DT>USE_TIME_STAMPS</DT>
+
+<DD>When set, the miniport driver should use the <A HREF="103ndisx_2u42.htm">NDIS_SET_PACKET_TIME_SENT</A> macro to fill in the <B>TimeSent</B> member in the out-of-band data block for each transmitted packet. If the medium does not support time stamps, the miniport driver should ignore this flag.</DD>
+
+<DT>TRANSMIT_VC</DT>
+
+<DD>When set, indicates that the VC activated by the miniport driver will be used for transmitting data.</DD>
+
+<DT>RECEIVE_VC</DT>
+
+<DD>When set, indicates that the VC activated by the miniport driver will be used for receiving data.</DD>
+
+<DT>INDICATE_ERRED_PACKETS</DT>
+
+<DD>When set, the miniport driver should indicate receive packets that contain errors (such as checksum errors) to the client. Otherwise, the miniport driver should discard such packets without notifying the client.</DD>
+
+<DT>INDICATE_END_OF_TX</DT>
+
+<DD>When set, the miniport driver should call <A HREF="103ndisx_5t2q.htm"><B>NdisMCoSendComplete</B></A> for a packet only after transmission of the packet is finished. Otherwise, the miniport driver can call <B>NdisMCoSendComplete</B> sooner; for example, after transferring the protocol-supplied data into the NIC buffer(s).</DD>
+
+<DT>RESERVE_RESOURCES_VC</DT>
+
+<DD>When set, the call manager is requesting that the miniport driver reserve all resources (such as buffers) needed for the VC. The miniport driver should not activate the VC until its <A HREF="101mini_7piq.htm"><I>MiniportCoActivateVC</I></A> function is called with this flag cleared.</DD>
+
+<DT>ROUND_DOWN_FLOW</DT>
+
+<DD>When set, the miniport driver should round down the value of each media-specific flow parameter (such as bandwidth) to the nearest supported value if the exact value specified cannot be supported. In its call to <A HREF="103ndisx_5g8i.htm"><B>NdisMCoActivateVcComplete</B></A>, the miniport driver should return (in the buffer at <B>MediaSpecific</B> parameters) the actual value used for each rounded value.</DD>
+
+<DT>ROUND_UP_FLOW</DT>
+
+<DD>When set, the miniport driver should round up the value of each media-specific flow parameter (such as bandwidth) to the nearest supported value if the exact value specified cannot be supported. In its call to NdisMCoActivateVcComplete, the miniport driver should return (in the buffer at <B>MediaSpecific</B> parameters) the actual value used for each rounded value.</DD>
+</DL>
+</DD>
+
+<DT><B>ReceivePriority</B></DT>
+
+<DD>
+
+<DL>
+<DT>This is currently reserved.</DT>
+</DL>
+</DD>
+
+<DT><B>ReceiveSizeHint</B></DT>
+
+<DD>Specifies the size in bytes of incoming packets. This member is commonly set to the maximum SDU size.</DD>
+
+<DT><B>MediaSpecific</B></DT>
+
+<DD>Pointer to a buffered <A HREF="105nstru_5zw2.htm">CO_SPECIFIC_PARAMETERS</A> structure that contains information specific to the particular medium being used.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ndis.h</I>. Include <I>ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The address of a buffered CO_MEDIA_PARAMETERS structure is a member of a <A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A> structure. CO_MEDIA_PARAMETERS contains generic media parameters that are of interest to all connection-oriented miniport drivers. CO_MEDIA_PARAMETERS also specifies medium-specific parameters that apply to a specific network medium and possibly to a particular miniport driver that controls the medium.</P>
+
+<P>The following describes the role of media parameters in connection-oriented NDIS operations:</P>
+
+<P><B>Making an Outgoing Call</B></P>
+
+<P>Usually a call manager derives the media parameters for an outgoing call from generic call manager parameters provided by a client's call to <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A> and passed to the call manager's <A HREF="104tdlow_20oi.htm"><I>ProtocolCmMakeCall</I></A> function. The call manager fills in CO_MEDIA_PARAMETERS and calls <A HREF="103ndisx_3zzm.htm"><B>NdisCmActivateVc</B></A><B> </B>or <A HREF="103ndisx_2xde.htm"><B>NdisMCmActivateVc</B></A>. The miniport driver receives the CO_MEDIA_PARAMETERS structure in its <A HREF="101mini_7piq.htm"><I>MiniportCoActivateVC</I></A> function and uses the media parameters to reserve resources for a VC or to activate a VC.</P>
+
+<P>A client that is aware of the underlying medium can itself fill in CO_MEDIA_PARAMETERS before calling <B>NdisClMakeCall</B>. If the client also sets the PERMANENT_VC bit in CO_CALL_PARAMETERS, the call manager can pass the call parameters uninterpreted to the miniport driver with <B>Ndis(M)CmActivateVc</B>.</P>
+
+<P><B>Indicating an Incoming Call</B></P>
+
+<P>When the call manager detects an incoming call on a SAP registered by a client, it maps parameters received in the signaling message to call manager parameters for the client and to media parameters for the miniport driver. The call manager calls <B>Ndis(M)CmActivateVc</B> to pass the media specific parameters to the miniport. The call manager does this before notifying the client of the incoming call with <A HREF="103ndisx_2v76.htm"><B>NdisCmDispatchIncomingCall</B></A><B> </B>or <A HREF="103ndisx_5zoy.htm"><B>NdisMCmDispatchIncomingCall</B></A>.</P>
+
+<P><B>Request to Change Call Parameters for a VC</B></P>
+
+<P>When a request to change call parameters for a VC is successfully negotiated between the client and a remote entity on the network, the call manager must reactivate the VC for the call. The call manager sends the miniport driver a revised set of media parameters with <B>Ndis(M)CmActivateVc</B>.</P>
+
+<P><B>Adding a Party to a Call</B></P>
+
+<P>If the underlying network medium (for example, ATM) does not support per-party traffic parameters on multipoint VCs, the call manager will fail a client's request to change the call parameters for a VC when a adding a party to the call. In this case, adding a party does not involve the media parameters.</P>
+
+<P>If the underlying network medium does support per-party traffic parameters on multipoint VCs, a client can specify new call parameters for any new party it adds. In its call to <A HREF="103ndisx_5fua.htm"><B>NdisClAddParty</B></A>, the client can include generic call manager parameters that the call manager translates to media parameters for the new party, and/or the client can include media parameters for the new party that the call manager passes uninterpreted to the miniport driver.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="105nstru_7vn6.htm">CO_CALL_MANAGER_PARAMETERS</A>, <A HREF="105nstru_3raq.htm">CO_CALL_PARAMETERS</A>, <A HREF="105nstru_5zw2.htm">CO_SPECIFIC_PARAMETERS</A>,<A HREF="103ndisx_5fua.htm"><B>NdisClAddParty</B></A>, <A HREF="103ndisx_3zzm.htm"><B>NdisCmActivateVc</B></A>, <A HREF="103ndisx_8xde.htm"><B>NdisCoRequest</B></A>, <A HREF="103ndisx_2xde.htm"><B>NdisMCmActivateVc</B></A>,<A HREF="103ndisx_5t2q.htm"> <B>NdisMCoSendComplete</B></A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="103ndisx_3nxu.htm">NDIS_SET_PACKET_TIME_RECEIVED</A>, <A HREF="103ndisx_2u42.htm">NDIS_SET_PACKET_TIME_SENT</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: CO_MEDIA_PARAMETERS"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

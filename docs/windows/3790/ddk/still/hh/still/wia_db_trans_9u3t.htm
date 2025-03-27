@@ -1,0 +1,367 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Allocating Memory for Data</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Allocating Memory for Data">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_allocating_memory_for_data_si"></A>Allocating Memory for Data</H1>
+
+<P>The WIA service relies on the information supplied in the <A HREF="wiastrct_8ckp.htm">MINIDRV_TRANSFER_CONTEXT</A> structure to perform a proper data transfer. The members of this structure that are relevant to the WIA minidriver are:</P>
+
+<P class=indent1><B>bClassDrvAllocBuf</B> – WIA service allocation flag.</P>
+
+<P class=indent1><B>pTransferBuffer</B> – Pointer to memory allocated for the transferred data.</P>
+
+<P class=indent1><B>lBufferSize</B> – Size of the memory pointed to by the <B>pTransferBuffer</B> member.</P>
+
+<P>If the <B>bClassDrvAllocBuf</B> member of the MINIDRV_TRANSFER_CONTEXT structure is set to TRUE, then the WIA service allocated memory for the minidriver. If the <B>bClassDrvAllocBuf</B> member is set to FALSE, the WIA service did <I>not</I> allocate any memory for the minidriver.</P>
+
+<P>The minidriver should allocate memory using the <B>CoTaskMemAlloc</B> function (described in the Platform SDK documentation). The minidriver should then store the pointer to the memory location in <B>pTransferBuffer</B> and the size of the memory in <B>lBufferSize</B> (in bytes).</P>
+
+<P>The <B>bClassDrvAllocBuff</B> member is set to FALSE only if the <A HREF="wia_proptable_4uy1.htm">WIA_IPA_TYMED</A> property is set to TYMED_FILE or TYMED_MULTIPAGE_FILE, and the <A HREF="wia_proptable_9ig9.htm">WIA_IPA_ITEM_SIZE</A> property is set to zero. </P>
+
+<P>The minidriver must be careful not to overfill the buffer pointed to by the <B>pTransferBuffer</B> member. You can avoid this by writing data in amounts less than or equal to the value stored in the <B>lBufferSize</B> member.</P>
+
+<H4>Enhancing Data Transfer Performance by Using Minimum Buffer Size</H4>
+
+<P>The WIA minidriver can control the amount of memory used during the data transfer by setting the <A HREF="wia_proptable_9ig9.htm">WIA_IPA_ITEM_SIZE</A> and <A HREF="wia_proptable_25d5.htm">WIA_IPA_BUFFER_SIZE</A> properties.</P>
+
+<P>A WIA application uses the WIA_IPA_BUFFER_SIZE property to determine the minimum transfer buffer size to request during a memory transfer. The larger this value is, the larger the requested band size will be. If a WIA application requests a buffer that is smaller in size than the value in the WIA_IPA_BUFFER_SIZE property, the WIA service ignores this requested size and asks the WIA minidriver for a buffer that is WIA_IPA_BUFFER_SIZE bytes in size. The WIA service always asks the WIA minidriver for buffers that are at least WIA_IPA_BUFFER_SIZE bytes in size.</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The value that the WIA_IPA_BUFFER_SIZE property contains is the minimum amount of data an application can request at any given time. The larger the buffer size, the larger the requests will be to the device. Buffer sizes that are too small can slow performance of the data transfer.</P>
+
+<P>It is recommended that you set the WIA_IPA_BUFFER_SIZE property to a reasonable size to allow the device to transfer data at an efficient rate. Do this by balancing the number of requests (buffer size not too small) and the number of time-consuming requests (buffer too large) for your device in order to ensure optimal performance.</P>
+
+<P>You should set the <A HREF="wia_proptable_9ig9.htm">WIA_IPA_ITEM_SIZE</A> property to zero if the WIA minidriver can transfer data. If the transfer type is TYMED_FILE or TYMED_MULTIPAGE_FILE, it is the minidriver’s responsibility to allocate memory for the data buffer to be passed to the WIA service function that writes to the file. This provides consistency in the implementation of the <A HREF="minidrv_1dpl.htm"><B>IWiaMiniDrv::drvAcquireItemData</B></A> method. </P>
+
+<P>The <B>IWiaminiDrv::drvAcquireItemData</B> method is called by the WIA service when it intends to transfer data from the device to an application. The WIA driver should determine which type of transfer (<I>via</I> the WIA service) the application is attempting, by reading the <B>tymed </B>member of the <A HREF="wiastrct_8ckp.htm">MINIDRV_TRANSFER_CONTEXT</A>:</P>
+
+<P>The <B>tymed</B> member, which is set by the application, can have one of the following four values:
+
+<DL>
+<DT>TYMED_FILE</DT>
+
+<DD>Transfer data to a file.</DD>
+
+<DT>TYMED_MULTIPAGE_FILE</DT>
+
+<DD>Transfer data to a multipage file format.</DD>
+
+<DT>TYMED_CALLBACK</DT>
+
+<DD>Transfer data to memory.</DD>
+
+<DT>TYMED_MULTIPAGE_CALLBACK</DT>
+
+<DD>Transfer multiple pages of data to memory.</DD>
+</DL>
+
+<P>The different TYMED settings XXX_CALLBACK and XXX_FILE change the usage of calling the application's callback interface.</P>
+
+<H4>TYMED_CALLBACK and TYMED_MULTIPAGE_CALLBACK</H4>
+
+<P>For a memory transfer, issue a <A HREF="callback_0hpl.htm"><B>IWiaMiniDrvCallBack::MiniDrvCallback</B></A> callback:</P>
+
+<P class=indent1>(<I>pmdtc</I>-&gt;<B>pIWiaMiniDrvCallBack</B>-&gt;<B>MiniDrvCallback</B> in the following sample source code)</P>
+
+<P>Make the callback using the following values:
+
+<DL>
+<DT>IT_MSG_DATA</DT>
+
+<DD>The driver is transferring data.</DD>
+
+<DT>IT_STATUS_TRANSFER_TO_CLIENT</DT>
+
+<DD>The data transfer message.</DD>
+
+<DT><I>lPercentComplete</I></DT>
+
+<DD>The percentage of the transfer that is complete.</DD>
+
+<DT><I>pmdtc</I>-&gt;<B>cbOffset</B></DT>
+
+<DD>Update this to the current location where the application should write the next data chunk.</DD>
+
+<DT><I>lBytesReceived</I> </DT>
+
+<DD>The number of bytes in the data chunk being sent to the application.</DD>
+
+<DT><I>pmdtc</I></DT>
+
+<DD>MINIDRV_TRANSFER_CONTEXT context
+</DD>
+</DL>
+
+<H4>TYMED_FILE and TYMED_MULTIPAGE_FILE</H4>
+
+<P>For a file transfer, issue a <A HREF="callback_0hpl.htm"><B>IWiaMiniDrvCallBack::MiniDrvCallback</B></A> callback::</P>
+
+<P class=indent1>(<I>pmdtc</I>-&gt;<B>pIWiaMiniDrvCallBack</B>-&gt;<B>MiniDrvCallback</B> in the following sample source code)</P>
+
+<P>Make the callback using the following values.
+
+<DL>
+<DT>IT_MSG_STATUS</DT>
+
+<DD>The driver is sending status only (no data).</DD>
+
+<DT>IT_STATUS_TRANSFER_TO_CLIENT</DT>
+
+<DD>The data transfer message.</DD>
+
+<DT><I>lPercentComplete</I></DT>
+
+<DD>The percentage of the transfer that is complete.</DD>
+</DL>
+
+<P>If the <B>ItemSize</B> member of the MINIDRV_TRANSFER_CONTEXT structure is set to zero, this indicates to the application that the WIA driver does not know the resulting image size and will then allocate its own data buffers. The WIA driver will read the <A HREF="wia_proptable_25d5.htm">WIA_IPA_BUFFER_SIZE</A> property and allocate memory for a single band of data. The WIA driver can allocate any amount of memory it needs here, but it is recommended that allocation be kept small.</P>
+
+<P>To see if the WIA service has allocated memory for the driver, check the <I>pmdtc</I>-&gt;<B>bClassDrvAllocBuf</B> flag. If it is set to TRUE, then the WIA service has allocated memory for the driver. To find out how much memory was allocated, check the value in <I>pmdtc</I>-&gt;<B>lBufferSize</B>.</P>
+
+<P>To allocate your own memory, use <B>CoTaskMemAlloc</B> (described in the Platform SDK documentation), and use the pointer located in <I>pmdtc</I>-&gt;<B>pTransferBuffer</B>. (Remember that the driver allocated this memory, so the driver <I>must</I> also free it.) Set <I>pmdtc</I>-&gt;<B>lBufferSize</B> to the size you allocated. As previously stated, this WIA sample driver allocates a buffer whose size, in bytes, is equal to the value contained in WIA_IPA_BUFFER_SIZE. The driver then uses that memory.</P>
+
+<P>The following example shows an implementation of the <B>IWiaMiniDrv::drvAcquireItemData</B> method. This example can handle both memory allocation cases.</P>
+
+<PRE>HRESULT _stdcall CWIADevice::drvAcquireItemData(
+  BYTE                      *pWiasContext,
+  LONG                      lFlags,
+  PMINIDRV_TRANSFER_CONTEXT pmdtc,
+  LONG                      *plDevErrVal)
+{
+  //
+  // If the caller did not pass in the correct parameters,
+  // then fail the call with E_INVALIDARG.
+  //
+
+  if (!pWiasContext) {
+    return E_INVALIDARG;
+  }
+
+  if (!pmdtc) {
+    return E_INVALIDARG;
+  }
+
+  if (!plDevErrVal) {
+    return E_INVALIDARG;
+  }
+
+  *plDevErrVal = 0;
+
+  HRESULT hr = E_FAIL;
+  LONG lBytesTransferredToApplication = 0;
+  LONG lClassDrvAllocSize = 0;
+  //
+  // (1) Memory allocation
+  //
+
+  if (pmdtc-&gt;bClassDrvAllocBuf) {
+
+    //
+    // WIA allocated the buffer for data transfers
+    //
+
+    lClassDrvAllocSize = pmdtc-&gt;lBufferSize;
+    hr = S_OK;
+  } else {
+
+    //
+    // Driver allocated the buffer for data transfers
+    //
+
+    hr = wiasReadPropLong(pWiasContext, WIA_IPA_BUFFER_SIZE, &amp;lClassDrvAllocSize,NULL,TRUE);
+    if (FAILED(hr)) {
+
+      //
+      // no memory was allocated, here so we can return early
+      //
+
+      return hr;
+    }
+
+    //
+    // allocate memory of WIA_IPA_BUFFER_SIZE (own min buffer size)
+    //
+
+    pmdtc-&gt;pTransferBuffer = (PBYTE) CoTaskMemAlloc(lClassDrvAllocSize);
+    if (!pmdtc-&gt;pTransferBuffer) {
+
+      //
+      // no memory was allocated, here so we can return early
+      //
+
+      return E_OUTOFMEMORY;
+    }
+
+    //
+    // set the lBufferSize member
+    //
+
+    pmdtc-&gt;lBufferSize = lClassDrvAllocSize;
+  }
+
+  //
+  // (2) Gather all information about data transfer settings and
+  //     calculate the total data amount to transfer
+  //
+
+  if (hr == S_OK) {
+    //
+    // WIA service will populate the MINIDRV_TRANSFER_CONTEXT by reading the WIA properties.
+    //
+    // The following values will be written as a result of the 
+    // wiasGetImageInformation() call
+    //
+    // pmdtc-&gt;lWidthInPixels
+    // pmdtc-&gt;lLines
+    // pmdtc-&gt;lDepth
+    // pmdtc-&gt;lXRes
+    // pmdtc-&gt;lYRes
+    // pmdtc-&gt;lCompression
+    // pmdtc-&gt;lItemSize
+    // pmdtc-&gt;guidFormatID
+    // pmdtc-&gt;tymed
+    //
+    // if the FORMAT is set to BMP or MEMORYBMP, the
+    // following values will also be set automatically
+    //
+    // pmdtc-&gt;cbWidthInBytes
+    // pmdtc-&gt;lImageSize
+    // pmdtc-&gt;lHeaderSize
+    // pmdtc-&gt;lItemSize (will be updated using the known image format information)
+    //
+
+    hr = wiasGetImageInformation(pWiasContext,0,pmdtc);
+    if (hr == S_OK) {
+
+      //
+      // (3) Send the image data to the application
+      //
+
+      LONG lDepth = 0;
+      hr = wiasReadPropLong(pWiasContext, WIA_IPA_DEPTH, &amp;lDepth,NULL,TRUE);
+      if (hr == S_OK) {
+
+        LONG lPixelsPerLine = 0;
+        hr = wiasReadPropLong(pWiasContext, WIA_IPA_PIXELS_PER_LINE, &amp;lPixelsPerLine,NULL,TRUE);
+        if (hr == S_OK) {
+
+            LONG lBytesPerLineRaw     = ((lPixelsPerLine * lDepth) + 7) / 8;
+            LONG lBytesPerLineAligned = (lPixelsPerLine * lDepth) + 31;
+            lBytesPerLineAligned      = (lBytesPerLineAligned / 8) &amp; 0xfffffffc;
+            LONG lTotalImageBytes     = pmdtc-&gt;lImageSize + pmdtc-&gt;lHeaderSize;
+            LONG lBytesReceived       = pmdtc-&gt;lHeaderSize;
+            lBytesTransferredToApplication = 0;
+            pmdtc-&gt;cbOffset = 0;
+
+            while ((lBytesReceived)) {
+
+              LONG lPercentComplete = (LONG)(((float)lBytesTransferredToApplication/(float)lTotalImageBytes) * 100.0f);
+              switch (pmdtc-&gt;tymed) {
+              case TYMED_MULTIPAGE_CALLBACK:
+              case TYMED_CALLBACK:
+                {
+                  hr = pmdtc-&gt;pIWiaMiniDrvCallBack-&gt;MiniDrvCallback(IT_MSG_DATA,IT_STATUS_TRANSFER_TO_CLIENT,
+                                                                  lPercentComplete,pmdtc-&gt;cbOffset,lBytesReceived,pmdtc,0);
+                pmdtc-&gt;cbOffset += lBytesReceived;
+                lBytesTransferredToApplication += lBytesReceived;
+            }
+            break;
+          case TYMED_MULTIPAGE_FILE:
+          case TYMED_FILE:
+            {
+                //
+                // lItemSize is the amount that wiasWriteBufToFile will write to FILE
+                //
+
+                pmdtc-&gt;lItemSize = lBytesReceived;
+                hr = wiasWriteBufToFile(0,pmdtc);
+                if (FAILED(hr)) {
+                    break;
+                }
+
+                hr = pmdtc-&gt;pIWiaMiniDrvCallBack-&gt;MiniDrvCallback(IT_MSG_STATUS,IT_STATUS_TRANSFER_TO_CLIENT,
+                                                                  lPercentComplete,0,0,NULL,0);
+                lBytesTransferredToApplication += lBytesReceived;
+              }
+              break;
+          default:
+              {
+                  hr = E_FAIL;
+              }
+              break;
+          }
+
+          //
+          // scan from device, requesting ytesToReadFromDevice
+          //
+
+          LONG lBytesRemainingToTransfer = (lTotalImageBytes - lBytesTransferredToApplication);
+          if (lBytesRemainingToTransfer &lt;= 0) {
+              break;
+            }
+
+            //
+            // calculate number of bytes to request from device
+            //
+
+            LONG lBytesToReadFromDevice = (lBytesRemainingToTransfer &gt; pmdtc-&gt;lBufferSize) ? pmdtc-&gt;lBufferSize : lBytesRemainingToTransfer;
+
+            // RAW data request
+            lBytesToReadFromDevice = (lBytesToReadFromDevice / lBytesPerLineAligned) * lBytesPerLineRaw;
+
+            // Aligned data request
+            // lBytesToReadFromDevice = (lBytesToReadFromDevice / lBytesPerLineAligned) * lBytesPerLineAligned;
+
+            if ((hr == S_FALSE)||FAILED(hr)) {
+
+              //
+              // user canceled or the callback failed for some reason
+              //
+
+              break;
+            }
+
+            //
+            // request byte amount from device
+            //
+
+            hr = GetDataFromMyDevice(pmdtc-&gt;pTransferBuffer, lBytesToReadFromDevice, (DWORD*)&amp;lBytesReceived);
+            if (FAILED(hr)) {
+                break;
+            }
+
+            //
+            // this device returns Raw data.  If your device does this too, then you should call the AlignInPlace
+            // helper function to align the data.
+            //
+
+            lBytesReceived = AlignMyRawData(pmdtc-&gt;pTransferBuffer,lBytesReceived,lBytesPerLineAligned,lBytesPerLineRaw);
+
+          } // while ((lBytesReceived))
+        }
+      }
+    }
+  }
+
+  //
+  // free any allocated memory for buffers
+  //
+
+  if (!pmdtc-&gt;bClassDrvAllocBuf) {
+    CoTaskMemFree(pmdtc-&gt;pTransferBuffer);
+    pmdtc-&gt;pTransferBuffer = NULL;
+    pmdtc-&gt;lBufferSize = 0;
+  }
+
+  return hr;
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Allocating%20Memory%20for%20Data"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

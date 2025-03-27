@@ -1,0 +1,172 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>buildDDHALInfo16</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="buildDDHALInfo16">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_buildddhalinfo16_gg"></A><I>buildDDHALInfo16</I></H1>
+
+<P>The <I>buildDDHALInfo16</I> function collects information about the 16-bit portion of the HAL for DirectDraw in the DDHALINFO structure, which is shared between the 16-bit and 32-bit portions. </P>
+
+<PRE class=syntax><B>BOOL 
+  buildDDHALInfo16(
+</B>    <B>void</B>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<P>None</P>
+
+<H4>Return Value</H4>
+
+<P>Returns TRUE if the function is successful; otherwise, returns FALSE.</P>
+
+<H4>Comments</H4>
+
+<P>Most of the <A HREF="ddstrcts_9m7b.htm">DDHALINFO</A> structure is filled out by the 32-bit portion of the HAL. The <I>buildDDHALInfo16</I> function only fills out 16-bit information and information that changes during a mode switch. This includes the mode table, current display mode, primary surface address, pixel format, display heap information (see <A HREF="ddraw_10dj.htm">Memory Heap Allocation</A> for more detail), and any 16-bit callback functions (typically there is only one, the <A HREF="ddfncs_21t3.htm"><I>HALDestroyDriver</I></A> function). </P>
+
+<P>The following is a sample implementation of <I>buildDDHALInfo16</I>:</P>
+
+<PRE>/***********************************************************************  
+ *
+ * buildDDHALInfo16
+ *
+ * Fills in the 16-bit side of the HALINFO structure. Most of the 
+ * structure has been filled in by our 32-bit driver.
+ *
+ * This function fills in only 16-bit-specific stuff, or things that
+ * change on every mode switch.
+ *
+ ***************************************************************************/
+
+BOOL buildDDHALInfo16()
+{
+    int                 i;
+    LPDDHALMODEINFO     lpMode;
+
+    /*
+     * Modify the structures in our shared window with the 32-bit driver
+     */
+    #define cbDDCallbacks        DriverData.DDCallbacks
+    #define cbDDSurfaceCallbacks DriverData.DDSurfaceCallbacks
+    #define cbDDPaletteCallbacks DriverData.DDPaletteCallbacks
+    #define ddHALInfo            DriverData.HALInfo
+
+    /*
+     * Count the number of modes in the mode table. The table lives in
+     * Setmode.c, not this file.
+     */
+    for (i=0; ModeList[i].dwWidth != 0; i++)
+        ;
+
+    ddHALInfo.dwNumModes = i;
+    ddHALInfo.lpModeInfo = ModeList;
+
+    /*
+     * Current video mode
+     */
+    ddHALInfo.dwModeIndex = DriverData.ModeNumber;
+    lpMode = &amp;ModeList[ddHALInfo.dwModeIndex];
+
+    /*
+     * Current primary surface attributes
+     */
+    ddHALInfo.vmiData.fpPrimary = DriverData.ScreenAddress;
+
+    /*
+     * Fill in the pixel format
+     */
+    ddHALInfo.vmiData.ddpfDisplay.dwSize  = sizeof (DDPIXELFORMAT);
+    ddHALInfo.vmiData.ddpfDisplay.dwFlags = DDPF_RGB;
+    ddHALInfo.vmiData.ddpfDisplay.dwRGBBitCount = lpMode-&gt;dwBPP;
+
+    ddHALInfo.vmiData.dwDisplayWidth  = lpMode-&gt;dwWidth;
+    ddHALInfo.vmiData.dwDisplayHeight = lpMode-&gt;dwHeight;
+    ddHALInfo.vmiData.lDisplayPitch   = lpMode-&gt;lPitch;
+
+    if (lpMode-&gt;dwFlags &amp; DDMODEINFO_PALETTIZED )
+    {
+        ddHALInfo.vmiData.ddpfDisplay.dwFlags |= DDPF_PALETTEINDEXED8;
+    }
+
+    ddHALInfo.vmiData.ddpfDisplay.dwRBitMask = lpMode-&gt;dwRBitMask;
+    ddHALInfo.vmiData.ddpfDisplay.dwGBitMask = lpMode-&gt;dwGBitMask;
+    ddHALInfo.vmiData.ddpfDisplay.dwBBitMask = lpMode-&gt;dwBBitMask;
+    ddHALInfo.vmiData.ddpfDisplay.dwRGBAlphaBitMask = lpMode-&gt;dwAlphaBitMask;
+
+    /*
+     * figure out where to put the video heap:
+     *
+     *  ScreenAddress ----&gt; +----------------+
+     *                      |                |
+     *                      |                |
+     *                      |                |
+     *                      |   visible      |
+     *                      |   screen       |
+     *                      +----------------+
+     *                      | non visible    |
+     *                      | "scratch" area |
+     *                      +----------------+
+     *  VideoHeapBase ----&gt; |                |
+     *                      |   extra video  |
+     *                      |   memory       |
+     *                      |                |
+     *                      |                |
+     *                      ~~~~~~~~~~~~~~~~~~
+     *                      ~~~~~~~~~~~~~~~~~~
+     *                      |                |
+     *                      |                |
+     *                      +----------------+
+     */
+#define WORK_AREA_SIZE   0
+
+    DriverData.VideoHeapBase  = DriverData.ScreenAddress;
+    DriverData.VideoHeapBase += lpMode-&gt;dwHeight * lpMode-&gt;lPitch;
+    DriverData.VideoHeapBase += WORK_AREA_SIZE;
+    DriverData.VideoHeapEnd   = DriverData.ScreenAddress + DriverData.TotalVRAM;
+
+    ddHALInfo.vmiData.dwNumHeaps = sizeof(DriverData.vidMem) / sizeof(DriverData.vidMem[0]);
+    ddHALInfo.vmiData.pvmList    = DriverData.vidMem;
+
+    DriverData.vidMem[0].dwFlags = VIDMEM_ISLINEAR;
+    DriverData.vidMem[0].ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN;
+    DriverData.vidMem[0].fpStart = DriverData.VideoHeapBase;
+    DriverData.vidMem[0].fpEnd   = DriverData.VideoHeapEnd;
+
+    DPF("TotalVRAM     = %08lX", DriverData.TotalVRAM);
+    DPF("ScreenAddress = %08lX", DriverData.ScreenAddress);
+    DPF("ScreenSize    = %08lX", lpMode-&gt;dwHeight * lpMode-&gt;lPitch);
+    DPF("VideoHeapBase = %08lX", DriverData.VideoHeapBase);
+    DPF("VideoHeapEnd  = %08lX", DriverData.VideoHeapEnd);
+    DPF("VideoHeapSize = %08lX", DriverData.VideoHeapEnd - DriverData.VideoHeapBase);
+
+    /*
+     * callback functions (give DDRAW 16:16 pointers)
+     */
+    ddHALInfo.lpDDCallbacks        = &amp;cbDDCallbacks;
+    ddHALInfo.lpDDSurfaceCallbacks = &amp;cbDDSurfaceCallbacks;
+    ddHALInfo.lpDDPaletteCallbacks = &amp;cbDDPaletteCallbacks;
+
+    /*
+     * This is the only 16-bit callback, all the others are either
+     * undefined or 32-bit.
+     */
+    cbDDCallbacks.DestroyDriver = HALDestroyDriver;
+
+    return TRUE;
+
+} /* buildDDHALInfo16 */
+ </PRE>
+
+<H4>See Also</H4>
+
+<P><A HREF="ddstrcts_9m7b.htm">DDHALINFO</A>, <A HREF="ddfncs_21t3.htm"><I>HALDestroyDriver</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: buildDDHALInfo16"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,129 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>WSPStartupEx</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="WSPStartupEx">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wspstartupex_nr"></A>WSPStartupEx</H1>
+
+<P><B>WSPStartupEx</B> initiates use by the Windows Sockets switchof a SAN service provider. </P>
+
+<PRE class=syntax><B>int
+  WSPStartupEx(
+</B>  <B>  IN WORD</B>  <I>wVersionRequested</I><B>,
+    OUT LPWSPDATA  </B><I>lpWSPData</I><B>,</B><I>
+    </I><B>IN</B> <B>LPWSAPROTOCOL_INFOW</B>  <I>lpProtocolInfo</I><B>,</B>
+<I>    </I><B>IN LPWSPUPCALLTABLEEX<I> </I></B> <I>lpUpcallTable</I><B>,</B>
+<I>    </I><B>OUT</B> <B>LPWSPPROC_TABLE</B>  <I>lpProcTable</I>
+<I>    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>wVersionRequested</I></DT>
+
+<DD>Highest version of Windows Sockets SPI supported by the switch. The high-order byte specifies the minor version (revision) number; the low-order byte specifies the major version number.</DD>
+
+<DT><I>lpWSPData</I></DT>
+
+<DD>Pointer to a <A HREF="wsdpref_896a.htm">WSPDATA</A> structure in which the SAN service provider returns information about itself.</DD>
+
+<DT><I>lpProtocolInfo</I></DT>
+
+<DD>Pointer to a <A HREF="wsdpref_0bg2.htm">WSAPROTOCOL_INFOW</A> structure that specifies the characteristics of the protocol required for transferring data. Note that the switch passes the protocol information structure of the TCP/IP protocol, not the protocol information structure of the SAN service provider itself. </DD>
+
+<DT><I>lpUpcallTable</I></DT>
+
+<DD>Pointer to a WSPUPCALLTABLEEX structure that specifies the extended up-call dispatch table of the Windows Sockets Direct interface. The WSPUPCALLTABLEEX structure is defined as:
+
+<PRE>typedef struct _WSPUPCALLTABLEEX {
+    LPWPUCLOSEEVENT                lpWPUCloseEvent;
+    LPWPUCLOSESOCKETHANDLE         lpWPUCloseSocketHandle;
+    LPWPUCREATEEVENT               lpWPUCreateEvent;
+    LPWPUCREATESOCKETHANDLE        lpWPUCreateSocketHandle;
+    LPWPUFDISSET                   lpWPUFDIsSet;
+    LPWPUGETPROVIDERPATH           lpWPUGetProviderPath;
+    LPWPUMODIFYIFSHANDLE           lpWPUModifyIFSHandle;
+    LPWPUPOSTMESSAGE               lpWPUPostMessage;
+    LPWPUQUERYBLOCKINGCALLBACK     lpWPUQueryBlockingCallback;
+    LPWPUQUERYSOCKETHANDLECONTEXT  lpWPUQuerySocketHandleContext;
+    LPWPUQUEUEAPC                  lpWPUQueueApc;
+    LPWPURESETEVENT                lpWPUResetEvent;
+    LPWPUSETEVENT                  lpWPUSetEvent;
+    LPWPUOPENCURRENTTHREAD         lpWPUOpenCurrentThread;
+    LPWPUCLOSETHREAD               lpWPUCloseThread;
+    LPWPUCOMPLETEOVERLAPPEDREQUEST lpWPUCompleteOverlappedRequest;
+} WSPUPCALLTABLEEX, FAR * LPWSPUPCALLTABLEEX;</PRE>
+</DD>
+
+<DT><I>lpProcTable</I></DT>
+
+<DD>Pointer to a <A HREF="wsdpref_4x9u.htm">WSPPROC_TABLE</A> structure that receives a table of pointers to the SAN service provider’s entry points.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>Returns zero if successful; otherwise, returns one of the following error codes: 
+
+<DL>
+<DT>WSASYSNOTREADY</DT>
+
+<DD>Underlying network subsystem not ready for network communication.</DD>
+
+<DT>WSAVERNOTSUPPORTED</DT>
+
+<DD>SAN service provider does not support the requested version of Windows Sockets SPI.</DD>
+
+<DT>WSAEPROCLIM</DT>
+
+<DD>Limit reached on the number of clients supported by the Windows Sockets implementation.</DD>
+
+<DT>WSAEFAULT</DT>
+
+<DD>Either <I>lpWSPData</I> or <I>lpProcTable</I> is invalid.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Defined in <I>Ws2san.h</I>. Include <I>Ws2san.h</I>. Requires Windows Sockets version&nbsp;2.2.</P>
+
+<H4>Comments</H4>
+
+<P>The switch calls a SAN service provider’s <B>WSPStartupEx</B> function before calling any of the SAN service provider’s other functions. The switch does not call a SAN service provider’s other functions until the <B>WSPStartupEx</B> function returns successfully.</P>
+
+<P>In the call to the <B>WSPStartupEx</B> function, the switch passes the following to the SAN service provider:</P>
+
+<P class=indent1>The highest version of Windows Sockets SPI that the switch supports.</P>
+
+<P class=indent1>A pointer to a WSAPROTOCOL_INFOW structure. Note that the switch passes information on the TCP/IP protocol rather than information for the SAN service provider. The SAN service provider uses this information to determine whether it was loaded by the switch, by another layered service provider, or by the Windows Sockets interface (Ws2_32.dll). A SAN service provider could expose one set of entry points to the switch and another set to applications that load the SAN service provider directly. </P>
+
+<P class=indent1>A pointer to the switch’s up-call dispatch table. The SAN service provider uses this table to make up calls. Up calls are calls to Windows Sockets SPI functions that are prefixed with <B>WPU</B>. The switch intercepts and processes these up calls. A SAN service provider must use the <B>WPUCompleteOverlappedRequest</B> function referenced in the extended up-call dispatch table to complete overlapped I/O. </P>
+
+<P>If the <B>WSPStartupEx</B> function succeeds, the SAN service provider passes the following back to the switch:
+
+<UL>
+	<LI>A pointer to a <A HREF="wsdpref_896a.htm">WSPDATA</A> structure in which the SAN service provider returns information about itself.</LI>
+
+	<LI>A table of pointers to most of the SAN service provider's functions through <I>lpProcTable</I>. For a list of these functions, see <A HREF="wsdp_8uzr.htm">Windows Sockets SPI Functions Required for SANs</A>. To retrieve pointers to a SAN service provider's extension functions, the switch calls the SAN service provider's <B>WSPIoctl</B> function. For a list of the extension functions, see <A HREF="wsdpref_55rm.htm">Windows Sockets Direct Extensions</A>. </LI>
+</UL>
+
+<P>If the version specified by the switch in <I>wVersionRequested</I> is equal to or later than the lowest version that the SAN service provider supports, the SAN service provider returns zero (for success) and its version information in a <A HREF="wsdpref_896a.htm">WSPDATA</A> structure at <I>lpWSPData.</I> The SAN service provider specifies its version information in the <B>wVersion</B> member of this structure; it does not assign a value to the <B>wHighVersion</B> member of this structure. The switch only examines the value that the SAN service provider returns in the <B>wVersion</B> member. If the value in the <B>wVersion</B> member of WSPDATA is unacceptable to the switch, it immediately calls the SAN service provider’s <B>WSPCleanup</B> function. In this case, the switch continues to use the TCP/IP service provider and could initiate and use other SAN service providers. </P>
+
+<P>Note that SAN service providers must specify version&nbsp;2.2 or later in the <B>wVersion</B> member of WSPDATA.</P>
+
+<P>The switch can call the <B>WSPStartupEx</B> function for the SAN service provider multiple times if the switch requires that the SAN service provider return information in a pointer to the WSPDATA structure more than once. On each such call, the switch can specify any version number that the SAN service provider supports. For each successful <B>WSPStartupEx</B> call that the switch makes, the switch makes a corresponding <B>WSPCleanup</B> call. For example, if the switch calls <B>WSPStartupEx</B> three times, the switch makes three corresponding calls to <B>WSPCleanup</B>. In the first two <B>WSPCleanup</B> calls, the SAN service provider should do nothing except decrement an internal counter. In the final <B>WSPCleanup</B> call, the SAN service provider should release all previously allocated resources. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="wsdpref_0bg2.htm">WSAPROTOCOL_INFOW</A>, <A HREF="wsdpref_6u42.htm"><B>WSPCleanup</B></A>, <A HREF="wsdpref_896a.htm">WSPDATA</A>, <A HREF="wsdpref_1b3m.htm"><B>WSPIoctl</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: WSPStartupEx"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,72 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Low-Level IDCT Processing Elements</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_idct_kg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_low_level_idct_processing_elements_gg"></A>Low-Level IDCT Processing Elements</H4>
+
+<P>The DirectX VA interface supports various ways of handling low-level inverse discrete-cosine transform (<A HREF="JavaScript:hhobj_1.Click()">IDCT</A>). There are two fundamental types of operation: 
+
+<OL>
+	<LI>Off-host IDCT: Passing macroblocks of transform coefficients to the accelerator for external IDCT, picture reconstruction, and reconstruction clipping.</LI>
+
+	<LI>Host-based IDCT: Performing an IDCT on the host and passing blocks of spatial-domain results to the accelerator for external picture reconstruction and reconstruction clipping.</LI>
+</OL>
+
+<P>In both cases, the basic inverse-quantization process, pre-IDCT range saturation, MPEG-2 mismatch control (if necessary), and intra-DC offset (if necessary) are performed on the host. In both cases, the final picture reconstruction and reconstruction clipping are done on the accelerator.</P>
+
+<P>The inverse quantization, pre-IDCT saturation, mismatch control, intra-DC offset, IDCT, picture reconstruction, and reconstruction clipping processes are defined in the following steps. The <A HREF="dxvaref_01wn.htm">DXVA_QmatrixData</A> structure loads inverse-quantization matrix data for compressed video picture decoding. (The values of <I>BPP</I>, <I>W<SUB>T</SUB></I>, and <I>H<SUB>T</SUB></I><SUB> </SUB> should be assumed to be equal to 8, unless otherwise specified by the <A HREF="dxvaref_9oyv.htm">DXVA_PictureParameters</A> structure.)
+
+<OL>
+	<LI>Perform inverse quantization as necessary (including application of any inverse-quantization weighting matrices) to create a set of IDCT coefficient values <I>F"(u,v) </I>from entropy-coded quantization indices. This is performed by the host.</LI>
+
+	<LI>Saturate each reconstructed coefficient value <I>F"(u,v) </I>of the transform coefficient block to obtain a value <I>F'(u,v) </I>within the restricted allowable range as defined in the following formula. This is performed by the host.
+<P><IMG SRC="images/formula1.gif" ALT="" BORDER=0>
+</LI>
+
+	<LI>Perform mismatch control for MPEG-2. (This stage of processing is needed for MPEG-2 only.) Mismatch control is performed by summing the saturated values of all coefficients in the macroblock (this is equivalent to XORing their least significant bits). If the sum is even, 1 is subtracted from the saturated value of the last coefficient <I>F'</I>(<I>W<SUB>T</SUB>-1,H<SUB>T</SUB>-1</I>). If the sum is odd, the saturated value of <I>F'(W<SUB>T</SUB>-1,H<SUB>T</SUB>-1)<B> </B></I>is used as is, without alteration. The coefficient values that are created after saturation and mismatch control are referred to as <I>F(u,v)</I> in this documentation. This is performed by the host.</LI>
+</OL>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;MPEG-1 has a different form of mismatch control that consists of altering the value by plus or minus 1 for each coefficient that would otherwise have an even value after inverse quantization. H.263 does not require the mismatch control described in this section. In any case, mismatch control is the host’s responsibility if needed.</P>
+
+<OL start=4>
+	<LI>Add an intra-DC offset (if necessary) to all intra blocks<B> </B>so all intra blocks represent a difference relative to a spatial reference prediction value of 2<SUP>(BPP-1)</SUP>. Such an offset is necessary for all the referenced video-coding standards (H.261, H.263, MPEG-1, MPEG-2, and MPEG-4), except when <I>HostResidDiff</I> is 1 and the <B>bConfigIntraResidUnsigned</B> member of the <A HREF="dxvaref_3vdz.htm">DXVA_ConfigPictureDecode</A> structure is 1. The intra DC offset has the value (2<SUP>(BPP-1)</SUP>) * sqrt(<I>W<SUB>T</SUB>H<SUB>T</SUB></I> ) in the transform domain. This value is 1024 in all cases except MPEG-4, which allows <I>BPP</I> to be greater than 8. This is performed by the host.</LI>
+
+	<LI>Perform the inverse discrete cosine transform (IDCT) on either the host or the accelerator. The IDCT is specified by the following formula, where:
+<P class=indent1><I>C</I>(<I>u</I>) = 1 for <I>u</I> = 0, otherwise <I>C(u)</I> = sqrt(2)</P>
+
+<P class=indent1><I>C</I>(<I>v</I>) = 1 for <I>v</I> = 0, otherwise <I>C(v)</I> = sqrt(2)</P>
+
+<P class=indent1><I>x</I> and <I>y</I> are the horizontal and vertical spatial coordinates in the pixel domain</P>
+
+<P class=indent1><I>u</I> and <I>v</I> are the transform-domain horizontal and vertical frequency coordinates</P>
+
+<P class=indent1><I>W<SUB>T</SUB></I> and <I>H<SUB>T</SUB></I> are the width and height of the transform block (generally  both are 8).</P>
+
+<P><IMG SRC="images/formula2.gif" ALT="" BORDER=0>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The accuracy of this IDCT process must conform to that required in the H.261 and 3 and MPEG-1, 2, and 4 video-coding standards (all have very similar requirements).
+</LI>
+
+	<LI>Add the spatial-domain residual information to the <A HREF="dxvaguide_0cdj.htm">motion-compensated prediction</A> value for nonintra blocks or to the constant reference value for intra blocks to perform picture reconstruction on the accelerator. The constant reference value for intra blocks is 2<SUP>(BPP-1)</SUP> except when HostResidDiff (bit 10 of the <B>wMBtype</B> member of the <A HREF="dxvaref_9t0n.htm">DXVA_MBctrl_P_HostResidDiff_1</A>) structure is 1 and the <B>bConfigIntraResidUnsigned</B> member of the <A HREF="dxvaref_3vdz.htm">DXVA_ConfigPictureDecode</A> structure is 1. In the latter case, the constant is zero.</LI>
+
+	<LI>Clip the picture reconstruction to a range from zero through (2<SUP>BPP</SUP>)–1 and store the final resulting picture sample values on the accelerator.</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Low-Level%20IDCT%20Processing%20Elements"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

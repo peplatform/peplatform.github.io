@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>DispatchPower Routines</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="DispatchPower Routines">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_dispatchpower_routines_kg"></A><I>DispatchPower</I> Routines</H2>
+
+<P>A driver's <A HREF="drvrrtns_00mq.htm"><I>DispatchPower</I></A> routine supports <A HREF="pwrmgmt_48br.htm">power management</A> by handling IRPs for the <A HREF="k113_7jjm.htm">IRP_MJ_POWER</A> I/O function code. Associated with the IRP_MJ_POWER function code are several minor I/O function codes for Power Management. The Power Manager uses these minor function codes to direct drivers to change power states, to wait for and respond to system wake-up events, and to query drivers about their devices.</P>
+
+<P>Each driver's <I>DispatchPower</I> routine performs the following tasks:
+
+<UL>
+	<LI>Handle the IRP if possible.</LI>
+
+	<LI>Pass the IRP to the next lower driver in the device stack, using <A HREF="portn_7tki.htm"><B>PoCallDriver</B></A>. </LI>
+
+	<LI>If a bus driver, perform the requested power operation on the device and complete the IRP.</LI>
+</UL>
+
+<P>All drivers for a device must have the opportunity to handle power IRPs for the device, except in a few cases where a function or filter driver is allowed to fail the IRP. Most function and filter drivers either perform some processing or set an <A HREF="drvrrtns_4rsi.htm"><I>IoCompletion</I></A> routine for each power IRP, then pass the IRP down to the next lower driver without completing it. Eventually the IRP reaches the bus driver, which physically changes the power state of the device if required and completes the IRP. </P>
+
+<P>When the IRP has been completed, the I/O Manager calls any <I>IoCompletion</I> routines set by drivers as the IRP traveled down the device stack. Whether a driver needs to set a completion routine depends upon the type of IRP and the driver's individual requirements. </P>
+
+<P>Power IRPs that power up a device must be handled first by the lowest driver in the device stack (the underlying bus driver) and then by each successive driver up the stack. Power IRPs that power down a device must be handled first by the driver at the top of the device stack and then by each successive driver going down the stack.</P>
+
+<H4>Special Handling for Removable Devices</H4>
+
+<P>In their <I>DispatchPower</I> routines, drivers of removable devices should check to see whether the device is still present. If the device has been removed, the driver should not pass the IRP down to the next lower driver. Instead, the driver should do the following:
+
+<UL>
+	<LI>Call <A HREF="portn_83ua.htm"><B>PoStartNextPowerIrp</B></A> to begin processing the next power IRP.</LI>
+
+	<LI>Set <B>Irp-&gt;IoStatus.Status</B> to STATUS_DELETE_PENDING.</LI>
+
+	<LI>Call <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>, specifying IO_NO_INCREMENT,  to complete the IRP.</LI>
+
+	<LI>Return STATUS_DELETE_PENDING. </LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: DispatchPower%20Routines"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

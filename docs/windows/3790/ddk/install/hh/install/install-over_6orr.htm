@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>RunOnce Registry Entries</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="RunOnce Registry Entries">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_runonce_registry_entries_dg"></A>RunOnce Registry Entries</H1>
+
+<P>The system supports a registry key, <B>RunOnce</B>, that can be used to specify commands that the system will execute one time and then delete. Immediately after a device has been installed, Setup executes all commands stored under the <B>RunOnce</B> key, then removes the commands. Additionally, each time the system boots, it executes all commands stored under the <B>RunOnce</B> key, then removes them. Thus, if you place a command under the <B>RunOnce</B> key, you cannot easily predict when it will execute.</P>
+
+<P>For device installations, <B>RunOnce</B> registry entries can be created using <I>add-registry-sections</I>, which are referenced by <A HREF="inf-format_2v02.htm">INF <B>AddReg</B> directives</A>. The registry root and subkey values are as follows:</P>
+
+<P class=indent1><B>HKLM,"Software\Microsoft\Windows\CurrentVersion\RunOnce"</B></P>
+
+<P>The <I>value-entry-name</I> string is omitted from a <B>RunOnce</B> registry entry. The type of the entry, which is indicated by the <I>flags</I> value, must be either REG_SZ or REG_EXPAND_SZ. For an entry of type REG_SZ (the default), the <I>flags</I> value can be omitted. </P>
+
+<P>The <I>value</I> parameter in a <B>RunOnce</B> entry is a quoted string that has the following form:</P>
+
+<PRE><B>"Rundll32</B>[<B>.exe</B>] <I>DllName</I>,<I>EntryPoint</I>[<I>Arguments</I>]<B>"</B>
+</PRE>
+
+<P>Consider the following guidelines when you create a <I>value</I> string entry:
+
+<UL>
+	<LI><I>Rundll32</I> can appear either with or without its <I>.exe</I> file name extension.</LI>
+
+	<LI><I>DllName</I> is the full path to a DLL or executable image. Except for a required terminating comma, the expression must not otherwise contain any commas. If no file name extension is supplied, the default extension is <I>.dll</I>. </LI>
+
+	<LI><I>EntryPoint</I> is the name of the entry point within the DLL indicated by <I>DllName</I>.</LI>
+
+	<LI><I>Arguments</I> is an optional substring containing any arguments that must be passed to the specified DLL.</LI>
+
+	<LI>Exactly one space must separate the <I>EntryPoint</I> string from the <I>Arguments</I> substring.</LI>
+</UL>
+
+<P>Following is an example <I>add-registry-section</I> entry that stores a command and its arguments under the <B>RunOnce</B> key:</P>
+
+<PRE>;; WDMAud swenum install
+
+HKLM,%RunOnce%,"WDM_WDMAUD",,\
+"rundll32.exe streamci.dll,StreamingDeviceSetup %WDM_WDMAUD.DeviceId%,%KSNAME_Filter%,%KSCATEGORY_WDMAUD%,%17%\WDMAUDIO.inf,WDM_WDMAUD.Interface.Install"
+
+[Strings]
+RunOnce = "SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce"
+WDM_WDMAUD.DeviceId = "{CD171DE3-69E5-11D2-B56D-0000F8754380}"
+KSNAME_Filter = "{9B365890-165F-11D0-A195-0020AFD156E4}"
+KSCATEGORY_WDMAUD = "{3E227E76-690D-11D2-8161-0000F8775BF1}"
+</PRE>
+
+<P>The following rules apply to the use of <B>RunOnce</B> entries for device installations:
+
+<UL>
+	<LI>These registry entries must be used solely for installations of software-only devices that are enumerated by SWENUM, the software device enumerator. </LI>
+
+	<LI><B>RunOnce</B> entries must consist only of calls to <I>rundll32.exe</I>. Otherwise, Microsoft will not digitally sign the driver package.</LI>
+
+	<LI>The code to be executed must not prompt for user input.</LI>
+
+	<LI><A HREF="install-over_21rb.htm#ddk_server_side_installations_dg">Server-side installations</A> execute in a system context. For this reason, you must be certain that the code to be executed contains no security vulnerabilities and that file permissions prevent the code from being maliciously modified.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: RunOnce%20Registry%20Entries"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

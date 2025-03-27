@@ -1,0 +1,176 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>TDI_QUERY_INFORMATION</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="TDI_QUERY_INFORMATION">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_tdi_query_information_nr"></A>TDI_QUERY_INFORMATION</H1>
+
+<P>When a kernel-mode client makes a TDI_QUERY_INFORMATION request, it asks the underlying TDI transport driver to return information of a client-specified type, such as a broadcast address, the transport's capabilities, or its current statistics for I/O on a particular connection. </P>
+
+<H4>IRP</H4>
+
+<P>The transport calls <B>IoGetCurrentIrpStackLocation</B> with the given <I>Irp</I> to get a pointer to its own I/O stack location in the IRP, shown in the following list as <B>IrpSp</B>. The pointer to the IRP is shown in the following list as <B>Irp</B>. IRP members relevant to this request include the following:
+
+<DL>
+<DT><B>Irp-&gt;IoStatus.Status</B></DT>
+
+<DD>Specifies the final status of the query-information request. The transport sets this member before it completes the IRP, possibly to one of the following:
+
+<P>STATUS_SUCCESS<BR>
+STATUS_BUFFER_OVERFLOW<BR>
+STATUS_INSUFFICIENT_RESOURCES<BR>
+STATUS_INVALID_CONNECTION<BR>
+STATUS_INVALID_DEVICE_REQUEST<BR>
+STATUS_NOT_IMPLEMENTED
+</DD>
+
+<DT><B>Irp-&gt;IoStatus.Information</B></DT>
+
+<DD>Specifies the number of bytes of information the transport is returning to its client. </DD>
+
+<DT><B>IrpSp-&gt;MajorFunction</B></DT>
+
+<DD>Specifies IRP_MJ_INTERNAL_DEVICE_CONTROL. The transport can ignore this member if it exports a <B>TdiDispatchInternalDeviceControl</B> routine that handles only TDI_<I>XXX</I> requests. </DD>
+
+<DT><B>IrpSp-&gt;MinorFunction</B></DT>
+
+<DD>Specifies TDI_QUERY_INFORMATION.</DD>
+
+<DT><B>IrpSp-&gt;FileObject</B></DT>
+
+<DD>Pointer to an open file object representing an address, connection endpoint, or control channel. The transport uses the <B>FsContext</B> and, possibly, <B>FsContext2</B> fields to access the state it maintains about this address, connection endpoint, or control channel. </DD>
+
+<DT><B>IrpSp-&gt;Parameters</B></DT>
+
+<DD>Pointer to a TDI_REQUEST_KERNEL_QUERY_INFORMATION structure, defined as follows:
+
+<PRE>struct _TDI_REQUEST_KERNEL_QUERY_INFO {<B> </B>
+    LONG QueryType;<B> </B>
+    PTDI_CONNECTION_INFORMATION RequestConnectionInformation;<B> </B>
+} TDI_REQUEST_KERNEL_QUERY_INFORMATION, *PTDI_REQUEST_KERNEL_QUERY_INFORMATION;<B> </B></PRE>
+
+
+<P>A transport can typically ignore the <B>RequestConnectionInformation</B> member because it is typically NULL. NetBIOS transports might require this member, as described later (see Comments). The transport checks the <B>QueryType</B> member to determine what information the client requested, which also determines the format of the information to be returned and, sometimes the client-supplied contents, of the buffer mapped at <B>Irp-&gt;MdlAddress</B>. 
+
+
+<P>For every TDI transport, <B>QueryType</B> can be set to one of the following system-defined values: 
+
+
+<DL>
+<DT>TDI_QUERY_ADDRESS_INFO</DT>
+
+<DD>Requests the transport to return information about a particular local-node address, formatted as a TDI_ADDRESS_INFO structure, in the client-supplied buffer mapped at <B>MdlAddress</B>. 
+
+<P><B>IrpSp-&gt;FileObject</B> must point to a file object representing the address or to a connection endpoint already associated with the address for which to return the information. 
+</DD>
+
+<DT>TDI_QUERY_CONNECTION_INFO</DT>
+
+<DD>Requests the transport to return information about a particular connection, formatted as a TDI_CONNECTION_INFO structure, in the client-supplied buffer mapped at <B>MdlAddress</B>.  
+
+<P><B>IrpSp-&gt;FileObject</B> must point to a file object representing the connection for which to return the information. 
+</DD>
+
+<DT>TDI_QUERY_BROADCAST_ADDRESS</DT>
+
+<DD>Requests the transport to return a broadcast address, formatted as a TRANSPORT_ADDRESS structure, in the client-supplied buffer mapped at <B>MdlAddress</B>. 
+
+<P><B>IrpSp-&gt;FileObject</B> must point to a file object representing a control channel. 
+</DD>
+
+<DT>TDI_QUERY_NETWORK_ADDRESS</DT>
+
+<DD>Requests the transport to return a local-node address, formatted as a TRANSPORT_ADDRESS structure, in the client-supplied buffer mapped at <B>MdlAddress</B>.
+
+<P><B>IrpSp-&gt;FileObject</B> must point to a file object representing a control channel.
+</DD>
+
+<DT>TDI_QUERY_DATA_LINK_ADDRESS</DT>
+
+<DD>Requests the transport to return the datalink address, formatted as a TRANSPORT_ADDRESS structure, in the client-supplied buffer mapped at <B>MdlAddress</B>.
+
+<P><B>IrpSp-&gt;FileObject</B> must point to a file object representing a control channel. 
+</DD>
+
+<DT>TDI_QUERY_PROVIDER_INFO or TDI_QUERY_PROVIDER_INFORMATION</DT>
+
+<DD>Requests the transport to return information about its own capabilities, formatted as a TDI_PROVIDER_INFO structure, in the client-supplied buffer mapped at <B>MdlAddress</B>. 
+
+<P><B>IrpSp-&gt;FileObject</B> must point to a file object representing a control channel. 
+</DD>
+
+<DT>TDI_QUERY_PROVIDER_STATISTICS</DT>
+
+<DD>Requests the transport to return information about its resource usage, formatted as a TDI_PROVIDER_STATISTICS structure, in the client-supplied buffer mapped at <B>MdlAddress</B>. 
+
+<P><B>IrpSp-&gt;FileObject</B> must point to a file object representing a control channel. 
+</DD>
+
+<DT>TDI_QUERY_DATAGRAM_INFO</DT>
+
+<DD>Requests the transport to return information about its limits on size and number of datagrams, formatted as a TDI_DATAGRAM_INFO structure, in the client-supplied buffer mapped at <B>MdlAddress</B>. 
+
+<P><B>IrpSp-&gt;FileObject</B> must point to a file object representing a control channel. A transport also can support this query on open transport addresses at the discretion of the transport writer. 
+</DD>
+
+<DT>TDI_QUERY_MAX_DATAGRAM_INFO</DT>
+
+<DD>Requests the transport to return information about its limit on datagram size, formatted as a TDI_MAX_DATAGRAM_INFO structure, in the client-supplied buffer mapped at <B>MdlAddress</B>. 
+
+<P><B>IrpSp-&gt;FileObject</B> must point to a file object representing a control channel. A transport also can support this query on open transport addresses at the discretion of the transport writer. 
+</DD>
+</DL>
+
+
+<P>In addition to the preceding queries, which every TDI transport must support, a particular transport might support others. For example, NetBIOS transports also must respond to three additional system-defined TDI_QUERY_<I>XXX</I>, as described later (see Comments). 
+</DD>
+
+<DT><B>Irp-&gt;MdlAddress</B></DT>
+
+<DD>Pointer to an MDL, possibly the initial MDL in a chain of MDLs, mapping a client-supplied buffer containing whatever client-supplied contents are required to carry out the request. The input contents and format of this buffer depend on the given <B>QueryType</B>. 
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>TdiKrnl.h</I>. Include <I>TdiKrnl.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>For any NetBIOS transport, <B>QueryType</B> also can specify one of the following:
+
+<DL>
+<DT>TDI_QUERY_FIND_NAME</DT>
+
+<DD>Requests the NetBIOS transport to return the information, formatted as FIND_NAME_HEADER followed by FIND_NAME_BUFFER structures, in the client-supplied buffer mapped at <B>MdlAddress</B>. For this query type, <B>RequestConnectionInformation</B> must point to a valid TDI_CONNECTION_INFORMATION structure. </DD>
+
+<DT>TDI_QUERY_SESSION_STATUS</DT>
+
+<DD>Requests the transport to return the information, formatted as SESSION_HEADER followed by SESSION_BUFFER structures, in the client-supplied buffer mapped at <B>MdlAddress</B>. </DD>
+
+<DT>TDI_QUERY_ADAPTER_STATUS</DT>
+
+<DD>Requests the transport to return the information, formatted as an ADAPTER_STATUS structure, in the client-supplied buffer mapped at <B>MdlAddress</B>. 
+
+<P>For more information about the preceding NetBIOS-specific structures, see the Platform SDK. 
+
+</DD>
+</DL>
+
+<P>In most cases, <B>TdiBuildQueryInformation</B> is the macro a client uses to fill in this IRP. </P>
+
+<P>Because the <B>TdiBuildQueryInformation</B> macro sets the <B>RequestConnectionInformation</B> member of the TDI_REQUEST_KERNEL_QUERY_INFORMATION structure to NULL, a client of a NetBIOS transport cannot use <B>TdiBuildQueryInformation</B> with query type TDI_QUERY_FIND_NAME. To set up an IRP for a TDI_QUERY_INFORMATION request using TDI_QUERY_FIND_NAME, a client of a NetBIOS transport can use code similar to the code for <B>TdiBuildQueryInformation</B> but must specify a pointer to a TDI_CONNECTION_INFORMATION structure for <B>RequestConnectionInformation</B>. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="36tdstrc_0hyq.htm"><B>TDI_ADDRESS_INFO</B></A>, <A HREF="36tdstrc_4mpe.htm"><B>TDI_CONNECTION_INFO</B></A>, <A HREF="36tdstrc_9vg2.htm"><B>TDI_CONNECTION_INFORMATION</B></A>, <A HREF="36tdstrc_0goi.htm"><B>TDI_DATAGRAM_INFO</B></A>, <A HREF="31tddisp_2sfm.htm"><B>TdiDispatchInternalDeviceControl</B></A>, <A HREF="36tdstrc_5pwy.htm"><B>TDI_MAX_DATAGRAM_INFO</B></A>, <A HREF="36tdstrc_4bn6.htm"><B>TDI_PROVIDER_INFO</B></A>, <A HREF="36tdstrc_7ng2.htm"><B>TDI_PROVIDER_STATISTICS</B></A>, <A HREF="34bldmac_3f5e.htm"><B>TdiBuildQueryInformation</B></A>, <A HREF="36tdstrc_6hgy.htm"><B>TRANSPORT_ADDRESS</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: TDI_QUERY_INFORMATION"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

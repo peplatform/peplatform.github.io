@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Command Execution Order</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Command Execution Order">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_command_execution_order_gg"></A>Command Execution Order</H2>
+
+<P>Printer commands must be sent to printer hardware in a meaningful order. For most of the command names defined in the GPD language, Unidrv knows when to send the command's escape sequence to the printer. There are two exceptions:</P>
+
+<P class=indent1>The <A HREF="nt5gpd_77hj.htm">option selection command</A> </P>
+
+<P class=indent1><A HREF="nt5gpd_5cbr.htm">Printer configuration commands</A> </P>
+
+<P>For both of these command types, you must specify the order in which the commands should be executed.</P>
+
+<P>Command execution order is made up of two components — a job section name and a sequence order number. The Unidrv driver divides each print job into six sections. For each section, Unidrv sends the printer the commands assigned to the section, in the specified sequence. The following sections are defined:
+
+<DL>
+<DT>JOB_SETUP</DT>
+
+<DD>Commands assigned to the JOB_SETUP section are sent once per job. They are the first commands sent when a new job begins. These commands are sent from within Unidrv's implementation of the <A HREF="ddifncs_4tuv.htm"><I>DrvStartDoc</I></A> function.</DD>
+
+<DT>DOC_SETUP</DT>
+
+<DD>Commands assigned to the DOC_SETUP section are sent before the first page of a document is sent. The commands are sent from within Unidrv's implementation of the <I>DrvStartDoc</I> function. (These commands are also sent after an application calls the Win32 <B>ResetDC</B> function. Commands in this section must not remove downloaded information, such as soft fonts and patterns.)</DD>
+
+<DT>PAGE_SETUP</DT>
+
+<DD>Commands assigned to the PAGE_SETUP section are sent at the beginning of each new page, before drawing begins. These commands are sent from within Unidrv's implementation of the <A HREF="ddifncs_6t5z.htm"><I>DrvStartPage</I></A> function.</DD>
+
+<DT>PAGE_FINISH</DT>
+
+<DD>Commands assigned to the PAGE_FINISH section are sent at the end of each page, after drawing is complete. These commands are sent from within Unidrv's implementation of the <A HREF="ddifncs_0b3b.htm"><I>DrvSendPage</I></A> function.</DD>
+
+<DT>DOC_FINISH</DT>
+
+<DD>Commands assigned to the DOC_FINISH section are sent after the last page of a document is sent. The commands are sent from within Unidrv's implementation of the <A HREF="ddifncs_6yzr.htm"><I>DrvEndDoc</I></A> function. (Commands in this section must not remove downloaded information, such as soft fonts and patterns.)</DD>
+
+<DT>JOB_FINISH</DT>
+
+<DD>Commands assigned to the JOB_FINISH section are sent once per job. They are the last commands sent when a job ends. These commands are sent from within Unidrv's implementation of the <I>DrvEndDoc</I> function.
+</DD>
+</DL>
+
+<P>Within each of these sections, commands are executed in the order indicated by their sequence numbers.</P>
+
+<P>To specify a command's section and sequence number, use the <A HREF="nt5gpd_557r.htm#ddk__order_gg">*<B>Order</B></A> attribute, which is one of the <A HREF="nt5gpd_557r.htm">command attributes</A>. The format is:</P>
+
+<P class=indent1><B>*Order:</B> <I>SectionName</I><B>.</B><I>SequenceNumber</I></P>
+
+<P>where <I>SectionName</I> is one of JOB_SETUP, DOC_SETUP, PAGE_SETUP, PAGE_FINISH, DOC_FINISH, or JOB_FINISH, and <I>SequenceNumber</I> is a numeric value.</P>
+
+<P>Sequence numbers do not have to be consecutive, but each number specified within a section must be unique. Commands within a section are executed from the one with the lowest sequence number to that with the highest. For example, the following entries indicate that options for the <B>InputBin</B>, <B>PaperSize</B>, and <B>Resolution</B> features are assigned to the DOC_SETUP section and are sent in the specified order:</P>
+
+<PRE>*Feature: InputBin
+{
+    *DefaultOption: Auto
+    *Option: Auto
+    {
+        *Name: "Auto Tray"
+        *Command: CmdSelect
+        {
+            *Order: DOC_SETUP.50
+            *Cmd: "&lt;1B&gt;(1&lt;010014&gt;"
+        }
+    }
+    ...
+}
+*Feature: PaperSize
+{
+    *DefaultOption: Letter
+    *Option: Letter
+    {
+        *Name: "Letter size"
+        *Command: CmdSelect
+        {
+            *Order: DOC_SETUP.60
+            *Cmd: "&lt;1B&gt;(g&lt;0300&gt;n&lt;01&gt;r"
+        }
+    }
+    ...
+}
+*Feature: Resolution
+{
+    *DefaultOption: 360dpi
+    *Option: 360dpi
+    {
+        *Name: "360 dpi x 360dpi"
+        *Command: CmdSelect
+        {
+            *Order: DOC_SETUP.70
+            *Cmd: "&lt;1B&gt;(d&lt;020001&gt;"
+        }
+    }
+    ...
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Command%20Execution%20Order"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

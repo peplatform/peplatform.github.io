@@ -1,0 +1,92 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IoBuildDeviceIoControlRequest</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IoBuildDeviceIoControlRequest">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_iobuilddeviceiocontrolrequest_kr"></A>IoBuildDeviceIoControlRequest</H1>
+
+<P>The <B>IoBuildDeviceIoControlRequest</B> routine allocates and sets up an IRP for a device control request, optionally with an I/O buffer if the I/O control code requires the caller to supply an input or output buffer.</P>
+
+<PRE class=syntax><B>PIRP 
+</B>  <B>IoBuildDeviceIoControlRequest(</B>
+<B>    IN ULONG</B>  <I>IoControlCode</I><B>,</B>
+<B>    IN PDEVICE_OBJECT</B>  <I>DeviceObject</I><B>,</B>
+<B>    IN PVOID</B>  <I>InputBuffer</I>  <B>OPTIONAL,</B>
+<B>    IN ULONG</B>  <I>InputBufferLength</I><B>,</B>
+<B>    OUT PVOID</B>  <I>OutputBuffer</I>  <B>OPTIONAL,</B>
+<B>    IN ULONG</B>  <I>OutputBufferLength</I><B>,</B>
+<B>    IN BOOLEAN</B>  <I>InternalDeviceIoControl</I><B>,</B>
+<B>    IN PKEVENT</B>  <I>Event</I><B>,</B>
+<B>    OUT PIO_STATUS_BLOCK</B>  <I>IoStatusBlock</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>IoControlCode</I></DT>
+
+<DD>Specifies the IOCTL_<I>XXX</I> to be set up. For more information about device-type-specific I/O codes, see device-type specific sections in this DDK.</DD>
+
+<DT><I>DeviceObject</I></DT>
+
+<DD>Pointer to the next-lower driver’s device object, representing the target device.</DD>
+
+<DT><I>InputBuffer</I></DT>
+
+<DD>Pointer to an input buffer to be passed to the lower driver or NULL if the request does not pass input data to lower driver(s).</DD>
+
+<DT><I>InputBufferLength</I></DT>
+
+<DD>Specifies the length in bytes of the input buffer. If <I>InputBuffer</I> is NULL, this value must be zero.</DD>
+
+<DT><I>OutputBuffer</I></DT>
+
+<DD>Pointer to an output buffer in which the lower driver is to return data or NULL if the request does not require lower driver(s) to return data.</DD>
+
+<DT><I>OutputBufferLength</I></DT>
+
+<DD>Specifies the length in bytes of the output buffer. If <I>OutputBuffer</I> is NULL, this value must be zero.</DD>
+
+<DT><I>InternalDeviceIoControl</I></DT>
+
+<DD>If <I>InternalDeviceControl</I> is TRUE the target driver’s Dispatch routine for IRP_MJ_INTERNAL_DEVICE_CONTROL or IRP_MJ_SCSI is called; otherwise, the Dispatch routine for IRP_MJ_DEVICE_CONTROL is called.</DD>
+
+<DT><I>Event</I></DT>
+
+<DD>Pointer to an initialized event object for which the caller provides the storage. The event is set to the Signaled state when lower driver(s) have completed the requested operation. The caller can wait on the event object for the completion of the IRP allocated by this routine.</DD>
+
+<DT><I>IoStatusBlock</I></DT>
+
+<DD>Specifies an I/O status block to be set when the request is completed by lower drivers.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><B>IoBuildDeviceIoControlRequest</B> returns a pointer to an IRP with the next-lower driver’s I/O stack location partially set up from the supplied parameters. The returned pointer is NULL if an IRP cannot be allocated.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wdm.h</I> and <I>ntddk.h</I>. Include <I>wdm.h</I> or <I>ntddk.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>An intermediate or highest-level driver can call <B>IoBuildDeviceIoControlRequest</B> to set up IRPs for requests sent to lower-level drivers. The next-lower driver’s I/O stack location is set up with the given <I>IoControlCode</I> at <B>Parameters.DeviceIoControl.IoControlCode</B>. Because the caller can wait on the completion of this driver-allocated IRP by calling <A HREF="k105_40c2.htm"><B>KeWaitForSingleObject</B></A> on the given <I>Event</I>, the caller need not set an <I>IoCompletion</I> routine in the IRP before calling <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A>. When the next-lower driver completes this IRP, the I/O Manager releases it.</P>
+
+<P>IRPs created using <B>IoBuildDeviceIoControlRequest</B> must be completed by calling <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A> and not by merely deallocating the IRP with <A HREF="k104_82wj.htm"><B>IoFreeIrp</B></A>. <B>IoBuildDeviceIoControlRequest</B> queues the IRPs it creates in the IRP queue of the current thread. Freeing these IRPs without completing them might result in a system crash when the thread terminates as the thread attempts to deallocate the IRP's memory.</P>
+
+<P>Callers of <B>IoBuildDeviceIoControlRequest</B> must be running at IRQL&nbsp;= PASSIVE_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k112_49bm.htm">IO_STACK_LOCATION</A>, <A HREF="k104_42pe.htm"><B>IoAllocateIrp</B></A>, <A HREF="k104_4gqa.htm"><B>IoBuildAsynchronousFsdRequest</B></A>, <A HREF="k104_61pu.htm"><B>IoBuildSynchronousFsdRequest</B></A>, <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A>, <A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>, <A HREF="k112_3z5e.htm">IRP</A>, <A HREF="k105_8jaq.htm"><B>KeInitializeEvent</B></A>, <A HREF="k105_40c2.htm"><B>KeWaitForSingleObject</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IoBuildDeviceIoControlRequest"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

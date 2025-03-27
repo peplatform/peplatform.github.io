@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Interrupt 2Fh Function 1685h</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Interrupt 2Fh Function 1685h">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="_pss_4776"></A>Interrupt 2Fh Function 1685h</H1>
+
+<PRE>mov     bx, [VM_Id]             ; virtual-machine identifier
+mov     cx, [Flags]             ; switch conditions
+
+mov     dx, word ptr [Priority+2]
+mov     si, word ptr [Priority] ; dx:si contains 32-bit priority boost
+
+mov     es, seg [CallBack]
+mov     di, offset [CallBack]   ; es:di contains callback function address
+
+mov     ax, 1685h   ; Switch VMs and CallBack
+int     2Fh         ; multiplex interrupt
+</PRE>
+
+<P>Switch VMs and CallBack (Interrupt 2Fh Function 1685h) directs Windows to switch to a specific virtual machine and begin execution. After Windows switches, it calls the specified callback function allowing a device driver or TSR to access the data associated with the specified virtual machine. This function is typically used by MS-DOS device drivers and TSRs that support networks, and that need to perform functions in a specific virtual machine. 
+
+<DL>
+<DT><I>VM_Id</I> </DT>
+
+<DD>Identifies the virtual machine to switch to. </DD>
+
+<DT><I>Flags</I> </DT>
+
+<DD>Specifies when to switch. This parameter is a combination of the following bit value.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=7%>Bit </TH>
+<TH align=left width=93%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=7%>0 </TD>
+<TD width=93%>Set to 1 to wait until interrupts are enabled. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=7%>1 </TD>
+<TD width=93%>Set to 1 to wait until critical section is released. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>All other bits are reserved and must be zero. 
+</DD>
+
+<DT><I>Priority</I> </DT>
+
+<DD>Specifies the priority boost for the virtual machine. It can be one of the following values. 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=32%>Value </TH>
+<TH align=left width=68%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><B>Critical_Section_Boost</B> </TD>
+<TD width=68%>VM priority is boosted by this value when <B>Begin_Critical_Section</B> is called. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><B>Cur_Run_VM_Boost</B> </TD>
+<TD width=68%>Time-slice scheduler boosts each VM in turn by this value to force them to run for their allotted time slice. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><B>High_Pri_Device_Boost</B> </TD>
+<TD width=68%>Time critical operations that should not circumvent the critical section boost should use this boost. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><B>Low_Pri_Device_Boost</B> </TD>
+<TD width=68%>Used by virtual devices that need an event to be processed in a timely fashion but that are not extremely time critical. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><B>Reserved_High_Boost</B> </TD>
+<TD width=68%>Reserved; do not use. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><B>Reserved_Low_Boost</B> </TD>
+<TD width=68%>Reserved; do not use. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=32%><B>Time_Critical_Boost</B> </TD>
+<TD width=68%>Events that must be processed even when another VM is in a critical section should use this boost. For example, VPICD uses this when simulating hardware interrupts. </TD>
+</TR>
+</TABLE><BR>
+
+
+
+<P>The DX register contains the high-order word, the SI register the low-order word. 
+</DD>
+
+<DT><I>CallBack</I> </DT>
+
+<DD>Points to the callback function. 
+</DD>
+</DL>
+
+<P>The return value is a cleared carry flag if successful. Otherwise, the function sets the carry flag and sets the AX register to one of the following error values. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=14%>Value </TH>
+<TH align=left width=86%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>0001h </TD>
+<TD width=86%>Invalid VM ID </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>0002h </TD>
+<TD width=86%>Invalid priority boost </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=14%>0003h </TD>
+<TD width=86%>Invalid flags </TD>
+</TR>
+</TABLE><BR>
+
+<P>Windows calls the callback function as soon as the conditions specified by the <I>Flags</I> parameter are met. This may be before or after Switch VMs and CallBack returns. </P>
+
+<P>The callback function can carry out any action, but must save and restore all registers it modifies. The function must execute an <B>iret</B> instruction to return to Windows. The priority for the virtual machine remains at the level specified by <I>Priority</I> until the callback function executes the <B>iret</B> instruction. </P>
+
+<H4>See Also</H4>
+
+<P>Interrupt 2Fh Function 1605h Windows Initialization Notification </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Interrupt%202Fh%20Function%201685h"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

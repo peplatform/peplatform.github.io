@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Cache Considerations for Receiving Data</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Cache Considerations for Receiving Data">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_cache_considerations_for_receiving_data_ng"></A>Cache Considerations for Receiving Data</H2>
+
+<P>If a miniport driver allocates cached memory, it must do the following:
+
+<UL>
+	<LI>Make receive buffers cache-aligned.</LI>
+
+	<LI>Flush the cache before starting the receive by calling <A HREF="103ndisx_188i.htm"><B>NdisFlushBuffer</B></A> and <A HREF="103ndisx_29rm.htm"><B>NdisMUpdateSharedMemory</B></A>.</LI>
+</UL>
+
+<P>A miniport driver that manages a bus-master DMA device receives data into memory shared with the network interface card (NIC). The miniport driver must ensure that incoming data is present in shared memory, and not in processor cache, before it begins to read the data. To accomplish this, the miniport driver for such a DMA NIC must call <A HREF="103ndisx_188i.htm"><B>NdisFlushBuffer</B></A> and <A HREF="103ndisx_29rm.htm"><B>NdisMUpdateSharedMemory</B></A> (for example, in its <I>MiniportHandleInterrupt</I> function) before indicating the receive or otherwise causing a read of the data.</P>
+
+<P>A miniport driver must also prevent cache-line tearing by allocating cache-aligned memory for receive buffers. If a miniport driver allocates a large block of memory and then reallocates that block into smaller buffers for received data, the start of each receive buffer must be cache-aligned so that the buffers do not cross cache blocks. A miniport driver calls the <A HREF="103ndisx_8cqa.htm"><B>NdisMGetDmaAlignment</B></A> function during initialization and saves the value that <B>NdisMGetDmaAlignment</B> returns in its adapter-specific context area. The miniport driver uses this value to round up the size of a receive buffer to a cache-line size or a multiple of that size when it allocates such a buffer. The miniport driver must also use the cache block size to calculate where in the preallocated block of memory to begin allocating receive buffers. </P>
+
+<P>In general, a miniport driver for a bus-master DMA NIC should allocate cached shared memory because it is a faster and more available resource. There are two cases in which a miniport driver must use noncached memory:
+
+<UL>
+	<LI>If the NIC managed by the miniport driver receives consecutive packets into contiguous memory, the end of one packet can occupy the same cache block as the start of the next packet. Therefore, the miniport driver must allocate noncached memory because reading the first packet can cause stale cache data for the start of the second one.</LI>
+
+	<LI>If releasing the buffers involves writing to them. For example, the receive buffer could be contiguous with a header containing an ownership bit that indicates whether the buffer belongs to the adapter or to the miniport driver. In this case, the adapter may write to that bit before releasing the buffer. A miniport driver that uses this technique must allocate these buffers from noncached memory.</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Cache%20Considerations%20for%20Receiving%20Data"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

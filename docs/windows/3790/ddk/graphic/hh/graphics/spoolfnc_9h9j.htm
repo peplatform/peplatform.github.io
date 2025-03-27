@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SendRecvBidiDataFromPort</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="SendRecvBidiDataFromPort">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_sendrecvbididatafromport_gg"></A>SendRecvBidiDataFromPort</H1>
+
+<P>The <B>SendRecvBidiDataFromPort</B> function, which can be implemented in either a language monitor server DLL or a port monitor server DLL, supports bidirectional communication between an application and a printer or print server.</P>
+
+<PRE class=syntax><B>DWORD WINAPI
+  SendRecvBidiDataFromPort(
+    HANDLE  </B><I>hPort</I>,
+<B>    DWORD  </B><I>dwAccessBit</I>,
+<B>    LPCWSTR  </B><I>pAction</I>,
+<B>    PBIDI_REQUEST_CONTAINER  </B><I>pReqData</I>,
+<B>    PBIDI_RESPONSE_CONTAINER  </B>*<I>ppResData</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>hPort</I></DT>
+
+<DD>Specifies a caller-supplied port handle.</DD>
+
+<DT><I>dwAccessBit</I></DT>
+
+<DD>Caller-supplied ACCESS_MASK structure (defined in the Platform SDK documentation) containing the access granted to the user during a call to the spooler's <B>OpenPrinter</B> function. For more information about ACCESS_MASK and <B>OpenPrinter</B>, see the Platform SDK documentation.</DD>
+
+<DT><I>pAction</I></DT>
+
+<DD>Pointer to a caller-supplied Unicode string that contains the requested action. The value of this parameter should be one of the BIDI_ACTION_<I>XXX</I> constants described in the Platform SDK documentation.</DD>
+
+<DT><I>pReqData</I></DT>
+
+<DD>Pointer to a <A HREF="spoolfnc_5q1z.htm">BIDI_REQUEST_CONTAINER</A> structure that contains the bidi request data.</DD>
+
+<DT><I>ppResData</I></DT>
+
+<DD>Pointer to a memory location that will receive the address of a <A HREF="spoolfnc_6rzb.htm">BIDI_RESPONSE_CONTAINER</A> structure that contains the bidi response.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>If the operation succeeds, the <B>SendRecvBidiDataFromPort</B> function returns ERROR_SUCCESS. Otherwise, it returns a Win32 error code.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>winsplp.h</I>. Include <I>winsplp.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>This function is available in Windows XP and later.</P>
+
+<P>Language and port monitors optionally can define a <B>SendRecvBidiDataFromPort</B> function and include the function’s address in the <B>pfnSendRecvBidiDataFromPort</B> member of a Windows&nbsp;XP <A HREF="spoolfnc_0k9z.htm">MONITOR2</A> structure. </P>
+
+<P>The function’s <I>hPort</I> parameter receives the port handle supplied by the monitor’s <A HREF="spoolfnc_11yf.htm"><B>OpenPort</B></A> or <A HREF="spoolfnc_12nb.htm"><B>OpenPortEx</B></A> function.</P>
+
+<P>Typically, a language monitor's <B>SendRecvBidiDataFromPort</B> function calls the associated port monitor's <B>SendRecvBidiDataFromPort</B> function, and returns the resulting buffer contents to the caller.</P>
+
+<P>Additionally, a language monitor can create a separate thread that calls the port monitor's <B>SendRecvBidiDataFromPort</B> function to check for unsolicited status information or additional bidi information. If such an operation succeeds, the language monitor should return the status information to the spooler by a call to <B>SetPort</B> (described in the Platform SDK documentation).</P>
+
+<P>In a port monitor server's DLL for locally connected devices, the <B>SendRecvBidiDataFromPort</B> function can call the <B>DeviceIoControl</B> or <B>ReadFile</B> functions to obtain data from the kernel-mode port driver. In a port monitor DLL for network-attached devices, the <B>SendRecvBidiDataFromPort</B> function calls network APIs to obtain bidirectional data from the printer and then sends the response back to the caller. For more information about <B>DeviceIoControl</B> and <B>ReadFile</B>, see the Platform SDK documentation.</P>
+
+<P>Both language and port monitors can define <B>SendRecvBidiDataFromPort</B> functions and place their addresses in <A HREF="spoolfnc_0k9z.htm">MONITOR2</A> structures. If a language monitor's <B>SendRecvBidiDataFromPort</B> function is defined, the spooler will always call it, whether or not a port monitor's <B>SendRecvBidiDataFromPort</B> function is defined. </P>
+
+<P>In order to avoid stalling the spooler, <B>SendRecvBidiDataFromPort</B> should return within the time-out interval indicated in the <I>lpCTO</I> parameter in the call to the <A HREF="spoolfnc_1dbb.htm"><B>SetPortTimeOuts</B></A> function, if the port monitor/language monitor supports this function.</P>
+
+<P>A language monitor can call a port monitor's <B>SendRecvBidiDataFromPort</B> function outside a <B>StartDocPort</B>/<B>EndDocPort</B> function pair, or simultaneously with other port monitor calls, such as <A HREF="spoolfnc_319j.htm"><B>WritePort</B></A> or <A HREF="spoolfnc_09bb.htm"><B>ReadPort</B></A>, but in a different thread. (Such a call might be generated by a thread checking for unsolicited status.) However, some port monitors might fail such a call, so the language monitor must be written to handle this failure. The spooler might also call a language monitor’s <B>SendRecvBidiDataFromPort</B> routine outside a <B>StartDocPort</B>/<B>EndDocPort</B> pair or simultaneously with other calls, but in a different thread. A language monitor must be able to handle such calls. For more information about <B>StartDocPort </B>and <B>EndDocPort</B>, see the Platform SDK documentation.</P>
+
+<P>The <B>SendRecvBidiDataFromPort</B> function should compare the granted access against PRINTER_ACCESS_ADMINISTER (described in the Platform SDK documentation) or any other ACCESS bit that the print provider intends to enforce. If the comparison fails, <B>SendRecvBidiDataFromPort</B> should return ERROR_ACCESS_DENIED.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="spoolfnc_5q1z.htm">BIDI_REQUEST_CONTAINER</A>, <A HREF="spoolfnc_5q1z.htm">BIDI_REQUEST_CONTAINER</A>, <A HREF="spoolfnc_1fl3.htm"><B>SendRecvBidiData</B></A>, <A HREF="spoolfnc_0k9z.htm">MONITOR2</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: SendRecvBidiDataFromPort"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

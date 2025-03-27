@@ -1,0 +1,43 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Reliability Issues for a WavePci Miniport Driver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Reliability Issues for a WavePci Miniport Driver">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_kereleasespinlock_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_keacquirespinlock_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_reliability_issues_for_a_wavepci_miniport_driver_ksg"></A>Reliability Issues for a WavePci Miniport Driver</H3>
+
+<P>A WavePci miniport driver must keep track of the mappings that it receives from the port driver. A WavePci miniport driver maintains its list of mappings in a data structure that is shared between driver threads. The driver threads must also share access to the DMA channel in order to add new mappings to the hardware queue and remove completed mappings from the queue. To prevent data corruption, miniport drivers use spin locks to serialize accesses to shared data structures and peripherals. A spin lock protects the shared data and hardware queue from simultaneous access by two or more driver threads.</P>
+
+<P>When developing the portion of the driver that manages mappings, vendors should pay particular attention to the following points.</P>
+
+<H4>Spin Locks</H4>
+
+<P>To avoid potential deadlocks, the miniport driver must not hold its own spin lock when calling into <I>portcls.sys</I> to acquire or release mappings. The <I>ac97</I> sample driver in the Windows DDK illustrates this principle. Before calling either <A HREF="audmp-routines_0pir.htm"><B>IPortWavePciStream::GetMapping</B></A> or <A HREF="audmp-routines_2uk3.htm"><B>IPortWavePciStream::ReleaseMapping</B></A>, the sample driver calls <A HREF="JavaScript:hhobj_1.Click()"><B>KeReleaseSpinlock</B></A> to release the spin lock. After the <B>GetMapping</B> or <B>ReleaseMapping</B> call returns, the driver calls <A HREF="JavaScript:hhobj_2.Click()"><B>KeAcquireSpinlock</B></A> to acquire the spin lock again. Between the calls to release and acquire the spin lock, a driver thread must not assume that it has exclusive access to the list of mappings. Accessing the shared data during this unprotected interval is dangerous. If the interval between releasing and acquiring the spin lock is small, the likelihood of the data being corrupted by a race condition between two driver threads is also small. This means that the resulting failures are intermittent and thus difficult to trace. After releasing and acquiring a spin lock, a well-written driver should assume that any temporary pointers or indices that it previously used to access the contents of the shared data structures are no longer valid.</P>
+
+<H4>IRP Cancellation</H4>
+
+<P>At any time during the processing of a playback or capture stream, cancellation of an IRP can cause the operating system to revoke one or more mappings that the miniport driver has acquired. When this occurs, the port driver calls the <A HREF="audmp-routines_4h83.htm"><B>IMiniportWavePciStream::RevokeMappings</B></A> method to notify the miniport driver. In order to avoid either playing data from or capturing data into the revoked mappings, the miniport driver has to remove the mappings from both its software list and the DMA controller's hardware queue. Because the software list and hardware queue are shared between driver threads, some care is required to perform these operations reliably. For a working code example, see the <I>ac97</I> sample driver in the Windows DDK.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Reliability%20Issues%20for%20a%20WavePci%20Miniport%20Driver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,52 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Introduction to Spin Locks</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Introduction to Spin Locks">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_introduction_to_spin_locks_kg"></A>Introduction to Spin Locks</H2>
+
+<P>Spin locks are kernel-defined, kernel-mode-only synchronization mechanisms, exported as an opaque type: KSPIN_LOCK. A spin lock can be used to protect shared data or resources from simultaneous access by routines that can execute concurrently and at raised IRQL in SMP machines. </P>
+
+<P>Many components use spin locks, including drivers. Any kind of driver might use one or more <I>executive spin locks</I>. For example, most file systems use an interlocked work queue in the FSD’s device extension to store IRPs that are processed both by the file system’s worker-thread callback routines and by the FSD. An interlocked work queue is protected by an executive spin lock, which resolves contention among the FSD trying to insert IRPs into the queue and any threads simultaneously trying to remove IRPs. As another example, the system floppy controller driver uses two executive spin locks. One executive spin lock protects an interlocked work queue shared with this driver’s device-dedicated thread; the other protects a timer object shared by three driver routines.  </P>
+
+<P>Drivers for Microsoft® Windows® XP and later operating systems can use <A HREF="k105_427m.htm"><B>KeAcquireInStackQueuedSpinLock</B></A> and <A HREF="k105_23zm.htm"><B>KeReleaseInStackQueuedSpinLock</B></A> to acquire and release the spin lock as a <I>queued spin lock</I>. Queued spin locks provide better performance than ordinary spin locks, especially on multiprocessor machines. For more information, see <A HREF="synchro_8ftz.htm">Queued Spin Locks</A>. Drivers for Windows&nbsp;2000 can use <A HREF="k105_40qa.htm"><B>KeAcquireSpinLock</B></A> and <A HREF="k105_3mia.htm"><B>KeReleaseSpinLock</B></A> to acquire and release a spin lock as an ordinary spin lock.</P>
+
+<P>To synchronize access to simple data structures, drivers can use any of the <B>ExInterlocked<I>Xxx</I></B> routines to ensure atomic access to the data structure.  Drivers that use these routines do not need to acquire or release the spin lock explicitly.</P>
+
+<P>Every driver that has an ISR uses an <I>interrupt spin lock</I> to protect any data or hardware shared between its ISR and its <A HREF="drvrrtns_4m2a.htm"><I>SynchCritSection</I></A> routines that are usually called from its <A HREF="drvrrtns_6isy.htm"><I>StartIo</I></A> and <A HREF="drvrrtns_9ycy.htm"><I>DpcForIsr</I></A> routines. An interrupt spin lock is associated with the set of interrupt objects created when the driver calls <A HREF="k104_7h9u.htm"><B>IoConnectInterrupt</B></A>, as described in Registering an ISR. </P>
+
+<P class=proch><B><IMG SRC="../images/wedge.gif" ALT="" BORDER=0>Follow these guidelines for using spin locks in drivers: </B>
+
+<UL>
+	<LI>Provide the storage for any data or resource protected by a spin lock and for the corresponding spin lock in resident system-space memory (nonpaged pool, as shown in the <A HREF="memmgmt_7o6f.htm#ddk__bmc_16vrtmem.wmf__kg">Virtual Memory Spaces and Physical Memory</A> figure). A driver must provide the storage for any executive spin locks it uses. However, a device driver need not provide the storage for an interrupt spin lock unless it has a multivector ISR or has more than one ISR, as described in Registering an ISR. </LI>
+
+	<LI>Call <A HREF="k105_60xe.htm"><B>KeInitializeSpinLock</B></A> to initialize each spin lock for which the driver provides storage before using it to synchronize access to the shared data or resource it protects. </LI>
+
+	<LI>Call every support routine that uses a spin lock at an appropriate IRQL, generally at &lt;= DISPATCH_LEVEL for executive spin locks or at &lt;= DIRQL for an interrupt spin lock associated with the driver’s interrupt objects. </LI>
+
+	<LI>Implement routines to execute as quickly as possible while they hold a spin lock. No routine should hold a spin lock for longer than 25 microseconds. </LI>
+
+	<LI><I>Never</I> implement routines that do any of the following while holding a spin lock: 
+<UL>
+	<LI>Cause hardware exceptions or raise software exceptions </LI>
+
+	<LI>Attempt to access pageable memory </LI>
+
+	<LI>Make a recursive call that would cause a deadlock or could cause a spin lock to be held for longer than 25 microseconds </LI>
+
+	<LI>Attempt to acquire another spin lock if doing so might cause a deadlock </LI>
+
+	<LI>Call an external routine that violates any of the preceding rules </LI>
+</UL>
+</LI>
+</UL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Introduction%20to%20Spin%20Locks"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

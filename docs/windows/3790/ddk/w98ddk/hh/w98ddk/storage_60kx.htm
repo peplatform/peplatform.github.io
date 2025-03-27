@@ -1,0 +1,743 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IFSMgr_Ring0_FileIO</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Windows&nbsp;98/Me:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="_pss_4511"></A>IFSMgr_Ring0_FileIO</H3>
+
+<P>This service provides a register-based VxD callable interface to the common file system functions. Other VxDs in the system can use this service to make file system calls without having to issue INT 21h calls. An FSD itself can call this interface to do file system operations in certain situations. The different functions provided as part of this service are described in the following. Since these calls can be made only by 'trusted' system components, the IFS manager does not do any parameter validation on them. Users of this service should be very careful to check that they are passing in valid parameters. </P>
+
+<P><B>OpenCreateFile</B> </P>
+
+<P>This interface is the same as the interface for the INT 21h extended open function (06Ch ). If the R0_OPENCREATFILE function code is used, the operation is done in an independent context, so that handle is globally accessible from any VM. If the R0_OPENCREAT_IN_CONTEXT function code is used, the operation is done in the context of the current thread and process. 
+
+<DL>
+<DT><I>[EAX]</I> </DT>
+
+<DD>R0_OPENCREATFILE or RO_OPENCREAT_IN_CONTEXT </DD>
+
+<DT><I>[BX]</I> </DT>
+
+<DD>Open mode and other flags. The flags are exactly the same as those on the INT 21h function 6Ch. Please refer to the specification of the INT 21h function for details. </DD>
+
+<DT><I>[CX]</I> </DT>
+
+<DD>Attributes to use on a create operation. </DD>
+
+<DT><I>[DL]</I> </DT>
+
+<DD>Action to be performed. Look at the INT 21h, function 6ch documentation for details. </DD>
+
+<DT><I>[DH]</I> </DT>
+
+<DD>Special flags that are available only on this API. This register is reserved and not used on the INT 21h, function 6Ch API. 
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><B>Special Ring 0 API Open Flags:</B> </TD>
+<TD width=66%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Value </TH>
+<TH align=left width=66%>Meaning </TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>R0_NO_CACHE SHR 8</TD>
+<TD width=66%>Indicates that reads and writes on the file should not be cached. All operations will be directly done to the disk. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>R0_SWAPPER_CALL SHR 8</TD>
+<TD width=66%>Indicates that the I/O operation is being performed to the system swap file. This is a privileged call that should be set only by the memory manager when it is doing I/O to page stuff in and out of the disk. The file system that handles swap-file I/O needs to ensure certain conditions to prevent deadlocks. These are described in Section 8.3.4 of this document. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>OPEN_FLAGS_NO_COMPRESS SHR 8</TD>
+<TD width=66%>The file should not be compressed when it is created or changed.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><I>[ESI]</I> </DT>
+
+<DD>Flat pointer to the path name of the file to be opened/created. </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, operation was successful. </LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><I>[AX]</I> </TD>
+<TD width=66%>Handle to opened file. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><I>[CX]</I> </TD>
+<TD width=66%>Actual action performed. For the return values, please refer to the document describing the INT 21h, function 6Ch API. </TD>
+</TR>
+</TABLE><BR>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><I>Carry</I> flag set, an error occurred. [AX] contains the error code. </TD>
+<TD width=66%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%><B>Registers Used</B> 
+<P>EAX, ECX, Flags. </P>
+</TD>
+<TD width=66%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>ReadFile</B> </P>
+
+<P>This function is called to read a file previously opened by OpenCreateFile. The handle must be one returned from the OpenCreateFile service described above, it cannot be a handle opened by issuing an INT 21h. If the R0_READFILE_IN_CONTEXT function code is specified, the read operation is done in the current thread context. To use this function, the handle must have previously been opened using the R0_OPENCREAT_IN_CONTEXT function. The R0_READFILE function processes the read operation in the global context. 
+
+<DL>
+<DT><I>[EAX]</I> </DT>
+
+<DD>R0_READFILE or R0_READFILE_IN_CONTEXT. If opening as a memory mapped file, OR this value using (R0_MM_READ_WRITE shl 16).</DD>
+
+<DT><I>[EBX]</I> </DT>
+
+<DD>File handle. </DD>
+
+<DT><I>[ECX]</I> </DT>
+
+<DD>Count of bytes to be read. This can be a full 32-bit transfer count. </DD>
+
+<DT><I>[EDX]</I> </DT>
+
+<DD>Position in file the read operation needs to start at. </DD>
+
+<DT><I>[ESI]</I> </DT>
+
+<DD>Flat pointer to the buffer the data is to read into. </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, no error. </LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><I>[ECX]</I> </TD>
+<TD width=66%>Number of bytes actually read. </TD>
+</TR>
+</TABLE><BR>
+
+<P class=indent1><I>Carry</I> flag set, an error occurred. [AX] contains the error code. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><B>Registers Used</B> 
+<P>EAX, ECX, Flags. </P>
+</TD>
+<TD width=66%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>WriteFile</B> </P>
+
+<P>This function is called to write to a file previously opened by OpenCreateFile. The handle must be one returned from the OpenCreateFile service described above, it cannot be a handle opened by issuing an INT 21h. If the R0_WRITEFILE_IN_CONTEXT function code is specified, the read operation is done in the current thread context. To use this function, the handle must have previously been opened using the R0_OPENCREAT_IN_CONTEXT function. The R0_READFILE function processes the read operation in the global context. 
+
+<DL>
+<DT><I>[EAX]</I> </DT>
+
+<DD>R0_WRITEFILE or R0_WRITEFILE_IN_CONTEXT </DD>
+
+<DT><I>[EBX]</I> </DT>
+
+<DD>File handle. </DD>
+
+<DT><I>[ECX]</I> </DT>
+
+<DD>Count of bytes to be written. This can be a full 32-bit transfer count. </DD>
+
+<DT><I>[EDX]</I> </DT>
+
+<DD>Position in file the write operation needs to start at. </DD>
+
+<DT><I>[ESI]</I> </DT>
+
+<DD>Flat pointer to the buffer that contains the data to be written. </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, no error. </LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><I>[ECX]</I> </TD>
+<TD width=57%>Number of bytes actually written. </TD>
+</TR>
+</TABLE><BR>
+
+<P class=indent1><I>Carry</I> flag set, an error occurred. [AX] contains the error code. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><B>Registers Used</B> 
+<P>EAX, ECX, Flags. </P>
+</TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>CloseFile</B> </P>
+
+<P>This function is called to close a file previously opened by OpenCreateFile. The handle must be one returned from the OpenCreateFile service described above, it cannot be a handle opened by issuing an INT 21h. 
+
+<DL>
+<DT><I>[EAX]</I> </DT>
+
+<DD>R0_CLOSEFILE </DD>
+
+<DT><I>[EBX]</I> </DT>
+
+<DD>File handle </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, no error. 
+<P><I>Carry</I> flag set, an error occurred. [AX] contains the error code. 
+</LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><B>Registers Used</B> 
+<P>EAX, Flags. </P>
+</TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>GetFileSize</B> </P>
+
+<P>This function is called to get the size of a file previously opened by OpenCreateFile. The handle must be one returned from the OpenCreateFile service described above, it cannot be a handle opened by issuing an INT 21h. 
+
+<DL>
+<DT><I>[EAX]</I> </DT>
+
+<DD>R0_GETFILESIZE </DD>
+
+<DT><I>[EBX]</I> </DT>
+
+<DD>File handle </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, no error. </LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><I>[EAX]</I> </TD>
+<TD width=57%>Size of the file in bytes. </TD>
+</TR>
+</TABLE><BR>
+
+<P class=indent1><I>Carry</I> flag set, an error occurred. [AX] contains the error code. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><B>Registers Used</B> 
+<P>EAX, Flags. </P>
+</TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>FindFirstFile</B> </P>
+
+<P>This function is called to perform a FindFirst operation. This function provides the same functionality as the FindFirst INT 21h function 714Eh and supports long file names. 
+
+<DL>
+<DT><I>[EAX]</I> </DT>
+
+<DD>R0_FINDFIRSTFILE </DD>
+
+<DT><I>[CX]</I> </DT>
+
+<DD>Must match attributes to be used for the find operation. </DD>
+
+<DT><I>[ESI]</I> </DT>
+
+<DD>Flat pointer to path name the find operation is to be done on. </DD>
+
+<DT><I>[EDX]</I> </DT>
+
+<DD>Flat pointer to buffer to contain the results of the find operation. This buffer should be in the <B>_WIN32_FIND_DATA</B> structure format. </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, no error. </LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><I>[EAX]</I> </TD>
+<TD width=66%>Find context handle to be used for a subsequent FindNextFile operation. 
+<P>The find data buffer is filled in appropriately. </P>
+</TD>
+</TR>
+</TABLE><BR>
+
+<P class=indent1><I>Carry</I> flag set, an error occurred. <I>[AX]</I> contains the error code. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><B>Registers Used</B> 
+<P>EAX, Flags. </P>
+</TD>
+<TD width=66%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>FindNextFile</B> </P>
+
+<P>This function is called to perform a FindNext operation. The handle used for this call must be one obtained by calling the FindFirstFile service described above, it cannot be a handle obtained by issuing an INT 21h call. 
+
+<DL>
+<DT><I>[EAX]</I> </DT>
+
+<DD>R0_FINDFIRSTFILE </DD>
+
+<DT><I>[EBX]</I> </DT>
+
+<DD>Find context handle obtained by calling FindFirstFile. </DD>
+
+<DT><I>[EDX]</I> </DT>
+
+<DD>Flat pointer to buffer to contain the results of the find operation. This buffer should be in the <B>_WIN32_FIND_DATA</B> structure format. </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, no error. 
+<P>The find data buffer is filled in appropriately. 
+
+<P><I>Carry</I> flag set, an error occurred. <I>[AX]</I> contains the error code. 
+</LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><B>Registers Used</B> 
+<P>EAX, Flags. </P>
+</TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>FindCloseFile</B> </P>
+
+<P>This function is called to terminate a Find operation. The handle used for this call must be one obtained by calling the FindFirstFile service described above, it cannot be a handle obtained by issuing an INT 21h call. 
+
+<DL>
+<DT><I>[EAX]</I> </DT>
+
+<DD>R0_FINDCLOSEFILE </DD>
+
+<DT><I>[EBX]</I> </DT>
+
+<DD>Find context handle obtained by calling FindFirstFile. </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, no error. 
+<P><I>Carry</I> flag set, an error occurred. <I>[AX]</I> contains the error code. 
+</LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><B>Registers Used</B> 
+<P>EAX, Flags. </P>
+</TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>FileAttributes</B> </P>
+
+<P>This function is called to get or set the current attributes of a file. It provides the same functionality as the INT 21h function 7143h. 
+
+<DL>
+<DT><I>[AH]</I> </DT>
+
+<DD>R0_FILEATTRIBUTES </DD>
+
+<DT><I>[AL]</I> </DT>
+
+<DD>GET_ATTRIBUTES to get the attributes of a file. 
+
+<P>SET_ATTRIBUTES to set the attributes of a file. 
+</DD>
+
+<DT><I>[CX]</I> </DT>
+
+<DD>Attributes of the file, valid only for the SET_ATTRIBUTES operation. </DD>
+
+<DT><I>[ESI]</I> </DT>
+
+<DD>Flat pointer to a path name for the file whose attributes need to be returned. </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, no error. </LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=34%><I>[CX]</I> </TD>
+<TD width=66%>Attributes of the file returned only on the GET_ATTRIBUTES operation. </TD>
+</TR>
+</TABLE><BR>
+
+<P class=indent1><I>Carry</I> flag set, an error occurred. <I>[AX]</I> contains the error code. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><B>Registers Used</B> </TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P class=indent1>EAX, ECX, Flags. </P>
+
+<P><B>RenameFile</B> </P>
+
+<P>This function is called to rename a file. This provides the same functionality as the INT 21h function 7156h. 
+
+<DL>
+<DT><I>[EAX]</I> </DT>
+
+<DD>R0_RENAMEFILE </DD>
+
+<DT><I>[ESI]</I> </DT>
+
+<DD>Flat pointer to source path name of file name that is to be renamed. </DD>
+
+<DT><I>[EDX]</I> </DT>
+
+<DD>Flat pointer to destination path name to which the file name is to be renamed. </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, no error. 
+<P><I>Carry</I> flag set, an error occurred. <I>[AX]</I> contains the error code. 
+</LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><B>Registers Used</B> </TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>Flags. </TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>DeleteFile</B> </P>
+
+<P>This function is called to delete a file. This provides the same functionality as the INT 21h function 7141h. 
+
+<DL>
+<DT><I>[EAX]</I> </DT>
+
+<DD>R0_DELETEFILE </DD>
+
+<DT><I>[CX]</I> </DT>
+
+<DD>Attributes for the delete operation. This has the search attribute and the must-match attribute just like the INT 21h, function 7141h. Refer to the documentation of the INT 21h function for details about the attributes. </DD>
+
+<DT><I>[ESI]</I> </DT>
+
+<DD>Flat pointer to path name of file(s) to be deleted. Wildcards are allowed. </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, no error. 
+<P><I>Carry</I> flag set, an error occurred. <I>[AX]</I> contains the error code. 
+</LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><B>Registers Used</B> </TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>Flags. </TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>LockFile</B> </P>
+
+<P>This function is called to perform record locking operations on files. This provides the same functionality as the INT 21h function 5Ch. The handle passed in should be obtained by calling the OpenCreateFile function described above, it cannot be a handle obtained by issuing an INT 21h call. Note that this operation is always done in the current context because it makes no sense to have a file lock in a global context. Hence, the OpenCreateFile should have been done using the context-sensitive R0_OPENCREAT_IN_CONTEXT function code. 
+
+<DL>
+<DT><I>[AH]</I> </DT>
+
+<DD>R0_FILELOCKS </DD>
+
+<DT><I>[AL]</I> </DT>
+
+<DD>LOCK_REGION to take a record lock. 
+
+<P>UNLOCK_REGION to release a record lock. 
+</DD>
+
+<DT><I>[EBX]</I> </DT>
+
+<DD>Handle to file. </DD>
+
+<DT><I>[ECX]</I> </DT>
+
+<DD>Process ID of the process on whose behalf the locking operation is to be issued. </DD>
+
+<DT><I>[EDX]</I> </DT>
+
+<DD>Offset of the region that is to be locked. </DD>
+
+<DT><I>[ESI]</I> </DT>
+
+<DD>Length of the region that is to be locked. </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, no error. 
+<P><I>Carry</I> flag set, an error occurred. <I>[AX]</I> contains the error code. 
+</LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><B>Registers Used</B> </TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>Flags. </TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>GetDiskFreeSpace</B> </P>
+
+<P>This function returns the current disk free space statistics. It provides the same functionality as INT 21h function 36h. 
+
+<DL>
+<DT><I>[EAX]</I> </DT>
+
+<DD>R0_GETDISKFREESPACE </DD>
+
+<DT><I>[DL]</I> </DT>
+
+<DD>1-based driveletter whose disk freespace is desired (zero = default drive, 1= A, 2 = B,...) </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, no error. </LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><I>[AX]</I> </TD>
+<TD width=57%>Number of sectors per cluster. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%><I>[BX]</I> </TD>
+<TD width=57%>Number of available clusters on disk. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%><I>[CX]</I> </TD>
+<TD width=57%>Number of bytes per sector. </TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%><I>[DX]</I> </TD>
+<TD width=57%>Total number of clusters on disk. </TD>
+</TR>
+</TABLE><BR>
+
+<P class=indent1><I>Carry</I> flag set, an error occurred. <I>[AX]</I> contains the error code. </P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><B>Registers Used</B> 
+<P>AX, BX, CX, DX, Flags. </P>
+</TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>ReadAbsoluteDisk</B> </P>
+
+<P>This function is called to read absolute sectors from the disk. It provides the same functionality as the INT 25h interface. 
+
+<DL>
+<DT><I>[AH]</I> </DT>
+
+<DD>R0_ABSDISKREAD </DD>
+
+<DT><I>[AL]</I> </DT>
+
+<DD>Zero-based driveletter the operation is to be done on (zero = A, 1 = B,...). </DD>
+
+<DT><I>[ECX]</I> </DT>
+
+<DD>Number of sectors to read. </DD>
+
+<DT><I>[EDX]</I> </DT>
+
+<DD>Starting sector number for the read. </DD>
+
+<DT><I>[ESI]</I> </DT>
+
+<DD>Flat pointer to buffer the read is to be done into. </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, no error. 
+<P><I>Carry</I> flag set, an error occurred. <I>[AX]</I> contains the error code. 
+</LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><B>Registers Used</B> </TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>Flags. </TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>WriteAbsoluteDisk</B> </P>
+
+<P>This function is called to write absolute sectors to the disk. It provides the same functionality as the INT 26h interface. 
+
+<DL>
+<DT><I>[AH]</I> </DT>
+
+<DD>R0_ABSDISKWRITE </DD>
+
+<DT><I>[AL]</I> </DT>
+
+<DD>Zero-based driveletter the operation is to be done on (zero = A, 1 = B,...). </DD>
+
+<DT><I>[ECX</I> </DT>
+
+<DD>Number of sectors to write. </DD>
+
+<DT><I>[EDX]</I> </DT>
+
+<DD>Starting sector number for the write. </DD>
+
+<DT><I>[ESI]</I> </DT>
+
+<DD>Flat pointer to buffer containing the data to be written. </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, no error. 
+<P><I>Carry</I> flag set, an error occurred. <I>[AX]</I> contains the error code. 
+</LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><B>Registers Used</B> </TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=43%>Flags. </TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+
+<P><B>IoctlHandle</B> </P>
+
+<P>This function is called to do a handle-based IOCtl. It is currently used by certain system components and should not be used by other VxDs. Other than the registers documented here, the rest of the IOCtl parameters depend on the specific IOCtl being used and should be the same as that for the corresponding INT 21h IOCtl subfunction. 
+
+<DL>
+<DT><I>[AH]</I> </DT>
+
+<DD>R0_IOCTLHANDLE </DD>
+
+<DT><I>[AL]</I> </DT>
+
+<DD>IOCtl subfunction code. </DD>
+
+<DT><I>[EBX]</I> </DT>
+
+<DD>File or device handle. </DD>
+</DL>
+
+<UL>
+	<LI><I>Carry</I> flag clear, no error. 
+<P><I>Carry</I> flag set, an error occurred. <I>[AX]</I> contains the error code. 
+</LI>
+</UL>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TD width=43%><B>Registers Used</B> 
+<P>EAX, Flags. </P>
+</TD>
+<TD width=57%>&nbsp;</TD>
+</TR>
+</TABLE><BR>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IFSMgr_Ring0_FileIO"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

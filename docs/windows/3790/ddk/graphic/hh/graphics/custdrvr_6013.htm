@@ -1,0 +1,76 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling Device-Managed Surfaces</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling Device-Managed Surfaces">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_handling_device_managed_surfaces_gg"></A>Handling Device-Managed Surfaces</H3>
+
+<P>When Unidrv renders print page images, it uses GDI-managed drawing surfaces. All images are rendered as bitmaps. For devices providing capabilities that cannot be exploited by this scenario, such as the ability to draw vectors, you can provide customized driver support for a device-managed drawing surface. To support a device-managed surface, you must provide a rendering plug-in that implements the following:
+
+<UL>
+	<LI>A set of hooking functions for all the Unidrv-supported graphics DDI drawing functions. The following functions must be hooked:
+<P><A HREF="ddifncs_40br.htm"><I>DrvAlphaBlend</I></A> <BR>
+<A HREF="ddifncs_8z3b.htm"><I>DrvBitBlt</I></A> <BR>
+<A HREF="ddifncs_27mv.htm"><I>DrvCopyBits</I></A> <BR>
+<A HREF="ddifncs_87mv.htm"><I>DrvDitherColor</I></A> <BR>
+<A HREF="ddifncs_3x2f.htm"><I>DrvFillPath</I></A> <BR>
+<A HREF="ddifncs_6bvr.htm"><I>DrvGradientFill</I></A> <BR>
+<A HREF="ddifncs_7sx3.htm"><I>DrvLineTo</I></A> <BR>
+<A HREF="ddifncs_79yf.htm"><I>DrvPlgBlt</I></A> <BR>
+<A HREF="ddifncs_6krr.htm"><I>DrvRealizeBrush</I></A> <BR>
+<A HREF="ddifncs_3ew7.htm"><I>DrvStretchBlt</I></A> <BR>
+<A HREF="ddifncs_0z3b.htm"><I>DrvStretchBltROP</I></A> <BR>
+<A HREF="ddifncs_750n.htm"><I>DrvStrokeAndFillPat</I><B>h</B></A> <BR>
+<A HREF="ddifncs_81ev.htm"><I>DrvStrokePath</I></A> <BR>
+<A HREF="ddifncs_4kkn.htm"><I>DrvTextOut</I></A> <BR>
+<A HREF="ddifncs_0bl3.htm"><I>DrvTransparentBlt</I></A> 
+</LI>
+
+	<LI>The <A HREF="drvrfnc_0qsn.htm"><B>IPrintOemUni::EnableDriver</B></A> method, which is used to provide Unidrv with pointers to the graphics DDI hooking functions.</LI>
+
+	<LI>The <A HREF="drvrfnc_75bb.htm"><B>IPrintOemUni::DriverDMS</B></A> method, which informs Unidrv that a device-managed surface is to be used, and specifies which of the defined hooking functions will be used for the surface.</LI>
+</UL>
+
+<P>The hooking functions cannot call back to GDI's <B>Eng</B>-prefixed support services when drawing on a device-managed surface. However, they can create a temporary bitmap surface, then pass that surface's handle to <B>Eng</B>-prefixed drawing functions (see <A HREF="drvarch_9cpz.htm">Rendering a Print Job</A>).</P>
+
+<P>The <B>IPrintOemUni::DriverDMS</B> method is called each time a print job is about to be rendered, so the rendering plug-in can specify the type of rendering surface (GDI-managed or device-managed) for each job. Basing the surface choice on a selectable option in the user interface requires you to also provide a <A HREF="custdrvr_0mjr.htm">user interface plug-in</A>.</P>
+
+<H4>Drawing Text on a Device-Managed Surface</H4>
+
+<P>The rendering plug-in must hook out Unidrv's <A HREF="ddifncs_4kkn.htm"><I>DrvTextOut</I></A> function (along with all other graphics DDI drawing functions). Creating text for a device-managed surface involves interaction among the following four functions:
+
+<UL>
+	<LI>Unidrv's <A HREF="ddifncs_4kkn.htm"><I>DrvTextOut</I></A> function</LI>
+
+	<LI>The rendering plug-in's <A HREF="ddifncs_4kkn.htm"><I>DrvTextOut</I></A> hooking function</LI>
+
+	<LI>Unidrv's <A HREF="drvrfnc_3d0n.htm"><B>IPrintOemDriverUni::DrvUniTextOut</B></A> method</LI>
+
+	<LI>The rendering plug-in's <A HREF="drvrfnc_4aef.htm"><B>IPrintOemUni::TextOutAsBitmap</B></A> method</LI>
+</UL>
+
+<P>The steps involved in displaying text on a device-managed surface are as follows:
+
+<OL>
+	<LI>GDI calls Unidrv's <A HREF="ddifncs_4kkn.htm"><I>DrvTextOut</I></A> function.</LI>
+
+	<LI>Unidrv calls the rendering plug-in's <I>DrvTextOut</I> hooking function.</LI>
+
+	<LI>The hooking function sends commands to the device to specify the text's brush, rotation, and clip region.</LI>
+
+	<LI>The hooking function calls Unidrv's <A HREF="drvrfnc_3d0n.htm"><B>IPrintOemDriverUni::DrvUniTextOut</B></A> method, which uses downloaded fonts to output the text. This method also handles glyph-based clipping.</LI>
+
+	<LI>If <B>IPrintOemDriverUni::DrvUniTextOut</B> cannot use a downloadable font (because the font is not available or is rotated), it calls the rendering plug-in's <A HREF="drvrfnc_4aef.htm"><B>IPrintOemUni::TextOutAsBitmap</B></A> method, which draws the text as a bitmap.</LI>
+
+	<LI>After <B>IPrintOemDriverUni::DrvUniTextOut</B> returns, the <I>DrvTextOut</I> hooking function must draw underlines and strike-throughs, based on rectangles specified by the <I>DrvTextOut</I> function's <I>prclExtra</I> parameter, using vector commands (if supported).</LI>
+</OL>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20Device-Managed%20Surfaces"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

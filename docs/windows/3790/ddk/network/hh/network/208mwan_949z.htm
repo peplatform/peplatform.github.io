@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Indicating NDIS WAN Miniport Driver Status</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Indicating NDIS WAN Miniport Driver Status">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_indicating_ndis_wan_miniport_driver_status_ng"></A>Indicating NDIS WAN Miniport Driver Status</H2>
+
+<P>After changes in the status of a WAN NIC occur, the miniport driver calls <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A> to indicate these changes up to bound protocol drivers. The miniport driver indicates status with status codes and buffer contents. </P>
+
+<P>Bound protocol drivers can ignore status indications. However, processing these indications typically results in improved performance for protocols and the miniport driver. </P>
+
+<P>The NDISWAN intermediate driver forwards status indications to bound protocols or to a configuration manager. These protocols or configuration manager can log these indications and possibly take corrective action. </P>
+
+<P>For an NDIS WAN miniport driver, the call to <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A> is the same as in a non-WAN connectionless miniport driver, except that the WAN miniport driver indicates a WAN-specific set of statistics. </P>
+
+<P>Each status indication provides two basic pieces of information:
+
+<UL>
+	<LI>A status code that specifies the general status. There are a limited number of defined general status codes; this list is subject to future expansion.</LI>
+
+	<LI>A buffer that contains the status information. This status information can be specific to a NIC. For example, a buffer might contain the new transmit speed of an X.25 connection, which recently decreased by a factor of two. For an NDIS WAN miniport driver, this buffer might indicate that a new link is becoming active or that an existing link is changing to the idle state. </LI>
+</UL>
+
+<P>The NDIS WAN status indications include: 
+
+<UL>
+	<LI>NDIS_STATUS_WAN_LINE_UP 
+<P>An NDIS WAN miniport driver calls <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A> to indicate that a new data channel has become active or to indicate that an existing channel's parameters have changed. In this call, the miniport driver passes NDIS_STATUS_WAN_LINE_UP in the <I>GeneralStatus</I> parameter and a pointer to an <A HREF="105nstru_4agi.htm">NDIS_MAC_LINE_UP</A> structure in the <I>StatusBuffer</I> parameter. NDIS_MAC_LINE_UP identifies the data channel for a particular link and describes parameters for the link. Until this status indication occurs, the WAN NIC accepts packets and can let them succeed or fail, but it is unlikely that any remote-node process will receive such packets. Until a data channel becomes active, protocols should reduce their timers and retry counts so that any outgoing connection attempts quickly fail. 
+
+<P>An NDIS WAN miniport driver must make the initial line-up indication before it returns from an <A HREF="29tpioid_5rsi.htm">OID_TAPI_GET_ID</A> request. This request uses an NDIS_TAPI_GET_ID structure. The line-up indication is made if NDIS_TAPI_GET_ID contains the NDIS value in the <B>DeviceClass</B> member and LINECALLSELECT_CALL in the <B>ulSelect</B> member. Before the OID_TAPI_GET_ID request completes, the miniport driver sets the value of the <B>DeviceID</B> member of NDIS_TAPI_GET_ID to the value of the <B>NdisLinkContext</B> member of NDIS_MAC_LINE_UP that was returned from the <A HREF="208mwan_87hj.htm">line-up indication</A>. 
+</LI>
+
+	<LI>NDIS_STATUS_WAN_LINE_DOWN 
+<P>An NDIS WAN miniport driver calls <B>NdisMIndicateStatus</B> whenever a link goes down. In this call, the miniport driver passes NDIS_STATUS_WAN_LINE_DOWN in the <I>GeneralStatus</I> parameter, and a pointer to an <A HREF="105nstru_1q7m.htm">NDIS_MAC_LINE_DOWN</A> structure in the <I>StatusBuffer</I> parameter. The <B>NdisLinkContext</B> member of NDIS_MAC_LINE_DOWN identifies the link that is no longer valid. 
+
+<P>After this status indication occurs, bound protocols should reduce their timers and retry counts until the next line-up indication.
+</LI>
+
+	<LI>NDIS_STATUS_WAN_FRAGMENT 
+<P>An NDIS WAN miniport driver calls <B>NdisMIndicateStatus</B> whenever it receives a partial packet from a remote peer. In this call, the miniport driver passes NDIS_STATUS_WAN_FRAGMENT in the <I>GeneralStatus</I> parameter and a pointer to an <A HREF="105nstru_7v5e.htm">NDIS_MAC_FRAGMENT</A> structure in the <I>StatusBuffer</I> parameter. NDIS_MAC_FRAGMENT identifies a particular link and describes the reason that the partial packet was received. 
+
+<P>If the miniport driver does not make a fragment indication when it receives a partial packet from a remote peer, NDISWAN will be unaware of the particular error. After a fragment indication occurs, the protocol should send frames to the remote peer to notify the remote peer of the fragment indication, rather than waiting for a time-out to occur. 
+
+<P>NDISWAN monitors dropped packets by counting the number of fragment indications on the link.
+</LI>
+</UL>
+
+<P>An NDIS WAN miniport driver can also indicate TAPI status. The miniport driver calls <A HREF="103ndisx_5nn6.htm"><B>NdisMIndicateStatus</B></A> to indicate TAPI status. In this call, the miniport driver passes NDIS_STATUS_TAPI_INDICATION in the <I>GeneralStatus</I> parameter and a pointer to an NDIS_TAPI_EVENT structure in the <I>StatusBuffer</I> parameter. NDIS_TAPI_EVENT describes the TAPI line or call event that occurs. The general type of TAPI-status indications of interest to miniport driver developers are changes in line and call states, the arrival of an incoming call, and the closing by a remote node or by the miniport driver of an existing call or line. For more information, see <A HREF="208mwan_48vb.htm">NDIS WAN Operations That Support Telephonic Services</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Indicating%20NDIS%20WAN%20Miniport%20Driver%20Status"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

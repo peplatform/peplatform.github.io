@@ -1,0 +1,120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>wiasDownSampleBuffer</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="wiasDownSampleBuffer">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_wiasdownsamplebuffer_si"></A>wiasDownSampleBuffer</H1>
+
+<P>The <B>wiasDownSampleBuffer</B> function takes in a buffer of DWORD-aligned pixel data and downsamples it (produces image data of lower resolution) to the specified size and resolution.</P>
+
+<PRE class=syntax><B>HRESULT</B> 
+  <B>wiasDownSampleBuffer(</B>
+    <B>LONG</B>  <I>lFlags</I>,
+    <B>WIAS_DOWN_SAMPLE_INFO</B>  *<I>pInfo</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>lFlags</I></DT>
+
+<DD>Specifies a set of flags that determine the behavior of this function. Currently, only the following flag is defined.
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=48%>Flag</TH>
+<TH align=left width=52%>Meaning</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=48%>WIAS_GET_DOWNSAMPLED_SIZE_ONLY</TD>
+<TD width=52%>Do not copy the downsampled data to the destination buffer. Instead, set the following members of the <A HREF="wiastrct_6ip5.htm">WIAS_DOWN_SAMPLE_INFO</A> structure: <B>ulDownSampledHeight</B>, <B>ulDownSampleWidth</B>, <B>ulAlignedHeight</B>, <B>ulAlignedWidth</B>.</TD>
+</TR>
+</TABLE><BR>
+
+</DD>
+
+<DT><I>pInfo</I></DT>
+
+<DD>Pointer to the <A HREF="wiastrct_6ip5.htm">WIAS_DOWN_SAMPLE_INFO</A> structure that contains all of the information needed for the downsampling operation.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>On success, the function returns S_OK. If the function fails, it returns a standard COM error or one of the WIA_ERROR_XXX errors (described in the Platform SDK documentation).</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>wiamdef.h</I>. Include <I>wiamdef.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The <B>wiasDownSampleBuffer</B> function can be used in either of the following two ways:
+
+<OL>
+	<LI>The caller specifies the downsampled (that is, output) width and height by setting the <B>ulDownSampledWidth</B> and <B>ulDownSampledHeight</B> members of the WIA_DOWN_SAMPLE_INFO structure.</LI>
+
+	<LI>The caller sets the <B>ulDownSampledWidth</B> and <B>ulDownSampledHeight</B> members of the WIA_DOWN_SAMPLE_INFO structure to zero, indicating that the function should choose the output width and height. 
+<P>To see what output width and height values the function chooses, call this function with the <I>lFlags</I> parameter set to WIAS_GET_DOWNSAMPLED_SIZE_ONLY. On return, the <B>ulDownSampledWidth</B> and <B>ulDownSampledHeight</B> members are set to their new values. No downsampling is performed in this case.
+</LI>
+</OL>
+
+<P>The caller of this function is required to fill in the following members of the WIA_DOWN_SAMPLE_INFO structure:
+
+<UL>
+	<LI><B>ulOriginalWidth</B></LI>
+
+	<LI><B>ulOriginal Height</B></LI>
+
+	<LI><B>ulBitsPerPixel</B></LI>
+
+	<LI><B>ulXRes</B></LI>
+
+	<LI><B>ulYRes</B></LI>
+
+	<LI><B>pSrcBuffer</B></LI>
+</UL>
+
+<P class=note><B>Note:</B>&nbsp;&nbsp;This function expects <B>ulBitsPerPixel</B> to be 1, 8, or 24, corresponding to 1-, 8-, and 24-bit-per-pixel data.</P>
+
+<P>The caller can also specify the size of the downsampled data by filling in the following WIA_DOWN_SAMPLE_INFO structure members:
+
+<UL>
+	<LI><B>ulDownSampledWidth</B></LI>
+
+	<LI><B>ulDownSampledHeight</B></LI>
+</UL>
+
+<P>If the buffer that receives the downsampled data has already been allocated, the caller should fill in these WIA_DOWN_SAMPLE_INFO structure members:
+
+<UL>
+	<LI><B>ulDestBufSize</B></LI>
+
+	<LI><B>ulSrcBufSize</B></LI>
+
+	<LI><B>pDestBuffer</B></LI>
+</UL>
+
+<P>If the caller sets <B>pDestBuffer</B> to NULL, the destination buffer is allocated by the WIA service. On return from this function, <B>pDestBuffer</B> points to the destination buffer. The caller is responsible for freeing this memory when the operation is finished, and does this by calling <B>CoTaskMemFree</B> (described in the Platform SDK documentation) on the buffer.</P>
+
+<P>Because this function is not able to produce partial output lines, the number of scan lines in the input buffer must be an integer multiple of the scaling factor. For example, suppose the input buffer contains an image sampled at 600 dpi, which you intend to downsample to an equivalent 50 dpi image. In this case, you are scaling down the original image by a factor of 12 (because 600 / 50 = 12). This means that the function must receive 12 input lines for each output line that it produces. </P>
+
+<P>More generally, if the original image has a resolution of R<I>in</I> dpi, and is to be scaled down to an image with a resolution of R<I>out</I> dpi, the scale-down factor is R<I>in</I> / R<I>out</I>, and the number of lines in the input buffer should be a multiple of R<I>in</I> / R<I>out</I>. If the scan head reaches the last band of the original image, and there are too few scan lines in the input buffer to produce an output line, pad the input buffer so that it contains the required number of data lines. Failure to do so causes unpredictable results, and can even result in a driver crash.</P>
+
+<P>This function is available in Windows&nbsp;Me and in Windows&nbsp;XP and later.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="wiastrct_6ip5.htm">WIAS_DOWN_SAMPLE_INFO</A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: wiasDownSampleBuffer"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

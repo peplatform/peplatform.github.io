@@ -1,0 +1,100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling Exceptions</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling Exceptions">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_structured_exception_handling_kg_gly">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_handling_exceptions_kg"></A>Handling Exceptions</H1>
+
+<P>The operating system uses <A HREF="JavaScript:hhobj_1.Click()">structured exception handling</A> to signal certain kinds of errors. A routine called by a driver can raise an exception that the driver must handle.</P>
+
+<P>The system traps the following general kinds of exceptions:
+
+<OL>
+	<LI>Hardware-defined faults or traps, such as,
+<UL>
+	<LI>Access violations (see below)</LI>
+
+	<LI>Data-type misalignments (such as a 16-bit entity aligned on an odd-byte boundary)</LI>
+
+	<LI>Illegal and privileged instructions</LI>
+
+	<LI>Invalid lock sequences (attempting to execute an invalid sequence of instructions within an interlocked section of code)</LI>
+
+	<LI>Integer divides by zero and overflows</LI>
+
+	<LI>Floating-point divides by zero, overflows, underflows, and reserved operands</LI>
+
+	<LI>Breakpoints and single step execution (to support debuggers)</LI>
+</UL>
+</LI>
+
+	<LI>System software-defined exceptions, such as,
+<UL>
+	<LI>Guard-page violations (attempting to load or store data from or to a location within a guard page)</LI>
+
+	<LI>Page-read errors (attempting to read a page into memory and encountering a concurrent I/O error)</LI>
+</UL>
+</LI>
+</OL>
+
+<P>An <I>access violation</I> is an attempt to perform an operation on a page that is not permitted under the current page protection settings.  Access violations occur in the following situations:
+
+<UL>
+	<LI>An invalid read or write operation, such as writing to a read-only page.</LI>
+
+	<LI>To access memory beyond the limit of the current program's address space (known as a length violation).</LI>
+
+	<LI>To access a page that is currently resident but dedicated to the use of a system component. For example, user-mode code is not allowed access a page that the kernel is using.</LI>
+</UL>
+
+<P>A driver handles an exception by enclosing it in a <B>try/except</B> block. For example, the <A HREF="k102_16lu.htm"><B>ProbeForWrite</B></A> routine checks that the driver can actually write to a user-mode buffer. If it cannot, the routine raises a STATUS_ACCESS_VIOLATION exception. The driver can handle this exception as follows:</P>
+
+<PRE class=syntax>try {
+    ...
+    ProbeForWrite(<I>Buffer</I>, <I>BufferSize</I>, <I>BufferAlignment</I>);
+    ...note any access (not just the probe which must come first, by the way) to Buffer must also be within a try-except
+} except (EXCEPTION_EXECUTE_HANDLER) {
+    /* Error handling code. */
+    ...
+}</PRE>
+
+<P>Drivers must handle any raised exceptions. An exception that is not handled causes the system to bug check. The driver that causes the exception to be raised must handle it:  a lower-level driver cannot rely on a higher-level driver to handle the exception.</P>
+
+<P>Drivers can directly raise an exception, by using the <A HREF="k102_814i.htm"><B>ExRaiseAccessViolation</B></A>, <A HREF="k102_8iia.htm"><B>ExRaiseDatatypeMisalignment</B></A>, or <A HREF="k102_6ipe.htm"><B>ExRaiseStatus</B></A> routines. The driver must handle any exceptions that these routines raise.</P>
+
+<P>The following is a partial list of routines that, at least in certain situations, can raise an exception:
+
+<UL>
+	<LI><A HREF="k106_3j5e.htm"><B>MmMapLockedPages</B></A> </LI>
+
+	<LI><A HREF="k106_8ble.htm"><B>MmProbeAndLockPages</B></A> </LI>
+
+	<LI><A HREF="k102_49bm.htm"><B>ProbeForRead</B></A> </LI>
+
+	<LI><A HREF="k102_16lu.htm"><B>ProbeForWrite</B></A> </LI>
+</UL>
+
+<P>Memory accesses to user-mode buffers can also cause access violations.   For more information, see <A HREF="other_9ew7.htm">Errors in Referencing User-Space Addresses</A>. </P>
+
+<P>Note that structured exception handling is distinct from C++ exceptions. The kernel does not support C++ exceptions.</P>
+
+<P>For more information on structured exception handling, see the Platform SDK, and the Visual Studio documentation.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20Exceptions"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Storage Driver Architecture</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Storage Driver Architecture">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_storage_driver_architecture_kg"></A>Storage Driver Architecture</H1>
+
+<P>NT-based operating system class and filter drivers for peripheral storage devices act as an interface between any intermediate or highest level drivers layered above the class or filter driver and a system-supplied port driver. </P>
+
+<P>I/O requests from a user application or kernel component reach storage class drivers through I/O System Services and one or more intermediate or highest level drivers, such as a file system driver. Storage class drivers translate the standard IRPs they get into IRPs with system-defined SCSI request blocks (SRBs) containing SCSI command descriptor blocks (CDBs) before sending each IRP on to the next-lower driver. A storage port driver translates SRBs from class drivers into bus-specific commands which it sends to the storage HBA, through an I/O bus driver and possibly one or more filter drivers.</P>
+
+<P>The following figure shows the layered architecture of NT-based operating system storage drivers.</P>
+
+<P><IMG SRC="images/kg201-1.gif" ALT="" BORDER=0></P>
+
+<P><B>NT-Based Operating System Storage Driver Architecture</B></P>
+
+<P>Starting from the bottom of the figure, the following describes each type of storage driver:
+
+<OL>
+	<LI>A <I>storage port driver</I> defines an interface to all Windows NT storage class drivers, including the system-supplied disk, tape, CDROM, DVD, and changer class drivers. This port/class interface insulates class drivers from adapter-specific requirements of the host bus adapter to which their respective devices are connected. A storage port driver also synchronizes access to the bus for all drivers of devices on the corresponding HBA. The system supplies storage port drivers for SCSI, IDE, USB and IEEE 1394 adapters. 
+<P>A storage port driver receives SRBs from the next higher driver (a storage class driver or intervening filter driver) and processes them as follows: 
+
+<UL>
+	<LI>The storage port driver for a SCSI bus passes SRBs with CDBs on to an operating system-independent, HBA-specific <I>SCSI miniport driver</I>, which is dynamically linked to the SCSI port driver and provides hardware-specific support for a particular SCSI HBA. For information about implementing a SCSI miniport driver, see <A HREF="02mnport_7elj.htm">SCSI Miniport Drivers</A>.</LI>
+
+	<LI>The storage port driver for an IDE/ATAPI or IEEE 1394 bus translates the SRBs received from the storage class driver into the format required by the underlying adapter—for example, repackaging CDBs according to a bus-specific transport protocol, or translating them into a different format, thereby insulating upper level drivers from peculiarities of the underlying bus. </LI>
+</UL>
+</LI>
+
+	<LI>An upper or lower <I>storage filter driver</I> supports device-specific functionality not provided by a system-supplied storage class driver. A lower filter storage driver monitors SRBs and/or IRPs issued by a storage class driver and modifies them as needed before passing them to the next-lower driver (a storage port driver or another storage filter driver). 
+<P>For information about implementing a storage filter driver, see <A HREF="06filter_47c7.htm">Storage Filter Drivers</A>.
+</LI>
+
+	<LI>A <I>storage class driver</I> uses the well-established SCSI port/class interface to control a device of its type on any bus for which the system provides a storage port driver. A class driver is specific to a particular class of device—for example, one class driver can run all CD-ROM devices on any supported bus; another can control all disk devices. The storage class driver handles I/O requests from user applications or next-lower drivers by building SRBs containing CDBs and issuing those SRBs to the next-lower driver (a storage port driver or intervening filter driver), just as if the device were a SCSI device.
+<P>The implementation of a storage class driver is transparent to upper level drivers. A class driver for a tape or medium changer device is implemented as a device-specific miniclass driver that links to a system-supplied class driver. System-supplied class drivers for other storage devices, such as disk and CD-ROM/DVD, are implemented as single monolithic drivers. 
+
+<P>For information about implementing a storage class driver, see <A HREF="03class_1k13.htm">Storage Class Drivers</A>. For information about implementing a tape or changer miniclass driver, see <A HREF="04mntape_36ef.htm">Tape Drivers</A> and <A HREF="05chgr_90vb.htm">Changer Drivers</A>, respectively.
+</LI>
+
+	<LI>An upper filter storage driver intercepts IRPs from user applications and still next-lower drivers and might modify them before passing them to the next-lower driver (a storage class driver or another storage filter driver), or might monitor performance of the underlying device.</LI>
+</OL>
+
+<P>The type of bus to which a device is attached and the implementation of its storage port driver are transparent to upper level drivers. A storage port driver might be implemented according to the port/miniport architecture, like the SCSI port driver; as a monolithic driver that controls a single, standard piece of hardware, such as the IDE/ATAPI port driver; or as a filter driver that translates SRBs into the format required by a different driver stack, such as the IEEE 1394 port driver. </P>
+
+<P>The system-supplied SCSI port driver can also act as an interface between a storage class driver and a SCSI miniport that controls a non-SCSI storage device of the same type. For example, rather than writing a standard Windows NT driver for a new disk-array controller, a driver writer can save considerable design, development, and debugging effort by writing a pseudoSCSI miniport driver that links to the system SCSI port driver and uses the interface it provides. Such a miniport is required to translate incoming SCSI commands into device-specific commands and support next-lower Windows NT drivers as if it were a SCSI HBA miniport. On the other hand, the system-supplied port and class drivers handle much necessary work on such a pseudo SCSI miniport's behalf, including registry accesses during initialization, all resource and object allocations, synchronization, presizing requested transfers to suit the capabilities of the miniport's device, and retrying requests.</P>
+
+<P>For more detailed information about SRBs, see the Kernel-Mode Driver Architecture Reference. For device-type-specific information about CDBs, consult appropriate command sets in the INCITS SCSI-3 standards. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Storage%20Driver%20Architecture"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

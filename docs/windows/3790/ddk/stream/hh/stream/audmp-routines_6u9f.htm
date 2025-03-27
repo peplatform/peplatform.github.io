@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IPinCount::PinCount</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IPinCount::PinCount">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ipincount_pincount_ks"></A>IPinCount::PinCount</H1>
+
+<P>The <B>PinCount</B> method queries the miniport driver for its pin count.</P>
+
+<PRE class=syntax><B>void
+  PinCount(
+    IN ULONG  </B><I>PinId</I><B>,</B>
+<B>    IN OUT PULONG  </B><I>FilterNecessary</I><B>,</B>
+<B>    IN OUT PULONG  </B><I>FilterCurrent</I><B>,</B>
+<B>    IN OUT PULONG  </B><I>FilterPossible</I><B>,</B>
+<B>    IN OUT PULONG  </B><I>GlobalCurrent</I><B>,</B>
+<B>    IN OUT PULONG  </B><I>GlobalPossible</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>PinId</I></DT>
+
+<DD>Specifies the pin ID. If a filter contains N pin factories, valid pin IDs range from 0 to N-1.</DD>
+
+<DT><I>FilterNecessary</I></DT>
+
+<DD>Specifies the minimum number of pins that the pin factory should instantiate before the filter can perform I/O operations.</DD>
+
+<DT><I>FilterCurrent</I></DT>
+
+<DD>Specifies the current number of pin instances. This number counts the pins that the pin factory has already instantiated on the filter.</DD>
+
+<DT><I>FilterPossible</I></DT>
+
+<DD>Specifies the maximum number of pins that the pin factory can instantiate on the filter. Set to KSINSTANCE_INDETERMINATE if there is no maximum.</DD>
+
+<DT><I>GlobalCurrent</I></DT>
+
+<DD>Specifies the current number of pins that the pin factory has instantiated on the driver.</DD>
+
+<DT><I>GlobalPossible</I></DT>
+
+<DD>Specifies the maximum number of pins that the pin factory can instantiate on the driver. Set to KSINSTANCE_INDETERMINATE if there is no maximum.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>None</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>portcls.h</I>. Include <I>portcls.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The <B>PinCount</B> call has two purposes:
+
+<UL>
+	<LI>To let the miniport driver know the current pin counts.</LI>
+
+	<LI>To give the miniport driver an opportunity to alter the current pin counts.</LI>
+</UL>
+
+<P><I>FilterNecessary</I>, <I>FilterCurrent</I>, <I>FilterPossible</I>, <I>GlobalCurrent</I>, and <I>GlobalPossible</I> are all IN-OUT parameters that point to values in the miniport driver's filter description. During the <B>PinCount</B> call, the miniport driver can examine these values and has the option of editing the values in order to more accurately indicate how many additional pins can be created from the remaining resources.</P>
+
+<P><I>FilterCurrent</I> and <I>FilterPossible</I> specify the per-filter values for the pin factory specified by <I>PinId</I>.</P>
+
+<P><I>GlobalCurrent</I> and <I>GlobalPossible</I> specify the total values for the pin factory over all instances of the filter.</P>
+
+<P>Miniport drivers typically do not need to change the <I>FilterNecessary</I> parameter, but it is included for the sake of completeness.</P>
+
+<P>During the <A HREF="audmp-routines_7qcz.htm"><B>IPort::Init</B></A> call, the port driver calls the miniport driver's <A HREF="audmp-routines_5k1f.htm"><B>IMiniport::GetDescription</B></A> method to obtain a pointer to the filter descriptor, which includes the miniport driver's pin-descriptor array (see <A HREF="audpc-struct_5o6r.htm">PCPIN_DESCRIPTOR</A>). Thereafter, the port driver accesses the pin descriptors to respond to queries for pin properties.</P>
+
+<P>If the miniport driver supports the <B>IPinCount</B> interface, the port driver calls <B>PinCount</B> to give the miniport driver an opportunity to update the pin counts before replying to a pin-property request. If the miniport driver does not support <B>IPinCount</B>, the port driver simply uses the static pin-count limits in the pin-descriptor array.</P>
+
+<P>The port driver calls the <B>PinCount</B> method when it receives one of the following KS property requests:</P>
+
+<P class=indent1><A HREF="ks-prop_881f.htm">KSPROPERTY_PIN_CINSTANCES</A> </P>
+
+<P class=indent1><A HREF="ks-prop_3zcj.htm">KSPROPERTY_PIN_GLOBALCINSTANCES</A> </P>
+
+<P class=indent1><A HREF="ks-prop_6nn7.htm">KSPROPERTY_PIN_NECESSARYINSTANCES</A> </P>
+
+<P>PortCls also calls the <B>PinCount</B> method each time a new stream is created.</P>
+
+<P>Miniport drivers must not explicitly cause streams to be created or destroyed from within the <B>PinCount</B> method. Miniport drivers are not otherwise restricted in what they can do during this call.</P>
+
+<P>The code for this method must reside in paged memory.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="audmp-routines_7qcz.htm"><B>IPort::Init</B></A>, <A HREF="audmp-routines_5k1f.htm"><B>IMiniport::GetDescription</B></A>, <A HREF="audpc-struct_5o6r.htm">PCPIN_DESCRIPTOR</A>, <A HREF="ks-prop_881f.htm">KSPROPERTY_PIN_CINSTANCES</A>, <A HREF="ks-prop_3zcj.htm">KSPROPERTY_PIN_GLOBALCINSTANCES</A>, <A HREF="ks-prop_6nn7.htm">KSPROPERTY_PIN_NECESSARYINSTANCES</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IPinCount::PinCount"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

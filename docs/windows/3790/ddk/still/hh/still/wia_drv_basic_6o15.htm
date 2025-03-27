@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Adding Image Format Support</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Adding Image Format Support">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_adding_image_format_support_si"></A>Adding Image Format Support</H3>
+
+<P>A WIA minidriver reports image formats to the WIA service in the <A HREF="minidrv_23ah.htm"><B>IWiaMiniDrv::drvGetWiaFormatInfo</B></A> method.</P>
+
+<H4>Implementing IWiaMiniDrv::drvGetWiaFormatInfo</H4>
+
+<P>The <B>IWiaMiniDrv::drvGetWiaFormatInfo</B> method is called by the WIA service to obtain the WIA device-supported TYMED and FORMAT pairs.</P>
+
+<P>The WIA driver should allocate memory (to be stored in this WIA driver and freed by this WIA driver) to contain an array of WIA_FORMAT_INFO structures (described in the Platform SDK documentation). A pointer to this WIA driver-allocated memory should be assigned to <I>ppwfi</I>.</P>
+
+<P>It is important to note that the WIA service will not free this memory. It is the responsibility of the WIA driver to manage this allocated memory.</P>
+
+<P>The WIA driver should write the number of structures that are allocated in the memory location pointed to by the <I>pcelt</I> parameter.</P>
+
+<P>The WIA device should set the <B>guidFormatID</B> member of the WIA_FORMAT_INFO structure to the image format GUID. The device should set the <B>lTymed</B> member of this structure to the TYMED value associated with the image format GUID:</P>
+
+<P>Valid TYMED values (also known as "Media Type") are:</P>
+
+<P class=indent1>TYMED_FILE</P>
+
+<P class=indent1>TYMED_MULTIPAGE_FILE</P>
+
+<P class=indent1>TYMED_CALLBACK</P>
+
+<P class=indent1>TYMED_MULTIPAGE_CALLBACK</P>
+
+<P>The following example shows an implementation of <A HREF="minidrv_23ah.htm"><B>IWiaMiniDrv::drvGetWiaFormatInfo</B></A>:</P>
+
+<PRE>HRESULT _stdcall CWIADevice::drvGetWiaFormatInfo(
+  BYTE            *pWiasContext,
+  LONG            lFlags,
+  LONG            *pcelt,
+  WIA_FORMAT_INFO **ppwfi,
+  LONG            *plDevErrVal)
+{
+    //
+    // If the caller did not pass in the correct parameters,
+    // then fail the call with E_INVALIDARG.
+    //
+
+    if ((!pWiasContext)||(!plDevErrVal)||(!pcelt)||(!ppwfi)) {
+        return E_INVALIDARG;
+    }
+
+    //
+    // check if WIA_FORMAT_INFO array has been initialized.
+    //
+    // NOTE: m_WIAFormatInfo is a member variable that has been
+    //       defined as    WIA_FORMAT_INFO m_WIAFormatInfo[2];
+    //
+    //
+
+    if (m_WIAFormatInfo[0].lTymed == TYMED_NULL) {
+
+        //
+        // add all supported formats and corresponding TYMED values
+        // here
+        //
+
+        m_WIAFormatInfo[0].guidFormatID = WiaImgFmt_MEMORYBMP;
+        m_WIAFormatInfo[0].lTymed       = TYMED_CALLBACK;
+
+        m_WIAFormatInfo[1].guidFormatID = WiaImgFmt_BMP;
+        m_WIAFormatInfo[1].lTymed       = TYMED_FILE;
+    }
+
+    *plDevErrVal = 0;
+    *ppwfi = &amp;m_WIAFormatInfo[0];
+    *pcelt = 2; // number of formats in returned array
+
+    return S_OK;
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Adding%20Image%20Format%20Support"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

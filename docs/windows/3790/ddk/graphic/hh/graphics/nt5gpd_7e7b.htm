@@ -1,0 +1,96 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Handling Installable Features and Options</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Handling Installable Features and Options">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Display&nbsp;and&nbsp;Print&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_handling_installable_features_and_options_gg"></A>Handling Installable Features and Options</H1>
+
+<P>Some of a printer's features or options might be installable. For example, a printer could accept an optional envelope feeder, which might or might not be currently attached. This envelope feeder must be described within a GPD file in two ways:
+
+<UL>
+	<LI>As an option for the <B>InputBin</B> feature.</LI>
+
+	<LI>As an installable "feature" (even though it is really an option), which allows the user to indicate whether it is actually installed.</LI>
+</UL>
+
+<P>First, to specify the envelope feeder, along with an automatic feeder, as options for the <B>InputBin</B> feature, the following GPD entries could be used.</P>
+
+<PRE>*Feature: InputBin
+{
+    *Name: "Input Bin"
+    *Option: AUTO
+    {
+        *Name: "Automatic Feeder"
+        *Command: CmdSelect {<I>Command Attributes</I>}
+    }
+    *Option: ENVFEED
+    {
+        *Name: "Envelope Feeder"
+        *Command: CmdSelect {<I>Command Attributes</I>}
+    }
+}</PRE>
+
+<P>To make the envelope feeder installable, additional GPD entries are needed, as follows:</P>
+
+<PRE>*InstalledOptionName: "Installed"
+*NotInstalledOptionName: "Not installed"
+*Feature: InputBin
+{
+    *Name: "Input Bin"
+    *Option: AUTO
+    {
+        *Name: "Automatic Feeder"
+        *Command: CmdSelect {<I>Command Attributes</I>}
+    }
+    *Option: ENVFEED
+    {
+        *Name: "Envelope Feeder"
+        *Command: CmdSelect {<I>Command Attributes</I>}
+        *Installable?: TRUE
+        *InstallableFeatureName: "Optional Envelope Feeder"
+    }
+}</PRE>
+
+<P>Within the <A HREF="nt5gpd_78yv.htm#ddk__option_gg">*<B>Option</B></A> entry for the envelope feeder, two attributes have been added:
+
+<UL>
+	<LI>The <A HREF="nt5gpd_78yv.htm#ddk__installable__gg">*<B>Installable?</B></A> attribute indicates that the option is installable.</LI>
+
+	<LI>The <A HREF="nt5gpd_78yv.htm#ddk__installablefeaturename_gg">*<B>InstallableFeatureName</B></A> attribute specifies a text string that Unidrv displays so that the user can indicate whether the option is actually installed.</LI>
+</UL>
+
+<P>Whenever *<B>Installable?</B> is set to TRUE for a feature or option, Unidrv creates an additional feature for the property sheet display. (Note that even if the installable item is a <I>option</I>, Unidrv creates a <I>feature</I> representation for it in the property sheet.) This Unidrv-synthesized feature is identified by the string supplied with *<B>InstallableFeatureName</B>. The feature provides two options, "Installed" and "Not installed", and allows the user to select one of these options. The strings "Installed" and "Not installed" are specified with the <A HREF="nt5gpd_64vb.htm#ddk__installedoptionname_gg">*<B>InstalledOptionName</B></A> and <A HREF="nt5gpd_64vb.htm#ddk__notinstalledoptionname_gg">*<B>NotInstalledOptionName</B></A> attributes so that you can modify them if other text is more appropriate.</P>
+
+<P>So, for our example, the property sheet would include an <B>InputBin</B> feature, labeled <B>Input Bin</B>, that includes two options, labeled <B>Automatic Feeder</B> and <B>Envelope Feeder</B>. The property sheet would also include an additional feature, labeled <B>Optional Envelope Feeder</B>, with two options, labeled <B>Installed</B> and <B>Not installed</B>. The user can only select <B>Envelope Feeder</B> under <B>Input Bin</B> if he or she first selects <B>Installed</B> under <B>Optional Envelope Feeder</B>.</P>
+
+<P>Sometimes, it is necessary to indicate that certain installable options cannot be installed simultaneously, or that a certain noninstallable option cannot be selected if some other installable option is installed. To handle these situations, use GPD entries that specify <A HREF="nt5gpd_0eg7.htm">option constraints</A>.</P>
+
+<P>You cannot use the <A HREF="nt5gpd_78yv.htm#ddk__installable__gg">*<B>Installable?</B></A> attribute with optional features that require a <A HREF="nt5gpd_06xz.htm#ddk__disabledfeatures_gg">*<B>DisabledFeatures</B></A> entry. For these features, you must explicitly specify the optional feature with "Installed" and "Not installed" options. For example, suppose a printer has an optional duplexing unit. The <B>Duplex</B> feature (see <A HREF="nt5gpd_03dz.htm">Standard Features</A>) must be disabled if the duplexing unit is not installed. You must define an "Optional Duplexing Unit" feature, with "Installed" and "Not Installed" options. Within the "Not Installed" *<B>Option</B> entry, you would include a *<B>DisabledFeatures</B> entry for the <B>Duplex</B> feature. The following GPD entries can be used:</P>
+
+<PRE>*Feature: DuplexUnit
+{
+    *ConflictPriority: 3   *% Make priority higher than Duplex feature
+    *Name: "Optional Duplexing Unit"
+    *Option: Installed
+    {
+        *Name: "Installed"
+    }
+    *Option: NotInstalled
+    {
+        *Name: "Not Installed"
+        *DisabledFeatures: LIST(Duplex)
+        *Constraints: LIST (Duplex.LongEdge, Duplex.ShortEdge)
+    }
+}</PRE>
+
+<P>Be sure to also specify any relevant <A HREF="nt5gpd_0eg7.htm">option constraints</A>, as illustrated.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Handling%20Installable%20Features%20and%20Options"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

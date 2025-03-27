@@ -1,0 +1,144 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Bug Check 0x7B:  INACCESSIBLE_BOOT_DEVICE</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="bug check 0x7B">
+<META NAME="MS-HKWD" CONTENT="INACCESSIBLE_BOOT_DEVICE">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Driver&nbsp;Development&nbsp;Tools:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_bug_check_0x7b_bug"></A>Bug Check 0x7B: INACCESSIBLE_BOOT_DEVICE</H1>
+
+<P>The INACCESSIBLE_BOOT_DEVICE bug check has a value of 0x0000007B. This indicates that Windows has lost access to the system partition during startup.</P>
+
+<H4>Parameters</H4>
+
+<P>The four parameters listed in the message are defined, in order of appearance, as follows.</P>
+
+<TABLE>
+
+<TR VALIGN="top">
+<TH align=left width=34%>Parameter</TH>
+<TH align=left width=66%>Description</TH>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>1</TD>
+<TD width=66%>Address of a UNICODE_STRING structure, or address of the device object that could not be mounted</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>2</TD>
+<TD width=66%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>3</TD>
+<TD width=66%>0</TD>
+</TR>
+
+<TR VALIGN="top">
+<TD width=34%>4</TD>
+<TD width=66%>0</TD>
+</TR>
+</TABLE><BR>
+
+<P>To determine the meaning of Parameter&nbsp;1, look at the data it points to. If the first word (USHORT) at this address is even, it is the beginning of a Unicode string. If the first word (USHORT) at this address is 0x3, this is the first field (Type) of a device object.
+
+<UL>
+	<LI>If this points to a device object, this indicates the file system that was supposed to read the boot device failed to initialize, or simply did not recognize the data on the boot device as a file system structure. In this case, the specified device object is the object that could not be mounted.</LI>
+
+	<LI>If this points to a Unicode string, you need to read the first 8 bytes at this address. These form the UNICODE_STRING structure, which is defined as follows:
+<PRE>USHORT Length;
+USHORT MaximumLength;
+PWSTR Buffer;
+</PRE>
+
+<P>The <B>Length</B> field gives the actual length of the string. The <B>Buffer</B> field points to the beginning of the string; this will always be at least 0x80000000.
+
+<P>The actual string contains the Advanced RISC Computing (ARC) specification name of the device from which the boot was being attempted. ARC names are a generic method of identifying devices within the ARC environment.
+</LI>
+</UL>
+
+<H4>Cause</H4>
+
+<P>This error often results from a boot device failure. During I/O system initialization, the boot device driver might have failed to initialize the boot device (typically a hard disk). File system initialization might have failed because it did not recognize the data on the boot device. Also, repartitioning the system partition or installing a new SCSI adapter or disk controller might induce this error. </P>
+
+<P>This error can also result from incompatible disk hardware. If the error occurred at the initial setup of the system, the system might have been installed on an unsupported disk or SCSI controller. Some controllers are supported only by drivers that are in the Windows Driver Library (WDL), which requires the user to do a custom installation.</P>
+
+<H4>Resolving the Problem</H4>
+
+<P>This error always occurs while the system is starting. This will often happen before the debugger connection is established, making debugging difficult or impossible.</P>
+
+<P><I>Resolving a failed boot device problem:</I> If this happens on an x86 system, the <I>boot.ini</I> file must be edited. On an Intel Itanium system you must edit the <B>OsLoadOptions</B> in the non-volatile RAM. See <A HREF="bootini_4vhv.htm">Boot Options for Driver Testing and Debugging</A> for details.</P>
+
+<P><I>Resolving an incompatible disk hardware problem:</I> If Setup autodetected the controller, you might need to skip detection and use a specific manufacturer’s diskette to load the driver. Also, check the availability of updates for the system BIOS and SCSI controller firmware. Updates of this kind are typically available on the Web site or BBS of the hardware manufacturer.</P>
+
+<P>Remove any recently added hardware, especially hard disks or controllers, to see if the error is resolved. If the offending piece of hardware was a hard disk, the disk firmware version might be incompatible with your version of Windows. Contact the manufacturer for updates. If the removal of another piece of hardware resolved the error, IRQ or I/O port conflicts likely exist. Reconfigure the new device according to the manufacturer’s instructions.</P>
+
+<P>Confirm that all hard disks, hard disk controllers, and SCSI adapters are listed on the Microsoft Windows Hardware Compatibility List (HCL).</P>
+
+<P>If a driver was recently added, restart your computer, and press F8 at the character-based menu that displays the operating system choices. At the resulting Windows <B>Advanced Options</B> menu, choose the <B>Last Known Good Configuration</B> option. This option is most effective when only one driver or service is added at a time.</P>
+
+<P>In addition, check your computer for viruses using any up-to-date, commercial virus scanning software that examines the Master Boot Record of the hard disk. All Windows file systems can be infected by viruses.</P>
+
+<P>This error can also be a result of hard disk corruption. Run <B>Chkdsk /f /r</B> on the system partition. You must restart the system before the disk scan begins. If you cannot start the system due to the error, use the Recovery Console and run <B>Chkdsk /r</B>.  </P>
+
+<P>If you are unable to boot the system to the last known good configuration, you should try to boot off the Windows CD-ROM. Then you can run <B>Chkdsk</B> from the Repair Console.</P>
+
+<P class=note><B>Warning</B>&nbsp;&nbsp;If your system partition is formatted with the FAT file system, the long filenames used by Windows can be damaged if Scandisk or another MS-DOS-based hard disk tool is used to verify the integrity of your hard disk from MS-DOS. Always use the version of Chkdsk that matches your Windows version.</P>
+
+<P>If your system has SCSI adapters, contact the adapter manufacturer to obtain updated Windows drivers. Try disabling sync negotiation in the SCSI BIOS, checking the cabling and the SCSI IDs of each device, and confirming proper termination. For IDE devices, define the onboard IDE port as Primary only. Also check each IDE device for the proper <B>master/slave/stand alone</B> setting. Try removing all IDE devices except for hard disks. Finally, check the System Log in Event Viewer for additional error messages that might help pinpoint the device or driver that is causing the error.</P>
+
+<P><I>To analyze this error:</I> Execute an <B>LM&nbsp;(List Loaded Modules)</B> command in the debugger. Verify that the following drivers were loaded: <I>disk</I>, <I>classpnp</I>, <I>ftdisk</I>, <I>partmgr</I>, and either <I>FAT</I> or <I>NTFS</I>. </P>
+
+<PRE>kd&gt; <B>lm</B> 
+
+start    end        module name
+80001000 80016000   hal          (deferred)
+80016000 80018c40   bootvid      (deferred)
+80019000 8001dfc0   pciidex      (deferred)
+8001e000 8001ff60   dmload       (deferred)
+80086000 80086980   pciide       (deferred)
+802c1000 802cc000   pci          (deferred)
+802cc000 802d39a0   isapnp       (deferred)
+802d4000 802ed000   ftdisk       (deferred)
+802ed000 802f3820   mountmgr     (deferred)
+802f4000 802fad40   fdc          (deferred)
+802fb000 802fdc20   partmgr      (deferred)
+802fe000 802fef00   wmilib       (deferred)
+8039b000 803b8000   dmio         (deferred)
+803b8000 803cb000   atapi        (deferred)
+803cb000 803d1560   disk         (deferred)
+803d2000 803d8e80   classpnp     (deferred)
+803d9000 803fa000   fastfat      (deferred)
+80400000 80540000   nt           (pdb symbols)   \\localsymbols\symbols\exe\ntoskrnl.dbg
+80540000 80546f20   ksecdd       (deferred)
+80547000 80554620   cnss         (deferred)
+80555000 80579000   ndis         (deferred)
+</PRE>
+
+<P>You'll probably need <I>pci </I>or <I>isapnp</I> loaded. Also make sure your controller drivers were loaded — <I>atapi.sys</I> with the channel drivers (<I>pciide</I> and <I>pciidex</I> or <I>intelid</I>) or <I>scsiport.sys</I> with the appropriate miniport driver.</P>
+
+<P>It’s always helpful to know as much as possible about the boot device Windows was installed on. Useful ways to investigate include:
+
+<UL>
+	<LI>Find out what type of controller the boot device is connected to (SCSI, IDE, 1394, etc). Try to find out the manufacturer of non-IDE controllers (Adaptec, Symbios, and so on).</LI>
+
+	<LI>Note the SCSI ID of the boot device if you’re using SCSI.</LI>
+
+	<LI>Indicate if other devices are attached to the same controller the boot device is on (CD-ROMs, zip drives, and so on).</LI>
+
+	<LI>Note the file system used on the drive.</LI>
+</UL>
+
+<P>The <B>!devnode</B> extension will give you more information, as long as you know what your boot devices are. Usually Plug and Play couldn't assign resources to the boot device. You can verify this by finding an entry for the service. If the status flags include DNF_INSUFFICIENT_RESOURCES and/or don't include DNF_STARTED or DNF_ENUMERATED, then you've confirmed the problem. Try <B>!devnode&nbsp;0&nbsp;1&nbsp;scsi</B> or <B>!devnode&nbsp;0&nbsp;1&nbsp;atapi</B> to save some time instead of dumping the whole device tree.</P>
+
+<PRE></PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Bug%20Check%200x7B:%20%20INACCESSIBLE_BOOT_DEVICE"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

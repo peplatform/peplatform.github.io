@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>CO_CALL_PARAMETERS</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="CO_CALL_PARAMETERS">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_co_call_parameters_nr"></A>CO_CALL_PARAMETERS</H1>
+
+<P>The CO_CALL_PARAMETERS structure contains call parameters used by connection-oriented clients, call managers, MCM drivers, and connection-oriented miniport drivers. The call parameters are used to set up an outgoing call, request quality of service (QoS) for an outgoing call, indicate the QoS for an incoming call, activate a VC for an outgoing or incoming call, negotiate a change of call parameters for a VC, or to add a new party to a multipoint call.</P>
+
+<PRE class=syntax>typedef struct _CO_CALL_PARAMETERS{
+  ULONG  Flags;
+  PCO_CALL_MANAGER_PARAMETERS  CallMgrParameters;
+  PCO_MEDIA_PARAMETERS  MediaParameters;
+} CO_CALL_PARAMETERS, *PCO_CALL_PARAMETERS;</PRE>
+
+<H4>Members</H4>
+
+<DL>
+<DT><B>Flags</B></DT>
+
+<DD>The flags can be one or more (ORed) of the following:
+
+<DL>
+<DT>PERMANENT_VC</DT>
+
+<DD>When making an outgoing call, a client sets this flag before calling <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A> to indicate to the call manager that it must make the call on a permanent virtual circuit (PVC). If the client does not specify media parameters, the call manager searches its list of configured PVCs for a PVC that is configured with a SAP that matches the destination SAP of the outgoing call. If the client does specify media parameters, the call manager does not search its list of configured PVCs; instead, it uses the PVC specified by the client in the media parameters. If the call manager finds a PVC that meets the requirements of the call, it uses this PVC and returns the PERMANENT_VC flag set in a call to <A HREF="103ndisx_460i.htm"><B>NdisCmMakeCallComplete</B></A><B> </B>or <A HREF="103ndisx_8a2a.htm"><B>NdisMCmMakeCallComplete</B></A>. If the call manager is unable to find a suitable PVC, it fails the call attempt with NDIS_STATUS_FAILURE.
+
+<P>Note that if the client does not set the PERMANENT_VC flag and does not specify media parameters, the call manager always searches its list of configured PVCs for one<B> </B>that is configured with a SAP that matches the destination SAP of the outgoing call. If it cannot find such a PVC, the call manager attempts to establish a switched virtual circuit (SVC) for the outgoing call.
+
+
+<P>On an incoming call, the call manager sets this flag if the VC handle that it passes to the client in the call to <A HREF="103ndisx_2v76.htm"><B>NdisCmDispatchIncomingCall</B></A> or <A HREF="103ndisx_5zoy.htm"><B>NdisMCmDispatchIncomingCall</B></A><B> </B>represents a PVC. This indicates that the call manager found a PVC that matches a SAP registered by the client.
+</DD>
+
+<DT>CALL_PARAMETERS_CHANGED</DT>
+
+<DD>Before calling <B>Ndis(M)CmMakeCallComplete</B>, the call manager sets this flag if any value within CO_CALL_PARAMETERS has been changed during the call-setup process as a result of negotiation with the network or a signaling peer. (Whether and when such negotiation occurs during call setup depends on the signaling protocol.) The client must then inspect CO_CALL_PARAMETERS and its substructures to determine which parameters have changed. Depending on the signaling protocol, the client can accept the new call parameters, tear down the call by calling <A HREF="103ndisx_7rsi.htm"><B>NdisClCloseCall</B></A>, or attempt to renegotiate the call parameters by calling <A HREF="103ndisx_7jhu.htm"><B>NdisClModifyCallQoS</B></A>.</DD>
+
+<DT>QUERY_CALL_PARAMETERS</DT>
+
+<DD>This flag is reserved.</DD>
+
+<DT>BROADCAST_VC</DT>
+
+<DD>This flag is reserved.</DD>
+
+<DT>MULTIPOINT_VC</DT>
+
+<DD>When making an outgoing call, the client can set this flag before calling <B>NdisClMakeCall</B> to indicate that the client is the root of a multipoint connection.
+
+<P>On an incoming call, the call manager can set this flag before calling <B>Ndis(M)CmDispatchIncomingCall</B> to indicate that the client is a leaf of a multipoint connection.
+</DD>
+</DL>
+</DD>
+
+<DT><B>CallMgrParameters</B></DT>
+
+<DD>Pointer to a buffered CO_CALL_MANAGER_PARAMETERS structure that specifies the call manager parameters. For a detailed description of this structure, see <A HREF="105nstru_7vn6.htm">CO_CALL_MANAGER_PARAMETERS</A>.</DD>
+
+<DT><B>MediaParameters</B></DT>
+
+<DD>Pointer to a buffered CO_MEDIA_PARAMETERS structure that specifies the media parameters. For a detailed description of this structure, see <A HREF="105nstru_74oi.htm">CO_MEDIA_PARAMETERS</A>.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>ndis.h</I>. Include <I>ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>CO_CALL_PARAMETERS contains call parameters used by connection-oriented clients, call managers or MCM drivers, and connection-oriented miniport drivers. The call parameters are used to set up outgoing calls, to indicate incoming calls, to activate a VC for an outgoing or incoming call, to request a change of call parameters for a VC, and to add a party to a multipoint call.</P>
+
+<P>The flags in CO_CALL_PARAMETERS are of interest to clients and call managers. A client can set flags in CO_CALL_PARAMETERS before calling <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>. Except for CALL_PARAMETERS_CHANGED (which the call manager can set before calling <A HREF="103ndisx_460i.htm"><B>NdisCmMakeCallComplete</B></A> or <A HREF="103ndisx_8a2a.htm"><B>NdisMCmMakeCallComplete</B></A> to indicate a change in call parameters by a remote entity on the network), the call manager can set flags in CO_CALL_PARAMETERS before calling <A HREF="103ndisx_2v76.htm"><B>NdisCmDispatchIncomingCall</B></A><B> </B>or <A HREF="103ndisx_5zoy.htm"><B>NdisMCmDispatchIncomingCall</B></A>.</P>
+
+<P>The call manager parameters pointed to by CO_CALL_PARAMETERS are of interest primarily to clients and call managers. These parameters are contained in a structure of type <A HREF="105nstru_7vn6.htm">CO_CALL_MANAGER_PARAMETERS</A>, which can specify generic parameters that apply to all call managers, as well as specific parameters that apply to a specific signaling protocol and possibly to a particular call manager that supports the protocol. CO_CALL_MANAGER_PARAMETERS specifies call parameters that a call manager uses to set up an outgoing call and that a client uses to determine whether to accept an incoming call. In addition, a client uses CO_CALL_MANAGER_PARAMETERS to request a change of call parameters for a VC, and a call manager uses CO_CALL_MANAGER_PARAMETERS to indicate an incoming request to change the call parameters for a VC. Also, when adding a party to multipoint call, the client uses CO_CALL_MANAGER_PARAMETERS to specify the address of the new party.</P>
+
+<P>The media parameters in CO_CALL_PARAMETERS are of interest primarily to miniport drivers. The media parameters are contained in a structure of type <A HREF="105nstru_74oi.htm">CO_MEDIA_PARAMETERS</A>, which can contain generic parameters that apply to all miniport drivers, as well as specific parameters that apply to a specific medium and possibly to a particular miniport driver that controls the medium. Typically, a call manager uses CO_MEDIA_PARAMETERS to specify media parameters to the miniport driver. The miniport driver either reserves resources for the VC or activates the VC with the specified media parameters.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_7piq.htm"><I>MiniportCoActivateVc</I></A>, <A HREF="103ndisx_5fua.htm"><B>NdisClAddParty</B></A>, <A HREF="103ndisx_3n5e.htm"><B>NdisClIncomingCallComplete</B></A>, <A HREF="103ndisx_7mr6.htm"><B>NdisClMakeCall</B></A>, <A HREF="103ndisx_7jhu.htm"><B>NdisClModifyCallQoS</B></A>, <A HREF="103ndisx_3zzm.htm"><B>NdisCmActivateVc</B></A>, <A HREF="103ndisx_72pe.htm"><B>NdisCmAddPartyComplete</B></A>, <A HREF="103ndisx_5zoy.htm"><B>NdisCmDispatchIncomingCall</B></A>, <A HREF="103ndisx_65f6.htm"><B>NdisCmDispatchIncomingCallQoSChange</B></A>, <A HREF="103ndisx_8a2a.htm"><B>NdisCmMakeCallComplete</B></A>, <A HREF="103ndisx_2z8y.htm"><B>NdisCmModifyCallQoSComplete</B></A>, <A HREF="103ndisx_2xde.htm"><B>NdisMCmActivateVc</B></A>, <A HREF="103ndisx_72pe.htm"><B>NdisMCmAddPartyComplete</B></A>, <A HREF="103ndisx_5zoy.htm"><B>NdisMCmDispatchIncomingCall</B></A>, <A HREF="103ndisx_65f6.htm"><B>NdisMCmDispatchIncomingCallQosChange</B></A>, <A HREF="103ndisx_8a2a.htm"><B>NdisMCmMakeCallComplete</B></A>, <A HREF="103ndisx_2z8y.htm"><B>NdisMCmModifyCallQoSComplete</B></A>, <A HREF="103ndisx_5g8i.htm"><B>NdisMCoActivateVcComplete</B></A>, <A HREF="104tdlow_2j5e.htm"><I>ProtocolClAddPartyComplete</I></A>, <A HREF="104tdlow_8a9e.htm"><I>ProtocolClIncomingCall</I></A>, <A HREF="104tdlow_6vzm.htm"><I>ProtocolClIncomingCallQoSChange</I></A>, <A HREF="104tdlow_3qia.htm"><I>ProtocolClMakeCallComplete</I></A>, <A HREF="104tdlow_3boy.htm"><I>ProtocolClModifyCallQoSComplete</I></A>, <A HREF="104tdlow_5aeq.htm"><I>ProtocolCmActivateVcComplete</I></A>, <A HREF="104tdlow_9trm.htm"><I>ProtocolCmAddParty</I></A>, <A HREF="104tdlow_2h2q.htm"><I>ProtocolCmIncomingCallComplete</I></A>, <A HREF="104tdlow_20oi.htm"><I>ProtocolCmMakeCall</I></A>, <A HREF="104tdlow_3436.htm"><I>ProtocolCmModifyCallQoS</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: CO_CALL_PARAMETERS"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

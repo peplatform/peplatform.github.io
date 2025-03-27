@@ -1,0 +1,150 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IRP_MN_DEVICE_USAGE_NOTIFICATION</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IRP_MN_DEVICE_USAGE_NOTIFICATION">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_irp_mn_device_usage_notification_dr"></A>IRP_MN_DEVICE_USAGE_NOTIFICATION</H1>
+
+<P>System components send this IRP to ask the drivers for a device whether the device can support a special file. If all the drivers for the device succeed the IRP, the system creates the special file. The system also sends this IRP to inform drivers that a special file has been removed from the device. The special files can be a paging file, a crash dump file, or a hibernation file.</P>
+
+<P>Function drivers must handle this IRP if their device can contain a paging file, dump file, or hibernation file. Filter drivers must handle this IRP if the function driver they are filtering handles the IRP. Bus drivers must handle this IRP for their adapter or controller (bus FDO) and for their child devices (child PDOs).</P>
+
+<H4>Major Code</H4>
+
+<P><A HREF="k113_8ur6.htm">IRP_MJ_PNP</A> </P>
+
+<H4>When Sent</H4>
+
+<P>The system sends this IRP when it is creating or deleting a paging file, dump file, or hibernation file. A driver can send this IRP to propagate device usage information to another device stack. </P>
+
+<P>System components and drivers send this IRP at IRQL PASSIVE_LEVEL in an arbitrary thread context. </P>
+
+<H4>Input</H4>
+
+<P>The <B>Parameters.UsageNotification.InPath</B> member of the <A HREF="k112_49bm.htm">IO_STACK_LOCATION</A> structure is a BOOLEAN. When this parameter is TRUE, the system is creating a paging, crash dump, or hibernation file on the device. When <B>InPath</B> is FALSE, such a file has been removed from the device.</P>
+
+<P><B>Parameters.UsageNotification.Type</B> is an enum indicating the kind of file. This parameter has one of the following values: <B>DeviceUsageTypePaging</B>, <B>DeviceUsageTypeDumpFile</B>, or <B>DeviceUsageTypeHibernation</B>. </P>
+
+<H4>Output</H4>
+
+<P>None</P>
+
+<H4>I/O Status Block</H4>
+
+<P>Drivers set <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS or to an appropriate error status.</P>
+
+<P>Drivers do not modify the <B>Irp-&gt;IoStatus.Information</B> field; it remains at zero as set by the component sending the IRP.</P>
+
+<H4>Operation</H4>
+
+<P>A driver handles this IRP on the IRP's way down the device stack and on the IRP's way back up the stack.</P>
+
+<P>A driver responds to this IRP with a procedure like the following:
+
+<UL>
+	<LI>If <B>Parameters.UsageNotification.InPath</B> is TRUE, determine whether the device supports the special file.
+<P>A driver should test for the specific <B>Parameters.UsageNotification.Type</B>(s) that the driver can support. Additional notification types might be added in the future.
+
+<P>See further information below describing the actions required to support each notification type.
+
+<P>If <B>Parameters.UsageNotification.InPath</B> is TRUE and the driver cannot support the special file on the device, the driver must complete the IRP with a failure status.
+</LI>
+
+	<LI>If the device supports the special file:
+<OL>
+	<LI>Take appropriate actions to reflect that the device now contains, or no longer contains, a special file. 
+<P>A driver typically increments or decrements a counter. For example, if <B>Parameters.UsageNotification.Type</B> is <B>DeviceUsageTypePaging</B> and <B>Parameters.UsageNotification.InPath</B> is TRUE, increment a count of the number of paging files on the device. Certain driver dispatch routines must check the counter(s). 
+
+<P>A device that contains a special file should not be disabled. A driver can call <A HREF="k104_4m2a.htm"><B>IoInvalidateDeviceState</B></A>, requesting the PnP Manager to re-query for the device's PnP device state information. In response to the resulting <A HREF="pnp-irps_6acy.htm">IRP_MN_QUERY_PNP_DEVICE_STATE</A> IRP, the driver should set the PNP_DEVICE_NOT_DISABLEABLE flag.
+
+<P>If <B>InPath</B> is FALSE, a driver sets the DO_POWER_PAGABLE bit in its device object for the device.
+</LI>
+
+	<LI>Propagate the device usage information to any related devices that require the information. 
+<P>As part of its handling of an IRP_MN_DEVICE_USAGE_NOTIFICATION IRP, a driver might be required to pass the information to one or more other device stacks. Such a driver creates new IRP_MN_DEVICE_USAGE_NOTIFICATION IRP(s) and sends them to the appropriate device stack(s). The driver must wait for completion of any device-usage-notification IRP(s) it sends before the driver finishes processing the device-usage IRP it received.
+
+<P>How to identify the related devices is device- and driver-specific. Typically, a driver sends the IRP to other drivers to which it would send I/O requests for the file. When a bus driver handles this request for a child device, it must send a usage notification IRP to the device stack for the device's parent.
+
+<P>For example, when <I>ftdisk</I> is running a five-disk stripe set, it propagates paging, hibernate, and crash dump notifications to each of those five disks, since each of those devices can be required to handle paging, hibernate, or crash dump file operations.
+</LI>
+
+	<LI>In a function or filter driver, set an IoCompletion routine.</LI>
+
+	<LI>In a function or filter driver, set <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS, set up the next stack location, and pass the IRP to the next lower driver with <A HREF="k104_1agi.htm"><B>IoCallDriver</B></A>. Do not complete the IRP.
+<P>In a bus driver that is handling the IRP for a child PDO:  set <B>Irp-&gt;IoStatus.Status</B> and complete the IRP (<A HREF="k104_1fhu.htm"><B>IoCompleteRequest</B></A>).
+</LI>
+
+	<LI>During IRP completion processing:
+<P>If an IoCompletion routine detects that a lower driver has failed the IRP, the function or filter driver must undo any operations it performed in response to the IRP and propagate the error. If the function or filter driver propagated the usage information to any other device stacks, the driver must send another usage IRP to those stacks to notify them of the failure.
+
+<P>If status is STATUS_SUCCESS and <B>InPath</B> is TRUE, clear the DO_POWER_PAGABLE bit.
+</LI>
+</OL>
+</LI>
+</UL>
+
+<P>See <A HREF="plugplay_15t3.htm">Plug and Play</A> for the general rules for handling <A HREF="pnp-irps_9bzm.htm">Plug and Play Minor IRPs</A>.</P>
+
+<H4>Supporting Paging, Crash Dump, and Hibernation Files on a Device</H4>
+
+<P>When any of a driver's special file counts is nonzero, the driver must support the presence of the special file(s) on its device (or a descendant device).</P>
+
+<P>For a <B>DeviceUsageTypePaging</B> file created on its device, a driver must do the following:
+
+<UL>
+	<LI>Lock code in memory for its <A HREF="drvrrtns_7s4y.htm"><I>DispatchRead</I></A>, <A HREF="drvrrtns_6mr6.htm"><I>DispatchWrite</I></A>, <A HREF="drvrrtns_0zoy.htm">DispatchDeviceControl</A>, and <A HREF="drvrrtns_00mq.htm"><I>DispatchPower</I></A> routines.</LI>
+
+	<LI>Clear the DO_POWER_PAGABLE bit in its device object for the device (on the IRP's way up the device stack). </LI>
+
+	<LI>Fail IRP_MN_QUERY_STOP_DEVICE and IRP_MN_QUERY_REMOVE_DEVICE requests for the device.</LI>
+</UL>
+
+<P>For a <B>DeviceUsageTypeDumpFile</B> file on its device, a driver must do the following:
+
+<UL>
+	<LI>Lock code in memory for its <I>DispatchRead</I>, <I>DispatchWrite</I>, <I>DispatchDeviceControl</I>, and <I>DispatchPower</I> routines.</LI>
+
+	<LI>Do not take the device out of the D0 state. 
+<P>Do not register the device for idle detection (<A HREF="portn_14he.htm"><B>PoRegisterDeviceForIdleDetection</B></A>). If the device is already registered, cancel the registration. If the driver performs its own idle detection for the device, suspend such detection.
+</LI>
+
+	<LI>Clear the DO_POWER_PAGABLE bit in its device object for the device (on the IRP's way up the device stack).</LI>
+
+	<LI>Fail <A HREF="pnp-irps_6d4i.htm">IRP_MN_QUERY_STOP_DEVICE</A> and <A HREF="pnp-irps_22k2.htm">IRP_MN_QUERY_REMOVE_DEVICE</A> requests for the device.</LI>
+</UL>
+
+<P>For a <B>DeviceUsageTypeHibernation</B> file on its device, a driver must do the following:
+
+<UL>
+	<LI>Lock code in memory for its <I>DispatchRead</I>, <I>DispatchWrite</I>, <I>DispatchDeviceControl</I>, and <I>DispatchPower</I> routines.</LI>
+
+	<LI>Ensure the device is in the D0 state when the driver receives an S4 system power IRP indicating that the system is about to hibernate. </LI>
+
+	<LI>Do not power down the device in response to a D3 set-power IRP that is part of an S4 hibernate action. See <A HREF="pwrmgmt_26qv.htm">System Power Actions</A> for more information.
+<P>Upon receipt of such a D3 set-power IRP, perform all tasks required to put the device in the D3 state except for powering off the device and notifying the Power Manager (<A HREF="portn_5saa.htm"><B>PoSetPowerState</B></A>). The device must retain power until the hibernation file has been written.
+</LI>
+
+	<LI>Clear the DO_POWER_PAGABLE bit in its device object for the device (on the IRP's way up the device stack).</LI>
+
+	<LI>Fail <A HREF="pnp-irps_6d4i.htm">IRP_MN_QUERY_STOP_DEVICE</A> and <A HREF="pnp-irps_22k2.htm">IRP_MN_QUERY_REMOVE_DEVICE</A> requests for the device.</LI>
+</UL>
+
+<P>See <A HREF="pwrmgmt_48br.htm">Power Management</A> for more information about device power states, power IRPs, and supporting power management in drivers.</P>
+
+<H4>Sending This IRP</H4>
+
+<P>A driver can send an IRP_MN_DEVICE_USAGE_INFORMATION IRP, but only to propagate device usage information to another device stack. A driver is never the initial source of device usage information.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k104_2ek2.htm"><B>IoAdjustPagingPathCount</B></A>, <A HREF="pnp-irps_22k2.htm">IRP_MN_QUERY_REMOVE_DEVICE</A>, <A HREF="pnp-irps_6d4i.htm">IRP_MN_QUERY_STOP_DEVICE</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IRP_MN_DEVICE_USAGE_NOTIFICATION"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

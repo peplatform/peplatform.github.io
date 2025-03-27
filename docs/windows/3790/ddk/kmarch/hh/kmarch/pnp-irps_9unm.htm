@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>IRP_MN_QUERY_CAPABILITIES</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="IRP_MN_QUERY_CAPABILITIES">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_irp_mn_query_capabilities_dr"></A>IRP_MN_QUERY_CAPABILITIES</H1>
+
+<P>The PnP Manager sends this IRP to get the capabilities of a device, such as whether the device can be locked or ejected.</P>
+
+<P>Function and filter drivers can handle this request if they alter the capabilities supported by the bus driver. Bus drivers must handle this request for their child devices.</P>
+
+<H4>Major Code</H4>
+
+<P><A HREF="k113_8ur6.htm">IRP_MJ_PNP</A> </P>
+
+<H4>When Sent</H4>
+
+<P>The PnP Manager sends this IRP to the bus driver for a device immediately after the device is enumerated. The PnP Manager sends this IRP again after all the drivers for a device have started the device. A driver can send this IRP to get the capabilities for a device.</P>
+
+<P>The PnP Manager and drivers send this IRP at IRQL PASSIVE_LEVEL in an arbitrary thread context.</P>
+
+<H4>Input</H4>
+
+<P>The <B>Parameters.DeviceCapabilities.Capabilities</B> member of the <A HREF="k112_49bm.htm">IO_STACK_LOCATION</A> structure points to a <A HREF="k112_22r6.htm">DEVICE_CAPABILITIES</A> structure containing information about the capabilities of the device.</P>
+
+<H4>Output</H4>
+
+<P><B>Parameters.DeviceCapabilities.Capabilities</B> points to the DEVICE_CAPABILITIES structure that reflects any modifications made by the drivers that handle the IRP.</P>
+
+<H4>I/O Status Block</H4>
+
+<P>A driver sets <B>Irp-&gt;IoStatus.Status</B> to STATUS_SUCCESS or to an appropriate error status such as STATUS_UNSUCCESSFUL.</P>
+
+<P>If a function or filter driver does not handle this IRP, it calls <A HREF="k104_1ohe.htm"><B>IoSkipCurrentIrpStackLocation</B></A> and passes the IRP down to the next driver. Such a driver must not modify <B>Irp-&gt;IoStatus.Status</B> and must not complete the IRP.</P>
+
+<P>A bus driver sets <B>Irp-&gt;IoStatus.Status</B> and completes the IRP.</P>
+
+<H4>Operation</H4>
+
+<P>When a device is enumerated, but before the function and filter drivers are loaded for the device, the PnP Manager sends an IRP_MN_QUERY_CAPABILITIES request to the parent bus driver for the device. The bus driver must set any relevant values in the <A HREF="k112_22r6.htm">DEVICE_CAPABILITIES</A> structure and return it to the PnP Manager. </P>
+
+<P>After the device stack is built and drivers have started the device, the PnP Manager sends this IRP again to be handled first by the driver at the top of the device stack and then by each lower driver in the stack. Function and filter drivers can set an IoCompletion routine and handle this IRP on its way back up the device stack.</P>
+
+<P>Drivers should add capabilities before they pass the IRP to the next lower driver. </P>
+
+<P>Drivers should remove capabilities after all lower drivers have finished with the IRP. A driver does not typically remove capabilities that have been set by other drivers, but it might do so if it has special information about the capabilities of the device in a certain configuration. See <A HREF="plugplay_15t3.htm">Plug and Play</A> for information on postponing IRP processing until lower drivers have finished.</P>
+
+<P>After a device is enumerated and its drivers are loaded, its capabilities should not change. A device's capabilities might change if the device is removed and re-enumerated. </P>
+
+<P>When handling an IRP_MN_QUERY_CAPABILITIES IRP, the driver that is the power policy manager for the device should set an IoCompletion routine and copy the device power capabilities, such as the S-to-D power state mappings, on the IRP's way back up the device stack. To determine the power capabilities of a child device, the parent bus driver creates another query-capabilities IRP and sends the IRP to its parent driver. See <A HREF="pwrmgmt_0iw7.htm">Reporting Device Power Capabilities</A> for more information.</P>
+
+<P>If a driver handles this IRP, it should check the DEVICE_CAPABILITIES <B>Version</B> value. If that value is not a version that the driver supports, the driver should fail the IRP. If the version is supported, the driver should check the Size field. A driver should set only those fields that are within the bounds of the capabilities structure that it received as input.</P>
+
+<P>Drivers that handle this IRP can set some DEVICE_CAPABILITIES fields but must not set the <B>Size</B> and <B>Version</B> fields. These fields are only set by the component that sent the IRP.</P>
+
+<P>See <A HREF="plugplay_15t3.htm">Plug and Play</A> for the general rules for handling <A HREF="pnp-irps_9bzm.htm">Plug and Play Minor IRPs</A>.</P>
+
+<H4>Sending This IRP</H4>
+
+<P>A bus driver sends this IRP to the parent device stack when it handles an IRP_MN_QUERY_CAPABILITIES request for one of its child devices. Also, a driver might send this IRP to get the device capabilities for one of its devices. A single driver in the stack has only part of the capabilities information for the device; sending an IRP to the device stack enables it to gather the full picture, including modifications by any filter drivers, and so forth.</P>
+
+<P>See <A HREF="irps_0uuf.htm">Handling IRPs</A> for information on sending IRPs. The following steps apply specifically to this IRP: 
+
+<UL>
+	<LI>Allocate a <A HREF="k112_22r6.htm">DEVICE_CAPABILITIES</A> structure from paged pool, and initialize it to zeros by calling <A HREF="k109_4nci.htm"><B>RtlZeroMemory</B></A>. Initialize the <B>Size</B> to sizeof(DEVICE_CAPABILITIES), the <B>Version</B> to 1, and <B>Address</B> and <B>UINumber</B> to -1.</LI>
+
+	<LI>Set the values in the next I/O stack location of the IRP: set <B>MajorFunction</B> to <A HREF="k113_8ur6.htm">IRP_MJ_PNP</A>, set <B>MinorFunction</B> to IRP_MN_QUERY_CAPABILITIES, and set <B>Parameters.DeviceCapabilities</B> to a pointer to the allocated DEVICE_CAPABILITIES structure. </LI>
+
+	<LI>Initialize <B>IoStatus.Status</B> to STATUS_NOT_SUPPORTED. </LI>
+
+	<LI>Deallocate the IRP and the DEVICE_CAPABILITIES structure when they are no longer needed.</LI>
+</UL>
+
+<H4>See Also</H4>
+
+<P><A HREF="k112_22r6.htm">DEVICE_CAPABILITIES</A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: IRP_MN_QUERY_CAPABILITIES"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

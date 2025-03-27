@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>HwStorWmiExecuteMethod</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="HwStorWmiExecuteMethod">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Storage&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_hwstorwmiexecutemethod_kr"></A><I>HwStorWmiExecuteMethod</I></H1>
+
+<P>A miniport driver's <I>HwStorWmiExecuteMethod</I> routine is called to execute a method associated with a data block. </P>
+
+<PRE class=syntax><B>BOOLEAN</B>
+  <B>HwStorWmiExecuteMethod(</B>
+<B>    IN PVOID  </B><I>DeviceContext</I><B>,</B>
+    <B>IN PSCSIWMI_REQUEST_CONTEXT  </B><I>RequestContext</I><B>,</B>
+    <B>IN ULONG  </B><I>GuidIndex</I><B>,</B>
+    <B>IN ULONG  </B><I>InstanceIndex</I><B>,</B>
+    <B>IN ULONG  </B><I>MethodId</I><B>,</B>
+    <B>IN ULONG  </B><I>InBufferSize</I><B>,</B>
+    <B>IN ULONG  </B><I>OutBufferSize</I><B>,</B>
+    <B>IN OUT PUCHAR  </B><I>Buffer</I>
+<B>    );</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>DeviceContext</I> </DT>
+
+<DD>Points to the miniport-defined context value passed to <B>ScsiPortWmiDispatchFunction</B>. </DD>
+
+<DT><I>RequestContext</I></DT>
+
+<DD>Points to the SCSIWMI_REQUEST_CONTEXT structure that the miniport passed to <B>ScsiPortWmiDispatchFunction</B>. </DD>
+
+<DT><I>GuidIndex</I></DT>
+
+<DD>Specifies the data block by its index into the list of GUIDs in the SCSI_WMILIB_CONTEXT structure that the miniport passed to <B>ScsiPortWmiDispatchFunction</B>. </DD>
+
+<DT><I>InstanceIndex</I></DT>
+
+<DD>If the block specified by <I>GuidIndex </I>has multiple instances, <I>InstanceIndex</I> specifies the instance. </DD>
+
+<DT><I>MethodId</I></DT>
+
+<DD>Specifies the ID of the method to execute. The miniport defines the method ID as an item in a data block. </DD>
+
+<DT><I>InBufferSize</I></DT>
+
+<DD>Indicates the size in bytes of the input data. If there is no input data, <I>InBufferSize</I> is zero. </DD>
+
+<DT><I>OutBufferSize</I></DT>
+
+<DD>Indicates the number of bytes available in the buffer for output data. </DD>
+
+<DT><I>Buffer</I></DT>
+
+<DD>Points to a buffer that holds the input data and receives the output data, if any, from the method. If the buffer is too small to receive all of the output, the miniport calls <B>ScsiPortWmiPostProcess</B> with SRB_STATUS_DATA_OVERRUN and the size required. </DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P><I>HwStorWmiExecuteMethod</I> returns TRUE if the request is pending, or FALSE if the request was completed.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>storport.h</I>. Include <I>storport.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P>This routine is identical in both definition and function to its SCSI port equivalent, <A HREF="k302_0lyq.htm"><I>HwScsiWmiExecuteMethod</I></A>.</P>
+
+<P>When a miniport driver receives an SRB in which the <B>Function</B> member is set to SRB_FUNCTION_WMI, it calls <B>ScsiPortWmiDispatchFunction</B> with a pointer to an initialized SCSI_WMILIB_CONTEXT structure and <I>MinorFunction</I> set to <B>Srb-&gt;WmiSubFunction</B>. The SCSI port driver calls the miniport's <I>HwStorWmiExecuteMethod</I> routine if <I>MinorFunction</I> indicates a request to execute a method.</P>
+
+<P>If a miniport does not implement a <I>HwStorWmiExecuteMethod</I> routine, it must set <B>ExecuteWmiMethod</B> to NULL in the SCSI_WMILIB_CONTEXT the miniport passes to <B>ScsiPortWmiDispatchFunction</B>. In this case, the port driver returns SRB_STATUS_ERROR to the caller.</P>
+
+<P>If the method generates output, the miniport should check the size of the output buffer in <I>OutBufferSize </I>before performing any operation that might have side effects or that should not be performed twice. For example, if a method returns the values of a group of counters and then resets the counters, the miniport should check the buffer size before resetting the counters. This ensures that the port driver can safely re-send the request with a larger buffer. If the buffer is too small, the miniport should call <B>ScsiPortWmiPostProcess</B> with SRB_STATUS_DATA_OVERRUN and the size of the output buffer needed to fulfill the request. </P>
+
+<P>The miniport executes the method and writes output, if any, to the buffer. Before returning from <I>HwStorWmiExecuteMethod</I>, the miniport calls <B>ScsiPortWmiPostProcess</B> with an appropriate <B>SrbStatus</B> value and the number of bytes used in the output buffer.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="k302_0lyq.htm"><I>HwScsiWmiExecuteMethod</I></A>, <A HREF="k306_1s1e.htm">SCSI_WMILIB_CONTEXT</A>, <A HREF="k306_00tu.htm">SCSIWMI_REQUEST_CONTEXT</A>, <A HREF="k301_0nci.htm"><B>ScsiPortWmiPostProcess</B></A>, <A HREF="k301_2y42.htm"><B>ScsiPortWmiDispatchFunction</B></A></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: HwStorWmiExecuteMethod"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

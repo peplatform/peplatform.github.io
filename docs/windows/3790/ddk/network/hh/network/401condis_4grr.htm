@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Registering and Opening an Address Family</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Registering and Opening an Address Family">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_registering_and_opening_an_address_family_ng"></A>Registering and Opening an Address Family</H3>
+
+<P>A call manager must register an address family for each NIC on which it provides call manager services to connection-oriented clients. Similarly, an MCM driver must register an address family for the NIC that it manages. </P>
+
+<P>By registering an address family, a call manager or MCM driver registers its call manager entry points with NDIS and causes NDIS to advertise the call manager's or MCM driver's services to all connection-oriented clients that bind to the adapter. </P>
+
+<P>If a connection-oriented client can use the services advertised by a call manager or MCM driver, it can open an address family with the call manager or MCM driver.</P>
+
+<H4>Registering an Address Family from a Call Manager</H4>
+
+<P>After its <A HREF="104tdlow_2bqq.htm"><I>ProtocolBindAdapter</I></A> function binds to an underlying miniport driver with <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A>, a call manager calls <A HREF="103ndisx_58tu.htm"><B>NdisCmRegisterAddressFamily</B></A> to register an address family for the binding (see the following figure). </P>
+
+<P><IMG SRC="images/cm_01.gif" ALT="" BORDER=0></P>
+
+<P><B>Registering and Opening an Address Family with a Call Manager</B></P>
+
+<P>The call to <B>NdisCmRegisterAddressFamily</B> registers the call manager entry points for the call manager and also advertises the call manager's specific signaling services. A call manager must register an address family each time that its <I>ProtocolBindAdapter</I> function and is called and successfully binds to a NIC with <A HREF="103ndisx_9koi.htm"><B>NdisOpenAdapter</B></A>.</P>
+
+<P>The call manager can support more than one address family across all the NIC drivers to which it is bound. The call manager can also support more than one address family on a single NIC to which it is bound. In this case, however, the call manager must register the same entry points for each address family on the binding. Only one call manager can support a particular type of address family for clients bound to any particular NIC driver. </P>
+
+<H4>Registering an Address Family from an MCM Driver</H4>
+
+<P>An MCM driver calls <B>NdisMCmRegisterAddressFamily</B> from its <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A> function after registering its miniport driver entry points with <A HREF="103ndisx_6tte.htm"><B>NdisMRegisterMiniport</B></A>. An MCM driver calls <A HREF="103ndisx_58fm.htm"><B>NdisMCmRegisterAddressFamily</B></A> once to register its call manager entry points with NDIS and to advertise its services to connection-oriented clients (see the following figure). </P>
+
+<P><IMG SRC="images/fig1_01.gif" ALT="" BORDER=0></P>
+
+<P><B>Registering and Opening an Address Family with an MCM Driver</B></P>
+
+<P>A miniport driver of a NIC that has on-board connection-oriented signaling support can register itself as an MCM driver even though a call manager may be available. By doing so, such an MCM driver preempts the call manager as the call manager for that NIC.</P>
+
+<H4>Opening an Address Family</H4>
+
+<P>A call manager's or MCM driver's call to <B>Ndis(M)CmRegisterAddressFamily</B> causes NDIS to call the <A HREF="104tdlow_2goi.htm"><I>ProtocolCoAfRegisterNotify</I></A> function of each connection-oriented client on the binding (as shown in two previous figures).</P>
+
+<P><I>ProtocolCoAfRegisterNotify</I> examines the address-family data to determine whether the client can use the services of this particular CM or MCM driver. Whether the client can make modifications in the (M)CM-supplied address-family data depends on the particular signaling-protocol support of the call manager or MCM driver.</P>
+
+<P>If the client finds the offered call-management services acceptable, <I>ProtocolCoAfRegisterNotify</I> allocates a per-AF context area for the client and calls <A HREF="103ndisx_6quq.htm"><B>NdisClOpenAddressFamily</B></A>. <B>NdisClOpenAddressFamily</B> registers the client's connection-oriented entry points with NDIS.</P>
+
+<P>The call to <B>NdisClOpenAddressFamily</B> causes NDIS to call the call manager's or MCM driver's <A HREF="104tdlow_5ape.htm"><I>ProtocolCmOpenAf</I></A> function (as shown already in two previous figures). <I>ProtocolCmOpenAf</I> ensures that the client passed in a valid address family and allocates and initializes the resources necessary to perform operations on behalf of the client that is opening this instance of the address family. <I>ProtocolCmOpenAf</I> also stores an NDIS-supplied <I>NdisAfHandle</I> that represents the association between the call manager and client for the open address family.</P>
+
+<P><I>ProtocolCmOpenAf</I> can complete synchronously or asynchronously. To complete asynchronously. The <I>ProtocolCmOpenAf</I> function of a call manager calls <A HREF="103ndisx_1bw2.htm"><B>NdisCmOpenAddressFamilyComplete</B></A>; the <I>ProtocolCmOpenAf</I> function of an MCM driver calls <A HREF="103ndisx_97xu.htm"><B>NdisMCmOpenAddressFamilyComplete</B></A>. The call to <B>Ndis(M)CmOpenAddressFamilyComplete</B> causes NDIS to call the <I>ProtocolOpenAfComplete</I> function of the client that originally called <B>NdisClOpenAddressFamily</B>.</P>
+
+<P>If the client's call to <B>NdisClOpenAddressFamily</B> is successful, NDIS returns to the client an <I>NdisAfHandle</I> that represents the association between the call manager and client for the open address family.</P>
+
+<P>If a client accepts incoming calls, it usually registers one or more SAPs from its <I>ProtocolClOpenAfComplete</I> function by calling <A HREF="103ndisx_22nm.htm"><B>NdisClRegisterSap</B></A> following its successful call to <A HREF="103ndisx_6quq.htm"><B>NdisClOpenAddressFamily</B></A> (see <A HREF="401condis_03qf.htm">Registering a SAP</A>). </P>
+
+<P>If a client makes outgoing calls, it could create one or more VCs (see <A HREF="401condis_0t47.htm">Creating a VC</A>) in its <I>ProtocolClOpenAfComplete</I> function in anticipation of a request by one or more its clients to make an outgoing call.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Registering%20and%20Opening%20an%20Address%20Family"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

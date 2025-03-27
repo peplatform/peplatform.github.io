@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>How the Application Releases the WIA Device</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT></HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Still&nbsp;Image&nbsp;Devices:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H4><A NAME="ddk_how_the_application_releases_the_wia_device_si"></A>How the Application Releases the WIA Device</H4>
+
+<P>When an application has no further need of a WIA device, it calls the <B>IWiaItem::Release</B> method (described in the Platform SDK documentation). When the last reference to any WIA item is released, the WIA service calls the <A HREF="minidrv_0azt.htm"><B>IWiaMiniDrv::drvUnInitializeWia</B></A> method. A WIA minidriver should use this method primarily to manage resources associated with all connected applications. When an application closes, the resources associated with its item tree are no longer needed. The WIA minidriver should keep track of all connected applications by incrementing a reference counter in <A HREF="minidrv_4mg9.htm"><B>IWiaMiniDrv::drvInitializeWia</B></A> and decrementing that reference counter in <B>IWiaMiniDrv::drvUnInitializeWia</B>. Freeing resources at this point can cause problems for other connected applications. When the reference counter reaches zero there are no more applications connected to the WIA minidriver. The minidriver should clean up any allocated resources it acquired during application connections.</P>
+
+<P class=note><B>Notes</B>&nbsp;&nbsp;The <B>IWiaMiniDrv::drvUnInitializeWia</B> method does not unload the driver. The driver may be called again to process events, or when an application intends to communicate with it. A call to this method does not mean that all clients are disconnected. There should be one call per client disconnect.</P>
+
+<P class=note>Each call to the <B>IWiaMiniDrv::drvUnInitializeWia</B> method should be paired with a corresponding call to the <B>IWiaMiniDrv::drvInitializeWia</B> method.</P>
+
+<P class=note>The WIA driver should <I>not</I> free any driver resources in this method call unless it can safely determine that <I>no</I> applications are currently connected.</P>
+
+<P>To determine the current application connection count, the WIA driver should increment a class member variable as a reference counter to keep track of the method calls to <B>IWiaMiniDrv::drvInitializeWia</B> (incrementing the counter) and <B>IWiaMiniDrv::drvUnInitializeWia</B> (decrementing the counter).</P>
+
+<P>The following example shows an implementation of the <B>IWiaMiniDrv::drvUnInitializeWia</B> method.</P>
+
+<PRE>HRESULT _stdcall CWIADevice::drvUnInitializeWia(BYTE *pWiasContext)
+{
+  //
+  // If the caller did not pass in the correct parameters,
+  // then fail the call with E_INVALIDARG.
+  //
+
+  if (!pWiasContext) {
+      return E_INVALIDARG;
+  }
+
+  InterlockedDecrement(&amp;m_lClientsConnected);
+
+  //
+  // make sure we never decrement below zero (0)
+  //
+
+  if(m_lClientsConnected &lt; 0){
+      m_lClientsConnected = 0;
+  return S_OK;
+  }
+
+  //
+  // check for connected applications.
+  //
+
+  if(m_lClientsConnected == 0){
+
+      //
+      // There are no application clients connected to this WIA driver
+      //
+
+  }
+
+  return S_OK;
+}</PRE>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: How%20the%20Application%20Releases%20the%20WIA%20Device"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

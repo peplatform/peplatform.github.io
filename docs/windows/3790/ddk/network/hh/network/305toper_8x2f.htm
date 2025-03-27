@@ -1,0 +1,74 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Sending and Receiving Connection-Oriented Data</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Sending and Receiving Connection-Oriented Data">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_sending_and_receiving_connection_oriented_data_ng"></A>Sending and Receiving Connection-Oriented Data</H1>
+
+<P>TDI clients on separate nodes of the network must establish an endpoint-to-endpoint connection between them to send and receive connection-oriented data. Before either client sends data to the other, each client on its own node must do the following:
+
+<OL>
+	<LI>Open a transport address, as described in <A HREF="305toper_2grr.htm">Opening a Transport Address</A>.</LI>
+
+	<LI>Open a connection endpoint, as described in <A HREF="305toper_4wdj.htm">Opening a Connection Endpoint</A>. </LI>
+
+	<LI>Associate its open connection with the open address by submitting a TDI_ASSOCIATE_ADDRESS IOCTL request to its underlying transport, as mentioned in <A HREF="305toper_4wdj.htm">Opening a Connection Endpoint</A> and described in <A HREF="305toper_1aav.htm">Packaging and Submitting IOCTL Requests</A>. </LI>
+
+	<LI>Establish the endpoint-to-endpoint connection between them, one by making a connection offer and the other by accepting that offer, as described in <A HREF="305toper_8up3.htm">Making an Endpoint-to-Endpoint Connection</A>. </LI>
+</OL>
+
+<P>In fact, the client that accepts a connection offer can receive data from its remote-node peer as soon as the local-node transport sends a connection-acceptance frame to the remote-node transport, which can occur before the accepting client's TDI_LISTEN IRP has been fully completed back to that client.</P>
+
+<P>After an endpoint-to-endpoint connection has been made by the underlying transports, either client can send data to the other across the network. </P>
+
+<H4>Sending Data on an Endpoint-to-Endpoint Connection</H4>
+
+<P>The following figure shows how a kernel-mode client sends data on an endpoint-to-endpoint connection through its underlying local-node transport to a remote-node peer.</P>
+
+<P><IMG SRC="images/426-06.gif" ALT="" BORDER=0></P>
+
+<P><B>Sending Data to a Remote-Node Peer</B></P>
+
+<P>A local-node TDI client issues a send request to transmit data from its connection endpoint to the remote-node connection endpoint. To do this, the local-node client submits a <A HREF="32ioctl_2hv6.htm">TDI_SEND</A> IOCTL request to its transport. This IRP, which the client sets up with <A HREF="34bldmac_3w4y.htm"><B>TdiBuildSend</B></A>, contains a pointer to a client-supplied buffer containing a stream-oriented or message-oriented TSDU. This buffer can be any size up to the maximum the TDI transport driver allows. If the transport supports expedited sends, the client can request that the TSDU be transmitted as expedited data, ahead of any preceding normal sends it has already submitted that are currently pending in its underlying transport. If the transport driver supports internal buffering, its client can issue a non-blocking send.</P>
+
+<P>The client's call to <B>IoCallDriver</B> with the TDI_SEND IRP forwards the IRP to the underlying transport's TdiDispatchInternalDeviceControl routine. This routine checks the <B>MinorFunction</B> code in the transport's I/O stack location of the IRP and usually calls a send-specific internal driver function to process the IRP further. For send requests, the internal driver function usually queues the IRP if the client has already submitted other send requests that have not yet been transmitted over the network to the remote node. The transport always queues requests to send expedited data ahead of requests to send normal TSDUs to the client's remote-node peer. Whether normal or expedited, the queuing transport always transmits client-requested sends over the network in FIFO order. The transport either copies the client-supplied data into its internal buffers or sends the specified data on the network before it completes each client-submitted TDI_SEND IRP.</P>
+
+<P>If the underlying transport has failed a non-blocking send request due to insufficient internal buffer space in the transport, the driver calls its client’s registered <A HREF="35tdicli_1wc2.htm">ClientEventSendPossible</A> handler when the transport again has available buffer space for sends. Then, ClientEventSendPossible can resubmit the TDI_SEND request that the transport previously failed.</P>
+
+<H4>Receiving Data on an Endpoint-to-Endpoint Connection</H4>
+
+<P>The following figure shows how a kernel-mode client receives data on an endpoint-to-endpoint connection through its local-node transport from its remote-node peer. </P>
+
+<P><IMG SRC="images/426-07.gif" ALT="" BORDER=0></P>
+
+<P><B>Receiving Data from a Remote-Node Peer</B></P>
+
+<P>A local-node client can receive a TSDU, either normal or expedited, on a connection by making a <A HREF="32ioctl_5drm.htm">TDI_RECEIVE</A> request to the underlying transport. This IRP, which the client sets up with <A HREF="34bldmac_21de.htm"><B>TdiBuildReceive</B></A>, contains a pointer to a client-supplied buffer into which the transport copies all or part of the TSDU data it received from the client's remote-node peer. This buffer can be any size up to the maximum the TDI transport driver allows. </P>
+
+<P>The client's call to <B>IoCallDriver</B> with the TDI_RECEIVE IRP forwards the IRP to the underlying transport's TdiDispatchInternalDeviceControl routine. This routine checks the <B>MinorFunction</B> code in the transport's I/O stack location of the IRP and usually calls a receive-specific internal driver function to process the IRP further. The internal driver function transfers received data into the client-supplied buffer until it is full or until the received TSDU data is exhausted. </P>
+
+<P>However, expedited data takes precedence over normal data during receive operations. If an expedited TSDU comes in from the remote node while the transport is processing a client-submitted receive request for normal data, the transport completes the IRP back to its client with whatever normal TSDU data has already been transferred into the client-supplied buffer. Then, the transport processes the expedited receive to completion, and the client must issue another TDI_RECEIVE request to obtain the remainder of the normal TSDU. </P>
+
+<P>A client can also receive data from its remote-node peer as an event notification from the underlying TDI transport driver. For these notifications, the driver removes the transport layer header from the TSDU that it receives from the remote node and calls the client’s registered <A HREF="35tdicli_7yeq.htm">ClientEventReceive</A>, <A HREF="35tdicli_4qnm.htm">ClientEventChainedReceive</A>, <A HREF="35tdicli_7jea.htm">ClientEventReceiveExpedited</A>, or <A HREF="35tdicli_57n6.htm">ClientEventChainedReceiveExpedited</A> handler. The client’s event handler can then copy as much of the data as possible. If ClientEventReceive or ClientEventReceiveExpedited does not receive all the data, it can do one of the following:
+
+<UL>
+	<LI>Return a not-accepted status immediately, effectively telling the transport that the received TSDU is not of interest to the client.</LI>
+
+	<LI>Make another TDI_RECEIVE receive request to obtain the remainder of the TSDU data.</LI>
+
+	<LI>Rely on subsequent driver receive-event notifications to obtain the remainder of the data.</LI>
+</UL>
+
+<P>The ClientEventChainedReceive and ClientEventChainedReceiveExpedited handlers are always given read-only access to a full TSDU by the underlying transport. Consequently, these routines have no need to issue a sequence of TDI_RECEIVE requests to the underlying transport or to process partial indications of received TSDUs. However, the client is responsible for calling <A HREF="33tdifun_67aq.htm"><B>TdiReturnChainedReceives</B></A> promptly to return the resources associated with such an indication to the NDIS miniport driver that originally allocated them. </P>
+
+<P>For more information about registering ClientEvent<I>Xx</I>x handlers, see <A HREF="305toper_2grr.htm">Opening a Transport Address</A>. </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Sending%20and%20Receiving%20Connection-Oriented%20Data"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,82 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Selecting the Configuration for a Single-Interface (non-Composite) USB Device</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Selecting the Configuration for a Single-Interface (non-Composite) USB Device">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>System&nbsp;Support&nbsp;for&nbsp;Buses:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_selecting_the_configuration_for_a_single_interface_non_composite_usb_device_kg"></A>Selecting the Configuration for a Single-Interface (non-Composite) USB Device</H2>
+
+<P>To configure a USB device, the driver chooses which configuration to enable, and, within a configuration, which alternate settings of each interface to enable. The driver packages these choices in an <A HREF="usbstrct_1e0i.htm#ddk_urb_function_select_configuration_kr">URB_FUNCTION_SELECT_CONFIGURATION</A> URB, which it sends to the USB bus driver. The bus driver enables each interface, and sets up a communication channel to each endpoint within the interface. In USB terminology, this connection is known as a <I>pipe</I>. The bus driver returns a handle for the configuration, for each interface, and for each pipe. The device driver uses the configuration handle to change configuration settings, and uses the pipe handles to perform reads and writes on a pipe.</P>
+
+<P>Drivers use the <A HREF="usbfunc_41pu.htm"><B>USBD_CreateConfigurationRequestEx</B></A> routine to build the <A HREF="usbstrct_1e0i.htm#ddk_urb_function_select_configuration_kr">URB_FUNCTION_SELECT_CONFIGURATION</A> URB. A driver passes an array of <A HREF="usbstrct_5ewi.htm">USBD_INTERFACE_LIST_ENTRY</A> structures to the routine, which specifies the alternate setting of each interface to enable. The <B>InterfaceDescriptor</B> member of each structure points to the interface descriptor for the alternate setting. The <B>Interface</B> member of each structure points to an <A HREF="usbstrct_02eq.htm">USBD_INTERFACE_INFORMATION</A> structure that contains in its <B>Pipes</B> member an array of <A HREF="usbstrct_01f6.htm">USBD_PIPE_INFORMATION</A> structures — one for each endpoint of that particular interface and alternate setting.</P>
+
+<P>To populate the <B>InterfaceDescriptor</B> members of the array, drivers can use the <A HREF="usbfunc_5h9u.htm"><B>USBD_ParseConfigurationDescriptor</B></A> support routine. For example, the following code demonstrates how a driver can use the routine to fill the array with pointers to the alternate setting zero of each interface.</P>
+
+<PRE>PUSB_CONFIGURATION_DESCRIPTOR pConfigurationDescriptor;
+/* pConfigurationDescriptor points to the descriptor previously
+   requested from the driver. */
+
+PUSBD_INTERFACE_INFORMATION pInterfaceInfo;
+/* pInterfaceInfo points to an array with 
+   pConfigurationDescriptor-&gt;bNumInterfaces entries. */
+
+PUSB_INTERFACE_DESCRIPTOR pCurrentDescriptor;
+LONG InterfaceNumber = 0;
+
+PURB pUrb;
+
+pCurrentDescriptor = pConfigurationDescriptor;
+
+for (InterfaceNumber = 0; 
+     InterfaceNumber &lt; pConfigurationDescriptor-&gt;bNumInterfaces;
+     InterfaceNumber++
+    )
+{
+    /* Get the next matching descriptor. Here we implicitly use
+       the fact that the interface descriptors are laid out in
+       order in memory.
+    */
+    pCurrentDescriptor = USBD_ParseConfigurationDescriptor(
+                            pConfigurationDescriptor,
+                            pCurrentDescriptor,
+                            InterfaceNumber, // interface number
+                            0, // alternate setting
+                            -1,
+                            -1,
+                            -1,
+                         );
+    pInterfaceInfo[InterfaceNumber] = pCurrentDescriptor;
+}
+// allocate the URB
+pUrb = USBD_CreateConfigurationRequestEx(
+           pConfigurationDescriptor, 
+           pInterfaceInfo
+       );</PRE>
+
+<P>The <A HREF="usbfunc_41pu.htm"><B>USBD_CreateConfigurationRequestEx</B></A> routine allocates the URB for the driver. Within the URB, the routine allocates a <A HREF="usbstrct_02eq.htm">USBD_INTERFACE_INFORMATION</A> structure for each interface descriptor that the driver specifies. The routine initializes the <B>InterfaceNumber</B>, <B>AlternateSetting</B>, <B>NumberOfPipes</B>, <B>Pipes[i].MaximumTransferSize</B>, <B>and Pipes[i].PipeFlags</B> members.</P>
+
+<P><A HREF="usbfunc_41pu.htm"><B>USBD_CreateConfigurationRequestEx</B></A> initializes <B>Pipes[i].MaximumTransferSize</B> to the default maximum transfer size for a single URB read/write request. The driver can specify a different maximum transfer size in the <B>Pipes[i].MaximumTransferSize</B>, if it also specifies the USBD_PF_CHANGE_MAX_PACKET flag in <B>Pipes[i].PipeFlags</B>.</P>
+
+<P>Once the bus driver receives the URB, it fills in the rest of the members of each <A HREF="usbstrct_02eq.htm">USBD_INTERFACE_INFORMATION</A> structure. In particular, the <B>Pipes</B> array member contains information on each pipe created. For example, the <B>Pipes[i].PipeHandle</B> member contains a handle that the driver uses to send read/write requests to the pipe. The <B>Pipes[i].PipeType</B> member specifies the type of transfers that the pipe supports.</P>
+
+<P>Within the <B>UrbSelectConfiguration</B> member of the URB, the bus driver returns a handle that the driver can use later to select alternate interface settings. To select an alternate setting for an interface, the driver submits an URB_FUNCTION_SELECT_INTERFACE URB. The driver can use the <A HREF="usbfunc_669e.htm"><B>UsbBuildSelectInterfaceRequest</B></A> routine to build this URB.</P>
+
+<P>To disable the device, the driver creates and submits an URB_FUNCTION_SELECT_CONFIGURATION request with a NULL configuration descriptor. The following code shows how to use the <A HREF="usbfunc_41pu.htm"><B>USBD_CreateConfigurationRequestEx</B></A> routine to allocate the proper URB.</P>
+
+<PRE>URB Urb;
+UsbBuildSelectConfigurationRequest(
+  &amp;Urb,
+  sizeof(_URB_SELECT_CONFIGURATION),
+  NULL
+);</PRE>
+
+<P>The <A HREF="usbstrct_1e0i.htm#ddk_urb_function_select_configuration_kr">URB_FUNCTION_SELECT_CONFIGURATION</A> and <A HREF="usbstrct_1e0i.htm#ddk_urb_function_select_interface_kr">URB_FUNCTION_SELECT_INTERFACE</A> requests can fail if there is insufficient bandwidth to support the isochronous, control, and interrupt endpoints within enabled interfaces. When that happens, the bus driver sets the <B>Status</B> member of the URB header to USBD_STATUS_NO_BANDWIDTH.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Selecting%20the%20Configuration%20for%20a%20Single-Interface%20(non-Composite)%20USB%20Device"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

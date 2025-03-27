@@ -1,0 +1,159 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>ClientPnPBindingChange</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="ClientPnPBindingChange">
+</HEAD>
+<BODY TOPMARGIN="0">
+<DIV STYLE="display:none;">
+<OBJECT ID="hhobj_1" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_zwcreatefile_kr">
+</OBJECT>
+<OBJECT ID="hhobj_2" TYPE="application/x-oleobject" CLASSID="clsid:adb880a6-d8ff-11cf-9377-00aa003b7a11">
+	<PARAM NAME="Command" VALUE="ALink,MENU">
+	<PARAM NAME="DefaultTopic" VALUE="../notopic_0pk4.htm">
+	<PARAM NAME="Item1" VALUE="">
+	<PARAM NAME="Item2" VALUE="ddk_zwclose_kr">
+</OBJECT>
+</DIV>
+
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_clientpnpbindingchange_nr"></A>ClientPnPBindingChange</H1>
+
+<P>The ClientPnPBindingChange routing is initially called by TDI as a consequence of the client's own call to <B>TdiRegisterPnPHandlers</B>. At system startup, TDI calls ClientPnPBindingChange as a consequence of underlying transports' calls to <B>TdiRegisterDeviceObject</B>, <B>TdiProviderReady</B>, and <B>TdiDeregisterDeviceObject</B>. Subsequent to system startup, TDI calls ClientPnPBindingChange whenever a transport to which the client is bound calls <B>TdiRegisterDeviceObject</B> and <B>TdiDeregisterDeviceObject</B>.</P>
+
+<PRE class=syntax><B>VOID</B>
+  <B>ClientPnPBindingChange(</B>
+    <B>IN TDI_PNP_OPCODE</B>  <I>PnPOpcode</I><B>,</B>
+    <B>IN PUNICODE_STRING</B>  <I>DeviceName</I><B>,</B>
+    <B>IN PWSTR</B>  <I>MultiSZBindList</I>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>PnPOpcode</I></DT>
+
+<DD>Specifies one of the following values:
+
+<DL>
+<DT>TDI_PNP_OP_ADD</DT>
+
+<DD>During system startup, this value indicates an established transport-to-NIC binding and a transport-created, named device object registered with TDI to represent the binding to at least one underlying NIC. The ClientPnPBindingChange routine can pass a pointer to the name of the transport's registered device object (available at <I>DeviceName</I>) as a parameter to <B>ZwCreateFile</B> to bind itself to this transport, and subsequently, the client can use the corresponding device object pointer in client-allocated IRPs. 
+
+<P>Following system startup, a runtime call to ClientPnPBindingChange with TDI_PNP_OP_ADD can occur because the PnP Manager notified NDIS that a new NIC was added to the system. NDIS, in turn, notified the lowest driver in the transport stack (or lower edge of the monolithic transport) by calling its <I>ProtocolBindAdapter</I> function so the transport is established a binding to the new NIC and registered a device object for that transport-to-NIC binding with TDI. 
+</DD>
+
+<DT>TDI_PNP_OP_DEL</DT>
+
+<DD>This value indicates that a transport to which the client is bound has just deregistered and deleted a device object for an established  binding to an underlying NIC. 
+
+<P>This call to ClientPnPBindingChange can occur because the PnP Manager notified NDIS that a NIC was removed from the system. NDIS, in turn, notified the lowest driver in the transport stack (or lower edge of the monolithic transport) by calling its <I>ProtocolUnbindAdapter</I> function so the transport is tearing down its binding to the NIC. 
+</DD>
+
+<DT>TDI_PNP_OP_PROVIDERREADY</DT>
+
+<DD>During system startup, this value indicates that a particular transport is ready to carry out network I/O operations on its established binding(s). 
+
+<P>This occurs when an initializing transport calls <B>TdiProviderReady</B>. The buffer at <I>DeviceName</I> specifies the generic name of this transport, which the transport previously supplied when it called <B>TdiRegisterProvider</B>. 
+
+
+<P>Such a transport has already done the following:
+</DD>
+</DL>
+
+
+<UL>
+	<LI>Established one or more bindings to appropriate NICs in the machine and created named device objects to represent each of its transport-to-NIC bindings.</LI>
+
+	<LI>Registered its named device object(s) with TDI, thereby causing one or more calls to ClientPnPBindingChange with the <I>PnPOpcode</I> TDI_PNP_OP_ADD.</LI>
+
+	<LI>Registered any network addresses known to the transport on those bindings with TDI, thereby causing one or more calls to the client's just registered ClientPnPAddNetAddress routine.</LI>
+
+	<LI>Set up whatever internal state the transport uses to track network I/O through its transport-to-NIC binding(s).</LI>
+
+	<LI>Received a NET_PNP_EVENT notification from NDIS of type <B>NetEventBindsComplete</B> in a call to the <I>ProtocolPnPEvent</I> function of the (monolithic) transport driver or of the lowest driver in the (multidriver) transport stack, which forwards this PnP-event notification up to the TDI transport driver at the top.
+<P>The transport's call to <B>TdiProviderReady</B> indicates that this transport has attempted to established bindings to one or more NICs, as configured in the registry of the current machine, has succeeded in establishing at least one such transport-to-NIC binding, and has succeeded in initializing itself to a state of readiness to carry out network I/O operations on its established binding(s).
+
+<P>A client bound to this transport could now make a network I/O request of this transport, or it can set up any additional transport-specific state it will need for tracking runtime network I/O and defer its initial network I/O request until ClientPnPBindingChange is called again with <I>PnPOpcode</I> TDI_PNP_NETREADY.
+</LI>
+</UL>
+
+
+<DL>
+<DT>TDI_PNP_OP_NETREADY</DT>
+
+<DD>During system startup, this value indicates that all transport-to-NIC bindings configured on the current computer are ready to carry out network I/O operations for potential clients. 
+
+<P>This occurs when all the transports have registered themselves with TDI by calling <B>TdiProviderReady</B>. The <I>DeviceName</I> and <I>BindingList</I> pointers are NULL when ClientPnPBindingChange is called.
+
+
+<P>Clients usually wait for this notification to make their initial network I/O requests, thereby avoiding potential conflict for CPU cycles with the system network setup code. For example, any client that binds itself to more than one transport during system startup has a choice of transports available sooner if it defers its initial network I/O request until ClientPnPBindingChange is called with TDI_PNP_OP_NETREADY. 
+</DD>
+</DL>
+</DD>
+
+<DT><I>DeviceName</I></DT>
+
+<DD>Pointer to a buffered Unicode string that is usually the name of the transport-created device object either representing the transport in general as the target for its clients' network I/O or representing the target for its clients' network I/O through a particular transport-to-NIC binding. Depending on the given <I>PnPOpcode</I>, this input parameter can be one of the following: 
+
+<UL>
+	<LI>A pointer to buffered Unicode string that is the transport's generic name, such as "\device\nwlinkipx," for the <I>PnPOpcode</I> TDI_PNP_OP_PROVIDERREADY</LI>
+
+	<LI>A pointer to a buffered Unicode string that is the name of a particular interface, such as "\device\tcpip_{<I>interfaceGUID</I>}" if the transport supports more than one device interface but creates a single device object
+<P>(In this case, the name of the device object actually opened by a client would omit the "_{<I>interfaceGUID</I>}" suffix.)
+</LI>
+
+	<LI>NULL for the <I>PnPOpcode</I> TDI_PNP_OP_NETREADY</LI>
+</UL>
+</DD>
+
+<DT><I>MultiSZBindList</I></DT>
+
+<DD>Subsequent to system startup, points to a buffered binding-order list if <I>PnPOpcode</I> is TDI_PNP_OP_ADD or TDI_PNP_OP_DEL. Otherwise, this parameter is NULL. 
+</DD>
+</DL>
+
+<H4>Comments</H4>
+
+<P>At system setup, a client must register its ClientPnPBindingChange routine with a call to <B>TdiRegisterPnPHandlers</B> to initialize whatever state the client maintains about its binding(s) to particular transport(s). A successful call to <B>TdiRegisterPnPHandlers</B> causes a sequence of calls to ClientPnPBindingChange to occur, as follows:
+
+<OL>
+	<LI>TDI calls ClientPnpBindingChange zero or more times with the <I>PnPOpcode</I> TDI_PNP_OP_ADD, passing in the buffered name of a transport-created device object, identified at <I>DeviceName</I>, that is already registered with TDI for an established transport-to-NIC binding. At each such call, ClientPnPBindingChange determines whether to bind itself to this transport, either calling <B>ZwCreateFile</B> or rejecting the binding offer by promptly returning control to TDI.</LI>
+
+	<LI>TDI calls ClientPnPBindingChange zero or more times with the <I>PnPOpcode</I> TDI_PNP_OP_PROVIDERREADY, passing in the buffered name of a registered transport that has already declared its readiness to perform network I/O operations on at least one established transport-to-NIC binding at <I>DeviceName</I>. Each such transport has already called <B>TdiProviderReady</B> because it is done with its initialization and binding-time operations. </LI>
+
+	<LI>TDI continues to call ClientPnPBinding change as already described during system startup whenever subsequently initialized transports, if any, call <B>TdiRegisterDeviceObject</B> and <B>TdiProviderReady</B>.</LI>
+
+	<LI>TDI makes one more system-startup-time call to ClientPnPBinding change with the <I>PnPOpcode</I> TDI_PNP_OP_NETREADY when the last registered TDI transport driver configured in the current computer calls <B>TdiProviderReady</B>. At this stage of system startup, the client usually begins its initial network I/O operations, such as contacting a DC to log on to the network. </LI>
+</OL>
+
+<P>Subsequently, TDI notifies the client when a transport to which it is bound creates a new binding or tears down an established binding. The ClientPnPPowerChange handler also is called if a user-initiated network connection or disconnection causes a binding change.</P>
+
+<P>After system startup, ClientPnPBindingChange is called to add or delete a binding only for a transport to which it is bound. When ClientPnPBindingChange is called with a binding offer, the transport has already created the device object identified at <I>DeviceName</I> before it called <B>TdiRegisterDeviceObject</B>. When ClientPnPBindingChange is called to delete an existing binding, the transport will destroy the device object identified at <I>DeviceName</I> as soon as <B>TdiDeregisterDeviceObject</B> returns control to the transport. </P>
+
+<P>Consequently, when ClientPnPBindingChange is called to add a binding, it can allocate per-binding resources, initialize the client's per-binding state, and call <B>ZwCreateFile</B> to bind itself to the new transport-to-NIC stack. The client also can call <B>ZwCreateFile</B> again with any of the network addresses that the transport registers with TDI on the newly established binding as soon as its ClientPnpAddNetAddress routine is called. </P>
+
+<P>Conversely, when ClientPnPBindingChange is called to delete a binding, it must begin the unbinding process and release any per-binding resources that the client allocated. The client can assume that its ClientPnPDelNetAddress routine has been called one or more times because the transport deregisters its addresses when tearing down a binding before it calls <B>TdiDeregisterDeviceObject</B>. However, ClientPnPBindingChange must make a reciprocal call to <B>ZwClose</B> with the handle to the device object that it obtained from <B>ZwCreateFile</B>. </P>
+
+<P>In either case, the information at <I>MultiSzBindList</I> reflects the new binding order for the client when a binding is added or deleted at runtime. </P>
+
+<P>For more information, see <A HREF="JavaScript:hhobj_1.Click()"><B>ZwCreateFile</B></A> and <A HREF="JavaScript:hhobj_2.Click()"><B>ZwClose</B></A>.</P>
+
+<P>A reciprocal call to <B>TdiDeregisterPnPHandlers</B> disables subsequent calls to ClientPnPBindingChange. </P>
+
+<P>TDI calls ClientPnPBindingChange at IRQL &lt; DISPATCH_LEVEL. </P>
+
+<H4>See Also</H4>
+
+<P><A HREF="35tdicli_8d4i.htm"><B>ClientPnPAddNetAddress</B></A>, <A HREF="35tdicli_33hu.htm"><B>ClientPnPDelNetAddress</B></A>, <A HREF="35tdicli_4h9u.htm"><B>ClientPnPPowerChange</B></A>, <A HREF="105nstru_6c1e.htm"><B>NET_PNP_EVENT</B></A>, <A HREF="104tdlow_5muq.htm"><B>ProtocolPnPEvent</B></A>, <A HREF="33tdifun_1u2a.htm"><B>TdiDeregisterDeviceObject</B></A>, <A HREF="33tdifun_5bea.htm"><B>TdiDeregisterPnPHandlers</B></A>, <A HREF="33tdifun_9r02.htm"><B>TdiProviderReady</B></A>, <A HREF="33tdifun_2d0y.htm"><B>TdiRegisterDeviceObject</B></A>, <A HREF="33tdifun_5boy.htm"><B>TdiRegisterPnPHandlers</B></A>, <A HREF="33tdifun_99te.htm"><B>TdiRegisterProvider</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: ClientPnPBindingChange"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

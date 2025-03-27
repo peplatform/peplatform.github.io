@@ -1,0 +1,34 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Memory-Mapped Device Initialization</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Memory-Mapped Device Initialization">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H3><A NAME="ddk_memory_mapped_device_initialization_ng"></A>Memory-Mapped Device Initialization</H3>
+
+<P>The miniport driver for a memory-mapped device must map the NIC’s on-board memory to system-space memory on the host so that it can transfer incoming data from the board and outgoing data to the board. The memory to which and from which the miniport driver transfers data is part of the NIC; however, the driver uses mapped virtual system-space addresses.</P>
+
+<P>When data is received, the miniport driver indicates the receive as one or more virtual ranges mapped by buffer descriptors and when/if its <I>MiniportTransferData</I> function is called, the miniport driver copies the data from the on-board memory to the protocol driver’s supplied buffer. If no protocol driver transfers the data, the data is discarded when the miniport driver returns from its <I>MiniportHandleInterrupt</I> function. If the miniport driver uses a staging buffer, it is allocated with <A HREF="103ndisx_4m42.htm"><B>NdisAllocateMemoryWithTag</B></A>.</P>
+
+<P>Like a PIO device, a miniport driver for a NIC with on-board RAM must call <A HREF="103ndisx_76k2.htm"><B>NdisMRegisterIoPortRange</B></A> to register its claimed port addresses. This call returns a mapped virtual port addresses that a miniport driver can use to access the registers on the adapter. The port addresses mapped by this function are used only to manage the device with <B>NdisRawWrite(Read)Port</B><I>Xxx</I> calls (to clear interrupts; to set and clear requested functions) but not to move data as is done for a PIO device.</P>
+
+<P>To move data to and from the board, a miniport driver for this type of NIC must map the NIC device memory onto host address space. During initialization, the miniport driver reads the physical address and size of the on-device memory by calling <A HREF="103ndisx_8hrm.htm"><B>NdisMQueryAdapterResources</B></A>. After the configuration is determined, the miniport driver must call: 
+
+<UL>
+	<LI><A HREF="103ndisx_3jea.htm"><B>NdisSetPhysicalAddressHigh</B></A> and <A HREF="103ndisx_8qnm.htm"><B>NdisSetPhysicalAddressLow</B></A> to set the 32-bit physical address and then call</LI>
+
+	<LI><A HREF="103ndisx_81de.htm"><B>NdisMMapIoSpace</B></A> with this physical address to map the device memory into a miniport driver-accessible host address space. <B>NdisMMapIoSpace</B> returns a virtual address pointer that the miniport driver can use to refer to this device memory.</LI>
+</UL>
+
+<P>Such a driver uses <B>NdisRead(Write)Register</B><I>Xxx</I> to read from or write to the NIC’s registers.</P>
+
+<P>If the driver indicates requested data with <A HREF="103ndisx_5uuq.htm"><B>NdisMIndicateReceivePacket</B></A> or <A HREF="103ndisx_6f02.htm"><B>NdisMCoIndicateReceivePacket</B></A>, it must allocate at least one packet with chained buffer(s) as described in <A HREF="203entry_8gyv.htm">Allocating Memory</A>.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Memory-Mapped%20Device%20Initialization"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

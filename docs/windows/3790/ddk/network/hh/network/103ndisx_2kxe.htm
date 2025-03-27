@@ -1,0 +1,68 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>NdisMSendComplete</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="NdisMSendComplete">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_ndismsendcomplete_nr"></A>NdisMSendComplete</H1>
+
+<P><B>NdisMSendComplete</B> returns the packet and final status of a completed send request for which the driver previously returned NDIS_STATUS_PENDING. </P>
+
+<PRE class=syntax><B>VOID 
+  NdisMSendComplete(
+    IN NDIS_HANDLE</B>  <I>MiniportAdapterHandle</I><B>,</B>
+    <B>IN PNDIS_PACKET</B>  <I>Packet</I><B>,</B>
+    <B>IN NDIS_STATUS</B>  <I>Status
+    </I><B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>MiniportAdapterHandle</I></DT>
+
+<DD>Specifies the handle originally input to <A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>.</DD>
+
+<DT><I>Packet</I></DT>
+
+<DD>Pointer to the protocol-allocated packet originally input to <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A>.</DD>
+
+<DT><I>Status</I></DT>
+
+<DD>Specifies the final status of the transmit request that has just been completed.
+</DD>
+</DL>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>Ndis.h</I>. Include <I>Ndis.h</I>.</P>
+
+<H4>Comments</H4>
+
+<P>The NDIS library queues incoming send packets on behalf of serialized miniports so that such miniports can deal with one device-transmit operation at a time. (A miniport driver can, however, transmit several packets per operation, depending on the capabilities of its NIC.) NDIS serializes the submission of incoming packet arrays to each serialized miniport’s <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A> function, and it serializes the submission of packets to each miniport’s <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A> function. NDIS queues incoming send requests in FIFO order when it cannot pass on each such request immediately because the underlying serialized NIC driver is already busy. </P>
+
+<P>Deserialized miniports, including all connection-oriented miniports, are responsible for accepting all send requests whenever their <I>Miniport(Co)Send(Packets)</I> functions are called. If necessary, a deserialized driver queues incoming send packets until the driver has sufficient resources to transmit the data over the wire. A deserialized miniport driver completes all incoming sends asynchronously with calls to <B>NdisMSendComplete</B>. </P>
+
+<P>If a serialized miniport driver's <I>MiniportSendPackets</I> function sets the <B>Status</B> in the out-of-band data block for a packet to NDIS_STATUS_PENDING or if it's <I>MiniportSend</I> function returns NDIS_STATUS_PENDING for an incoming packet, that miniport driver must eventually call <B>NdisMSendComplete</B> with the original packet to indicate which send request it has completed. While the status of such a send packet is pending, the miniport driver retains ownership of that packet descriptor and all the protocol-allocated resources associated with the packet descriptor. </P>
+
+<P>A call to <B>NdisMSendComplete</B> causes NDIS to call the <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A> function of the driver that initiated the request with its call to <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>, <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A>, or <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A>. The underlying miniport’s call to <B>NdisMSendComplete</B> releases ownership of the given packet descriptor and associated resources to the protocol driver that originally allocated them. </P>
+
+<P>If the <I>MiniportSend(Packets)</I> function of a serialized driver returns a status other than NDIS_STATUS_PENDING for a given packet, the miniport driver <I>never</I> calls <B>NdisMSendComplete</B> with that packet. The return from <I>MiniportSend(Packets)</I> releases ownership of such a packet. Consequently, a serialized miniport driver must not call <B>NdisMSendComplete</B> with any packet for which its <I>MiniportSend(Packets)</I> function did not return NDIS_STATUS_PENDING. Any send packet for which a serialized NIC driver returns something other than NDIS_STATUS_PENDING should be considered inaccessible by that miniport driver as soon as its <I>MiniportSend(Packets)</I> function returns control. </P>
+
+<P>A miniport’s call to <B>NdisMSendComplete</B> does not necessarily mean that a particular packet has been transmitted over the wire. Usually, such a packet has been transmitted except, possibly, by the driver of a NIC in which packets can be queued in the hardware. </P>
+
+<P>Miniport drivers that declared their devices of type <B>NdisMediumWan</B> in response to a preceding <A HREF="22genoid_6whe.htm">OID_GEN_MEDIA_SUPPORTED</A> or <A HREF="22genoid_0tma.htm">OID_GEN_MEDIA_IN_USE</A> request call <A HREF="103ndisx_7x0y.htm"><B>NdisMWanSendComplete</B></A> rather than <B>NdisMSendComplete</B>. </P>
+
+<P>Serialized callers of <B>NdisMSendComplete</B> must run at IRQL = DISPATCH_LEVEL. Deserialized callers of <B>NdisMSendComplete</B> can run at IRQL &lt;= DISPATCH_LEVEL.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="101mini_9jzm.htm"><I>MiniportInitialize</I></A>, <A HREF="101mini_7svm.htm"><I>MiniportSend</I></A>, <A HREF="101mini_19bm.htm"><I>MiniportSendPackets</I></A>, <A HREF="103ndisx_15de.htm"><B>NdisCoSendPackets</B></A>, <A HREF="103ndisx_58c2.htm"><B>NdisMSendResourcesAvailable</B></A>, <A HREF="103ndisx_7x0y.htm"><B>NdisMWanSendComplete</B></A>, <A HREF="105nstru_6jn6.htm">NDIS_PACKET</A>, <A HREF="105nstru_1vqq.htm">NDIS_PACKET_OOB_DATA</A>, <A HREF="103ndisx_7jw2.htm"><B>NdisSend</B></A>, <A HREF="103ndisx_88s2.htm"><B>NdisSendPackets</B></A>, <A HREF="103ndisx_6twy.htm">NDIS_SET_PACKET_STATUS</A>, <A HREF="104tdlow_6qr6.htm"><I>ProtocolSendComplete</I></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: NdisMSendComplete"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

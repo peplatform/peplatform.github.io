@@ -1,0 +1,82 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Using Scatter/Gather DMA</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Using Scatter/Gather DMA">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Kernel-Mode&nbsp;Driver&nbsp;Architecture:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H2><A NAME="ddk_using_scatter_gather_dma_kg"></A>Using Scatter/Gather DMA</H2>
+
+<P>Drivers that perform system or bus-master, packet-based DMA can use support routines designed especially for scatter/gather DMA. Instead of calling the sequence of routines outlined in <A HREF="iputoput_9ulj.htm">Using Packet-Based System DMA</A> and <A HREF="iputoput_50kn.htm">Packet-Based Bus-Master DMA</A>, a driver can use <A HREF="kdma_0pbm.htm"><B>GetScatterGatherList</B></A> and <A HREF="kdma_5u42.htm"><B>PutScatterGatherList</B></A>.</P>
+
+<P>A device does not need to have built-in scatter/gather support for its driver to use these routines. </P>
+
+<P>Drivers that use packet-based DMA call the following general sequence of support routines for scatter/gather operations:
+
+<OL>
+	<LI><A HREF="k105_6asy.htm"><B>KeFlushIoBuffers</B></A> before calling <B>GetScatterGatherList</B> (for more information, see <A HREF="iputoput_7pgn.htm">Maintaining Cache Coherency</A>)</LI>
+
+	<LI><A HREF="k106_5nhu.htm"><B>MmGetMdlVirtualAddress</B></A> to get an index into the MDL, required as an parameter in the call to <B>GetScatterGatherList</B></LI>
+
+	<LI><A HREF="kdma_0pbm.htm"><B>GetScatterGatherList</B></A> when the driver is ready to program its device for DMA and needs the system DMA controller or bus-master adapter
+<P><B>GetScatterGatherList</B> allocates the system DMA controller or bus-master adapter, determines how many map registers are required and allocates them, fills in the scatter/gather list, and calls the driver's <A HREF="drvrrtns_32nm.htm"><I>AdapterListControl</I></A> routine when the DMA controller or adapter and map registers are available.
+</LI>
+
+	<LI><A HREF="kdma_5u42.htm"><B>PutScatterGatherList</B></A> as soon as all the requested data has been transferred or the driver fails the IRP because of a device I/O error
+<P><B>PutScatterGatherList</B> flushes the adapter buffers, frees the map registers, and frees the scatter/gather list. The driver must call <B>PutScatterGatherList</B> before it can access the data in the buffer.
+</LI>
+</OL>
+
+<P>The adapter object pointer returned by <B>IoGetDmaAdapter</B> is a required parameter to each of these routines except <B>KeFlushIoBuffers</B> and <B>MmGetMdlVirtualAddress</B>, which require a pointer to the MDL at <B>Irp-&gt;MdlAddress</B>.</P>
+
+<P>The <B>GetScatterGatherList</B> routine includes calls to <B>AllocateAdapterChannel</B> and <B>MapTransfer</B>, so the driver does not have to make these calls. The routine takes the following as parameters:
+
+<UL>
+	<LI>A pointer to the DMA_ADAPTER structure returned by <A HREF="k104_93g2.htm"><B>IoGetDmaAdapter</B></A></LI>
+
+	<LI>A pointer to the target device object for the DMA operation</LI>
+
+	<LI>A pointer to the MDL that describes the buffer at <B>Irp-&gt;MdlAddress</B></LI>
+
+	<LI>A pointer to the current virtual address in the buffer described by the Mdl</LI>
+
+	<LI>The number of bytes to be mapped</LI>
+
+	<LI>A pointer to an <A HREF="drvrrtns_32nm.htm"><I>AdapterListControl</I></A> routine that performs the transfer. </LI>
+
+	<LI>A pointer to a driver-defined context area to be passed to the <I>AdapterListControl</I> routine</LI>
+
+	<LI>A Boolean value: TRUE for a transfer to the device; FALSE otherwise</LI>
+</UL>
+
+<P>After determining the number of map registers required, allocating the adapter channel and map registers, filling in the scatter/gather list and preparing for the transfer, <B>GetScatterGatherList</B> calls the driver-supplied <I>AdapterListControl</I> routine. The <I>AdapterListControl</I> routine is run in an arbitrary thread context at IRQL DISPATCH_LEVEL.</P>
+
+<P>The <I>AdapterListControl</I> routine a driver supplies in calls to <B>GetScatterGatherList</B> differs from the <I>AdapterControl</I> routine passed to <B>AllocateAdapterChannel</B> in the following important respects:
+
+<UL>
+	<LI>The <I>AdapterListControl</I> routine has no return value, whereas the <I>AdapterControl</I> routine returns an IO_ALLOCATION_ACTION. </LI>
+
+	<LI>Rather than a pointer to the <I>MapRegisterBase</I> for the system-allocated map registers, the third parameter to an <I>AdapterListControl</I> routine instead points to a <A HREF="k112_5t4i.htm">SCATTER_GATHER_LIST</A> structure through which the driver can perform DMA.</LI>
+
+	<LI>The <I>AdapterListControl</I> routine performs a subset of the tasks required in an <I>AdapterControl</I> routine. 
+<P>The <I>AdapterListContol</I> routine does not call <B>AllocateAdapterChannel</B> or <B>MapTransfer</B>. Its only responsibilities are to save the input scatter/gather list pointer, set up its device, and use the scatter/gather list to perform DMA. 
+</LI>
+</UL>
+
+<P>The scatter/gather list structure includes an array of SCATTER_GATHER_ELEMENTS and the number of elements in the array. Each element of the array provides the length and starting physical address of a physically contiguous scatter/gather region. A driver uses the length and address in data transfers.</P>
+
+<P>A driver can use <B>GetScatterGatherList</B> whether or not its device supports scatter/gather DMA. For a device that does not support scatter/gather DMA, the scatter/gather list will contain only one element.</P>
+
+<P>Using the scatter/gather routines can improve performance over calling <B>AllocateAdapterChannel</B> (as previously described in <A HREF="iputoput_9ulj.htm">Using Packet-Based System DMA</A> and <A HREF="iputoput_50kn.htm">Using Packet-Based Bus-Master DMA</A>). Unlike calls to <B>AllocateAdapterChannel</B>, more than one call to <B>GetScatterGatherList</B> can be queued for a device object at any one time. A driver can call <B>GetScatterGatherList</B> again for another DMA operation on the same driver object before its <I>AdapterListControl</I> routine has completed execution. </P>
+
+<P>On return from the driver-supplied <I>AdapterListControl</I> routine, <B>GetScatterGatherList</B> keeps the map registers but frees the DMA adapter structure. </P>
+
+<P>When the driver has satisfied the current IRP's transfer request or must fail the IRP due to a device or bus I/O error, it must call <B>PutScatterGatherList</B> before it can access the transferred data in the buffer. <B>PutScatterGatherList</B> flushes the adapter buffers and frees the map registers and scatter/gather list.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Using%20Scatter%2FGather%20DMA"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

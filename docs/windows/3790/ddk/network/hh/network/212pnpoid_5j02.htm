@@ -1,0 +1,133 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>OID_PNP_CAPABILITIES</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="OID_PNP_CAPABILITIES">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Network&nbsp;Devices&nbsp;and&nbsp;Protocols:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_oid_pnp_capabilities_nr"></A>OID_PNP_CAPABILITIES</H1>
+
+<P>The OID_PNP_CAPABILITIES OID requests a miniport driver to return the wake-up capabilities of its NIC or requests an intermediate driver to return the intermediate driver's wake-up capabilities. The wake-up capabilities are formatted as an NDIS_PNP_CAPABILITIES structure, which is defined as follows:</P>
+
+<PRE class=syntax>typedef struct _NDIS_PNP_CAPABILITIES {
+  ULONG  Flags;
+  NDIS_PM_WAKE_UP_CAPABILITIES  WakeUpCapabilities;
+} NDIS_PNP_CAPABILITIES,  *PNDIS_PNP_CAPABILITIES;</PRE>
+
+<P>The members of this structure contain the following information:
+
+<DL>
+<DT><B>Flags</B></DT>
+
+<DD><B>NDIS_DEVICE_WAKE_UP_ENABLE</B>
+
+<P>NDIS sets this flag if the underlying miniport driver supports one or more wake-up capabilities. Protocol drivers can test this flag to determine whether an underlying miniport driver has wake-up capabilities. Miniport drivers should not access this flag.
+</DD>
+
+<DT><B>WakeUpCapabilities</B></DT>
+
+<DD>An NDIS_PM_WAKE_UP_CAPABILITIES structure that specifies the wake-up capabilities of the miniport driver's NIC. The NDIS_PM_WAKE_UP_CAPABILITIES structure is defined as follows:</DD>
+</DL>
+
+<PRE class=syntax>typedef struct _NDIS_PM_WAKE_UP_CAPABILITIES {
+  NDIS_DEVICE_POWER_STATE  MinMagicPacketWakeUp;
+  NDIS_DEVICE_POWER_STATE  MinPatternWakeUp;
+  NDIS_DEVICE_POWER_STATE  MinLinkChangeWakeUp;
+} NDIS_PM_WAKE_UP_CAPABILITIES, *PNDIS_PM_WAKE_UP_CAPABILITIES;</PRE>
+
+<P class=indent1>The members of this structure contain the following information:</P>
+
+<DL>
+<DT><B>MinMagicPacketWakeUp</B></DT>
+
+<DD>Specifies the lowest device power state from which the miniport driver's NIC can signal a wake-up on receipt of a Magic Packet. (A Magic Packet is a packet that contains 16 contiguous copies of the receiving NIC's Ethernet address.) The device power state is specified as one of the following NDIS_DEVICE_POWER_STATE values:
+
+<DL>
+<DT><B>NdisDeviceStateUnspecified</B></DT>
+
+<DD>The NIC does not support magic-packet wake-ups.</DD>
+
+<DT><B>NdisDeviceStateD0</B></DT>
+
+<DD>The NIC can signal a magic-packet wake-up from device power state D0. Because D0 is the fully powered state, this does not cause a wake-up but can be used as a run-time event.</DD>
+
+<DT><B>NdisDeviceStateD1</B></DT>
+
+<DD>The NIC can signal a magic-packet wake-up from device power states D1 and D0.</DD>
+
+<DT><B>NdisDeviceStateD2</B></DT>
+
+<DD>The NIC can signal a magic-packet wake-up from device states D2, D1, and D0.</DD>
+
+<DT><B>NdisDeviceStateD3</B></DT>
+
+<DD>The NIC can signal a magic-packet wake-up from device power states D3, D2, D1, and D0.</DD>
+</DL>
+</DD>
+
+<DT><B>MinPatternWakeUp</B></DT>
+
+<DD>Specifies the lowest device power state from which the miniport driver's NIC can signal a wake-up event on receipt of a network frame that contains a pattern specified by the protocol driver. The power state is specified as one of the following NDIS_DEVICE_POWER_STATE values:
+
+<DL>
+<DT><B>NdisDeviceStateUnspecified</B></DT>
+
+<DD>The NIC does not support pattern-match wake-ups.</DD>
+
+<DT><B>NdisDeviceStateD0</B></DT>
+
+<DD>The NIC can signal a pattern-match wake-up from device power state D0. Because D0 is the fully powered state, this does not cause a wake-up but can be used as a run-time event.</DD>
+
+<DT><B>NdisDeviceStateD1</B></DT>
+
+<DD>The NIC can signal a pattern-match wake-up from device power states D1 and D0.</DD>
+
+<DT><B>NdisDeviceStateD2</B></DT>
+
+<DD>The NIC can signal a pattern-match wake-up from device power states D2, D1, and D0.</DD>
+
+<DT><B>NdisDeviceStateD3</B></DT>
+
+<DD>The NIC can signal a pattern-match wake-up from device power states D3, D2, D1, and D0.</DD>
+</DL>
+</DD>
+
+<DT><B>MinLinkChangeWakeUp</B></DT>
+
+<DD>Reserved. NDIS ignores this member. 
+</DD>
+</DL>
+
+<H4>For Miniport Drivers</H4>
+
+<P>After the miniport driver completes initialization, both the protocol driver and NDIS can query the miniport driver with this OID to determine the following:
+
+<UL>
+	<LI>Whether the miniport driver is PM-aware.</LI>
+
+	<LI>The NIC's capabilities of indicating network wake-up events.</LI>
+</UL>
+
+<P>If the miniport driver returns NDIS_STATUS_SUCCESS to a query of OID_PNP_CAPABILITIES, NDIS considers the miniport driver to be PM-aware. If the miniport driver returns NDIS_STATUS_NOT_SUPPORTED, NDIS considers the miniport driver to be a legacy miniport driver that is not PM-aware. </P>
+
+<P>When calling <A HREF="103ndisx_1pmb.htm"><B>NdisMSetAttributesEx</B></A>, a miniport that does not support wake-up capabilities but that can save and restore its miniport state across a power-state transition can set the NDIS_ATTRIBUTE_NO_HALT_ON_SUSPEND flag. Setting this flag prevents NDIS from calling the driver's <I>MiniportHalt</I> function before the system transitions to a low-power (sleeping) state. However, if the miniport driver returns NDIS_STATUS_NOT_SUPPORTED in response to a query OID_PNP_CAPABILITIES, NDIS ignores the NDIS_ATTRIBUTE_NO_HALT_ON_SUSPEND flag and halts the miniport if the system goes into a low-power state.</P>
+
+<P>A miniport driver's NIC can support any combination of wake-up events, including no wake-up events. A miniport driver can still support power management even if its NIC cannot not signal wake-up events. In this case, the only power management OIDs that the miniport driver supports in addition to OID_PNP_CAPABILITIES are <A HREF="212pnpoid_9pwy.htm">OID_PNP_QUERY_POWER</A> and <A HREF="212pnpoid_52sy.htm">OID_PNP_SET_POWER</A>.</P>
+
+<P>If a miniport driver's NIC does not support a particular wake-up event, the miniport driver should indicate an NDIS_DEVICE_POWER_STATE of <B>NdisDeviceStateUnspecified</B> for the wake-up event in the NDIS_PM_WAKE_UP_CAPABILITIES structure.</P>
+
+<P>OID_PNP_CAPABILITIES only <I>indicates</I> the wake-up capabilities of a miniport driver's NIC; it does not enable such capabilities. <A HREF="212pnpoid_58fm.htm">OID_PNP_ENABLE_WAKE_UP</A> is used to enable a NIC's wake-up capabilities.</P>
+
+<H4>For Intermediate Drivers</H4>
+
+<P>If the underlying NIC is PM-aware, the intermediate driver should return NDIS_STATUS_SUCCESS to a query of OID_PNP_CAPABILITIES. In the NDIS_PM_WAKE_UP_CAPABILITIES structure returned by this OID, the intermediate driver should specify a device power state of <B>NdisDeviceStateUnspecified</B> for each wake-up capability (<B>MinMagicPacketWakeUp</B> or <B>MinPatternWakeUp</B>). Such a response indicates that the intermediate driver is PM-aware but does not manage a physical device.</P>
+
+<P>If the underlying NIC is not PM-aware, the intermediate driver should return NDIS_STATUS_NOT_SUPPORTED to a query of OID_PNP_CAPABILITIES.</P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: OID_PNP_CAPABILITIES"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>Writing a Stream Minidriver</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="Writing a Stream Minidriver">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Streaming&nbsp;Devices&nbsp;(Video&nbsp;and&nbsp;Audio):&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_writing_a_stream_minidriver_ksg"></A>Writing a Stream Minidriver</H1>
+
+<P>The main design goal of the stream class driver is to handle the work both of handling the operating system, which includes the intricacies of supporting multiprocessor machines, and of supporting kernel streaming semantics. It requires the minidriver to handle only the device-specific portion of any operation it must perform. The class driver allocates memory for the minidriver, performs bookkeeping for any NT kernel resources the minidriver may require, and (optionally) handles all synchronization issues.</P>
+
+<P>The class driver communicates to the minidriver through a set of minidriver-provided callbacks. Most of the work of writing a streaming minidriver occurs in writing these callbacks.</P>
+
+<P>In this documentation, we refer to each type of minidriver-provided routines as <B>StrMiniXxx</B>. The minidriver may have to provide one or more versions of each routine, depending on how many different functions the underlying hardware is capable of performing.</P>
+
+<P>A streaming driver typically can support several different streams of data. For example, a DVD player produces both an audio and a video stream. Within the context of kernel streaming, each stream of data is represented by a <A HREF="ks-overview_3lif.htm">pin</A>.</P>
+
+<P>The stream class driver keeps track of each pin on the minidriver. In the terminology of the class driver, each pin type is a <I>stream</I>. Streams, like pin types, may have multiple instances. Since streams can receive I/O requests, the driver must provide callbacks for each stream.</P>
+
+<P>The following are the routines the minidriver may have to provide. They are documented more fully below and in the reference guide.</P>
+
+<P><B>Routines every minidriver provides</B></P>
+
+<P class=indent1><A HREF="strmini-routines_0zw3.htm"><B>StrMiniCancelPacket</B></A></P>
+
+<P class=indent1><A HREF="strmini-routines_5dbn.htm"><B>StrMiniReceiveDevicePacket</B></A></P>
+
+<P class=indent1><A HREF="strmini-routines_2j03.htm"><B>StrMiniRequestTimeout</B></A></P>
+
+<P class=indent1><A HREF="strmini-routines_7dbn.htm"><B>StrMiniEvent</B></A></P>
+
+<P class=indent1><A HREF="strmini-routines_2q7n.htm"><B>StrMiniInterrupt</B></A></P>
+
+<P><B>Routines the minidriver provides for each individual stream</B></P>
+
+<P class=indent1><A HREF="strmini-routines_4qib.htm"><B>StrMiniReceiveStreamDataPacket</B></A></P>
+
+<P class=indent1><A HREF="strmini-routines_894j.htm"><B>StrMiniReceiveStreamControlPacket</B></A></P>
+
+<P class=indent1><A HREF="strmini-routines_7dbn.htm"><B>StrMiniEvent</B></A></P>
+
+<P class=indent1><A HREF="strmini-routines_294j.htm"><B>StrMiniClock</B></A></P>
+
+<P>It is possible for the minidriver to use the same callback for several different streams. The callback can determine the stream on whose behalf it was called from its parameters.</P>
+
+<P>The minidriver must, like all WDM drivers, also provide a <B>DriverEntry</B> routine. The main task of the <B>DriverEntry</B> routine of a minidriver is to register the minidriver with the class driver.</P>
+
+<P>The class driver receives all I/O requests on behalf of the minidriver. To obtain the information it needs to complete the request, the class driver builds a stream request block (SRB) and passes it to one of the <B>StrMini<I>XXX</I>Packet</B> routines. The class driver dispatches I/O requests to the device as a whole to the <A HREF="strmini-routines_5dbn.htm"><B>StrMiniReceiveDevicePacket</B></A> routine. It passes requests to individual streams to the <A HREF="strmini-routines_4qib.htm"><B>StrMiniReceiveStreamDataPacket</B></A> (for kernel streaming read and write requests) or <A HREF="strmini-routines_894j.htm"><B>StrMiniReceiveStreamControlPacket</B></A> (for other requests).  </P>
+
+<P>Normally, the class driver queues its requests, and passes them one at a time to the minidriver. The minidriver may optionally do its own synchronization; the minidriver is then responsible for queuing requests it cannot immediately handle. See <A HREF="strmini-design_48x3.htm">Minidriver Synchronization</A> for details.</P>
+
+<P>The minidriver must provide two additional routines for manipulating stream request blocks. The class driver calls <A HREF="strmini-routines_0zw3.htm"><B>StrMiniCancelPacket</B></A> when it receives a cancel IRP, and needs to tell the minidriver to cancel a specific packet. The class driver also keeps track of how long the minidriver takes to complete its handling of a stream request block. If the minidriver takes too long, the class driver times out the request, and calls the minidriver's <A HREF="strmini-routines_2j03.htm"><B>StrMiniRequestTimeout</B></A> routine.</P>
+
+<P>When a hardware interrupt occurs, the operating system signals the class driver, which then calls the minidriver's <A HREF="strmini-routines_2q7n.htm"><B>StrMiniInterrupt</B></A> routine to handle the interrupt.</P>
+
+<P></P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: Writing%20a%20Stream%20Minidriver"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>

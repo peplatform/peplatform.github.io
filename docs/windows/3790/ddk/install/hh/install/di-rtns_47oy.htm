@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML DIR="LTR"><HEAD>
+<META HTTP-EQUIV="Content-Type" Content="text/html; charset=Windows-1252">
+<TITLE>SetupDiGetActualSectionToInstall</TITLE>
+<SCRIPT SRC="../scripts/linkcss.js"></SCRIPT><SCRIPT SRC="../scripts/langref.js"></SCRIPT><META NAME="MS-HKWD" CONTENT="SetupDiGetActualSectionToInstall">
+</HEAD>
+<BODY TOPMARGIN="0">
+
+<TABLE CLASS="buttonbarshade" CELLSPACING=0><TR><TD>&nbsp;</TD></TR></TABLE>
+<TABLE CLASS="buttonbartable" CELLSPACING=0>
+<TR ID="hdr"><TD CLASS="runninghead" NOWRAP>Device&nbsp;Installation:&nbsp;Windows&nbsp;DDK</TD></TR>
+</TABLE>
+<H1><A NAME="ddk_setupdigetactualsectiontoinstall_dr"></A>SetupDiGetActualSectionToInstall</H1>
+
+<P>The <B>SetupDiGetActualSectionToInstall</B> function retrieves the appropriate <A HREF="inf-format_2k8i.htm">INF <I>DDInstall</I> section</A> to use when installing a device from a device INF file on a local machine.</P>
+
+<PRE class=syntax><B>WINSETUPAPI BOOL WINAPI</B>
+  <B>SetupDiGetActualSectionToInstall(</B>
+    <B>IN HINF</B>  <I>InfHandle</I><B>,</B>
+    <B>IN PCTSTR</B>  <I>InfSectionName</I><B>,</B>
+    <B>OUT PTSTR</B>  <I>InfSectionWithExt</I><B>,  OPTIONAL</B>
+    <B>IN DWORD</B>  <I>InfSectionWithExtSize</I><B>,
+    OUT PDWORD</B>  <I>RequiredSize</I><B>,  OPTIONAL</B>
+    <B>OUT PTSTR</B>  <I>*Extension</I><B>  OPTIONAL</B>
+    <B>);</B></PRE>
+
+<H4>Parameters</H4>
+
+<DL>
+<DT><I>InfHandle</I></DT>
+
+<DD>Supplies the handle to the INF file that contains the <I>DDInstall</I> section. </DD>
+
+<DT><I>InfSectionName</I></DT>
+
+<DD>Supplies a pointer to the <I>DDInstall</I> section name (as specified in an <A HREF="inf-format_3ywi.htm">INF models section</A>). The maximum length of the section name, in characters, is 254.</DD>
+
+<DT><I>InfSectionWithExt</I></DT>
+
+<DD>Supplies a pointer to a character buffer to receive the <I>DDInstall</I> section name, its platform extension, and a NULL terminator. This is the decorated section name that should be used for installation. If this parameter is NULL, <I>InfSectionWithExtSize</I> must be zero. If this parameter is NULL, the function returns TRUE and sets <I>RequiredSize</I> to the size, in characters, that is required to return the <I>DDInstall</I> section name, its platform extension, and a terminating NULL character.</DD>
+
+<DT><I>InfSectionWithExtSize</I></DT>
+
+<DD>Supplies the size, in characters, of the <I>InfSectionWithExt</I> buffer. If <I>InfSectionWithExt</I> is NULL, this parameter must be zero.</DD>
+
+<DT><I>RequiredSize</I></DT>
+
+<DD>Supplies a pointer to the variable that receives the size, in characters, that is required to return the <I>DDInstall</I> section name, the platform extension, and a terminating NULL character.</DD>
+
+<DT><I>Extension</I></DT>
+
+<DD>Supplies a pointer to a variable that receives a pointer to the '.' character that marks the start of the extension in the <I>InfSectionWithExt</I> buffer. If the <I>InfSectionWithExt</I> buffer is not supplied or is too small, this parameter is not set. Set this parameter to NULL if a pointer to the extension is not required.
+</DD>
+</DL>
+
+<H4>Return Value</H4>
+
+<P>If the function is successful, it returns TRUE. If the function fails, it returns FALSE. To get extended error information, call <B>GetLastError</B>.</P>
+
+<H4>Headers</H4>
+
+<P>Declared in <I>setupapi.h</I>. Include <I>setupapi.h</I>. </P>
+
+<H4>Comments</H4>
+
+<P>This function supports the extensions to <I>DDInstall</I> section names that are used to specify OS-specific and architecture-specific installation behaviors for a device. For information about these extensions, see <A HREF="create-inf_9xpj.htm">Creating INF Files for Multiple Platforms and Operating Systems</A>. <B>SetupDiGetActualSectionToInstall</B> searches for a <I>DDInstall</I> section name that matches the local machine in the manner described below.</P>
+
+<P><B>For NT-based operating systems</B></P>
+
+<P>The function first searches in the specified INF file for a decorated install section name that matches the specified name and has an extension that matches the operating system and processor architecture of the local machine. If, for example, you specify a section name of <B>InstallSec</B>, the function searches for one of the following decorated names, depending on the processor architecture of the local machine:
+
+<UL>
+	<LI>For a machine that is based on the x86 processor architecture, the function searches for the decorated name <B>InstallSec.NTx86</B>.</LI>
+
+	<LI>For a machine that is based on the Itanium processor architecture, the function searches for the decorated name <B>InstallSec.NTIA64</B>.</LI>
+</UL>
+
+<P>If the function finds a match for the name, operating system, and processor architecture, it terminates the search and returns the corresponding decorated name. If the function does not find such a match, the function searches for a section whose name is <B>InstallSec.NT</B>. If the function finds a match for <B>InstallSec.NT</B>, it terminates the search and returns this name. If the function does not find a match for either of the above searches, it returns <B>InstallSec</B>, but does not verify that the INF file contains an install section whose name is <B>InstallSec</B>.</P>
+
+<P><B>For Windows&nbsp;98/Me operating systems</B></P>
+
+<P>The function searches in the specified INF file for a decorated install section name that matches the specified name and has an extension of <B>.Win</B>. If, for example, you specify a section name of <B>InstallSec</B>, the function searches for the decorated name<B> InstallSec.Win</B>. If the function does not find a match to <B>InstallSec.Win</B>, it returns <B>InstallSec</B>, but does not verify that the INF file contains an install section whose name is <B>InstallSec</B>. (Note, however, that for Windows&nbsp;95/98/Me installations that call device installation functions of <I>setupx.dll</I>, <B>.Win</B> section extensions are not used.)</P>
+
+<P class=note><B>Note</B>&nbsp;&nbsp;The <I>DDInstall</I> section name is used as the base for <B>Hardware</B> and <B>Services</B> section names. For example, if the <I>DDInstall</I> section name that is found is <B>InstallSec.NTX86</B>, the <B>Services</B> section name must be named <B>InstallSec.NTX86.Services</B>.</P>
+
+<P class=note>The original <I>DDInstall</I> section name that is specified in the driver node is written to the driver's registry key's <B>InfSection</B> value entry. The extension that was found is stored in the key as the REG_SZ value <B>InfSectionExt</B>. For example:</P>
+
+<PRE>InfSection       : REG_SZ :    "InstallSec"
+InfSectionExt    : REG_SZ :    ".NTX86"</PRE>
+
+<P class=note>If a driver is not selected for the specified device information element, a NULL driver is installed. Upon return, the flags in the device's <A HREF="di-struct_7j76.htm">SP_DEVINSTALL_PARAMS</A> structure indicate whether the system should be restarted or rebooted to cause the device to start.</P>
+
+<H4>See Also</H4>
+
+<P><A HREF="inf-format_2k8i.htm">INF <I>DDInstall</I> Section</A>, <A HREF="di-rtns_7otu.htm"><B>SetupDiGetActualSectionToInstallEx</B></A>, <A HREF="di-rtns_3f8y.htm"><B>SetupDiInstallDevice</B></A> </P>
+<DIV CLASS="footer"><A HREF="mailto:ddksurv1@microsoft.com?subject=DDK Topic Feedback&body=Build date: Thursday, January 16, 2003     Topic Title: SetupDiGetActualSectionToInstall"> Send feedback on this topic.</A> / Built on Thursday, January 16, 2003 </DIV>
+</BODY>
+</HTML>
