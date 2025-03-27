@@ -1,4 +1,4 @@
-Start with the VISTA SDK & DDK (Subscription Only)
+Start with the Microsoft Windows Vista SDK & DDK (Subscription Only)
 
 Update Ztools from XP SP3 Source and build it first and create a developer->administraor->sdktools directory.
 
