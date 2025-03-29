@@ -1,0 +1,15 @@
+MK      nmake /c $*
+MAKE    nmake /c $*
+BLD     build $*
+BZ      build -ZP $*
+BZZ     build -ZP $*
+BCZ     build -cZP $*
+COFF    link $*
+LINK32  link $*
+USE     net use $*
+..      cd ..\$*
+SELF    cd /d %_NTDRIVE%%_NTROOT%\developer\%USERNAME%\$*
+LIB     link -lib $*
+
+ADMIN	  cd /d %_NTDRIVE%%_NTROOT%\admin\$*
+
