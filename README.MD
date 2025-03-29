@@ -6,3 +6,5 @@
 
 <p>Start with PUBLIC->INTERNAL->SHELL ans SCO source and build the C-Shell for your University.</p>
 
+<p>Windows Classic Samples go in the PUBLIC->INTERNAL directory.</p>
+
