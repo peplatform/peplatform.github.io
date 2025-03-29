@@ -1,10 +1,3 @@
-;
-; Copyright (c) Microsoft Corporation. All rights reserved.
-;
-; You may only use this code if you agree to the terms of the Windows Research Kernel Source Code License agreement (see License.txt).
-; If you do not agree to the terms, do not use the code.
-;
-
 IFDEF NEC_98
 FIXED_NTVDMSTATE_SEGMENT equ 00060H
 else
@@ -162,4 +155,3 @@ DBG_BREAK equ 00006H
 DBG_GPFAULT equ 00007H
 DBG_STACKFAULT equ 00010H
 STATUS_VDM_EVENT equ 040000005H
-

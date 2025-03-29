@@ -1,10 +1,6 @@
 /*++ BUILD Version: 0002    // Increment this if a change has global effects
 
-Copyright (c) Microsoft Corporation. All rights reserved.
-
-You may only use this code if you agree to the terms of the Windows Research Kernel Source Code License agreement (see License.txt).
-If you do not agree to the terms, do not use the code.
-
+Copyright (c) Microsoft Corporation.  All rights reserved.
 
 Module Name:
 
@@ -18,6 +14,12 @@ Abstract:
     only.
 
     This file is not included by including "ntos.h".
+
+Author:
+
+    Jim Kelly (Jimk) 23-Mar-1990
+
+Revision History:
 
 --*/
 
@@ -209,7 +211,7 @@ typedef struct _KNOWN_COMPOUND_ACE {
     )
 
 //
-//  Macro to determine if an ace is to be propagate to a subdirectory.
+//  Macro to determine if an ace is to be proprogate to a subdirectory.
 //  It will if it is inheritable by either a container or non-container
 //  and is not explicitly marked for no-propagation.
 //
@@ -308,5 +310,7 @@ typedef struct _KNOWN_COMPOUND_ACE {
             (((_Generic) & SEP_ACL_AUTO_INHERITED) ? SE_SACL_AUTO_INHERITED : 0 ) | \
             (((_Generic) & SEP_ACL_PROTECTED) ? SE_SACL_PROTECTED : 0 ) )
 
-#endif // _SEOPAQUE_
 
+
+
+#endif // _SEOPAQUE_

@@ -1,10 +1,6 @@
 /*++
 
-Copyright (c) Microsoft Corporation. All rights reserved.
-
-You may only use this code if you agree to the terms of the Windows Research Kernel Source Code License agreement (see License.txt).
-If you do not agree to the terms, do not use the code.
-
+Copyright (c) 1991 Microsoft Corporation
 
 Module Name:
 
@@ -13,6 +9,12 @@ Module Name:
 Abstract:
 
     This file contains defines for kernel->elf data structures
+
+Author:
+
+    Mark Zbikowski 4/27/98
+
+Revision History:
 
 --*/
 
@@ -76,4 +78,4 @@ typedef struct _ELF_REPLY_MESSAGE {
 } ELF_REPLY_MESSAGE, *PELF_REPLY_MESSAGE;
 
 #endif // ifndef _ELFLPC_
-
+

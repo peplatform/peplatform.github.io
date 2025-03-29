@@ -1,10 +1,7 @@
 /*++ BUILD Version: 0001    // Increment this if a change has global effects
 
-Copyright (c) Microsoft Corporation. All rights reserved.
 
-You may only use this code if you agree to the terms of the Windows Research Kernel Source Code License agreement (see License.txt).
-If you do not agree to the terms, do not use the code.
-
+Copyright (c) Microsoft Corporation.  All rights reserved.
 
 Module Name:
 
@@ -15,6 +12,13 @@ Abstract:
     This header file defines the Global definitions and interfaces for
     communicating the profile information between the loader, ntdetect and
     the kernel.
+
+Author:
+
+    Kenneth D. Ray (kenray) Dec 1997
+
+
+Revision History:
 
 --*/
 
@@ -49,7 +53,7 @@ Abstract:
 //
 // Capabilites of the given profile
 //
-#define HW_PROFILE_CAPS_VCR               0x0001 // As opposed to Surprise
+#define HW_PROFILE_CAPS_VCR               0x0001 // As apposed to Surprize
 #define HW_PROFILE_CAPS_DOCKING_WARM      0x0002
 #define HW_PROFILE_CAPS_DOCKING_HOT       0x0004
 #define HW_PROFILE_CAPS_RESERVED          0xFFF8

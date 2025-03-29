@@ -1,10 +1,6 @@
 /*++
 
-Copyright (c) Microsoft Corporation. All rights reserved.
-
-You may only use this code if you agree to the terms of the Windows Research Kernel Source Code License agreement (see License.txt).
-If you do not agree to the terms, do not use the code.
-
+Copyright (c) Microsoft Corporation.  All rights reserved.
 
 Module Name:
 
@@ -14,6 +10,12 @@ Abstract:
 
     This module contains the public header information (function prototypes,
     data and type declarations) for the Headless Loader Block information.
+
+Author:
+
+    Sean Selitrennikoff (v-seans) Oct, 1999
+
+Revision History:
 
 --*/
 

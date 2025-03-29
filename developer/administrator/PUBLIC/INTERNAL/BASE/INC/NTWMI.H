@@ -1,10 +1,6 @@
 /*++
 
-Copyright (c) Microsoft Corporation. All rights reserved.
-
-You may only use this code if you agree to the terms of the Windows Research Kernel Source Code License agreement (see License.txt).
-If you do not agree to the terms, do not use the code.
-
+Copyright (c) Microsoft Corporation.  All rights reserved.
 
 Module Name:
 
@@ -13,6 +9,17 @@ Module Name:
 Abstract:
 
     definitions for WMI Flags and Event Id's
+
+Author:
+
+    Stephen Hsiao
+
+Environment:
+
+    Kernel and User modes
+
+Revision History:
+
 
 --*/
 
@@ -62,14 +69,13 @@ Abstract:
 #define EVENT_TRACE_GROUP_DPC                  0x1500
 #define EVENT_TRACE_GROUP_GDI                  0x1600
 #define EVENT_TRACE_GROUP_CRITSEC              0x1700
-#define EVENT_TRACE_GROUP_VOLMGR               0x1B00
 
 // 
 // If you add any new groups, you must bump up MAX_KERNEL_TRACE_EVENTS
 // and make sure post processing is fixed up. 
 //
 
-#define MAX_KERNEL_TRACE_EVENTS         0x1B
+#define MAX_KERNEL_TRACE_EVENTS         22 
 
 //
 // The highest order bit of a data block is set if trace, WNODE otherwise
@@ -353,6 +359,8 @@ typedef struct _MESSAGE_TRACE_USER {
 } MESSAGE_TRACE_USER, *PMESSAGE_TRACE_USER ;
 
 
+#ifndef MEMPHIS
+
 //
 // Logger configuration and running statistics. This structure is used
 // by WMI.DLL to convert to UNICODE_STRING
@@ -448,6 +456,8 @@ typedef struct _TIMED_TRACE_HEADER {
 
 // end_wmikm
 // the circular buffer pool, using forward linked list
+
+#endif //!MEMPHIS
 
 typedef struct _WMI_BUFFER_STATE {
    ULONG               Free:1;
@@ -568,7 +578,7 @@ typedef struct _WMI_SWITCH_BUFFER_INFORMATION {
 // ...
 // #define PERF_GROUP2 0xe0400000 in the 7th set
 //
-// See ntperf.h for the manipulation of flags
+// See ntperf.h for the manupulation of flags
 //
 //
 // Currently, no GlobalMask change is supported.
@@ -682,10 +692,9 @@ typedef struct _WMI_SWITCH_BUFFER_INFORMATION {
 #define WMI_LOG_TYPE_CONFIG_VIDEO                 (EVENT_TRACE_GROUP_CONFIG | EVENT_TRACE_TYPE_CONFIG_VIDEO)
 #define WMI_LOG_TYPE_CONFIG_SERVICES              (EVENT_TRACE_GROUP_CONFIG | EVENT_TRACE_TYPE_CONFIG_SERVICES)
 #define WMI_LOG_TYPE_CONFIG_POWER                 (EVENT_TRACE_GROUP_CONFIG | EVENT_TRACE_TYPE_CONFIG_POWER)
-#define WMI_LOG_TYPE_CONFIG_NETINFO               (EVENT_TRACE_GROUP_CONFIG | EVENT_TRACE_TYPE_CONFIG_NETINFO)
 
 //
-// Event for Image and File Name
+//Event for Image and File Name
 //
 #define PERFINFO_LOG_TYPE_FILENAME                  (EVENT_TRACE_GROUP_FILE | EVENT_TRACE_TYPE_INFO)
 #define PERFINFO_LOG_TYPE_FILENAME_CREATE           (EVENT_TRACE_GROUP_FILE | 0x20)
@@ -693,7 +702,7 @@ typedef struct _WMI_SWITCH_BUFFER_INFORMATION {
 
 
 //
-// Event types for Process
+//Event types for Process
 //
 #define WMI_LOG_TYPE_PROCESS_CREATE                 (EVENT_TRACE_GROUP_PROCESS | EVENT_TRACE_TYPE_START)
 #define WMI_LOG_TYPE_PROCESS_DELETE                 (EVENT_TRACE_GROUP_PROCESS | EVENT_TRACE_TYPE_END)
@@ -710,7 +719,7 @@ typedef struct _WMI_SWITCH_BUFFER_INFORMATION {
 #define PERFINFO_LOG_TYPE_BOOT_PHASE_START          (EVENT_TRACE_GROUP_PROCESS | 0x26)
 
 //
-// Event types for Thread
+//Event types for Thread
 //
 #define WMI_LOG_TYPE_THREAD_CREATE                  (EVENT_TRACE_GROUP_THREAD | EVENT_TRACE_TYPE_START)
 #define WMI_LOG_TYPE_THREAD_DELETE                  (EVENT_TRACE_GROUP_THREAD | EVENT_TRACE_TYPE_END)
@@ -954,7 +963,6 @@ typedef struct _WMI_SWITCH_BUFFER_INFORMATION {
 #define PERFINFO_LOG_TYPE_PO_SESSION_CALLOUT_RET       (EVENT_TRACE_GROUP_POWER | 0x29)
 #define PERFINFO_LOG_TYPE_PO_PRESLEEP                  (EVENT_TRACE_GROUP_POWER | 0x30)
 #define PERFINFO_LOG_TYPE_PO_POSTSLEEP                 (EVENT_TRACE_GROUP_POWER | 0x31)
-#define PERFINFO_LOG_TYPE_PO_CALIBRATED_PERFCOUNTER    (EVENT_TRACE_GROUP_POWER | 0x32)
 
 //
 // Event types for MODBound subsystem
@@ -1063,11 +1071,21 @@ typedef struct _WMI_SWITCH_BUFFER_INFORMATION {
 #define PERFINFO_LOG_TYPE_WMI_REFLECT_DISK_IO_READ                     (EVENT_TRACE_GROUP_TBD | 0x50)
 #define PERFINFO_LOG_TYPE_WMI_REFLECT_DISK_IO_WRITE                    (EVENT_TRACE_GROUP_TBD | 0x51)
 
+#if 0
 //
-// Event types for Volume Manager
+// 2000-2199 reserved for SQL Server
 //
 
-#define WMI_LOG_TYPE_VOLMGR    (EVENT_TRACE_GROUP_VOLMGR | 0x20)
+#define PERFINFO_LOG_TYPE_SQLSERVER_FIRST               (2000)
+#define PERFINFO_LOG_TYPE_SQLSERVER_LAST                (PERFINFO_LOG_TYPE_SQLSERVER_FIRST + 199)
+
+//
+//  2200-2299 reserved for reflection of WMI events
+//
+
+#define PERFINFO_LOG_TYPE_WMI_REFLECT_FIRST             (2200)
+#define PERFINFO_LOG_TYPE_WMI_REFLECT_LAST              (PERFINFO_LOG_TYPE_WMI_REFLECT_FIRST + 199)
+#endif //0
 
 //
 // Data structure used for WMI Kernel Events
@@ -1271,7 +1289,6 @@ typedef struct _WMI_DISKIO_READWRITE {
     ULONG ResponseTime;
     ULONGLONG ByteOffset;
     PVOID FileObject;
-    PVOID IrpAddr;
     ULONGLONG HighResResponseTime;
 } WMI_DISKIO_READWRITE, *PWMI_DISKIO_READWRITE;
 
@@ -1338,88 +1355,88 @@ typedef struct _WMI_CONTEXTSWAP {
 
 typedef struct _HEAP_EVENT_ALLOC {
 
-        PVOID HeapHandle;               // Handle of Heap
-        SIZE_T Size;                    // Size of allocation in bytes
-        PVOID Address;                  // Address of Allocation
-        ULONG Source;                   // Type ie Lookaside, Lowfrag or main path
+        PVOID HeapHandle;               //Handle of Heap
+        SIZE_T Size;                    //Size of allocation in bytes
+        PVOID Address;                  //Address of Allocation
+        ULONG Source;                   //Type ie Lookaside, Lowfrag or main path
 
 }HEAP_EVENT_ALLOC, *PHEAP_EVENT_ALLOC;
 
 typedef struct _HEAP_EVENT_FREE {
 
-        PVOID HeapHandle;               // Handle of Heap
-        PVOID Address;                  // Address to free
-        ULONG Source;                   // Type ie Lookaside, Lowfrag or main path
+        PVOID HeapHandle;               //Handle of Heap
+        PVOID Address;                  //Address to free
+        ULONG Source;                   //Type ie Lookaside, Lowfrag or main path
 
 }HEAP_EVENT_FREE, *PHEAP_EVENT_FREE;
 
 typedef struct _HEAP_EVENT_REALLOC {
 
-        PVOID HeapHandle;               // Handle of Heap
-        PVOID NewAddress;               // New Address returned to user
-        PVOID OldAddress;               // Old Address got from user
-        SIZE_T NewSize;                 // New Size in bytes
-        SIZE_T OldSize;                 // Old Size in bytes
-        ULONG Source;                   // Type ie Lookaside, Lowfrag or main path
+        PVOID HeapHandle;       //Handle of Heap
+        PVOID NewAddress;       //New Address returned to user
+        PVOID OldAddress;       //Old Address got from user
+        SIZE_T NewSize;         //New Size in bytes
+        SIZE_T OldSize;         //Old Size in bytes
+        ULONG Source;           //Type ie Lookaside, Lowfrag or main path
 
 }HEAP_EVENT_REALLOC, *PHEAP_EVENT_REALLOC;
 
 typedef struct _HEAP_EVENT_EXPANSION {
 
-        PVOID HeapHandle;               // Handle of Heap
-        SIZE_T CommittedSize;           // Memory Size in bytes actually committed
-        PVOID Address;                  // Address of free block or segment
-        SIZE_T FreeSpace;               // Total free Space in Heap
-        SIZE_T CommittedSpace;          // Memory Committed
-        SIZE_T ReservedSpace;           // Memory reserved
-        ULONG NoOfUCRs;                 // Number of UnCommitted Ranges
+        PVOID HeapHandle;                               //Handle of Heap
+        SIZE_T CommittedSize;                   //Memory Size in bytes actually committed
+        PVOID Address;                                  //Address of free block or segment
+        SIZE_T FreeSpace;                               //Total free Space in Heap
+        SIZE_T CommittedSpace;                  //Memory Committed
+        SIZE_T ReservedSpace;                   //Memory reserved
+        ULONG NoOfUCRs;                                 //Number of UnCommitted Ranges
 
 }HEAP_EVENT_EXPANSION, *PHEAP_EVENT_EXPANSION;
 
 typedef struct _HEAP_EVENT_CONTRACTION {
 
-        PVOID HeapHandle;               // Handle of Heap
-        SIZE_T DeCommitSize;            // The size of DeCommitted Block
-        PVOID DeCommitAddress;          // Address of the Decommitted block
-        SIZE_T FreeSpace;               // Total free Space in Heap in bytes
-        SIZE_T CommittedSpace;          // Memory Committed in bytes
-        SIZE_T ReservedSpace;           // Memory reserved in bytes
-        ULONG NoOfUCRs;                 // Number of UnCommitted Ranges
+        PVOID HeapHandle;                       //Handle of Heap
+        SIZE_T DeCommitSize;            //The size of DeCommitted Block
+        PVOID DeCommitAddress;          //Address of the Decommitted block
+        SIZE_T FreeSpace;                       //Total free Space in Heap in bytes
+        SIZE_T CommittedSpace;          //Memory Committed in bytes
+        SIZE_T ReservedSpace;           //Memory reserved in bytes
+        ULONG NoOfUCRs;                         //Number of UnCommitted Ranges
 
 
 }HEAP_EVENT_CONTRACTION, *PHEAP_EVENT_CONTRACTION;
 
 typedef struct _HEAP_EVENT_CREATE {
 
-        PVOID HeapHandle;               // Handle of Heap
-        ULONG Flags;                    // Flags passed while creating heap.
+        PVOID HeapHandle;               //Handle of Heap
+        ULONG Flags;                    //Flags passed while creating heap.
 
 }HEAP_EVENT_CREATE, *PHEAP_EVENT_CREATE;
 
 typedef struct _HEAP_EVENT_SNAPSHOT {
 
-        PVOID HeapHandle;               // Handle of Heap
-        ULONG Flags;                    // Flags passed while creating heap.
-        SIZE_T FreeSpace;               // Total free Space in Heap in bytes
-        SIZE_T CommittedSpace;          // Memory Committed in bytes
-        SIZE_T ReservedSpace;           // Memory reserved in bytes
+        PVOID HeapHandle;                       //Handle of Heap
+        ULONG Flags;                            //Flags passed while creating heap.
+        SIZE_T FreeSpace;                       //Total free Space in Heap in bytes
+        SIZE_T CommittedSpace;          //Memory Committed in bytes
+        SIZE_T ReservedSpace;           //Memory reserved in bytes
 
 }HEAP_EVENT_SNAPSHOT, *PHEAP_EVENT_SNAPSHOT;
 
 
 typedef struct _CRIT_SEC_COLLISION_EVENT_DATA {
 
-        ULONG           LockCount;      // Lock Count
-        PVOID           SpinCount;      // Spin Count
-        PVOID           OwningThread;   // Thread having Lock
-        PVOID       Address;            // Address of Critical Section
+        ULONG           LockCount;              //Lock Count
+        PVOID           SpinCount;              //Spin Count
+        PVOID           OwningThread;   //Thread having Lock
+        PVOID       Address;            //Adress of Critical Section
 
 }CRIT_SEC_COLLISION_EVENT_DATA, *PCRIT_SEC_COLLISION_EVENT_DATA;
 
 typedef struct _CRIT_SEC_INITIALIZE_EVENT_DATA {
 
-        PVOID           SpinCount;      // Spin Count
-        PVOID       Address;            // Address of Critical Section
+        PVOID           SpinCount;              //Spin Count
+        PVOID       Address;            //Adress of Critical Section
 
 }CRIT_SEC_INITIALIZE_EVENT_DATA, *PCRIT_SEC_INITIALIZE_EVENT_DATA;
 
@@ -1500,14 +1517,6 @@ DEFINE_GUID ( /* b2d14872-7c5b-463d-8419-ee9bf7d23e04 */
     0x84, 0x19, 0xee, 0x9b, 0xf7, 0xd2, 0x3e, 0x04
    );
 
-DEFINE_GUID ( /* d837ca92-12b9-44a5-ad6a-3a65b3578aa8 */
-    VolMgrGuid,
-    0xd837ca92,
-    0x12b9,
-    0x44a5,
-    0xad, 0x6a, 0x3a, 0x65, 0xb3, 0x57, 0x8a, 0xa8
-   );
-
 #endif // ifndef ETW_WOW6432
 
 //
@@ -1521,11 +1530,10 @@ NTSYSCALLAPI
 NTSTATUS
 NTAPI
 NtTraceEvent(
-    __in HANDLE TraceHandle,
-    __in ULONG Flags,
-    __in ULONG FieldSize,
-    __in PVOID Fields
+    IN HANDLE TraceHandle,
+    IN ULONG  Flags,
+    IN ULONG  FieldSize,
+    IN PVOID  Fields
     );
 
 #endif // _NTWMI_
-

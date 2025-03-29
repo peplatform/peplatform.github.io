@@ -1,10 +1,6 @@
 /*++ BUILD Version: 0001    // Increment this if a change has global effects
 
-Copyright (c) Microsoft Corporation. All rights reserved.
-
-You may only use this code if you agree to the terms of the Windows Research Kernel Source Code License agreement (see License.txt).
-If you do not agree to the terms, do not use the code.
-
+Copyright (c) Microsoft Corporation.  All rights reserved.
 
 Module Name:
 
@@ -14,44 +10,19 @@ Abstract:
 
     32-bit structure definitions for 64-bit NT.
 
+Author:
+
+    Barry Bond (barrybo)   20-Jun-1998
+
+Revision History:
+
 --*/
 
 #ifndef _WOW64T_
 #define _WOW64T_
 
-
-//
-// Wow64 TLS-slots definitions
-//
-
-#include "wow64tls.h"
-
-
 #if _MSC_VER > 1000
 #pragma once
-#endif
-
-//
-// X86-processor supported features
-//
-// The following features are considered:
-// - Address Windowing Extension (AWE)
-// - LARGE_PAGE Allocations
-// - WriteWatch pages
-// - Read/Write Scatter/Gather IO
-//
-
-#if defined(_WIN64)
-#if defined(_AMD64_)
-#define WOW64_IS_LARGE_PAGES_SUPPORTED()            (TRUE)
-#define WOW64_IS_AWE_SUPPORTED()                    (TRUE)
-#define WOW64_IS_RDWR_SCATTER_GATHER_SUPPORTED()    (TRUE)
-#define WOW64_IS_WRITE_WATCH_SUPPORTED()            (TRUE)
-#define _WOW64_ALIGN_LARGE_INTEGER                  0
-#define WOW64_UNALIGNED
-#else
-#error "No Target Architecture"
-#endif
 #endif
 
 //
@@ -60,7 +31,6 @@ Abstract:
 
 #define PAGE_SIZE_X86NT    0x1000
 #define PAGE_SHIFT_X86NT   12L
-#define WOW64_SPLITS_PER_PAGE (PAGE_SIZE / PAGE_SIZE_X86NT)
 
 //
 // Convert the number of native pages to sub x86-pages
@@ -87,8 +57,8 @@ Abstract:
 // The name of the 32-bit system directory, which is a child of %SystemRoot%
 //
 
-#define WOW64_SYSTEM_DIRECTORY      "SysWOW64"
-#define WOW64_SYSTEM_DIRECTORY_U   L"SysWOW64"
+#define WOW64_SYSTEM_DIRECTORY      "syswow64"
+#define WOW64_SYSTEM_DIRECTORY_U   L"syswow64"
 
 // Length in bytes of the new system directory, not counting a
 // null terminator
@@ -98,143 +68,12 @@ Abstract:
 #define WOW64_SYSTEM_DIRECTORY_U_SIZE (sizeof(WOW64_SYSTEM_DIRECTORY_U)-sizeof(WCHAR))
 
 //
-// IA64 delayed debugger notification support
-//
-
-#define WOW64_DEBUG_SIGNATURE_32BIT_DBG         0xABCDABDE000      // 32bit debugger is there
-#define WOW64_DEBUG_EVENT_64BIT_DLL_UNLOAD      0x00000000001      // 64bit dll unload event not in use
-#define WOW64_DEBUG_EVENT_32BIT_DLL_UNLOAD      0x00000000002      // 32bit DLL unload notification
-#define WOW64_DEBUG_EVENT_DELAY_CREATE_PROCESS  0x00000000004      // Delay CreateProcess Event
-#define WOW64_DEBUG_EVENT_DELAY_DLLLOAD         0x00000000008      // DElay Dll Load Event
-#define WOW64_DEBUG_EVENT_NOTIFY_WX86_DONE      0x00000000010      // Notify FMT Image is done
-#define WOW64_STATUS_WX86_FMT_DONE              0xCABCDE10
-
-//
-// Wow64 shared information 
-//
-
-typedef enum _WOW64_SHARED_INFORMATION 
-{
-    SharedNtdll32LdrInitializeThunk,
-    SharedNtdll32KiUserExceptionDispatcher,
-    SharedNtdll32KiUserApcDispatcher,
-    SharedNtdll32KiUserCallbackDispatcher,
-    SharedNtdll32LdrHotPatchRoutine,
-    SharedNtdll32ExpInterlockedPopEntrySListFault,
-    SharedNtdll32ExpInterlockedPopEntrySListResume,
-    SharedNtdll32ExpInterlockedPopEntrySListEnd,
-    SharedNtdll32Reserved2,
-    Wow64SharedPageEntriesCount
-} WOW64_SHARED_INFORMATION;
-
-#define Wow64GetSharedInformation(entry)    \
-        (USER_SHARED_DATA->Wow64SharedInformation [entry])
-
-#if !defined(SORTPP_PASS) && !defined(MIDL_PASS) && !defined(RC_INVOKED)
-C_ASSERT (Wow64SharedPageEntriesCount <= MAX_WOW64_SHARED_ENTRIES);
-#endif
-
-
-//
-// Turbo-Thunk data structure definition
-//
-
-typedef enum _WOW64_TURBO_SERVICE_TYPE {
-    ServiceNoTurbo = 0,
-    Service0Arg,
-    Service0ArgReloadState,
-    Service1ArgSp,
-    Service1ArgNSp,
-    Service2ArgNSpNSp,
-    Service2ArgNSpNSpReloadState,
-    Service2ArgSpNSp,
-    Service2ArgSpSp,
-    Service2ArgNSpSp,
-    Service3ArgNSpNSpNSp,
-    Service3ArgSpSpSp,
-    Service3ArgSpNSpNSp,
-    Service3ArgSpNSpNSpReloadState,
-    Service3ArgSpSpNSp,
-    Service3ArgNSpSpNSp,
-    Service3ArgSpNSpSp,
-    Service4ArgNSpNSpNSpNSp,
-    Service4ArgSpSpNSpNSp,
-    Service4ArgSpSpNSpNSpReloadState,
-    Service4ArgSpNSpNSpNSp,
-    Service4ArgSpNSpNSpNSpReloadState,
-    Service4ArgNSpSpNSpNSp,
-    Service4ArgSpSpSpNSp,
-    ServiceCpupTdQuerySystemTime,
-    ServiceCpupTdGetCurrentProcessorNumber,
-    ServiceCpupTdReadWriteFile,
-    ServiceCpupTdDeviceIoControlFile,
-    ServiceCpupTdRemoveIoCompletion,
-    ServiceCpupTdWaitForMultipleObjects,
-    ServiceCpupTdWaitForMultipleObjects32,
-    Wow64ServiceTypesCount
-    
-} WOW64_TURBO_SERVICE_TYPE;
-
-typedef union _TURBO_THUNK_DESCRIPTION {
-     struct {
-         UCHAR ServiceType;
-     };
-     
-} TURBO_THUNK_DESCRIPTION, *PTURBO_THUNK_DESCRIPTION;
-
-//
 // Wow64 Registry Configuration 
 //
 
-//
-// Wow64 Execution Flags 
-//
-//  31   28 27          15     11  8 7           0
-// +---------------------------------------------+
-// |   4   |       13   |1|1|1|  4  |     8      |
-// +---------------------------------------------+
-//     |           |     | | |   |        |    
-//     |           |     | | |   |        +---------> 64-bit Stack reserve (native PAGE_SIZE multiples) 
-//     |           |     | | |   |    
-//     |           |     | | |   +-----------> Initial 64-bit Stack commit (native PAGE_SIZE multiples)
-//     |           |     | | |
-//     |           |     | | +-------> Log event to eventlog when launching a wow64 process
-//     |           |     | |
-//     |           |     | +----> Disable assert messages
-//     |           |     |
-//     |           |     +---> Disable turbo dispatch (used only for forked/posix processes)
-//     |           |
-//     |           +----------------> Unused bits (15 bits)
-//     |
-//     |
-//     +-----------> Reserved bits (4 bits)
-//
-//
-//
-
-typedef union _WOW64_EXECUTE_OPTIONS {
-    
-    ULONG Flags;
-    
-    struct {
-        
-        ULONG StackReserveSize              : 8;
-        ULONG StackCommitSize               : 4;
-        ULONG LogLaunchEvent                : 1;
-        ULONG DisableWowAssert              : 1;
-        ULONG DisableTurboDispatch          : 1;
-        ULONG DisableDebugRegistersSwitch   : 1;
-        ULONG Unused                        : 12;
-        ULONG Reserved0                     : 1;
-        ULONG Reserved1                     : 1;
-        ULONG Reserved2                     : 1;
-        ULONG Reserved3                     : 1;
-    };
-} WOW64_EXECUTE_OPTIONS, *PWOW64_EXECUTE_OPTIONS;
-
-#define WOW64_DEFAULT_EXECUTE_OPTIONS           0
 #define WOW64_REGISTRY_CONFIG_ROOT              L"\\REGISTRY\\MACHINE\\SOFTWARE\\Microsoft\\WOW64"
-#define WOW64_CONFIG_EXECUTE_OPTIONS            L"Wow64ExecuteFlags"
+#define WOW64_REGISTRY_CONFIG_EXECUTE_OPTIONS   L"ExecuteOptions"
+
 
 #define WOW64_X86_TAG               " (x86)"
 #define WOW64_X86_TAG_U            L" (x86)"
@@ -271,26 +110,12 @@ ULonglongToPtr(
 // NOTE : This structure shouldn't contain any pointer-dependent data, as 
 // it is viewed from 32-bit and 64-bit code.
 //
-
-#define WOW64_CPUFLAGS_MSFT64           0x00000001
-#define WOW64_CPUFLAGS_SOFTWARE         0x00000002
-
-
-#if defined(_AMD64_)
-#define Wow64pRunningSoftwareCpu(cpufl) (FALSE)
-#else
-#define Wow64pRunningSoftwareCpu(cpufl) (cpufl & WOW64_CPUFLAGS_SOFTWARE)
-#endif
-
-
 typedef struct _WOW64INFO {
 
     ULONG NativeSystemPageSize;         // Page size of the native system the emulator is running on.
     
     ULONG CpuFlags;
-    
-    WOW64_EXECUTE_OPTIONS Wow64ExecuteFlags;
-    
+
 } WOW64INFO, *PWOW64INFO;
 
 
@@ -363,11 +188,56 @@ typedef ULONG GDI_HANDLE_BUFFER64[GDI_HANDLE_BUFFER_SIZE64];
 #include "pebteb.h"
 #undef PEBTEB_BITS
 
-#if !defined(SORTPP_PASS) && !defined(MIDL_PASS) && !defined(RC_INVOKED) && !defined(_X86AMD64_) && !defined(WOW64EXTS_386)
-C_ASSERT(FIELD_OFFSET(TEB32, GdiTebBatch) == 0x1d4);
-C_ASSERT(FIELD_OFFSET(TEB64, GdiTebBatch) == 0x2f0);
-#endif
+typedef struct _RTL_DRIVE_LETTER_CURDIR32 {
+    USHORT Flags;
+    USHORT Length;
+    ULONG TimeStamp;
+    STRING32 DosPath;
+} RTL_DRIVE_LETTER_CURDIR32, *PRTL_DRIVE_LETTER_CURDIR32;
 
+
+typedef struct _CURDIR32 {
+    UNICODE_STRING32 DosPath;
+    TYPE32(HANDLE) Handle;
+} CURDIR32, *PCURDIR32;
+
+
+
+typedef struct _RTL_USER_PROCESS_PARAMETERS32 {
+    ULONG MaximumLength;
+    ULONG Length;
+
+    ULONG Flags;
+    ULONG DebugFlags;
+
+    TYPE32(HANDLE) ConsoleHandle;
+    ULONG  ConsoleFlags;
+    TYPE32(HANDLE) StandardInput;
+    TYPE32(HANDLE) StandardOutput;
+    TYPE32(HANDLE) StandardError;
+
+    CURDIR32 CurrentDirectory;        // ProcessParameters
+    UNICODE_STRING32 DllPath;         // ProcessParameters
+    UNICODE_STRING32 ImagePathName;   // ProcessParameters
+    UNICODE_STRING32 CommandLine;     // ProcessParameters
+    TYPE32(PVOID) Environment;              // NtAllocateVirtualMemory
+
+    ULONG StartingX;
+    ULONG StartingY;
+    ULONG CountX;
+    ULONG CountY;
+    ULONG CountCharsX;
+    ULONG CountCharsY;
+    ULONG FillAttribute;
+
+    ULONG WindowFlags;
+    ULONG ShowWindowFlags;
+    UNICODE_STRING32 WindowTitle;     // ProcessParameters
+    UNICODE_STRING32 DesktopInfo;     // ProcessParameters
+    UNICODE_STRING32 ShellInfo;       // ProcessParameters
+    UNICODE_STRING32 RuntimeData;     // ProcessParameters
+    RTL_DRIVE_LETTER_CURDIR32 CurrentDirectores[ RTL_MAX_DRIVE_LETTERS ];
+} RTL_USER_PROCESS_PARAMETERS32, *PRTL_USER_PROCESS_PARAMETERS32;
 
 #if !defined(BUILD_WOW6432)
 
@@ -395,82 +265,32 @@ C_ASSERT(FIELD_OFFSET(TEB64, GdiTebBatch) == 0x2f0);
 
 #endif
 
-#if defined(_AMD64_)
-
-#define WOW64P_EXCEPTION_RECORD_SOURCE32        (0x24681357)
-
-BOOLEAN
-FORCEINLINE
-Wow64pIsExceptionRecordSource32 (PEXCEPTION_RECORD ExceptionRecord64)
-{
-    PEXCEPTION_RECORD64 Exr64 = (PEXCEPTION_RECORD64) ExceptionRecord64;
-    
-    return (BOOLEAN)(Exr64->__unusedAlignment == WOW64P_EXCEPTION_RECORD_SOURCE32);
-}
-
-VOID
-FORCEINLINE
-Wow64pMarkExceptionRecordSource32 (PEXCEPTION_RECORD ExceptionRecord64)
-{
-    PEXCEPTION_RECORD64 Exr64 = (PEXCEPTION_RECORD64) ExceptionRecord64;
-    
-    if (ARGUMENT_PRESENT (Exr64)) {
-        Exr64->__unusedAlignment = (WOW64P_EXCEPTION_RECORD_SOURCE32);
-    }    
-    return;
-}
-
-VOID
-FORCEINLINE
-Wow64pClearExceptionRecordSource32 (PEXCEPTION_RECORD ExceptionRecord64)
-{
-    PEXCEPTION_RECORD64 Exr64 = (PEXCEPTION_RECORD64) ExceptionRecord64;
-    
-    if (ARGUMENT_PRESENT (Exr64)) {
-        Exr64->__unusedAlignment = 0;
-    }    
-    return;    
-}
-
-#else
-
-#define Wow64pIsExceptionRecordSource32(Exr64)          (FALSE)
-#define Wow64pMarkExceptionRecordSource32(Exr64)
-#define Wow64pClearExceptionRecordSource32(Exr64)
-
-#endif
-
 //
 // Thunk macros
 
 #define UStr32ToUStr(dst, src) { (dst)->Length = (src)->Length; \
                                  (dst)->MaximumLength = (src)->MaximumLength; \
-                                 (dst)->Buffer = (PWSTR) UlongToPtr ((src)->Buffer); }
+                                 (dst)->Buffer = (PWSTR) ((src)->Buffer); }
 
 #define UStrToUStr32(dst, src) { (dst)->Length = (src)->Length; \
                                  (dst)->MaximumLength = (src)->MaximumLength; \
-                                 (dst)->Buffer = (ULONG) PtrToUlong ((src)->Buffer); }
+                                 (dst)->Buffer = (ULONG) ((src)->Buffer); }
 
 #define NtCurrentTeb32()  ((PTEB32) WOW64_GET_TEB32_SAFE (NtCurrentTeb ()))
 #define NtCurrentPeb32()  ((PPEB32) UlongToPtr ((NtCurrentTeb32()->ProcessEnvironmentBlock)) )
 
-//
-// This is currently defined in windows\core\w32inc\w32wow64.h:
-//
 
+// This is currently defined in windows\core\w32inc\w32wow64.h:
 #define NtCurrentTeb64()   ((PTEB64)((PTEB32)NtCurrentTeb())->GdiBatchCount)
 
-#define NtCurrentPeb64()   ((PPEB64)NtCurrentTeb64()->ProcessEnvironmentBlock) 
+// This is currently defined in base\wow64\inc\wow64.h:
+#define WOW64_TLS_FILESYSREDIR      8   // Used to enable/disable the filesystem
+#define WOW64_TLS_WOW64INFO        10   // Used to access native system information for wow64 processes.
+#define WOW64_TLS_INITIAL_TEB32    11   // A pointer to the 32-bit initial TEB
+#define WOW64_TLS_MAX_NUMBER       12   // Maximum number of TLS slot entries to allocate.
 
-//
-// Wow64 file-system redirection support.
-//
-
-//
 // These should only be called from Win32 code known to be running on Win64.
-//
-
-#if !defined(_WIN64)
+#if !_WIN64
 #define Wow64EnableFilesystemRedirector()   \
     NtCurrentTeb64()->TlsSlots[WOW64_TLS_FILESYSREDIR] = 0;
     
@@ -478,10 +298,10 @@ Wow64pClearExceptionRecordSource32 (PEXCEPTION_RECORD ExceptionRecord64)
     NtCurrentTeb64()->TlsSlots[WOW64_TLS_FILESYSREDIR] = (ULONGLONG)PtrToUlong(filename);
 
 
-FORCEINLINE
+__inline 
 PVOID 
 Wow64SetFilesystemRedirectorEx (
-    __in PVOID NewValue
+    PVOID NewValue
     )
 /*++
 
@@ -552,10 +372,8 @@ Return:
 
 --*/
 {
-    PVOID OldValue;
-    OldValue = (PVOID)(ULONG_PTR)NtCurrentTeb64()->TlsSlots[WOW64_TLS_FILESYSREDIR];
     NtCurrentTeb64()->TlsSlots[WOW64_TLS_FILESYSREDIR] = (ULONGLONG)PtrToUlong(NewValue);
-    return OldValue;
+    return UlongToPtr ((ULONG)NtCurrentTeb64()->TlsSlots[WOW64_TLS_FILESYSREDIR]);
 }
 
 //
@@ -568,79 +386,12 @@ Return:
 #define Wow64GetSystemNativePageSize() \
     ((PWOW64INFO)ULonglongToPtr((NtCurrentTeb64()->TlsSlots[WOW64_TLS_WOW64INFO])))->NativeSystemPageSize
     
-#define Wow64UnwindNativeThreadStack() (NtCurrentTeb64()->TlsSlots[WOW64_TLS_UNWIND_NATIVE_STACK] = 1)
-
-#define Wow64KiWrapApcProc(ApcContext,ApcRoutine)
-
 #else
 
-#define Wow64GetSharedInfo()                    ((PWOW64INFO)NtCurrentTeb()->TlsSlots[WOW64_TLS_WOW64INFO])
-#define Wow64GetInitialTeb32()                  ((PINITIAL_TEB)NtCurrentTeb()->TlsSlots[WOW64_TLS_INITIAL_TEB32])
-#define Wow64SetInvalidStartupContext(teb64,x)  (teb64->TlsSlots[WOW64_TLS_INVALID_STARTUP_CONTEXT] = UlongToPtr ((ULONG) x))
-#define Wow64UnwindNativeThreadStack()          (NtCurrentTeb()->TlsSlots[WOW64_TLS_UNWIND_NATIVE_STACK] = UlongToPtr (1))
-
-
-FORCEINLINE
-VOID
-Wow64KiWrapApcProc (
-    __inout PVOID *ApcContext,
-    __inout PVOID *ApcRoutine)
-
-/*++
-
-Routine Description:
-
-    This routine is used by kernel mode callers to queue APCs to a thread
-    running inside a Wow64 process. It wraps the original APC routine
-    with a jacket routine inside Wow64. The target Apc routine must be
-    inside 32-bit code. This routine must be executed in the context of the 
-    Wow64 thread where the target APC is going to run in.
-    
-    This routine, as it accesses a TEB-relative offset, has to be executed
-    within a try/except block. 
-    
-Environment:
-    
-    Kernel mode only.
-        
-Arguments:
-    
-    ApcContext - Pointer to the original ApcContext parameter.
-    
-    ApcRoutine - Pointer to the original ApcRoutine that is targeted to run
-        32-bit code.
-    
-Return:
-
-    None.
-
---*/
-{
-    *ApcContext = (PVOID)((ULONG_PTR)*ApcContext | ((ULONG_PTR)*ApcRoutine << 32));
-    *ApcRoutine = Wow64TlsGetValue (WOW64_TLS_APC_WRAPPER);
-}        
+#define Wow64GetSharedInfo()    ((PWOW64INFO)NtCurrentTeb()->TlsSlots[WOW64_TLS_WOW64INFO])
+#define Wow64GetInitialTeb32()  ((PINITIAL_TEB)NtCurrentTeb()->TlsSlots[WOW64_TLS_INITIAL_TEB32])
 
 #endif
-
-
-//
-// Macros for reading the INCPUSIMULATION flag
-//
-
-#if defined(_AMD64_)
-
-#define Wow64SetCpuSimulationFlag(NewValue)                
-#define Wow64GetCpuSimulationFlag()             (NULL)
-
-#else
-
-#define Wow64SetCpuSimulationFlag(NewValue)     \
-        Wow64TlsSetValue(WOW64_TLS_INCPUSIMULATION, (PVOID)NewValue)
-        
-#define Wow64GetCpuSimulationFlag()             \
-        Wow64TlsGetValue(WOW64_TLS_INCPUSIMULATION)        
-#endif
-
 
 typedef ULONGLONG SIZE_T64, *PSIZE_T64;
 
@@ -667,4 +418,3 @@ typedef struct _MEMORY_BASIC_INFORMATION NATIVE_MEMORY_BASIC_INFORMATION;
 #endif
 
 #endif  // _WOW64T_
-

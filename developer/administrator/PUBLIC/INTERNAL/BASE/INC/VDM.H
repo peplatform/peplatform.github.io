@@ -1,10 +1,6 @@
 /*++
 
-Copyright (c) Microsoft Corporation. All rights reserved.
-
-You may only use this code if you agree to the terms of the Windows Research Kernel Source Code License agreement (see License.txt).
-If you do not agree to the terms, do not use the code.
-
+Copyright (c) Microsoft Corporation.  All rights reserved.
 
 Module Name:
 
@@ -14,12 +10,18 @@ Abstract:
 
     This include file defines the usermode visible portions of the vdm support
 
+Author:
+
+Revision History:
+
 --*/
 
 /* XLATOFF */
 
 #ifndef _VDM_H_
 #define _VDM_H_
+
+
 
 typedef enum _VdmServiceClass {
     VdmStartExecution,         // is also defined in ntos\ke\i386\biosa.asm
@@ -39,13 +41,14 @@ typedef enum _VdmServiceClass {
     VdmQueryVdmProcess
 } VDMSERVICECLASS, *PVDMSERVICECLASS;
 
-#if defined(_NTDEF_)
+
+#if defined (_NTDEF_)
 
 NTSYSCALLAPI
 NTSTATUS
-NtVdmControl (
-    __in VDMSERVICECLASS Service,
-    __inout PVOID ServiceData
+NtVdmControl(
+    IN VDMSERVICECLASS Service,
+    IN OUT PVOID ServiceData
     );
 
 typedef struct _VdmQueryDirInfo {
@@ -467,6 +470,7 @@ typedef struct _VdmEventInfo {
 } VDMEVENTINFO, *PVDMEVENTINFO;
 
 
+// Sudeepb 12-Mar-1993
 // Scratch areas are used from VDMTib to get user space while
 // in kernel. This allows us to make Nt APIs (faster) from kernel
 // rather than Zw apis (slower). These are currently being used
@@ -481,7 +485,7 @@ typedef struct _Vdm_Tib {
     VDMEVENTINFO EventInfo;
     VDM_PRINTER_INFO PrinterInfo;
     ULONG TempArea1[2];                 // Scratch area
-    ULONG TempArea2[2];                 // Scratch area
+    ULONG TempArea2[2];                 // Scratch aArea
     VDM_DPMIINFO DpmiInfo;
     VDM_TRACEINFO TraceInfo;
     ULONG IntelMSW;

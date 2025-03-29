@@ -1,11 +1,7 @@
 
 /*++
 
-Copyright (c) Microsoft Corporation. All rights reserved.
-
-You may only use this code if you agree to the terms of the Windows Research Kernel Source Code License agreement (see License.txt).
-If you do not agree to the terms, do not use the code.
-
+Copyright (c) 1991  Microsoft Corporation
 
 Module Name:
 
@@ -14,6 +10,14 @@ Module Name:
 Abstract:
 
     Local Security Authority - Reference Monitor Communication Types
+
+Author:
+
+    Scott Birrell       (ScottBi)       March 18, 1991
+
+Environment:
+
+Revision History:
 
 --*/
 
@@ -222,5 +226,6 @@ typedef struct _LSARM_POLICY_AUDIT_EVENTS_INFO {
 #define LSAP_CRASH_ON_AUDIT_FAIL 1
 #define LSAP_ALLOW_ADIMIN_LOGONS_ONLY 2
 
-#endif // _NTRMLSA_
 
+
+#endif // _NTRMLSA_

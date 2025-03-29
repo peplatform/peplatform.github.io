@@ -1,12 +1,3 @@
-/*++
-
-Copyright (c) Microsoft Corporation. All rights reserved.
-
-You may only use this code if you agree to the terms of the Windows Research Kernel Source Code License agreement (see License.txt).
-If you do not agree to the terms, do not use the code.
-
---*/
-
 #ifndef _SETUPBLK_
 #define _SETUPBLK_
 
@@ -189,7 +180,7 @@ typedef struct _DETECTED_DEVICE {
     struct _DETECTED_DEVICE *Next;
 
     //
-    // String used as a key into the relevant section (like [Display],
+    // String used as a key into the relevent section (like [Display],
     // [Mouse], etc).
     //
 
@@ -477,6 +468,13 @@ typedef struct _SETUP_LOADER_BLOCK {
     PMONITOR_CONFIGURATION_DATA Monitor;
     PCHAR MonitorId;
 
+#ifdef _ALPHA_
+    //
+    // if alpha, then we need to know if the user supplied an OEM PAL disk
+    //
+    PDETECTED_DEVICE    OemPal;
+#endif
+
     //
     // Loaded boot bus extenders
     //
@@ -621,7 +619,7 @@ typedef struct _SETUP_LOADER_BLOCK {
 
     //
     // This is the UNC path that a SysPrep installation or a machine replacement
-    // scenario is supposed to connect to find IMirror.dat
+    // senario is supposed to connect to find IMirror.dat
     //
     UCHAR NetBootIMirrorFilePath[260];
 
@@ -640,4 +638,3 @@ typedef struct _SETUP_LOADER_BLOCK {
 } SETUP_LOADER_BLOCK, *PSETUP_LOADER_BLOCK;
 
 #endif // _SETUPBLK_
-

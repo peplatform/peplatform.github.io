@@ -2,10 +2,6 @@
 
 Copyright (c) Microsoft Corporation. All rights reserved.
 
-You may only use this code if you agree to the terms of the Windows Research Kernel Source Code License agreement (see License.txt).
-If you do not agree to the terms, do not use the code.
-
-
 Module Name:
 
     ntdbg.h
@@ -14,6 +10,8 @@ Abstract:
 
     This module contains the public data structures, data types,
     and procedures exported by the NT Dbg subsystem.
+
+Revision History:
 
 --*/
 
@@ -487,6 +485,8 @@ DbgUiConvertStateChangeStructure (
     OUT struct _DEBUG_EVENT *DebugEvent);
 
 #endif // DBG_NO_PORTABLE_TYPES
+
+
 
 
 
@@ -2334,7 +2334,7 @@ typedef struct _IA64_KEXCEPTION_FRAME {
     ULONGLONG ApLC;       // loop count // Intel-IA64-Filler
     ULONGLONG IntNats;    // Nats for S0-S3; i.e. ar.UNAT after spill // Intel-IA64-Filler
 
-    // Preserved (saved) integer registers, s0-s3 // Intel-IA64-Filler
+    // Preserved (saved) interger registers, s0-s3 // Intel-IA64-Filler
     ULONGLONG IntS0; // Intel-IA64-Filler
     ULONGLONG IntS1; // Intel-IA64-Filler
     ULONGLONG IntS2; // Intel-IA64-Filler
@@ -2408,7 +2408,7 @@ typedef struct _IA64_KTRAP_FRAME {
     FLOAT128 FltT8; // Intel-IA64-Filler
     FLOAT128 FltT9; // Intel-IA64-Filler
 
-    // Temporary (volatile) integer registers
+    // Temporary (volatile) interger registers
     ULONGLONG IntGp;    // global pointer (r1) // Intel-IA64-Filler
     ULONGLONG IntT0; // Intel-IA64-Filler
     ULONGLONG IntT1; // Intel-IA64-Filler
@@ -3721,7 +3721,7 @@ DbgkdGetInternalBreakpoint64To32(
 //
 // The packet protocol was widened to 64 bits in version 5.
 // The PTR64 flag allows the debugger to read the right
-// size of pointer when necessary.
+// size of pointer when neccessary.
 //
 // The version packet was changed in the same revision, to remove the
 // data that are now available in KDDEBUGGER_DATA.
@@ -4344,4 +4344,3 @@ NtSetInformationDebugObject (
 #endif
 
 #endif // _NTDBG_
-

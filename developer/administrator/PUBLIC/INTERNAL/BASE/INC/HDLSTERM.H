@@ -1,10 +1,6 @@
 /*++
 
-Copyright (c) Microsoft Corporation. All rights reserved.
-
-You may only use this code if you agree to the terms of the Windows Research Kernel Source Code License agreement (see License.txt).
-If you do not agree to the terms, do not use the code.
-
+Copyright (c) Microsoft Corporation.  All rights reserved.
 
 Module Name:
 
@@ -14,6 +10,12 @@ Abstract:
 
     This module contains the public header information (function prototypes,
     data and type declarations) for the Headless Terminal effort.
+
+Author:
+
+    Sean Selitrennikoff (v-seans) Oct, 1999
+
+Revision History:
 
 --*/
 
@@ -82,11 +84,14 @@ typedef enum _HEADLESS_CMD {
 } HEADLESS_CMD, *PHEADLESS_CMD;
 
 
+
+
 //
 //
 // Structure definitions for the input buffer for each command type.
 //
 //
+
 
 //
 // HeadlessCmdEnableTerminal:
@@ -164,7 +169,7 @@ typedef struct _HEADLESS_RSP_GET_BYTE {
 
 //
 // HeadlessCmdGetLine:
-//    Response structure: LineComplete, TRUE if the string is filled in, else FALSE because
+//    Response structure: LineComplete, TRUE if the string is filled in, else FALSE becuase
 //                           the user has not yet pressed enter.
 //                     String, the string entered by the user, NULL terminated, with
 //                           leading and trailing whitespace removed.

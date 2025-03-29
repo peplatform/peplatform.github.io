@@ -1,10 +1,6 @@
 /*++
 
-Copyright (c) Microsoft Corporation. All rights reserved.
-
-You may only use this code if you agree to the terms of the Windows Research Kernel Source Code License agreement (see License.txt).
-If you do not agree to the terms, do not use the code.
-
+Copyright (c) Microsoft Corporation.  All rights reserved.
 
 Module Name:
 
@@ -13,6 +9,17 @@ Module Name:
 Abstract:
 
     Private definitions for WMI communications between user and kernel modes
+
+Author:
+
+    AlanWar
+
+Environment:
+
+    Kernel and User modes
+
+Revision History:
+
 
 --*/
 
@@ -73,6 +80,10 @@ typedef enum
     WmiNtdllLoggerCode = 42,
     WmiClockTypeCode = 43
 
+#ifdef NTPERF
+    ,
+    WmiSwitchBufferCode = 63
+#endif
 } WMITRACECODE;
 #endif
 
@@ -80,7 +91,9 @@ typedef enum
 {
     WmiReadNotifications = 64,
     WmiGetNextRegistrant = 65,
+#ifndef MEMPHIS    
     WmiOpenGuid = 66,
+#endif    
     WmiNotifyUser = 67,
     WmiGetAllRegistrant = 68,
     WmiGenerateEvent = 69,
@@ -128,6 +141,22 @@ typedef enum
 #define WMIAdminDeviceName TEXT(WMIAdminDeviceName_A)
 #define WMIAdminSymbolicLinkName TEXT("\\DosDevices\\WMIAdminDevice")
 
+#ifdef MEMPHIS
+//
+// This id the name of the device that handles query/set IOCTLS. On memphis
+// it is the same as the service device name.
+#define WMIDataDeviceObjectName  L"\\Device\\WMIDevice"
+
+#define WMIDataDeviceName_A     "\\\\.\\WMIServiceDevice")
+#define WMIDataDeviceName_W   WMIUMKM_L(WMIDataDeviceName_A)
+#define WMIDataDeviceName          TEXT(WMIDataDeviceName_A)
+
+#define WMIDataSymbolicLinkName_A "\\DosDevices\\WMIServiceDevice"
+#define WMIDataSymbolicLinkName_W      WMIUMKM_L(WMIDataSymbolicLinkName_A)
+#define WMIDataSymbolicLinkName             TEXT(WMIDataSymbolicLinkName_A)
+
+#else
+
 #define WMIDataDeviceObjectName   WMIServiceDeviceObjectName
 #define WMIDataDeviceName_A       WMIServiceDeviceName_A
 #define WMIDataDeviceName_W       WMIServiceDeviceName_W
@@ -136,11 +165,13 @@ typedef enum
 #define WMIDataSymbolicLinkName_W WMIServiceSymbolicLinkName_W
 #define WMIDataSymbolicLinkName   WMIServiceSymbolicLinkName
 
+#endif
+
 //
 // This defines the data structure that is used to pass a handle from
 // um to km. In 32bit code a handle has 32bits and in 64bit code a handle 
 // has 64 bits and both call into the kernel which is 64bits. In order to
-// ensure that the data structures compile to the same size on 32 and 64
+// insure that the data structures compile to the same size on 32 and 64
 // bit systems we define the union with a dummy 64bit value so the field is
 // forced to be 64 bits in all code. Note that the object manager always
 // ignores the top 32bits of the handle in order to support 32 bit code
@@ -179,6 +210,7 @@ typedef HANDLE3264 PVOID3264;
 #define IOCTL_WMI_GET_NEXT_REGISTRANT \
           CTL_CODE(FILE_DEVICE_UNKNOWN, WmiGetNextRegistrant, METHOD_BUFFERED, FILE_READ_ACCESS)
 
+#ifndef MEMPHIS        
 //
 // This IOCTL will return a handle to a guid
 // BufferIn - WMIOPENGUIDBLOCK
@@ -190,6 +222,7 @@ typedef HANDLE3264 PVOID3264;
               
 #define IOCTL_WMI_OPEN_GUID_FOR_EVENTS \
           CTL_CODE(FILE_DEVICE_UNKNOWN, WmiOpenGuidForEvents, METHOD_BUFFERED, FILE_READ_ACCESS)
+#endif
         
 // This IOCTL will perform a query for all data items of a data block
 // BufferIn - Incoming WNODE describing query. This gets filled in by driver
@@ -268,6 +301,7 @@ typedef struct
 #define IOCTL_WMI_QSI_MULTIPLE \
           CTL_CODE(FILE_DEVICE_UNKNOWN, WmiQuerySingleMultiple, METHOD_BUFFERED, FILE_WRITE_ACCESS)
 
+#ifndef MEMPHIS
 typedef struct
 {
     USHORT Length;
@@ -289,6 +323,7 @@ typedef struct
     ULONG QueryCount;
     WMIQSIINFO QsiInfo[1];
 } WMIQSIMULTIPLE, *PWMIQSIMULTIPLE;
+#endif        
           
 // This IOCTL will mark the object as not longer able to receive events
 // BufferIn - WMIMARKASCLOSED
@@ -479,6 +514,8 @@ typedef struct
 
 #if defined(_WINNT_) || defined(WINNT)
 
+#ifndef MEMPHIS       
+
 #define WMIMAXREGGUIDCOUNT          65536
 
 //
@@ -631,6 +668,16 @@ typedef struct
 #define IOCTL_WMI_CLOCK_TYPE \
           CTL_CODE(FILE_DEVICE_UNKNOWN, WmiClockTypeCode, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
+#ifdef NTPERF
+//
+// This IOCTL will switch a buffer for UserMode Logging
+// BufferIn - WMI_SWITCH_PERFMEM_BUFFER_INFORMATION structure
+// BufferOut - Not used
+#define IOCTL_WMI_SWITCH_BUFFER \
+          CTL_CODE(FILE_DEVICE_UNKNOWN, WmiSwitchBufferCode, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
+#endif //NTPERF
+#endif
 #endif // WINNT
 
 //
@@ -682,6 +729,8 @@ typedef struct
     OUT WCHAR InstanceNames[1];    // Instance name in unicode
 } WMIFHTOINSTANCENAME, *PWMIFHTOINSTANCENAME;
 
+#ifndef MEMPHIS
+
 //
 // This is used in IOCTL_WMI_OPEN_GUID
 
@@ -716,6 +765,7 @@ typedef struct
     GUID Guid;
     ACCESS_MASK DesiredAccess;
 } WMICHECKGUIDACCESS, *PWMICHECKGUIDACCESS;
+#endif
 
 //
 // This is the header in front of a WNODE request
@@ -788,11 +838,15 @@ typedef struct
     ULONG64      SecurityToken;
 } WMITRACE_NOTIFY_HEADER, *PWMITRACE_NOTIFY_HEADER;
 
+#ifndef MEMPHIS
+
 #define ENABLECRITSECTRACE          0x1
 #define DISABLECRITSECTRACE         0xFFFFFFFE
 #define ENABLEHEAPTRACE             0x2
 #define DISABLEHEAPTRACE            0xFFFFFFFD
 #define DISABLENTDLLTRACE           0xFFFFFFFC
+
+#endif
 
 #if _MSC_VER >= 1200
 #pragma warning(pop)
@@ -801,4 +855,3 @@ typedef struct
 #endif
 
 #endif // _WMIUMKM_
-
