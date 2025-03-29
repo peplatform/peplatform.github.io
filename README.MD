@@ -4,5 +4,5 @@
   <img src="build.gif" />
 </p>
 
-<p>Start with PUBLIC->INTERNAL->SHELLS ans SCO source and build the C-Shell for your University.</p>
+<p>Start with PUBLIC->INTERNAL->SHELL ans SCO source and build the C-Shell for your University.</p>
 
