@@ -65,7 +65,7 @@ Dim sParamName, sParamLocal, sParamEnd   '1/2018
 
 '--           BooDeleteTemp               -    delete temp folder used for ops after done? Set to false for debugging if you want to inspect files created.
 
-   BooDeleteTemp = True
+   BooDeleteTemp = False
    
 '--           Verbose                         -   True will display progress messages during processing.
 
