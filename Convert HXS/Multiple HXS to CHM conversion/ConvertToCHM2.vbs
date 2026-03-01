@@ -38,11 +38,11 @@ Dim sParamName, sParamLocal, sParamEnd   '1/2018
 
 '--         Compiler                  - full path to HTML Help Workshop compiler: hhc.exe --------------------------
 
-   Compiler = "C:\Program Files\HTML Help Workshop\hhc.exe"      '-- download here: http://msdn.microsoft.com/en-us/library/ms669985(VS.85).aspx
+   Compiler = "C:\Program Files (x86)\HTML Help Workshop\hhc.exe"      '-- download here: http://msdn.microsoft.com/en-us/library/ms669985(VS.85).aspx
                                                                                    
 '--          SevZip                   - full path to 7-Zip executable. -----------------------------------
 
-   SevZip =  "C:\Program Files\7-Zip\7z.exe"          '--  Download here: http://www.7-zip.org/
+   SevZip =  "C:\Program Files (x86)\7-Zip\7z.exe"          '--  Download here: http://www.7-zip.org/
 
 '-- 
 '---------      OPTIONAL SETTINGS:  -------------------------------------------
