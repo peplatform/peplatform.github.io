@@ -1,0 +1,351 @@
+    Darwin 8.0.1 (corresponding to Mac OS X 10.4) seems to be the latest available full installer image, at least, until the PureDarwin project produces a new one.
+
+        List of available ISO images 
+
+    More recent versions of packages are available in source form:
+
+        Open Source website (links by OS release)
+
+        Full list of packages (some aren't linked under any OS release) 
+
+Installing
+
+    Download and extract installation CD image:
+
+        Darwin 8.0.1 (was under “Darwin 8.0.1 Installer CD” on old website)
+
+            MD5: dbd260dda994093a11c31afbe624aa34
+
+            SHA-256: a26f9f14795fe0687bd647d41b712464c9a61430736fae4aa0fdb89207e1a62a 
+
+        $ gunzip darwinx86-801.iso.gz 
+
+    Set up QEMU VM:
+
+        $ qemu-img create -f qcow2 darwin.qcow2 10G 
+
+    Start VM:
+
+        $ qemu -net none -drive file=darwin.qcow2,cache=writeback -cdrom darwinx86-801.iso -boot d
+
+        Other useful qemu options: -m 512 and -enable-kqemu 
+
+    Installation steps:
+
+        First boot:
+
+            Select disk 
+
+            "2" (manual partitioning)
+
+            "y" (initialize MBR)
+
+            In fdisk:
+
+                > auto hfs
+
+                Ignore the warning
+
+                > update
+
+                > write
+
+                > quit 
+
+            Enter partition name
+
+            "yes" (clean install)
+
+            "darwin" (volume name)
+
+            Continue (reboot) 
+
+        Second boot (make sure to boot from CD again):
+
+            Select disk
+
+            "3" (existing partition)
+
+            Enter partition name
+
+            "hfs" (HFS+ filesystem)
+
+            "yes" (clean install)
+
+            "darwin" (volume name)
+
+            Wait for installation to complete...
+
+            Enter root password
+
+            "darwin" (hostname)
+
+            "3" (spawn shell)
+
+            # halt 
+
+    Configure VM for normal startup:
+
+        Remove QEMU flags -cdrom darwinx86-801.iso -boot d 
+
+Basic configuration
+Enable VM networking
+
+    Change QEMU flags: -net none ? -net nic,model=rtl8139 -net user 
+
+SSH access
+
+    Change QEMU flags: -net user ? -net user,hostfwd=tcp:127.0.0.1:10022-:22 (pick any port instead of 10022)
+
+    Log in to VM, enable SSH:
+
+        # service ssh start 
+
+    Connect to VM with
+
+        $ ssh -p 10022 root@localhost 
+
+    Optionally add an alias to host ~/.ssh/config to simplify connecting:
+
+        Host darwin-vm
+        HostName localhost
+        Port 10022
+        User root
+
+        Connect to VM with
+
+            ssh darwin-vm 
+
+    Install public key to simplify logging in:
+
+        $ cat .ssh/id_rsa.pub | ssh darwin-vm 'mkdir .ssh; cat >>.ssh/authorized_keys' 
+
+    Add -nographic to QEMU flags to disable console window, which is no longer required 
+
+Some familiar aliases
+
+    # echo "alias ll='ls -l'" >>/etc/bashrc
+
+    # echo "alias la='ls -lA'" >>/etc/bashrc 
+
+Timezone
+
+    # ln -sf /usr/share/zoneinfo/UTC /etc/localtime 
+
+Temporary filesystem
+
+Using a temporary disk image to build software helps keep the main disk image file smaller.
+
+    $ qemu-img create -f qcow2 scratch.qcow2 10G
+
+    Add QEMU flag: -drive file=scratch.qcow2,cache=writeback and boot
+
+    Figure out which disk number corresponds to the scratch drive:
+
+        # mount
+
+        # ls /dev/rdisk*
+
+        It's the one that isn't mounted and doesn't have any partitions (sn-suffixed files)
+
+        It's usually, but not always, /dev/rdisk1 
+
+    # newfs_hfs -v scratch /dev/rdisk1
+
+    # reboot
+
+    Available as /Volumes/scratch on next boot 
+
+Notes
+
+    The VM sometimes fails to boot with "panic(...): nfs_boot_init failed"; if this happens, restart it. 
+
+Updating the system
+Kernel (xnu)
+
+    It breaks support for FAT (and thus the QEMU virtual FAT drive)
+
+        Support for FAT is in the msdosfs package which requires Xcode to build
+
+        An alternative to the virtual FAT drive for transferring files is writing tar archives directly to an unpartitioned drive
+
+        SSH scp is another alternative 
+
+    Requires:
+
+        corresponding cctools (e.g. initially installed version or cctools-590.42.1, but not cctools-667.3)
+
+        gcc 3.3 (revert if changed with gcc_select 3.3) 
+
+    Source package: xnu-792.6.76.tar.gz (update to version listed under “Mac OS X 10.4.3”)
+
+        MD5: 854f44519778e8bde4283e275ed154e6
+
+        SHA-256: 35c5ed2f1399c770583a229a733d064dc302ae6327a7fcb40996e1f3c474f568 
+
+    Building:
+
+        # cd /Volumes/scratch
+
+        # tar xzf xnu-792.6.76.tar.gz
+
+        # cd xnu-792.6.76
+
+        Patch to help build gcc_42-5577:
+
+            # sed -i.tmp 's/defined *(__i386__)/& || defined(__x86_64__)/' bsd/{machine,sys}/*.h 
+
+        # make DSTROOT= install 
+
+    Reboot. uname -r is now 8.7.0. 
+
+Standard library (Libc)
+
+    Requires updated xnu (xnu-792.6.761).
+
+    Source package: Libc-391.2.10.tar.gz (update to version listed under “Mac OS X 10.4.3”)
+
+        MD5: 7a1a08d1b68668fc41916d6cf39182a4
+
+        SHA-256: e90b78d310235544623f26c6f18e27b329b5bc778deab8e57332e8e90ab92f11 
+
+    Building:
+
+        # cd /Volumes/scratch
+
+        # tar xzf Libc-391.2.10.tar.gz
+
+        # cd Libc-391.2.10
+
+        # sed -i.tmp s/NOTIFY_STATUS_OK/0/g gen/{asl.c,syslog.c}
+
+        Patch to help build gcc_42-5577:
+
+            # sed -i.tmp 's/defined *(__i386__)/& || defined(__x86_64__)/' include/machine/*.h 
+
+        # make OBJROOT="$PWD"/obj install 
+
+Upgrading GCC
+dyld
+
+    This is optional.
+
+    Source package: dyld-46.16.tar.gz (under “Mac OS X 10.4.11.x86”)
+
+        MD5: a97d4d2a77b3e5f2ff9757007cae0596
+
+        SHA-256: cf753c3a2cef239b1334c56603b36d206f54d613daa078ce0f2d73c3e2a0dd82 
+
+    Makefile: dyld.mk
+
+        Darwin doesn't include Xcode, which is required to build this package. This makefile provides alternative build instructions. 
+
+    Building:
+
+        # cd /Volumes/scratch
+
+        # tar xzf dyld-46.16.tar.gz
+
+        # cd dyld-46.16
+
+        # sed -i.tmp '/case CPU_TYPE_X86_64:/,/break;/d;/__pthread_tsd_first/d' src/dyld.cpp
+
+        # ln -s libstdc++.a /usr/lib/gcc/i686-apple-darwin8/4.0.0/libstdc++-static.a
+
+        # bsdmake -f dyld.mk VERSION_DYLD=46 install 
+
+cctools
+
+    Choice of version:
+
+        cctools-667.3
+
+            Too new to build xnu.
+
+            Source package: cctools-667.3.tar.gz (under “Mac OS X 10.5.8”)
+
+                MD5: 518166e6ddbd0287bebee3d00fddee7d
+
+                SHA-256: 1ba43a3d3bcf138a196e714666927c706857226adccf2e69db4f08e940631c0d 
+
+        cctools-590.42.1
+
+            Too old to build gcc.
+
+            Source package: cctools-590.42.1.tar.gz (update to version listed under “Mac OS X 10.4.3”)
+
+                MD5: 6d875c5483699fd0f1e150facae35256
+
+                SHA-256: 61c86c4dc556daafbabebd8162bfbce8214843b218fefbd15c6c1ba03d225a10 
+
+    Building:
+
+        # cd /Volumes/scratch
+
+        # tar xzf cctools-667.3.tar.gz
+
+        # cd cctools-667.3
+
+        # sed -i.tmp '/install.*strip/{h;s/strip/seg_hack/gp;g;s/ -s / /;}' misc/Makefile
+
+        # sed -i.tmp s/ld_classic/ld/ ld/Makefile
+
+        # make install 
+
+    The new assembler will often show the warning "indirect jmp without '*'" on code generated by the old GCC. 
+
+gcc
+
+    Choice of version:
+
+        gcc_42-5577
+
+            Latests gcc_42 package (newer packages are named gcc). GCC 4.2.1. Requires patched system include files, which can be done when upgrading xnu and Libc (see above).
+
+            Source package: gcc_42-5577.tar.gz (update to version listed under “Mac OS X 10.5.8”)
+
+                MD5: dab7ad45f76919f058a6f1cf3a0e91d8
+
+                SHA-256: fd6459ab701b41dc1297cdbc27f302c558d766505cfe8dd1d6ec0d257fef0e81 
+
+        gcc_42-5531
+
+            Slightly older version. Doesn't require any changes to include files.
+
+            Source package: gcc_42-5531.tar.gz (under “Mac OS X 10.5.8”)
+
+                MD5: 959ecd224cea2477d57b1c3026fe05ee
+
+                SHA-256: 924862e2092fa11754ec9226a0de4772d831c40500231728055d00d1bb3a632e 
+
+    Requires cctools-667.3 and optionally dyld
+
+        Building:
+
+            # cd /Volumes/scratch
+
+            # tar xzf gcc_42-5577.tar.gz
+
+            # cd gcc_42-5577
+
+            If dyld isn't upgraded, patch to revert debugging format from DWARF to stabs:
+
+                # sed -i.tmp 's/\(#define PREFERRED_DEBUGGING_TYPE \).*/\1DBX_DEBUG/' gcc/config/darwin.h
+
+                # sed -i.tmp '/darwin_macho_att_stub/s/Init.*//' gcc/config/darwin.opt 
+
+            # sed -i.tmp '/x86_64/s/|| exit 1//' build_gcc
+
+            # ln -s true /usr/bin/dsymutil
+
+            # gnumake RC_ARCHS=i386 install
+
+                Don't try to set DSTROOT=/, it deletes everything. 
+
+            # cp -pR dst/* /
+
+            # cp -pR obj/dst-i686-i686/usr/lib/libgcc_s* /usr/lib/gcc/i686-apple-darwin8/4.2.1/ 
+
+    GCC is now installed as gcc-4.2.
+
+        It can be made default with gcc_select 4.2.
